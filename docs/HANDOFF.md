@@ -8,7 +8,41 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **681 tests green** (was 679 before the 2026-07-25 UX-consistency pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **687 tests green** (was 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch (85 commits) for review; `main` is otherwise ~85 commits behind. Not merged yet.
+>
+> ### 🆕 2026-07-25 (expansion pass) — gap tracker, fees, LGU land-use, guided tour, Docker/API
+>
+> Built the first tranche of the three review docs' backlog (expansion feature
+> list + Ecolink SRD + PH-eligibility review), all on `feature-user-onboarding-ux`.
+> Verification first showed the platform already implements the vast majority of
+> all three docs — see the new **[GAP_ANALYSIS.md](GAP_ANALYSIS.md)** (one
+> deduplicated Built/Partial/To-build checklist + owner responsibilities + 3rd-party
+> services). What shipped this pass:
+>
+> - **Onboarding + verification/certification fees** — admin-configurable in System
+>   Configuration and disclosed to developers at submission
+>   ([settingsService.js](../src/services/settingsService.js), SystemConfigView,
+>   SubmitProjectView). **Config + disclosure only** — PayMongo collection is the
+>   follow-up (gated on prod keys).
+> - **LGU land-use carbon modeling** — a new "Land Use" tab estimates annual +
+>   multi-year CO₂e sequestration across restoration parcels (mangrove/reforestation/
+>   bamboo/agroforestry/grassland) with Tier-1 per-ha factors ([constants/lgu.js](../src/constants/lgu.js));
+>   framed as planning-only, never issuance. +6 unit tests.
+> - **Guided onboarding tour** — role-aware [WelcomeTour.vue](../src/components/onboarding/WelcomeTour.vue),
+>   auto-opens once per user+role, reopenable from the sidebar + header ("Take a
+>   tour"); step content per role incl. LGU/coop guidance.
+> - **Dockerfile** (multi-stage + nginx SPA config) — closes the "container-ready"
+>   claim; only public VITE_* config as build args, no secrets baked in.
+> - **Public-registry API scaffold** — read-only [edge function](../supabase/functions/public-registry/index.ts)
+>   over validated projects + stats (anon key → RLS → public rows only) as the
+>   white-label starting point; key-gating/rate-limits are the owner's next call.
+>
+> **Paused (owner input needed):** transactional email wiring (provider/domain —
+> only the approval email actually sends today; the rest are `console.log` stubs),
+> AI Assistant backend (Anthropic key), fee collection (PayMongo prod keys),
+> public-API key-gating. **Deferred:** blockchain, IoT sensors, AI fraud mapping.
 >
 > ### 🆕 2026-07-25 (UX pass) — dashboard/header/nav consistency + records compaction
 >

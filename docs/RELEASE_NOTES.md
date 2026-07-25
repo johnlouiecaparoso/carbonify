@@ -1,5 +1,22 @@
 # Carbonify — Release Notes
 
+## 2026-07-25 — New tools: fees, LGU land-use modeling, and a guided tour
+
+**Headline:** admins can set project fees, LGUs can model land-use carbon, and new users
+get a short guided walkthrough.
+
+- **A guided tour for new users.** The first time you sign in, a short role-specific
+  walkthrough shows where the main things are. You can reopen it any time from “Take a
+  tour” in the sidebar or the account menu — with extra guidance for LGUs and cooperatives.
+- **Project & verification fees (admin).** System Configuration now lets an administrator set
+  a project onboarding fee and a verification/certification fee. When set, the fee is shown to
+  developers when they submit a project — nothing is charged during submission.
+- **Land-use carbon modeling for LGUs.** A new “Land Use” tab estimates the yearly and
+  multi-year CO₂ your restoration areas (mangrove, reforestation, bamboo, agroforestry,
+  grassland) would sequester — a planning estimate, separate from verified credit issuance.
+- **Under the hood.** The app is now container-ready (Dockerfile) and has a read-only public
+  registry API that partners can pull from.
+
 ## 2026-07-25 — A cleaner, more consistent interface
 
 **Headline:** every page now shares the same compact green header, the sidebar is the same
