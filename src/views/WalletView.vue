@@ -273,7 +273,7 @@ onMounted(() => {
 }
 
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   background: var(--primary-color, #10b981);
   border-bottom: none;
 }
@@ -285,14 +285,14 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: #fff;
 }
 
@@ -592,7 +592,7 @@ onMounted(() => {
   }
 
   .page-header {
-    padding: 1.5rem 0;
+    padding: 1.25rem 0;
   }
 
   .page-title {
@@ -662,7 +662,7 @@ onMounted(() => {
   }
 
   .page-title {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
   }
 
   .wallet-content {

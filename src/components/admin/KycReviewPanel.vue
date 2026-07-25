@@ -213,11 +213,11 @@ load()
 
 .page-header {
   background: var(--primary-color, #10b981);
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem;

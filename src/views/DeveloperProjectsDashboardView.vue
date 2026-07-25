@@ -767,7 +767,7 @@ onMounted(async () => {
 }
 
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   /* Brand green (#069e2d) gives white body text only 3.5:1 — fine for the large
      title, a WCAG AA failure for the description under it. --primary-dark is the
      same hue at 5.7:1, so both pass without leaving the palette. */
@@ -775,7 +775,7 @@ onMounted(async () => {
 }
 
 .page-title {
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem;

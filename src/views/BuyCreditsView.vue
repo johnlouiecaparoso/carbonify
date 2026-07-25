@@ -453,20 +453,20 @@ onMounted(async () => {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
   background: var(--primary-color, #10b981);
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   color: #fff;
   line-height: 1.6;
 }
@@ -978,11 +978,11 @@ onMounted(async () => {
   }
 
   .page-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .page-description {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .buy-content {

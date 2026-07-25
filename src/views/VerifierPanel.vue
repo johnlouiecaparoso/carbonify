@@ -98,7 +98,7 @@ const activeTab = ref('projects')
 .page-header {
   background: var(--primary-color, #10b981);
   color: white;
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
 }
 
@@ -233,11 +233,11 @@ const activeTab = ref('projects')
 
 @media (max-width: 768px) {
   .page-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .page-description {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .verifier-content {

@@ -38,7 +38,7 @@ defineProps({
 
 <style scoped>
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   background: var(--primary-color, #069e2d);
 }
 
@@ -64,7 +64,7 @@ defineProps({
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem;
@@ -72,11 +72,11 @@ defineProps({
 }
 
 .page-title__icon {
-  font-size: 1.9rem;
+  font-size: 1.5rem;
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.92);
   margin: 0;
   max-width: 80ch;

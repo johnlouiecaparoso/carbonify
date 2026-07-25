@@ -296,7 +296,7 @@ function reset() {
 .page-header {
   background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
   color: white;
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .header-content {
@@ -305,14 +305,14 @@ function reset() {
 
 .page-title {
   margin: 0 0 0.5rem 0;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
 }
 
 .page-description {
   margin: 0;
   opacity: 0.95;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .calculator-content {

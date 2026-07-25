@@ -203,8 +203,8 @@ onMounted(load)
   background: linear-gradient(135deg, #069e2d, #0b7a27);
   color: #fff;
 }
-.hero-inner { max-width: 1100px; margin: 0 auto; padding: 40px 16px; }
-.hero-inner h1 { margin: 0; font-size: 2rem; }
+.hero-inner { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+.hero-inner h1 { margin: 0; font-size: 1.5rem; }
 .hero-inner p { margin: 8px 0 16px; max-width: 640px; opacity: 0.95; }
 .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }

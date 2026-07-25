@@ -631,7 +631,7 @@ onMounted(() => {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   background: var(--primary-color, #10b981);
   border-bottom: none;
 }

@@ -535,7 +535,7 @@ onMounted(() => {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   background: linear-gradient(135deg, var(--primary-color, #10b981), var(--primary-dark, #04773b));
   border-bottom: none;
   border-radius: 0 0 24px 24px;
@@ -598,14 +598,14 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 0.5rem 0;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.85);
   margin: 0;
 }
@@ -1262,7 +1262,7 @@ onMounted(() => {
   }
 
   .page-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .header-content {

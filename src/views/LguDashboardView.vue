@@ -731,11 +731,11 @@ loadRecords()
 .page-header {
   background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
   color: #fff;
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .page-title {
-  font-size: 1.85rem;
+  font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 0.5rem;
 }

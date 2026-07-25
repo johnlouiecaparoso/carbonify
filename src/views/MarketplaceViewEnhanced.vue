@@ -1429,20 +1429,20 @@ onUnmounted(() => {
 .marketplace-header {
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   color: white;
-  padding: 3rem 0;
+  padding: 1.5rem 0;
   text-align: center;
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.4rem 0;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   opacity: 0.9;
-  margin: 0 0 2rem 0;
+  margin: 0 0 1.25rem 0;
 }
 
 .search-controls {

@@ -202,13 +202,13 @@ async function loadStats() {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0 4rem;
+  padding: 1.25rem 0 3.5rem;
   border-bottom: none;
   background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #fff;
@@ -216,7 +216,7 @@ async function loadStats() {
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.9);
 }
 

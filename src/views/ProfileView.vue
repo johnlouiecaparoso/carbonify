@@ -1334,7 +1334,7 @@ export default {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   margin-bottom: 2rem;

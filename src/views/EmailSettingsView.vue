@@ -37,7 +37,7 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
 .page-header {
   background: var(--carbonify-surface);
   border-bottom: 1px solid var(--carbonify-border);
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .header-content {
@@ -78,7 +78,7 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
 
 .page-title {
   margin: 0 0 0.5rem 0;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--carbonify-text);
 }
@@ -86,7 +86,7 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
 .page-description {
   margin: 0;
   color: var(--carbonify-muted);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .email-settings-content {

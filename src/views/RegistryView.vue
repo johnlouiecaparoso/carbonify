@@ -169,11 +169,11 @@ onMounted(async () => {
 }
 .page-header {
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  padding: 2.25rem 0;
+  padding: 1.25rem 0;
 }
 .page-title {
   color: #fff;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 0.25rem;
 }

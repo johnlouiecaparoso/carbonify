@@ -258,7 +258,7 @@ onMounted(async () => {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
   /* Matches the developer dashboard header. The old fallback (#10b981) was also
      a third green that appears nowhere in the palette. White-on-brand-green is
@@ -267,14 +267,14 @@ onMounted(async () => {
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   color: #fff;
   line-height: 1.6;
 }
@@ -425,11 +425,11 @@ onMounted(async () => {
   }
 
   .page-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .page-description {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .submit-content {
