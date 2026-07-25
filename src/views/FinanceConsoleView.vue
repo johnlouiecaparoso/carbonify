@@ -353,9 +353,7 @@ onMounted(refresh)
   .content {
     padding: 1rem 1rem 2.5rem;
   }
-  .page-title {
-    font-size: 1.5rem;
-  }
+
   .tx-table {
     font-size: 0.82rem;
     white-space: nowrap;

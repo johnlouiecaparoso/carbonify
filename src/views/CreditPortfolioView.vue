@@ -1261,9 +1261,7 @@ onMounted(() => {
     padding: 0 1rem;
   }
 
-  .page-title {
-    font-size: 1.5rem;
-  }
+
 
   .header-content {
     flex-direction: column;

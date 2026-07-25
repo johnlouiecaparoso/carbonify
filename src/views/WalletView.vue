@@ -595,13 +595,9 @@ onMounted(() => {
     padding: 1.25rem 0;
   }
 
-  .page-title {
-    font-size: 1.5rem;
-  }
 
-  .page-description {
-    font-size: 0.95rem;
-  }
+
+
 
   .container {
     padding: 0 1rem;
@@ -661,9 +657,7 @@ onMounted(() => {
     padding: 12px;
   }
 
-  .page-title {
-    font-size: 1.5rem;
-  }
+
 
   .wallet-content {
     padding: 16px 12px;

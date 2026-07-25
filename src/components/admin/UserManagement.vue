@@ -861,13 +861,9 @@ th {
     padding: 1.25rem 0;
   }
 
-  .page-title {
-    font-size: 1.5rem;
-  }
 
-  .page-description {
-    font-size: 0.95rem;
-  }
+
+
 
   .user-content {
     padding: 1.25rem 0;

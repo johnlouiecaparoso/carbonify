@@ -232,13 +232,9 @@ const activeTab = ref('projects')
 }
 
 @media (max-width: 768px) {
-  .page-title {
-    font-size: 1.5rem;
-  }
 
-  .page-description {
-    font-size: 0.95rem;
-  }
+
+
 
   .verifier-content {
     padding: 1rem 0;

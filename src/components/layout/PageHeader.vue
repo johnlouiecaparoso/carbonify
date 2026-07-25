@@ -113,24 +113,13 @@ defineProps({
 }
 
 @media (max-width: 768px) {
-  .page-header {
-    padding: 1.25rem 0;
-  }
-
+  /* Only the gutter changes on mobile. The type sizes above are already the
+     post-shrink values, so re-declaring them here just restated the same
+     numbers -- and in the views that hand-rolled this banner, that same block
+     is where stale pre-shrink sizes survived and rendered the title LARGER on
+     a phone than on a desktop. */
   .container {
     padding: 0 1rem;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-  }
-
-  .page-title__icon {
-    font-size: 1.5rem;
-  }
-
-  .page-description {
-    font-size: 0.95rem;
   }
 }
 </style>

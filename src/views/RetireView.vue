@@ -1059,9 +1059,9 @@ onMounted(() => {
     padding: 1.5rem 0;
   }
 
-  .page-title {
-    font-size: var(--font-size-3xl);
-  }
+  /* .page-title is not restated here on purpose. It used to override to
+     var(--font-size-3xl) (1.875rem), a pre-shrink leftover that rendered the
+     title larger on a phone than the 1.5rem desktop rule. */
 
   .retire-card {
     padding: 1.5rem;

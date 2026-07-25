@@ -2269,16 +2269,12 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .marketplace-header {
-    padding: 2rem 0;
-  }
-
-  .page-title {
-    font-size: 2rem;
-  }
-
+  /* The banner's padding and type sizes are deliberately NOT restated here.
+     They used to be (2rem padding / 2rem title / 1rem description) -- all
+     pre-shrink values left behind when the desktop rule was pinned to
+     1.5rem/1.5rem/0.95rem, which made the banner larger on a phone than on a
+     desktop. Inheriting the desktop values is the whole point. */
   .page-description {
-    font-size: 1rem;
     margin: 0 0 1.5rem 0;
   }
 
@@ -2375,14 +2371,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
-  .marketplace-header {
-    padding: 1.5rem 0;
-  }
-
-  .page-title {
-    font-size: 1.75rem;
-  }
-
   .container {
     padding: 0 1rem;
   }

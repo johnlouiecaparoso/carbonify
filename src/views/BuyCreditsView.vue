@@ -977,13 +977,9 @@ onMounted(async () => {
     padding: 0 1rem;
   }
 
-  .page-title {
-    font-size: 1.5rem;
-  }
 
-  .page-description {
-    font-size: 0.95rem;
-  }
+
+
 
   .buy-content {
     padding: 1.5rem 0;

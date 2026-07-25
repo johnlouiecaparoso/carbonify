@@ -298,9 +298,10 @@ onMounted(async () => {
   padding: 1.25rem 0;
   border-bottom: none;
   /* The one green banner, identical to components/layout/PageHeader.vue. This
-     page previously used --primary-dark (#045c1a) for subtitle contrast, which
-     made it visibly darker than every other page; the contrast gap is real but
-     app-wide, so it belongs in the token, not in one view. */
+     page used to hard-code the darker --primary-dark for subtitle contrast,
+     which made it visibly darker than every other page. The gap was app-wide,
+     so it was fixed in the token instead: the whole green ramp was darkened on
+     2026-07-26 and --primary-color now clears AA on its own. See tokens.css. */
   background: var(--primary-color, #058526);
 }
 
@@ -490,14 +491,6 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-  }
-
-  .page-description {
-    font-size: 0.95rem;
   }
 
   .submit-content {

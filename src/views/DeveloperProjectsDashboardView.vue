@@ -768,9 +768,10 @@ onMounted(async () => {
 
 .page-header {
   padding: 1.25rem 0;
-  /* Brand green (#058526) gives white body text only 3.5:1 — fine for the large
-     title, a WCAG AA failure for the description under it. --primary-dark is the
-     same hue at 5.7:1, so both pass without leaving the palette. */
+  /* Plain brand green. This page used to reach for --primary-dark here because
+     the old #069e2d gave white description text only 3.5:1; the ramp was
+     darkened app-wide on 2026-07-26 (--primary-color is now 4.78:1), so the
+     one-view override is no longer needed. See tokens.css. */
   background: var(--primary-color, #058526);
 }
 
