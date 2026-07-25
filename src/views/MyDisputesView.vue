@@ -112,15 +112,7 @@ onMounted(load)
   margin: 0 auto;
   padding: 1.5rem 1rem 0;
 }
-.page-title {
-  font-size: 1.8rem;
-  margin: 0 0 0.4rem;
-  color: #0f172a;
-}
-.page-description {
-  color: #6b7280;
-  margin: 0 0 1.5rem;
-}
+
 .state-card {
   padding: 2rem;
   border: 1px solid #e5e7eb;

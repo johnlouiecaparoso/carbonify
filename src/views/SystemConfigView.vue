@@ -206,14 +206,6 @@ onMounted(load)
   margin: 0 auto;
   padding: 2rem 1rem 0;
 }
-.page-title {
-  font-size: 1.8rem;
-  margin: 0 0 0.5rem;
-}
-.page-description {
-  color: #6b7280;
-  margin: 0 0 1.5rem;
-}
 .config-card {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -323,9 +315,6 @@ onMounted(load)
 @media (max-width: 640px) {
   .config-view {
     padding: 1.25rem 0 3rem;
-  }
-  .page-title {
-    font-size: 1.45rem;
   }
   .config-card {
     padding: 1.1rem;

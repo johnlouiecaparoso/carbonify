@@ -173,19 +173,6 @@ import PageHeader from '@/components/layout/PageHeader.vue'
   background: var(--bg-secondary);
 }
 
-.page-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.page-description {
-  font-size: 1.125rem;
-  color: var(--text-secondary);
-  margin: 0 0 2rem 0;
-}
-
 .impact-summary {
   margin-bottom: 3rem;
 }

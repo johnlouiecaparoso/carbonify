@@ -499,19 +499,6 @@ function importPreferences(event) {
   margin-bottom: 2rem;
 }
 
-.page-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 0.5rem 0;
-}
-
-.page-description {
-  color: #6b7280;
-  font-size: 1.125rem;
-  margin: 0;
-}
-
 .preferences-container {
   display: grid;
   grid-template-columns: 250px 1fr;
