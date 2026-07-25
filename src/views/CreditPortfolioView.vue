@@ -170,9 +170,10 @@
               </button>
             </div>
 
-            <!-- Credit Cards: a horizontal scroller when collapsed, the full
-                 wrapping grid once expanded via "See more". -->
-            <div v-else :class="holdingsExpanded ? 'credits-grid' : 'credits-scroller'">
+            <!-- Credit Cards: a compact vertically-scrollable area. Collapsed it
+                 shows the first few; "See more" reveals the rest, still scrolling
+                 within the same capped height so the page never runs away. -->
+            <div v-else class="credits-grid credits-scroll-y">
               <div
                 v-for="credit in shownHoldings"
                 :key="credit.id"
@@ -721,20 +722,14 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
-/* Collapsed view: one horizontally-scrollable row of cards, so the first few
-   holdings stay compact and fit any screen width before "See more". */
-.credits-scroller {
-  display: flex;
-  gap: 1.5rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
+/* Compact vertically-scrollable area so the holdings stay short and fit the
+   screen; the cards inside keep the normal grid layout. */
+.credits-scroll-y {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.25rem;
+  margin: -0.25rem;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-}
-
-.credits-scroller .credit-card {
-  flex: 0 0 clamp(280px, 80%, 340px);
-  scroll-snap-align: start;
 }
 
 .credit-card {

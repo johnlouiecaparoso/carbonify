@@ -165,7 +165,7 @@ onMounted(load)
           No orders in this view.
         </p>
 
-        <ul v-else :class="['order-list', { 'order-scroller': !ordersExpanded }]">
+        <ul v-else class="order-list list-scroll-y">
           <li v-for="order in shownOrders" :key="order.id" class="order-card">
             <div class="order-main">
               <div class="order-head">
@@ -327,18 +327,13 @@ onMounted(load)
   gap: 0.9rem;
 }
 
-/* Collapsed view: one horizontally-scrollable row of order cards. */
-.order-list.order-scroller {
-  flex-direction: row;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
+/* Compact vertically-scrollable area so a long history stays short and fits
+   the screen; "See more" reveals the rest within the same scroll box. */
+.order-list.list-scroll-y {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-}
-
-.order-list.order-scroller .order-card {
-  flex: 0 0 clamp(280px, 85%, 420px);
-  scroll-snap-align: start;
 }
 .order-card {
   display: flex;

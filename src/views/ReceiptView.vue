@@ -129,7 +129,7 @@
             </button>
           </div>
 
-          <div v-else :class="['receipts-list', { 'receipts-scroller': !receiptsExpanded }]">
+          <div v-else class="receipts-list list-scroll-y">
             <div v-for="receipt in shownReceipts" :key="receipt.id" class="receipt-card">
               <div class="receipt-header">
                 <div class="receipt-icon">Receipt</div>
@@ -620,18 +620,13 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
-/* Collapsed view: one horizontally-scrollable row of receipt cards. */
-.receipts-list.receipts-scroller {
-  flex-direction: row;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
+/* Compact vertically-scrollable area so a long history stays short and fits
+   the screen; "See more" reveals the rest within the same scroll box. */
+.receipts-list.list-scroll-y {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-}
-
-.receipts-list.receipts-scroller .receipt-card {
-  flex: 0 0 clamp(300px, 88%, 400px);
-  scroll-snap-align: start;
 }
 
 /* See-more footer */
