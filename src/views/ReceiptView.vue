@@ -129,7 +129,7 @@
             </button>
           </div>
 
-          <div v-else class="receipts-list">
+          <div v-else :class="['receipts-list', { 'receipts-scroller': !receiptsExpanded }]">
             <div v-for="receipt in shownReceipts" :key="receipt.id" class="receipt-card">
               <div class="receipt-header">
                 <div class="receipt-icon">Receipt</div>
@@ -201,12 +201,14 @@
               Showing {{ shownReceipts.length }} of {{ receipts.length }}
             </span>
             <div class="list-footer-actions">
-              <button v-if="hasMore" class="see-more-btn" @click="showMore">See more</button>
               <button
-                v-if="visibleCount > PAGE_SIZE"
-                class="see-less-btn"
-                @click="showLess"
+                v-if="hasMore && !receiptsExpanded"
+                class="see-more-btn"
+                @click="showMore"
               >
+                See more
+              </button>
+              <button v-if="receiptsExpanded" class="see-less-btn" @click="showLess">
                 Show less
               </button>
             </div>
@@ -249,19 +251,22 @@ const receipts = ref([])
 const loading = ref(false)
 const error = ref('')
 
-// Progressive reveal so a long purchase history fits the screen; "See more"
-// reveals the next batch.
-const PAGE_SIZE = 5
-const visibleCount = ref(PAGE_SIZE)
-const shownReceipts = computed(() => receipts.value.slice(0, visibleCount.value))
-const hasMore = computed(() => visibleCount.value < receipts.value.length)
+// Collapsed, the list shows the first few receipts in a single horizontal
+// scroller so a long history stays compact and fits the screen; "See more"
+// expands to the full vertical list.
+const COLLAPSED_COUNT = 4
+const receiptsExpanded = ref(false)
+const shownReceipts = computed(() =>
+  receiptsExpanded.value ? receipts.value : receipts.value.slice(0, COLLAPSED_COUNT),
+)
+const hasMore = computed(() => receipts.value.length > COLLAPSED_COUNT)
 
 function showMore() {
-  visibleCount.value += PAGE_SIZE
+  receiptsExpanded.value = true
 }
 
 function showLess() {
-  visibleCount.value = PAGE_SIZE
+  receiptsExpanded.value = false
 }
 const selectedReceipt = ref(null)
 const invoicingId = ref(null)
@@ -307,7 +312,7 @@ async function loadReceipts() {
   try {
     const data = await getUserReceipts(userStore.session.user.id)
     receipts.value = data || []
-    visibleCount.value = PAGE_SIZE
+    receiptsExpanded.value = false
     syncSelectedReceiptFromRoute()
   } catch (err) {
     console.error('Error loading receipts:', err)
@@ -613,6 +618,20 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+/* Collapsed view: one horizontally-scrollable row of receipt cards. */
+.receipts-list.receipts-scroller {
+  flex-direction: row;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.receipts-list.receipts-scroller .receipt-card {
+  flex: 0 0 clamp(300px, 88%, 400px);
+  scroll-snap-align: start;
 }
 
 /* See-more footer */

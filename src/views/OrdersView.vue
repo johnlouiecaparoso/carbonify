@@ -35,24 +35,27 @@ const visibleOrders = computed(() => {
   return orders.value
 })
 
-// Progressive reveal: show a handful at a time so a long history fits the
-// screen instead of scrolling for pages. "See more" reveals the next batch.
-const PAGE_SIZE = 5
-const visibleCount = ref(PAGE_SIZE)
-const shownOrders = computed(() => visibleOrders.value.slice(0, visibleCount.value))
-const hasMore = computed(() => visibleCount.value < visibleOrders.value.length)
+// Collapsed, the list shows the first few orders in a single horizontal
+// scroller so a long history stays compact and fits the screen; "See more"
+// expands to the full vertical list.
+const COLLAPSED_COUNT = 4
+const ordersExpanded = ref(false)
+const shownOrders = computed(() =>
+  ordersExpanded.value ? visibleOrders.value : visibleOrders.value.slice(0, COLLAPSED_COUNT),
+)
+const hasMore = computed(() => visibleOrders.value.length > COLLAPSED_COUNT)
 
 function showMore() {
-  visibleCount.value += PAGE_SIZE
+  ordersExpanded.value = true
 }
 
 function showLess() {
-  visibleCount.value = PAGE_SIZE
+  ordersExpanded.value = false
 }
 
-// Switching the filter should start again from the top of the new list.
+// Switching the filter should start again from the collapsed view.
 watch(filter, () => {
-  visibleCount.value = PAGE_SIZE
+  ordersExpanded.value = false
 })
 
 function money(order) {
@@ -100,7 +103,7 @@ async function load() {
       getMarketplaceListings().catch(() => []),
     ])
     orders.value = attachListingTitles(rawOrders, listings)
-    visibleCount.value = PAGE_SIZE
+    ordersExpanded.value = false
   } catch (err) {
     console.error('Failed to load orders:', err)
     error.value = 'We could not load your orders. Please try again.'
@@ -162,7 +165,7 @@ onMounted(load)
           No orders in this view.
         </p>
 
-        <ul v-else class="order-list">
+        <ul v-else :class="['order-list', { 'order-scroller': !ordersExpanded }]">
           <li v-for="order in shownOrders" :key="order.id" class="order-card">
             <div class="order-main">
               <div class="order-head">
@@ -219,12 +222,14 @@ onMounted(load)
             Showing {{ shownOrders.length }} of {{ visibleOrders.length }}
           </span>
           <div class="list-footer-actions">
-            <button v-if="hasMore" class="see-more-btn" @click="showMore">See more</button>
             <button
-              v-if="visibleCount > PAGE_SIZE"
-              class="see-less-btn"
-              @click="showLess"
+              v-if="hasMore && !ordersExpanded"
+              class="see-more-btn"
+              @click="showMore"
             >
+              See more
+            </button>
+            <button v-if="ordersExpanded" class="see-less-btn" @click="showLess">
               Show less
             </button>
           </div>
@@ -320,6 +325,20 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+}
+
+/* Collapsed view: one horizontally-scrollable row of order cards. */
+.order-list.order-scroller {
+  flex-direction: row;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.order-list.order-scroller .order-card {
+  flex: 0 0 clamp(280px, 85%, 420px);
+  scroll-snap-align: start;
 }
 .order-card {
   display: flex;
