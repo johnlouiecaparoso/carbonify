@@ -27,6 +27,46 @@
           <p v-if="feeMsg" class="msg" :class="feeMsg.type">{{ feeMsg.text }}</p>
         </section>
 
+        <!-- Project & verification fees -->
+        <section class="config-card">
+          <h2 class="card-title">Project & verification fees</h2>
+          <div class="field-row">
+            <label for="onboarding-fee">Project onboarding fee (₱)</label>
+            <input
+              id="onboarding-fee"
+              type="number"
+              step="1"
+              min="0"
+              v-model.number="onboardingFee"
+            />
+            <button class="save-btn" :disabled="savingFees" @click="saveFees">
+              {{ savingFees ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+          <p class="field-hint">
+            Flat fee shown to a developer when they submit a project. 0 = free onboarding.
+          </p>
+          <div class="field-row">
+            <label for="verification-fee">Verification / certification fee (₱)</label>
+            <input
+              id="verification-fee"
+              type="number"
+              step="1"
+              min="0"
+              v-model.number="verificationFee"
+            />
+            <button class="save-btn" :disabled="savingFees" @click="saveFees">
+              {{ savingFees ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+          <p class="field-hint">
+            Flat fee for verification / certification support, disclosed on the project. 0 = free.
+            Collection is a follow-up (see <code>docs/GAP_ANALYSIS.md</code>); today these are
+            configuration + disclosure only.
+          </p>
+          <p v-if="feesMsg" class="msg" :class="feesMsg.type">{{ feesMsg.text }}</p>
+        </section>
+
         <!-- Trading / KYC -->
         <section class="config-card">
           <h2 class="card-title">Trading & KYC</h2>
@@ -96,6 +136,7 @@ import {
   updateSetting,
   listMethodologyFactors,
   updateMethodologyFactor,
+  FEE_KEYS,
 } from '@/services/settingsService'
 
 const loading = ref(true)
@@ -104,12 +145,16 @@ const feePercent = ref(0)
 const minKyc = ref(1)
 const kycTiers = ref([])
 const factors = ref([])
+const onboardingFee = ref(0)
+const verificationFee = ref(0)
 
 const savingFee = ref(false)
 const savingKyc = ref(false)
+const savingFees = ref(false)
 const savingFactorId = ref(null)
 const feeMsg = ref(null)
 const kycMsg = ref(null)
+const feesMsg = ref(null)
 const factorMsg = ref(null)
 
 async function load() {
@@ -128,6 +173,8 @@ async function load() {
       feePercent.value = Number(settings.platform_fee_percent ?? 0)
       minKyc.value = Number(settings.min_kyc_level_to_trade ?? 1)
       kycTiers.value = Array.isArray(settings.kyc_tiers) ? settings.kyc_tiers : []
+      onboardingFee.value = Number(settings[FEE_KEYS.onboarding] ?? 0)
+      verificationFee.value = Number(settings[FEE_KEYS.verification] ?? 0)
     }
     if (factorRes.status === 'fulfilled') factors.value = factorRes.value
 
@@ -159,6 +206,26 @@ async function saveFee() {
     feeMsg.value = { type: 'error', text: err.message }
   } finally {
     savingFee.value = false
+  }
+}
+
+async function saveFees() {
+  feesMsg.value = null
+  if (onboardingFee.value < 0 || verificationFee.value < 0) {
+    feesMsg.value = { type: 'error', text: 'Fees cannot be negative.' }
+    return
+  }
+  savingFees.value = true
+  try {
+    // Two independent settings; save both so either input's Save button persists
+    // the whole section.
+    await updateSetting(FEE_KEYS.onboarding, Number(onboardingFee.value) || 0)
+    await updateSetting(FEE_KEYS.verification, Number(verificationFee.value) || 0)
+    feesMsg.value = { type: 'ok', text: 'Fees saved.' }
+  } catch (err) {
+    feesMsg.value = { type: 'error', text: err.message }
+  } finally {
+    savingFees.value = false
   }
 }
 

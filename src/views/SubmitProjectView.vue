@@ -94,6 +94,25 @@
 
           <!-- Information Sidebar -->
           <div class="info-sidebar">
+            <!-- Fee disclosure — only shown when an admin has configured a fee. -->
+            <div v-if="hasFees" class="info-card fees-card">
+              <h3 class="info-title">Fees</h3>
+              <ul class="fees-list">
+                <li v-if="fees.onboardingFee > 0">
+                  <span>Onboarding</span>
+                  <strong>{{ peso(fees.onboardingFee) }}</strong>
+                </li>
+                <li v-if="fees.verificationFee > 0">
+                  <span>Verification / certification</span>
+                  <strong>{{ peso(fees.verificationFee) }}</strong>
+                </li>
+              </ul>
+              <p class="help-text">
+                Fees that apply to this project. You won't be charged during submission — an
+                administrator confirms any fee before it applies.
+              </p>
+            </div>
+
             <div class="info-card">
               <h3 class="info-title">Submission Guidelines</h3>
               <ul class="info-list">
@@ -158,11 +177,20 @@ import { useRouter, useRoute } from 'vue-router'
 import ProjectForm from '@/components/ProjectForm.vue'
 import UiButton from '@/components/ui/Button.vue'
 import { projectService } from '@/services/projectService'
+import { getProjectFees } from '@/services/settingsService'
 
 const router = useRouter()
 const route = useRoute()
 const showSuccessCard = ref(false)
 const submittedProject = ref(null)
+
+// Fee disclosure (admin-configured; 0 = free). Purely informational at submit —
+// see docs/GAP_ANALYSIS.md for the collection follow-up.
+const fees = ref({ onboardingFee: 0, verificationFee: 0 })
+const hasFees = computed(() => fees.value.onboardingFee > 0 || fees.value.verificationFee > 0)
+function peso(n) {
+  return `₱${Number(n || 0).toLocaleString('en-PH')}`
+}
 
 // Edit mode: /submit-project?id=<projectId> loads the project for editing
 // (used by the developer "Edit details" action in the needs-revision loop).
@@ -214,6 +242,15 @@ const submitAnother = () => {
 }
 
 onMounted(async () => {
+  // Fee disclosure applies to both new and edited projects; load it regardless.
+  getProjectFees()
+    .then((f) => {
+      fees.value = f
+    })
+    .catch(() => {
+      /* fees are informational — a load failure just hides the card */
+    })
+
   if (!isEdit.value) return
   loadingProject.value = true
   loadError.value = ''
@@ -321,6 +358,34 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--text-primary, #1a202c);
   margin-bottom: 1rem;
+}
+
+.fees-card {
+  border-color: var(--primary-color, #069e2d);
+}
+
+.fees-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+
+.fees-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--border-color, #e2e8f0);
+}
+
+.fees-list li:last-child {
+  border-bottom: none;
+}
+
+.fees-list strong {
+  color: var(--primary-color, #069e2d);
+  white-space: nowrap;
 }
 
 .info-list {

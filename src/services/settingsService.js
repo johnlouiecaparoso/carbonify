@@ -68,6 +68,35 @@ export async function getMinKycLevelToTrade() {
   return Number(await getSetting('min_kyc_level_to_trade', 1)) || 1
 }
 
+// ── Project & verification fees ────────────────────────────────────────────
+// Flat PHP amounts, admin-configurable in System Configuration. 0 = no fee.
+// These are disclosure/config today; collection wiring (PayMongo) is a
+// follow-up gated on production keys — see docs/GAP_ANALYSIS.md.
+
+export const FEE_KEYS = {
+  onboarding: 'project_onboarding_fee',
+  verification: 'verification_fee',
+}
+
+/** Flat fee (PHP) charged to onboard a new project. 0 = free. */
+export async function getProjectOnboardingFee() {
+  return Number(await getSetting(FEE_KEYS.onboarding, 0)) || 0
+}
+
+/** Flat fee (PHP) for verification / certification support. 0 = free. */
+export async function getVerificationFee() {
+  return Number(await getSetting(FEE_KEYS.verification, 0)) || 0
+}
+
+/** Both project-lifecycle fees in one round-trip, from the settings map. */
+export async function getProjectFees() {
+  const all = await getAllSettings()
+  return {
+    onboardingFee: Number(all[FEE_KEYS.onboarding] ?? 0) || 0,
+    verificationFee: Number(all[FEE_KEYS.verification] ?? 0) || 0,
+  }
+}
+
 // ── Emission factors (methodology_factors) ────────────────────────────────
 
 /** List emission factors, grouped-friendly (ordered by project type then label). */
