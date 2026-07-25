@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import UiButton from '@/components/ui/Button.vue'
 
@@ -156,10 +157,12 @@ function importPreferences(event) {
 
 <template>
   <div class="preferences-page">
-    <div class="preferences-header">
-      <h1 class="page-title">User Preferences</h1>
-      <p class="page-description">Customize your Carbonify experience</p>
-    </div>
+    <PageHeader
+      title="User Preferences"
+      description="Customize your Carbonify experience"
+    />
+
+    <div class="page-body">
 
     <div class="preferences-container">
       <!-- Navigation Tabs -->
@@ -475,11 +478,17 @@ function importPreferences(event) {
       @change="importPreferences"
       style="display: none"
     />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .preferences-page {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;

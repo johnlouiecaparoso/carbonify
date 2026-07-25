@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useUserStore } from '@/store/userStore'
 
 /**
@@ -82,16 +83,17 @@ const draft = ref('')
 
 <template>
   <div class="assistant">
-    <header class="page-head">
-      <div class="head-row">
-        <span class="material-symbols-outlined head-icon" aria-hidden="true">smart_toy</span>
-        <div>
-          <h1>AI Project Assistant</h1>
-          <p>Ask questions about your projects, credits, and monitoring data in plain language.</p>
-        </div>
-      </div>
-      <span class="pill">Preview</span>
-    </header>
+    <PageHeader
+      icon="smart_toy"
+      title="AI Project Assistant"
+      description="Ask questions about your projects, credits, and monitoring data in plain language."
+    >
+      <template #actions>
+        <span class="pill">Preview</span>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div class="notice info" role="status">
       <span class="material-symbols-outlined" aria-hidden="true">construction</span>
@@ -160,11 +162,13 @@ const draft = ref('')
         </p>
       </aside>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.assistant { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+.assistant { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
 .head-row { display: flex; gap: 12px; align-items: flex-start; }
 .head-icon { font-size: 36px; color: #069e2d; }

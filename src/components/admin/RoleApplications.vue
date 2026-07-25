@@ -10,6 +10,7 @@ import {
 } from '@/services/roleApplicationService'
 import { useUserStore } from '@/store/userStore'
 import { logUserAction } from '@/services/auditService'
+import PageHeader from '@/components/layout/PageHeader.vue'
 
 const props = defineProps({
   embedded: {
@@ -292,27 +293,30 @@ onMounted(() => {
 
 <template>
   <div class="role-applications" :class="{ 'role-applications--embedded': embedded }">
-    <header v-if="showHeader" class="page-header">
-      <div>
-        <h1>Role Applications</h1>
-        <p>Review developer and verifier requests before granting access.</p>
-      </div>
-      <div class="header-stats">
-        <div class="stat">
-          <span class="stat__label">Pending</span>
-          <span class="stat__value">{{ pendingCount }}</span>
+    <PageHeader
+      v-if="showHeader"
+      title="Role Applications"
+      description="Review developer and verifier requests before granting access."
+    >
+      <template #actions>
+        <div class="header-stats">
+          <div class="stat">
+            <span class="stat__label">Pending</span>
+            <span class="stat__value">{{ pendingCount }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Pending Developers</span>
+            <span class="stat__value">{{ developerCount }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Pending Verifiers</span>
+            <span class="stat__value">{{ verifierCount }}</span>
+          </div>
         </div>
-        <div class="stat">
-          <span class="stat__label">Pending Developers</span>
-          <span class="stat__value">{{ developerCount }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat__label">Pending Verifiers</span>
-          <span class="stat__value">{{ verifierCount }}</span>
-        </div>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
+    <div class="page-body">
     <section class="filters-bar">
       <input
         v-model="searchTerm"
@@ -517,6 +521,7 @@ onMounted(() => {
         </footer>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -524,12 +529,20 @@ onMounted(() => {
 .role-applications {
   min-height: 100vh;
   background: var(--bg-secondary, #f5fbf7);
+}
+
+.page-body {
   padding: 2rem 1.5rem 4rem;
 }
 
 .role-applications--embedded {
   min-height: auto;
   background: transparent;
+}
+
+/* Embedded (inside the Admin Dashboard) renders no PageHeader and no padding —
+   the dashboard card already provides the frame. */
+.role-applications--embedded .page-body {
   padding: 0;
 }
 
@@ -540,27 +553,6 @@ onMounted(() => {
 
 .role-applications--embedded .filters-bar {
   margin-bottom: 1.5rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary, #102616);
-}
-
-.page-header p {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted, #4b5d52);
 }
 
 .header-stats {

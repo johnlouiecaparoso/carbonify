@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   listRecentTransactions,
   listAllDisputes,
@@ -97,11 +98,14 @@ onMounted(load)
 
 <template>
   <div class="refunds">
-    <header class="page-head">
-      <h1>Refunds &amp; Disputes</h1>
-      <p>Refund a transaction directly, or resolve a buyer-opened dispute. Refunds post
-        compensating ledger entries — re-check <code>reconcile_financials()</code> after each.</p>
-    </header>
+    <PageHeader title="Refunds &amp; Disputes">
+      <template #description>
+        Refund a transaction directly, or resolve a buyer-opened dispute. Refunds post
+        compensating ledger entries — re-check <code>reconcile_financials()</code> after each.
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div class="tabs">
       <button :class="['tab', { active: activeTab === 'transactions' }]" @click="activeTab = 'transactions'">
@@ -194,11 +198,17 @@ onMounted(load)
         </ul>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .refunds {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px;

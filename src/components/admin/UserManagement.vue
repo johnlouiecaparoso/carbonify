@@ -32,72 +32,77 @@
         <div v-if="loading" class="loading-state">Loading users...</div>
         <div v-else-if="error" class="error-state">{{ error }}</div>
         <div v-else class="users-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>KYC Level</th>
-                <th>Business (KYB)</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="user in filteredUsers" :key="user.id">
-                <td>{{ user.full_name || 'N/A' }}</td>
-                <td>{{ user.email || 'N/A' }}</td>
-                <td>
-                  <span class="role-badge" :class="`role-${user.role}`">
-                    {{ formatRole(user.role) }}
-                  </span>
-                </td>
-                <td>{{ user.kyc_level || 0 }} · {{ kycLevelLabel(user.kyc_level) }}</td>
-                <td>
-                  <span class="kyb-badge" :class="user.kyb_verified ? 'kyb-verified' : 'kyb-none'">
-                    {{ user.kyb_verified ? 'Verified' : '—' }}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    class="status-badge"
-                    :class="isSuspendedProfile(user) ? 'suspended' : 'active'"
-                    :title="user.suspension_reason || ''"
-                  >
-                    {{ isSuspendedProfile(user) ? 'Suspended' : 'Active' }}
-                  </span>
-                  <div v-if="user.suspension_reason" class="suspend-reason">
-                    {{ user.suspension_reason }}
-                  </div>
-                </td>
-                <td>{{ formatDate(user.created_at) }}</td>
-                <td>
-                  <button
-                    @click="openEditModal(user)"
-                    class="action-btn edit-btn"
-                    title="Edit User"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                  </button>
-                  <!-- Suspension blocks transacting only; the user keeps access
-                       to their receipts, certificates and data export. -->
-                  <button
-                    class="action-btn"
-                    :class="isSuspendedProfile(user) ? 'reactivate-btn' : 'suspend-btn'"
-                    :disabled="busyUserId === user.id"
-                    :title="isSuspendedProfile(user) ? 'Reactivate account' : 'Suspend account'"
-                    @click="openSuspendModal(user)"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">
-                      {{ isSuspendedProfile(user) ? 'lock_open' : 'block' }}
+          <!-- .table-scroll gives a horizontal scroller so the Actions column is
+               never clipped on narrow/medium screens; data-label drives the
+               under-640px card layout (see styles/responsive-table.css). -->
+          <div class="table-scroll">
+            <table class="data-table stack-on-mobile">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>KYC Level</th>
+                  <th>Business (KYB)</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="user in filteredUsers" :key="user.id">
+                  <td data-label="Name">{{ user.full_name || 'N/A' }}</td>
+                  <td data-label="Email">{{ user.email || 'N/A' }}</td>
+                  <td data-label="Role">
+                    <span class="role-badge" :class="`role-${user.role}`">
+                      {{ formatRole(user.role) }}
                     </span>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                  <td data-label="KYC Level">{{ user.kyc_level || 0 }} · {{ kycLevelLabel(user.kyc_level) }}</td>
+                  <td data-label="Business (KYB)">
+                    <span class="kyb-badge" :class="user.kyb_verified ? 'kyb-verified' : 'kyb-none'">
+                      {{ user.kyb_verified ? 'Verified' : '—' }}
+                    </span>
+                  </td>
+                  <td data-label="Status">
+                    <span
+                      class="status-badge"
+                      :class="isSuspendedProfile(user) ? 'suspended' : 'active'"
+                      :title="user.suspension_reason || ''"
+                    >
+                      {{ isSuspendedProfile(user) ? 'Suspended' : 'Active' }}
+                    </span>
+                    <div v-if="user.suspension_reason" class="suspend-reason">
+                      {{ user.suspension_reason }}
+                    </div>
+                  </td>
+                  <td data-label="Created">{{ formatDate(user.created_at) }}</td>
+                  <td data-label="Actions" class="actions-cell">
+                    <button
+                      @click="openEditModal(user)"
+                      class="action-btn edit-btn"
+                      title="Edit User"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                    <!-- Suspension blocks transacting only; the user keeps access
+                         to their receipts, certificates and data export. -->
+                    <button
+                      class="action-btn"
+                      :class="isSuspendedProfile(user) ? 'reactivate-btn' : 'suspend-btn'"
+                      :disabled="busyUserId === user.id"
+                      :title="isSuspendedProfile(user) ? 'Reactivate account' : 'Suspend account'"
+                      @click="openSuspendModal(user)"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">
+                        {{ isSuspendedProfile(user) ? 'lock_open' : 'block' }}
+                      </span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Edit User Modal -->
@@ -481,8 +486,16 @@ onMounted(() => {
 .users-table {
   background: white;
   border-radius: 8px;
-  overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Horizontal scroller: the 8-column table stays intact and the Actions column
+   scrolls into view instead of being clipped on narrow/medium screens. */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
 }
 
 table {
@@ -499,6 +512,14 @@ td {
   padding: 1rem;
   text-align: left;
   border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+/* Keep the two row actions side by side and never let them wrap out of view. */
+.actions-cell {
+  display: flex;
+  gap: 0.25rem;
+  white-space: nowrap;
 }
 
 th {
@@ -718,6 +739,7 @@ th {
   font-size: 0.72rem;
   color: #64748b;
   max-width: 22ch;
+  white-space: normal;
 }
 .action-btn.suspend-btn {
   color: #b91c1c;
@@ -825,5 +847,51 @@ th {
   border-radius: 8px;
   font-size: 0.82rem;
   line-height: 1.5;
+}
+
+/* Tighter chrome on phones/tablets so the header and toolbar stop eating the
+   viewport before the actual user list. The table itself card-stacks under
+   640px via the global stack-on-mobile rules. */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+
+  .page-header {
+    padding: 1.25rem 0;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .page-description {
+    font-size: 0.95rem;
+  }
+
+  .user-content {
+    padding: 1.25rem 0;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .filter-select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* Under 640px the global rules turn each row into its own card, so the outer
+   card wrapper would just be a box around boxes — drop its chrome. */
+@media (max-width: 640px) {
+  .users-table {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
 }
 </style>

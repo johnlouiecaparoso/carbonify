@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyAssetLedger } from '@/services/assetLedgerService'
 
 const loading = ref(true)
@@ -46,10 +47,12 @@ onMounted(load)
 
 <template>
   <div class="asset-ledger">
-    <header class="page-head">
-      <h1>Carbon Asset Management</h1>
-      <p>Track every credit across its lifecycle — issued, sold, retired, and on hand — per project.</p>
-    </header>
+    <PageHeader
+      title="Carbon Asset Management"
+      description="Track every credit across its lifecycle — issued, sold, retired, and on hand — per project."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -210,11 +213,16 @@ onMounted(load)
       </p>
       <router-link to="/submit-project" class="btn-primary">Submit a project</router-link>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .asset-ledger {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+.page-body {
   max-width: 1100px;
   margin: 0 auto;
   padding: 24px 16px;

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getInvestmentPipeline, documentCount } from '@/services/investorService'
 import { getProjectDocuments, logAccess, formatSize } from '@/services/dataRoomService'
 import { FEATURES } from '@/constants/plans'
@@ -121,10 +122,12 @@ onMounted(load)
 
 <template>
   <div class="investor">
-    <header class="page-head">
-      <h1>Investor Portal</h1>
-      <p>The validated project pipeline — credit supply, projected value, financial returns, and funding needs.</p>
-    </header>
+    <PageHeader
+      title="Investor Portal"
+      description="The validated project pipeline — credit supply, projected value, financial returns, and funding needs."
+    />
+
+    <div class="page-body">
 
     <FeatureGate
       :feature="FEATURES.INVESTOR_PORTAL"
@@ -434,11 +437,13 @@ onMounted(load)
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.investor { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.investor { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .page-head h1 { margin: 0; font-size: 1.6rem; }
 .page-head p { color: #6b7280; margin: 4px 0 20px; max-width: 640px; }
 .muted { color: #6b7280; }

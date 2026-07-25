@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyParcels,
   createParcel,
@@ -228,13 +229,12 @@ onMounted(load)
 
 <template>
   <div class="farmer">
-    <header class="page-head">
-      <h1>Farmer Portal</h1>
-      <p>
-        Register your plantation parcels, log feedstock deliveries against accepted quotes, and
-        track what you've been paid.
-      </p>
-    </header>
+    <PageHeader
+      title="Farmer Portal"
+      description="Register your plantation parcels, log feedstock deliveries against accepted quotes, and track what you've been paid."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="loadError" class="notice error">
@@ -620,11 +620,13 @@ onMounted(load)
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.farmer { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+.farmer { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
 .page-head h1 { margin: 0; font-size: 1.6rem; }
 .page-head p { color: #6b7280; margin: 4px 0 20px; }
 .muted { color: #6b7280; }

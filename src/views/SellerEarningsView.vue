@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getSellerBalance, getMySales, getMySalesByProject, getMyPayouts } from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
 import Withdraw from '@/components/wallet/Withdraw.vue'
@@ -73,10 +74,12 @@ onMounted(load)
 
 <template>
   <div class="seller-earnings">
-    <header class="page-head">
-      <h1>Seller Earnings</h1>
-      <p>Your sales, balance, and withdrawals.</p>
-    </header>
+    <PageHeader
+      title="Seller Earnings"
+      description="Your sales, balance, and withdrawals."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -217,11 +220,16 @@ onMounted(load)
         <p v-else class="muted">No withdrawals yet.</p>
       </section>
     </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .seller-earnings {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+.page-body {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px;

@@ -1,11 +1,10 @@
 <template>
   <div class="config-view">
+    <PageHeader
+      title="System Configuration"
+      description="Manage platform-wide settings. Changes take effect on the next relevant action (e.g. the platform fee applies to new purchases)."
+    />
     <div class="container">
-      <h1 class="page-title">System Configuration</h1>
-      <p class="page-description">
-        Manage platform-wide settings. Changes take effect on the next relevant action
-        (e.g. the platform fee applies to new purchases).
-      </p>
 
       <div v-if="loadError" class="admin-load-error">{{ loadError }}</div>
       <div v-if="loading" class="state-card">Loading configuration…</div>
@@ -91,6 +90,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getAllSettings,
   updateSetting,
@@ -197,12 +197,14 @@ onMounted(load)
 
 <style scoped>
 .config-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 2rem 1rem 0;
 }
 .page-title {
   font-size: 1.8rem;

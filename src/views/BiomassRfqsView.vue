@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyBuyerRfqs,
   getMySellerRfqs,
@@ -190,10 +191,12 @@ onMounted(load)
 
 <template>
   <div class="rfqs">
-    <header class="page-head">
-      <h1>Feedstock Requests</h1>
-      <p>Track quote requests you've sent as a buyer and respond to ones you've received as a supplier.</p>
-    </header>
+    <PageHeader
+      title="Feedstock Requests"
+      description="Track quote requests you've sent as a buyer and respond to ones you've received as a supplier."
+    />
+
+    <div class="page-body">
 
     <div class="tabs">
       <button :class="{ active: tab === 'buyer' }" @click="tab = 'buyer'">
@@ -430,11 +433,13 @@ onMounted(load)
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.rfqs { max-width: 820px; margin: 0 auto; padding: 24px 16px; }
+.rfqs { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 820px; margin: 0 auto; padding: 24px 16px; }
 .page-head h1 { margin: 0; font-size: 1.6rem; }
 .page-head p { color: #6b7280; margin: 4px 0 20px; }
 .muted { color: #6b7280; }

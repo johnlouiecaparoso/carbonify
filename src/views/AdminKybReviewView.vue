@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { listKybApplications, reviewKyb } from '@/services/kybService'
 
 const loading = ref(true)
@@ -56,10 +57,12 @@ onMounted(load)
 
 <template>
   <div class="kyb-review">
-    <header class="page-head">
-      <h1>KYB Review</h1>
-      <p>Approve or reject seller business verifications. Approving unlocks withdrawals.</p>
-    </header>
+    <PageHeader
+      title="KYB Review"
+      description="Approve or reject seller business verifications. Approving unlocks withdrawals."
+    />
+
+    <div class="page-body">
 
     <div class="tabs">
       <button
@@ -124,11 +127,17 @@ onMounted(load)
         </div>
       </article>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .kyb-review {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px;

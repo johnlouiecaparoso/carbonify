@@ -9,6 +9,7 @@
  * into one place rather than introducing new data paths.
  */
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { useCartStore } from '@/store/cartStore'
@@ -178,18 +179,19 @@ onMounted(load)
 
 <template>
   <div class="buyer-dashboard">
-    <div class="container">
-      <!-- Greeting -->
-      <header class="dash-header">
-        <div>
-          <h1 class="dash-title">Welcome back, {{ firstName }}</h1>
-          <p class="dash-subtitle">Your carbon portfolio, purchases and impact at a glance.</p>
-        </div>
-        <button class="btn btn-primary" @click="router.push('/marketplace')">
+    <PageHeader
+      :title="`Welcome back, ${firstName}`"
+      description="Your carbon portfolio, purchases and impact at a glance."
+    >
+      <template #actions>
+        <button class="header-cta" @click="router.push('/marketplace')">
           <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
           Browse marketplace
         </button>
-      </header>
+      </template>
+    </PageHeader>
+
+    <div class="container">
 
       <!-- KYC gate: shown BEFORE the buyer invests effort in a purchase, not
            after they've picked a quantity and payment method. -->
@@ -457,9 +459,31 @@ onMounted(load)
 
 <style scoped>
 .buyer-dashboard {
-  padding: 2rem 0 4rem;
+  padding: 0 0 4rem;
   background: #f8fafc;
   min-height: 100%;
+}
+
+.buyer-dashboard .container {
+  padding-top: 2rem;
+}
+
+/* White CTA reads on the green header (a green .btn-primary would blend in). */
+.header-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #fff;
+  color: var(--primary-color, #069e2d);
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.header-cta:hover {
+  background: rgba(255, 255, 255, 0.9);
 }
 .container {
   max-width: 1200px;

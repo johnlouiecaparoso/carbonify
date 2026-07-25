@@ -1,13 +1,15 @@
 <template>
   <div class="aml-admin">
-    <header class="page-head">
-      <div>
-        <h1>AML Screening</h1>
-        <p>Sanctions and PEP screening, and the evidence trail behind it.</p>
-      </div>
-      <button class="btn-ghost" :disabled="loading" @click="load">Refresh</button>
-    </header>
+    <PageHeader
+      title="AML Screening"
+      description="Sanctions and PEP screening, and the evidence trail behind it."
+    >
+      <template #actions>
+        <button class="btn-ghost" :disabled="loading" @click="load">Refresh</button>
+      </template>
+    </PageHeader>
 
+    <div class="page-body">
     <!-- Being straight about what this is. A local list is real screening, but
          it is not a commercial provider, and an operator should know which one
          they are relying on. -->
@@ -157,11 +159,13 @@
     </section>
 
     <p v-if="message" class="message" :class="{ error: isError }">{{ message }}</p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   listScreenings,
   reviewScreening,
@@ -277,6 +281,11 @@ onMounted(load)
 
 <style scoped>
 .aml-admin {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px 16px;

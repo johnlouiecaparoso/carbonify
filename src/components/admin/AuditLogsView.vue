@@ -63,7 +63,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="log in filteredLogs" :key="log.id">
+              <tr v-for="log in visibleLogs" :key="log.id">
                 <td>{{ formatDate(log.created_at) }}</td>
                 <td>{{ log.user_name || 'System' }}</td>
                 <td>
@@ -79,7 +79,31 @@
             </tbody>
             </table>
           </div>
+
           <div v-if="logs.length === 0" class="empty-state">No audit logs found.</div>
+          <div v-else-if="filteredLogs.length === 0" class="empty-state">
+            No logs match the current filters.
+          </div>
+
+          <!-- See more: rows reveal PAGE_SIZE at a time so a 500-row result set
+               doesn't render as one enormous page. -->
+          <div v-else class="table-footer">
+            <span class="row-count">
+              Showing {{ visibleLogs.length }} of {{ filteredLogs.length }}
+            </span>
+            <div class="footer-actions">
+              <button v-if="hasMore" class="see-more-btn" @click="showMore">
+                See more
+              </button>
+              <button
+                v-if="visibleCount > PAGE_SIZE"
+                class="see-less-btn"
+                @click="showLess"
+              >
+                Show less
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -87,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { searchAuditLogs } from '@/services/auditService'
 import { exportAuditLogsCsv } from '@/services/adminExportService'
 
@@ -97,6 +121,10 @@ const error = ref('')
 const searchQuery = ref('')
 const actionFilter = ref('')
 const userFilter = ref('')
+
+// Progressive reveal: render a page at a time instead of all 500 rows at once.
+const PAGE_SIZE = 25
+const visibleCount = ref(PAGE_SIZE)
 
 const uniqueUsers = computed(() => {
   const userMap = new Map()
@@ -142,6 +170,22 @@ const filteredLogs = computed(() => {
   return filtered
 })
 
+const visibleLogs = computed(() => filteredLogs.value.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < filteredLogs.value.length)
+
+function showMore() {
+  visibleCount.value += PAGE_SIZE
+}
+
+function showLess() {
+  visibleCount.value = PAGE_SIZE
+}
+
+// A new filter should start from the top, not deep in a previously expanded list.
+watch([searchQuery, actionFilter, userFilter], () => {
+  visibleCount.value = PAGE_SIZE
+})
+
 function formatDate(dateString) {
   if (!dateString) return 'N/A'
   const date = new Date(dateString)
@@ -166,6 +210,7 @@ async function loadLogs() {
     error.value = ''
     const result = await searchAuditLogs({}, 500)
     logs.value = result || []
+    visibleCount.value = PAGE_SIZE
   } catch (err) {
     console.error('Error loading audit logs:', err)
     error.value = 'Failed to load audit logs. Please try again.'
@@ -336,6 +381,58 @@ th {
 .empty-state {
   text-align: center;
   padding: 2rem;
+}
+
+/* See-more footer -------------------------------------------------------- */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border-top: 1px solid #eef2f1;
+  background: #fafcfa;
+}
+
+.row-count {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: var(--primary-color, #10b981);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.see-more-btn:hover {
+  background: var(--primary-hover, #059669);
+}
+
+.see-less-btn:hover {
+  background: #f3f4f6;
 }
 
 @media (max-width: 768px) {

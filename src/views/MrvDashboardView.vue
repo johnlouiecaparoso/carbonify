@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyMrvDashboard } from '@/services/mrvDashboardService'
 import { REPORT_STATUS_META } from '@/constants/mrv'
 import PortfolioChart from '@/components/charts/PortfolioChart.vue'
@@ -102,13 +103,17 @@ onMounted(load)
 
 <template>
   <div class="mrv-dash">
-    <header class="page-head">
-      <div>
-        <h1>MRV Dashboard</h1>
-        <p>Monitoring, reporting &amp; verification across your projects — emission reductions, activity, and reporting compliance.</p>
-      </div>
-      <router-link to="/monitoring" class="btn-ghost">Open report editor</router-link>
-    </header>
+    <PageHeader title="MRV Dashboard">
+      <template #description>
+        Monitoring, reporting &amp; verification across your projects — emission reductions,
+        activity, and reporting compliance.
+      </template>
+      <template #actions>
+        <router-link to="/monitoring" class="btn-ghost">Open report editor</router-link>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -278,11 +283,13 @@ onMounted(load)
       </p>
       <router-link to="/monitoring" class="btn-primary">Go to reports</router-link>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.mrv-dash { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.mrv-dash { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
 .page-head h1 { margin: 0; font-size: 1.6rem; }
 .page-head p { color: #6b7280; margin: 4px 0 0; max-width: 640px; }

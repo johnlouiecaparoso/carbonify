@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyBiomassProducts,
   createBiomassProduct,
@@ -111,13 +112,12 @@ onMounted(load)
 
 <template>
   <div class="sell">
-    <header class="page-head">
-      <h1>Sell Feedstock</h1>
-      <p>
-        List your biomass so buyers can request quotes. Businesses need verification (KYB) before
-        listing; approved farmers can list right away.
-      </p>
-    </header>
+    <PageHeader
+      title="Sell Feedstock"
+      description="List your biomass so buyers can request quotes. Businesses need verification (KYB) before listing; approved farmers can list right away."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="loadError" class="notice error">
@@ -233,11 +233,13 @@ onMounted(load)
         <KybForm @success="onKybSuccess" @cancel="showKyb = false" />
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.sell { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+.sell { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
 .page-head h1 { margin: 0; font-size: 1.6rem; }
 .page-head p { color: #6b7280; margin: 4px 0 20px; }
 .muted { color: #6b7280; }

@@ -1,14 +1,15 @@
 <template>
   <div class="privacy-admin">
-    <header class="page-head">
-      <div>
-        <h1>Data Privacy Requests</h1>
-        <p>
-          Access, export and erasure requests raised by users under the Data Privacy Act.
-        </p>
-      </div>
-      <button class="btn-ghost" :disabled="loading" @click="load">Refresh</button>
-    </header>
+    <PageHeader
+      title="Data Privacy Requests"
+      description="Access, export and erasure requests raised by users under the Data Privacy Act."
+    >
+      <template #actions>
+        <button class="btn-ghost" :disabled="loading" @click="load">Refresh</button>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <!-- The erasure worker holds the service role and is secret-gated, so this
          console cannot delete an account itself. Saying so beats a button that
@@ -117,11 +118,13 @@
     </div>
 
     <p v-if="message" class="message" :class="{ error: isError }">{{ message }}</p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   listDataSubjectRequests,
   processDataSubjectRequest,
@@ -197,6 +200,11 @@ onMounted(load)
 
 <style scoped>
 .privacy-admin {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px 16px;
