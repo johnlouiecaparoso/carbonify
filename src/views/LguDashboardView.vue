@@ -133,6 +133,76 @@
           </button>
         </section>
 
+        <!-- Land-use carbon modeling -->
+        <section v-else-if="activeTab === 'landuse'" class="panel">
+          <h2>Land-Use Carbon Modeling</h2>
+          <p class="panel-sub">
+            Estimate annual CO₂e sequestration from restoration and land-use across your
+            jurisdiction. Planning estimates only — actual credits are issued through the MRV
+            pipeline, never these round factors.
+          </p>
+
+          <div class="landuse-parcels">
+            <div v-for="(p, i) in landParcels" :key="i" class="landuse-row">
+              <div class="form-group">
+                <label class="form-label" :for="`lu-type-${i}`">Land-use type</label>
+                <select :id="`lu-type-${i}`" v-model="p.type" class="form-input">
+                  <option v-for="t in LAND_USE_TYPES" :key="t.value" :value="t.value">
+                    {{ t.label }} ({{ t.seqPerHa }} t/ha/yr)
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" :for="`lu-ha-${i}`">Area (hectares)</label>
+                <input
+                  :id="`lu-ha-${i}`"
+                  v-model.number="p.hectares"
+                  type="number"
+                  min="0"
+                  step="any"
+                  class="form-input"
+                />
+              </div>
+              <button
+                v-if="landParcels.length > 1"
+                type="button"
+                class="link-danger lu-remove"
+                @click="removeParcel(i)"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+
+          <div class="landuse-controls">
+            <button type="button" class="btn btn-outline" @click="addParcel">+ Add parcel</button>
+            <div class="form-group lu-years">
+              <label class="form-label" for="lu-years">Horizon (years)</label>
+              <input id="lu-years" v-model.number="landYears" type="number" min="1" step="1" class="form-input" />
+            </div>
+          </div>
+
+          <div class="results">
+            <div class="result-card">
+              <span class="result-label">Total area</span>
+              <strong>{{ fmt(landResult.hectares) }} ha</strong>
+            </div>
+            <div class="result-card highlight">
+              <span class="result-label">Annual sequestration</span>
+              <strong>{{ fmt(landResult.annual) }} t CO₂e/yr</strong>
+            </div>
+            <div class="result-card">
+              <span class="result-label">Over {{ landResult.years }} year(s)</span>
+              <strong>{{ fmt(landResult.total) }} t CO₂e</strong>
+            </div>
+          </div>
+
+          <p class="hint">
+            Factors are Tier-1 approximations (IPCC / tropical &amp; PH literature) for planning
+            only, not for credit issuance.
+          </p>
+        </section>
+
         <!-- Records & diversion -->
         <section v-else-if="activeTab === 'records'" class="panel">
           <h2>Records & Waste Diversion</h2>
@@ -377,7 +447,12 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { useUserStore } from '@/store/userStore'
-import { computeWasteEmissions, estimateWasteFromPopulation } from '@/constants/lgu'
+import {
+  computeWasteEmissions,
+  estimateWasteFromPopulation,
+  LAND_USE_TYPES,
+  computeLandUseSequestration,
+} from '@/constants/lgu'
 import {
   saveEmissionsRecord,
   getMyEmissionsRecords,
@@ -405,12 +480,24 @@ const userStore = useUserStore()
 
 const tabs = [
   { id: 'calculator', label: 'MSW Calculator' },
+  { id: 'landuse', label: 'Land Use' },
   { id: 'records', label: 'Records & Diversion' },
   { id: 'esg', label: 'City ESG' },
   { id: 'projects', label: 'Projects in My Area' },
   { id: 'endorsements', label: 'Endorsements' },
 ]
 const activeTab = ref('calculator')
+
+// ── Land-use carbon modeling (planning estimates) ──────────────────────────
+const landParcels = ref([{ type: 'reforestation', hectares: 0 }])
+const landYears = ref(10)
+const landResult = computed(() => computeLandUseSequestration(landParcels.value, landYears.value))
+function addParcel() {
+  landParcels.value.push({ type: 'reforestation', hectares: 0 })
+}
+function removeParcel(i) {
+  landParcels.value.splice(i, 1)
+}
 
 // The LGU's declared jurisdiction. Everything project-related is scoped to it;
 // when it is unset the lists are unscoped and the banner says so rather than
@@ -929,6 +1016,34 @@ loadRecords()
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   margin-bottom: 1.25rem;
+}
+
+/* Land-use modeling */
+.landuse-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 0.75rem;
+}
+.lu-remove {
+  padding-bottom: 0.6rem;
+  white-space: nowrap;
+}
+.landuse-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 1.25rem;
+}
+.lu-years {
+  max-width: 160px;
+}
+@media (max-width: 640px) {
+  .landuse-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-group {
