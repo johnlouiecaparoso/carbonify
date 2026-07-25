@@ -512,9 +512,9 @@ async function handleSubmit() {
 }
 
 .form-grid :deep(.enhanced-input__field:focus) {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .form-grid :deep(.enhanced-input__field::placeholder) {
@@ -535,7 +535,7 @@ async function handleSubmit() {
 }
 
 .sign-in-button :deep(.ui-btn) {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #ffffff;
   border-radius: 8px;
   padding: 0.75rem 1.5rem;
@@ -551,7 +551,7 @@ async function handleSubmit() {
 }
 
 .sign-in-button :deep(.ui-btn:hover) {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .button-icon {
@@ -579,7 +579,7 @@ async function handleSubmit() {
 
 .forgot-link {
   font-size: 0.8rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-weight: 500;
 }

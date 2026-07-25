@@ -116,7 +116,7 @@ function formatDate(dateString) {
 function getTransactionStatusColor(status) {
   switch (status) {
     case 'completed':
-      return '#069e2d'
+      return '#058526'
     case 'pending':
       return '#f59e0b'
     case 'failed':
@@ -274,7 +274,7 @@ onMounted(() => {
 
 .page-header {
   padding: 1.25rem 0;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   border-bottom: none;
 }
 
@@ -306,11 +306,11 @@ onMounted(() => {
 
 /* Balance Card */
 .balance-card {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-dark, #04773b));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-dark, #045c1a));
   color: white;
   border-radius: var(--radius-lg, 0.75rem);
   padding: 32px;
-  box-shadow: var(--shadow-green, 0 4px 12px rgba(6, 158, 45, 0.3));
+  box-shadow: var(--shadow-green, 0 4px 12px rgba(5, 133, 38, 0.3));
 }
 
 .balance-header {

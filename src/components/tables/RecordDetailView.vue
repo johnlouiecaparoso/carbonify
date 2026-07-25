@@ -365,7 +365,7 @@ export default {
   font-weight: 600;
 }
 .status-cancelled {
-  color: #718096;
+  color: #64748b;
   font-weight: 600;
 }
 .status-active {

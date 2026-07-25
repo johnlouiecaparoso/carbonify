@@ -1431,7 +1431,7 @@ onUnmounted(() => {
 }
 
 .marketplace-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   padding: 1.5rem 0;
   text-align: center;
@@ -1856,7 +1856,7 @@ onUnmounted(() => {
 .details-link {
   display: inline-block;
   margin-top: 0.35rem;
-  color: #069e2d;
+  color: #058526;
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
@@ -2194,7 +2194,7 @@ onUnmounted(() => {
 
 .payment-method-card.active {
   border-color: var(--primary-color);
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .payment-method-icon {
@@ -2202,7 +2202,7 @@ onUnmounted(() => {
   height: 48px;
   border-radius: 12px;
   background: rgba(16, 185, 129, 0.12);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   display: flex;
   align-items: center;
   justify-content: center;

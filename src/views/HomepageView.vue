@@ -278,19 +278,19 @@ export default {
           title: 'Browse Projects',
           description:
             'Explore verified carbon projects across forestry, renewable energy, and blue carbon initiatives.',
-          color: '#069e2d',
+          color: '#058526',
         },
         {
           title: 'Purchase Credits',
           description:
             'Buy carbon credits from projects that align with your values and sustainability goals.',
-          color: '#058e3f',
+          color: '#04701f',
         },
         {
           title: 'Retire & Impact',
           description:
             'Retire your credits to offset emissions and receive verified certificates of your climate action.',
-          color: '#04773b',
+          color: '#045c1a',
         },
       ],
     }
@@ -376,7 +376,7 @@ export default {
   background-clip: text;
   color: transparent;
   line-height: 1.1;
-  text-shadow: 0 4px 8px rgba(6, 158, 45, 0.2);
+  text-shadow: 0 4px 8px rgba(5, 133, 38, 0.2);
 }
 
 .hero-description {

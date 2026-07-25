@@ -186,7 +186,7 @@ onMounted(load)
 .browse-link {
   display: inline-block;
   margin-top: 0.75rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -325,8 +325,8 @@ onMounted(load)
   color: #374151;
 }
 .primary-btn {
-  background: #069e2d;
-  border-color: #069e2d;
+  background: #058526;
+  border-color: #058526;
   color: #fff;
 }
 </style>

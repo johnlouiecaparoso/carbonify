@@ -212,7 +212,7 @@ load()
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   padding: 1.25rem 0;
 }
 
@@ -252,9 +252,9 @@ load()
 }
 
 .filter-tab.active {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .refresh {
@@ -314,7 +314,7 @@ load()
 .doc-link {
   display: inline-block;
   margin-top: 0.5rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
   font-size: 0.85rem;
 }
@@ -368,7 +368,7 @@ load()
 
 .message {
   margin-top: 1rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 500;
 }
 
@@ -390,7 +390,7 @@ load()
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 

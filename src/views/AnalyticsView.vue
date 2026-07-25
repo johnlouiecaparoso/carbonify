@@ -476,7 +476,7 @@ onMounted(() => {
   color: #065f46;
 }
 .free-note a {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 700;
 }
 
@@ -500,8 +500,8 @@ onMounted(() => {
 }
 
 .tab.active {
-  color: var(--primary-color, #069e2d);
-  border-bottom-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
+  border-bottom-color: var(--primary-color, #058526);
 }
 
 .tab-lock {
@@ -566,7 +566,7 @@ onMounted(() => {
 }
 
 .metric-change.positive {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
 }
 
 .charts-section {
@@ -672,7 +672,7 @@ onMounted(() => {
 }
 
 .activity-value.positive {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
 }
 
 .empty-activity {
@@ -731,12 +731,12 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 @media (max-width: 768px) {

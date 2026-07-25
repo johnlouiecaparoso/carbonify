@@ -442,7 +442,7 @@ onMounted(() => {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
@@ -587,13 +587,13 @@ th {
   transition: transform 0.2s ease;
 }
 .kyb-switch-input:checked + .kyb-switch {
-  background: #069e2d;
+  background: #058526;
 }
 .kyb-switch-input:checked + .kyb-switch::after {
   transform: translateX(18px);
 }
 .kyb-switch-input:focus-visible + .kyb-switch {
-  outline: 2px solid #069e2d;
+  outline: 2px solid #058526;
   outline-offset: 2px;
 }
 .kyb-toggle-text {
@@ -703,7 +703,7 @@ th {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 

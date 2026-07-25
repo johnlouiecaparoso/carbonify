@@ -449,7 +449,7 @@ onMounted(load)
   background: none; border: none; padding: 10px 16px; cursor: pointer; font-weight: 600;
   color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -1px;
 }
-.tabs button.active { color: #069e2d; border-bottom-color: #069e2d; }
+.tabs button.active { color: #058526; border-bottom-color: #058526; }
 .count { background: #e5e7eb; color: #374151; border-radius: 999px; padding: 1px 8px; font-size: 0.75rem; margin-left: 4px; }
 .notice { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; }
 .notice.error { background: #fee2e2; color: #991b1b; }
@@ -476,14 +476,14 @@ onMounted(load)
 .badge.rejected { background: #fee2e2; color: #991b1b; }
 .badges { display: flex; gap: 6px; }
 .note-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-top: 10px; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 7px 12px; font-size: 0.85rem; }
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
 .btn-ghost.sm { padding: 7px 12px; font-size: 0.85rem; }
-.link-btn { background: none; border: none; color: #069e2d; font-weight: 600; cursor: pointer; font-size: 0.85rem; margin-left: 8px; }
+.link-btn { background: none; border: none; color: #058526; font-weight: 600; cursor: pointer; font-size: 0.85rem; margin-left: 8px; }
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty p { margin: 12px auto 18px; max-width: 380px; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
 .modal { background: #fff; border-radius: 16px; padding: 24px; max-width: 460px; width: 100%; max-height: 90vh; overflow-y: auto; }

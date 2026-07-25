@@ -62,8 +62,8 @@ const trendData = computed(() => ({
     {
       label: 'Verified tCO₂e',
       data: data.value?.trend.verified || [],
-      borderColor: '#069e2d',
-      backgroundColor: 'rgba(6, 158, 45, 0.12)',
+      borderColor: '#058526',
+      backgroundColor: 'rgba(5, 133, 38, 0.12)',
       fill: true,
     },
   ],
@@ -72,7 +72,7 @@ const trendOptions = {
   plugins: { title: { display: true, text: 'Emission reductions over time' } },
 }
 
-const STATUS_COLORS = { draft: '#9ca3af', submitted: '#f59e0b', under_review: '#3b82f6', approved: '#069e2d', rejected: '#ef4444' }
+const STATUS_COLORS = { draft: '#9ca3af', submitted: '#f59e0b', under_review: '#3b82f6', approved: '#058526', rejected: '#ef4444' }
 const statusData = computed(() => {
   const by = data.value?.totals.byStatus || {}
   const keys = Object.keys(by).filter((k) => by[k] > 0)
@@ -307,7 +307,7 @@ onMounted(load)
 .split { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; }
 .split-item { display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 600; color: #4b5563; }
 .split-item .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.split-item.removal .dot { background: #069e2d; }
+.split-item.removal .dot { background: #058526; }
 .split-item.avoidance .dot { background: #2563eb; }
 .split-item.unclassified .dot { background: #d1d5db; }
 .split-item.unclassified { color: #9ca3af; }
@@ -324,7 +324,7 @@ onMounted(load)
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; white-space: nowrap; }
 .data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.proj-link { color: #069e2d; font-weight: 600; text-decoration: none; }
+.proj-link { color: #058526; font-weight: 600; text-decoration: none; }
 .proj-link:hover { text-decoration: underline; }
 .badge { padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; text-transform: capitalize; background: #e5e7eb; color: #374151; }
 .badge.approved, .badge.on_track { background: #d1fae5; color: #065f46; }
@@ -334,10 +334,10 @@ onMounted(load)
 .badge.rejected, .badge.overdue { background: #fee2e2; color: #991b1b; }
 .badge.due_soon { background: #fef3c7; color: #92400e; }
 .legend { margin: 12px 0 0; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty h2 { margin: 12px 0 6px; font-size: 1.2rem; }
 .empty p { max-width: 460px; margin: 0 auto 18px; }
 @media (max-width: 720px) {

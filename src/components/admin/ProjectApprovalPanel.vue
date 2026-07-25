@@ -1340,8 +1340,8 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .export-btn:hover:not(:disabled) {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
 }
 
 .export-btn:disabled {
@@ -1373,7 +1373,7 @@ async function openVerificationModal(project, newStatus) {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .timeline-body {
@@ -1442,8 +1442,8 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .queue-search:focus-within {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.12);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.12);
 }
 
 .queue-toggle {
@@ -1486,8 +1486,8 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .bulk-btn {
-  border: 1px solid var(--primary-color, #069e2d);
-  background: var(--primary-color, #069e2d);
+  border: 1px solid var(--primary-color, #058526);
+  background: var(--primary-color, #058526);
   color: #fff;
   border-radius: 8px;
   padding: 0.3rem 0.65rem;
@@ -1545,9 +1545,9 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .assign-me {
-  border: 1px solid var(--primary-color, #069e2d);
+  border: 1px solid var(--primary-color, #058526);
   background: #fff;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   border-radius: 8px;
   padding: 0.28rem 0.7rem;
   font-size: 0.8rem;
@@ -1594,13 +1594,13 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .filter-tab:hover {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
 }
 
 .filter-tab.active {
-  background: var(--primary-color, #069e2d);
-  border-color: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
+  border-color: var(--primary-color, #058526);
   color: white;
   box-shadow: 0 10px 18px rgba(16, 185, 129, 0.18);
 }
@@ -1617,7 +1617,7 @@ async function openVerificationModal(project, newStatus) {
   width: 48px;
   height: 48px;
   border: 4px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--primary-color, #069e2d);
+  border-top-color: var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s ease-in-out infinite;
   margin: 0 auto 16px;
@@ -1642,7 +1642,7 @@ async function openVerificationModal(project, newStatus) {
 
 .retry-btn {
   padding: 10px 18px;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 8px;
@@ -1862,7 +1862,7 @@ async function openVerificationModal(project, newStatus) {
 
 .project-list-item.active {
   background: rgba(16, 185, 129, 0.16);
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
 }
 
 .project-list-title {
@@ -2026,7 +2026,7 @@ async function openVerificationModal(project, newStatus) {
 
 .detail-section h4 .material-symbols-outlined {
   font-size: 1.2rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .detail-section p {
@@ -2065,7 +2065,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .verifier-price-row:focus-within {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .verifier-price-prefix {
@@ -2120,7 +2120,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.success {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   box-shadow: 0 12px 20px rgba(16, 185, 129, 0.22);
 }
@@ -2146,8 +2146,8 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.outline:hover:not(:disabled) {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
 }
 
 .action-btn.outline.danger {

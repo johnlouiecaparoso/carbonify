@@ -1198,7 +1198,7 @@ function goBackHome() {
 }
 
 .role-application__hero {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, #0f9d58 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, #0f9d58 100%);
   padding: 4rem 1.5rem;
   color: #ffffff;
   text-align: center;
@@ -1261,7 +1261,7 @@ function goBackHome() {
   background: #ffffff;
   border-radius: var(--radius-xl, 20px);
   border: 2px solid rgba(15, 157, 88, 0.1);
-  box-shadow: 0 12px 24px rgba(6, 158, 45, 0.08);
+  box-shadow: 0 12px 24px rgba(5, 133, 38, 0.08);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   display: flex;
@@ -1270,13 +1270,13 @@ function goBackHome() {
 }
 
 .role-card--active {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 16px 32px rgba(6, 158, 45, 0.16);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 16px 32px rgba(5, 133, 38, 0.16);
   transform: translateY(-4px);
 }
 
 .role-card:focus-visible {
-  outline: 4px solid rgba(6, 158, 45, 0.4);
+  outline: 4px solid rgba(5, 133, 38, 0.4);
   outline-offset: 3px;
 }
 
@@ -1297,8 +1297,8 @@ function goBackHome() {
 .role-card__badge {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
-  background: rgba(6, 158, 45, 0.15);
+  color: var(--primary-color, #058526);
+  background: rgba(5, 133, 38, 0.15);
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
 }
@@ -1326,7 +1326,7 @@ function goBackHome() {
   background: #ffffff;
   border-radius: 24px;
   border: 1px solid rgba(15, 157, 88, 0.15);
-  box-shadow: 0 24px 48px rgba(6, 158, 45, 0.12);
+  box-shadow: 0 24px 48px rgba(5, 133, 38, 0.12);
   padding: 2.5rem;
 }
 
@@ -1353,11 +1353,11 @@ function goBackHome() {
 
 .application-form__notice {
   font-size: 0.95rem;
-  background: rgba(6, 158, 45, 0.1);
+  background: rgba(5, 133, 38, 0.1);
   border-radius: 12px;
   padding: 0.85rem 1rem;
-  color: var(--primary-color, #069e2d);
-  border: 1px solid rgba(6, 158, 45, 0.18);
+  color: var(--primary-color, #058526);
+  border: 1px solid rgba(5, 133, 38, 0.18);
 }
 
 .form {
@@ -1420,8 +1420,8 @@ function goBackHome() {
 .form__input:focus,
 .form__textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 4px rgba(6, 158, 45, 0.15);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 4px rgba(5, 133, 38, 0.15);
 }
 
 .form__error {
@@ -1475,14 +1475,14 @@ function goBackHome() {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, #058e3f 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, #04701f 100%);
   color: #ffffff;
-  box-shadow: 0 12px 20px rgba(6, 158, 45, 0.18);
+  box-shadow: 0 12px 20px rgba(5, 133, 38, 0.18);
 }
 
 .btn--primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 16px 26px rgba(6, 158, 45, 0.24);
+  box-shadow: 0 16px 26px rgba(5, 133, 38, 0.24);
 }
 
 .btn--primary:disabled {
@@ -1491,23 +1491,23 @@ function goBackHome() {
 }
 
 .btn--secondary {
-  background: rgba(6, 158, 45, 0.12);
-  color: var(--primary-color, #069e2d);
+  background: rgba(5, 133, 38, 0.12);
+  color: var(--primary-color, #058526);
 }
 
 .btn--secondary:hover {
-  background: rgba(6, 158, 45, 0.18);
+  background: rgba(5, 133, 38, 0.18);
   transform: translateY(-1px);
 }
 
 .btn--ghost {
   background: transparent;
   border: 1px solid rgba(15, 157, 88, 0.25);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .btn--ghost:hover {
-  background: rgba(6, 158, 45, 0.08);
+  background: rgba(5, 133, 38, 0.08);
 }
 
 .btn__spinner {

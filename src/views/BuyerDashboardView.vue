@@ -474,7 +474,7 @@ onMounted(load)
   align-items: center;
   gap: 0.4rem;
   background: #fff;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   border: none;
   border-radius: 8px;
   padding: 0.55rem 1.1rem;
@@ -526,7 +526,7 @@ onMounted(load)
   white-space: nowrap;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
 }
 .btn-primary:hover {
@@ -716,7 +716,7 @@ onMounted(load)
 }
 .stat-icon {
   font-size: 1.75rem;
-  color: #069e2d;
+  color: #058526;
   flex-shrink: 0;
 }
 .stat-value {
@@ -759,7 +759,7 @@ onMounted(load)
 }
 .empty-icon {
   font-size: 2.75rem;
-  color: #069e2d;
+  color: #058526;
 }
 .empty-hero h2 {
   margin: 0.75rem 0 0.4rem;
@@ -806,7 +806,7 @@ onMounted(load)
 .panel-link {
   font-size: 0.825rem;
   font-weight: 600;
-  color: #069e2d;
+  color: #058526;
   text-decoration: none;
 }
 .panel-empty {
@@ -843,7 +843,7 @@ onMounted(load)
   background: #f8fafc;
 }
 .activity-icon {
-  color: #069e2d;
+  color: #058526;
   font-size: 1.25rem;
 }
 .activity-body {
@@ -927,7 +927,7 @@ onMounted(load)
 .impact-value {
   font-size: 2rem;
   font-weight: 800;
-  color: #069e2d;
+  color: #058526;
   line-height: 1;
 }
 .impact-unit {
@@ -971,7 +971,7 @@ onMounted(load)
 }
 .progress-fill {
   height: 100%;
-  background: #069e2d;
+  background: #058526;
   border-radius: 999px;
   transition: width 0.3s ease;
 }

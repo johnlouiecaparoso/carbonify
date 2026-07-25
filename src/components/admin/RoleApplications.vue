@@ -565,8 +565,8 @@ onMounted(() => {
   border-radius: 16px;
   padding: 1rem 1.25rem;
   min-width: 150px;
-  box-shadow: 0 12px 20px rgba(6, 158, 45, 0.12);
-  border: 1px solid rgba(6, 158, 45, 0.1);
+  box-shadow: 0 12px 20px rgba(5, 133, 38, 0.12);
+  border: 1px solid rgba(5, 133, 38, 0.1);
 }
 
 .stat__label {
@@ -579,14 +579,14 @@ onMounted(() => {
   display: block;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .filters-bar {
   background: #fff;
   border-radius: 20px;
-  border: 1px solid rgba(6, 158, 45, 0.12);
-  box-shadow: 0 10px 20px rgba(6, 158, 45, 0.1);
+  border: 1px solid rgba(5, 133, 38, 0.12);
+  box-shadow: 0 10px 20px rgba(5, 133, 38, 0.1);
   padding: 1.5rem;
   display: flex;
   flex-wrap: wrap;
@@ -617,34 +617,34 @@ onMounted(() => {
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   border: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s ease;
-  box-shadow: 0 4px 12px rgba(6, 158, 45, 0.16);
+  box-shadow: 0 4px 12px rgba(5, 133, 38, 0.16);
 }
 
 .filter-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .filter-button--outline {
   background: #f8f9fa;
-  color: var(--primary-color, #069e2d);
-  border: 1px solid var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
+  border: 1px solid var(--primary-color, #058526);
   box-shadow: none;
 }
 
 .filter-button--outline:hover {
-  background: rgba(6, 158, 45, 0.12);
+  background: rgba(5, 133, 38, 0.12);
 }
 
 .table-section {
   background: #fff;
   border-radius: 20px;
-  border: 1px solid rgba(6, 158, 45, 0.12);
-  box-shadow: 0 12px 24px rgba(6, 158, 45, 0.12);
+  border: 1px solid rgba(5, 133, 38, 0.12);
+  box-shadow: 0 12px 24px rgba(5, 133, 38, 0.12);
   padding: 1.5rem;
 }
 
@@ -658,14 +658,14 @@ table {
 }
 
 thead {
-  background: rgba(6, 158, 45, 0.08);
+  background: rgba(5, 133, 38, 0.08);
 }
 
 th,
 td {
   text-align: left;
   padding: 0.85rem 1rem;
-  border-bottom: 1px solid rgba(6, 158, 45, 0.12);
+  border-bottom: 1px solid rgba(5, 133, 38, 0.12);
 }
 
 th {
@@ -675,7 +675,7 @@ th {
 }
 
 tbody tr:hover {
-  background: rgba(6, 158, 45, 0.04);
+  background: rgba(5, 133, 38, 0.04);
 }
 
 .cell-main {
@@ -741,7 +741,7 @@ tbody tr:hover {
 .table-action {
   padding: 0.5rem 1rem;
   border-radius: 999px;
-  border: 1px solid rgba(6, 158, 45, 0.25);
+  border: 1px solid rgba(5, 133, 38, 0.25);
   background: transparent;
   cursor: pointer;
   font-weight: 600;
@@ -749,7 +749,7 @@ tbody tr:hover {
 }
 
 .table-action:hover {
-  background: rgba(6, 158, 45, 0.08);
+  background: rgba(5, 133, 38, 0.08);
   transform: translateY(-1px);
 }
 
@@ -777,7 +777,7 @@ tbody tr:hover {
 
 .drawer__header {
   padding: 1.5rem;
-  border-bottom: 1px solid rgba(6, 158, 45, 0.12);
+  border-bottom: 1px solid rgba(5, 133, 38, 0.12);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -844,7 +844,7 @@ tbody tr:hover {
 .drawer__textarea {
   width: 100%;
   border-radius: 12px;
-  border: 1px solid rgba(6, 158, 45, 0.2);
+  border: 1px solid rgba(5, 133, 38, 0.2);
   padding: 0.75rem 1rem;
   min-height: 120px;
   resize: vertical;
@@ -853,8 +853,8 @@ tbody tr:hover {
 
 .drawer__textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.18);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.18);
 }
 
 .drawer__alert {
@@ -874,7 +874,7 @@ tbody tr:hover {
 
 .drawer__actions {
   padding: 1.5rem;
-  border-top: 1px solid rgba(6, 158, 45, 0.12);
+  border-top: 1px solid rgba(5, 133, 38, 0.12);
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
@@ -895,9 +895,9 @@ tbody tr:hover {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, #058e3f 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, #04701f 100%);
   color: #fff;
-  box-shadow: 0 12px 18px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 12px 18px rgba(5, 133, 38, 0.2);
 }
 
 .btn--secondary {
@@ -906,8 +906,8 @@ tbody tr:hover {
 }
 
 .btn--ghost {
-  background: rgba(6, 158, 45, 0.1);
-  color: var(--primary-color, #069e2d);
+  background: rgba(5, 133, 38, 0.1);
+  color: var(--primary-color, #058526);
 }
 
 .btn--primary:hover,

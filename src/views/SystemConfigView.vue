@@ -325,7 +325,7 @@ onMounted(load)
   padding: 0.5rem 1.1rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   cursor: pointer;

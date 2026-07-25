@@ -129,7 +129,7 @@ onMounted(load)
 .btn {
   margin-top: 0.75rem;
   padding: 0.55rem 1.1rem;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -139,7 +139,7 @@ onMounted(load)
 .browse-link {
   display: inline-block;
   margin-top: 0.75rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }

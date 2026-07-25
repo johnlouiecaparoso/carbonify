@@ -136,8 +136,8 @@ function drawPoint() {
   if (!point.value) return
   pointLayer = L.circleMarker([point.value.lat, point.value.lng], {
     radius: 9,
-    color: '#069e2d',
-    fillColor: '#069e2d',
+    color: '#058526',
+    fillColor: '#058526',
     fillOpacity: 0.85,
     weight: 2,
   }).addTo(map)
@@ -155,8 +155,8 @@ function drawArea() {
   const latlngs = vertices.value.map((v) => [v.lat, v.lng])
   areaLayer =
     vertices.value.length >= 3
-      ? L.polygon(latlngs, { color: '#069e2d', weight: 2, fillOpacity: 0.12 })
-      : L.polyline(latlngs, { color: '#069e2d', weight: 2, dashArray: '4 4' })
+      ? L.polygon(latlngs, { color: '#058526', weight: 2, fillOpacity: 0.12 })
+      : L.polyline(latlngs, { color: '#058526', weight: 2, dashArray: '4 4' })
   areaLayer.addTo(map)
 
   vertices.value.forEach((v) => {
@@ -272,8 +272,8 @@ watch(
   font-size: 1.05rem;
 }
 .mode-btn.active {
-  background: #069e2d;
-  border-color: #069e2d;
+  background: #058526;
+  border-color: #058526;
   color: #fff;
 }
 .action-group {

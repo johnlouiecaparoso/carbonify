@@ -127,7 +127,7 @@ watch(
   border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
   background: var(--bg-secondary, #f8fdf8);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;

@@ -190,9 +190,9 @@ async function submit() {
   color: #111827;
 }
 .field-input:focus {
-  outline: 2px solid #069e2d;
+  outline: 2px solid #058526;
   outline-offset: -1px;
-  border-color: #069e2d;
+  border-color: #058526;
 }
 .dispute-note {
   font-size: 0.8rem;
@@ -229,7 +229,7 @@ async function submit() {
   cursor: not-allowed;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
 }
 .btn-outline {

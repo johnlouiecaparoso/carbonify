@@ -261,7 +261,7 @@ onMounted(() => {
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   padding: 1.25rem 0;
 }
 
@@ -323,8 +323,8 @@ onMounted(() => {
 
 .lookup-input:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .btn {
@@ -338,12 +338,12 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .btn-primary:disabled {
@@ -366,7 +366,7 @@ onMounted(() => {
 }
 
 .intro-card .state-icon {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .error-card,
@@ -386,7 +386,7 @@ onMounted(() => {
 }
 
 .state-card p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 auto;
   max-width: 480px;
 }
@@ -395,7 +395,7 @@ onMounted(() => {
   width: 44px;
   height: 44px;
   border: 4px solid var(--border-color, #d1e7dd);
-  border-top-color: var(--primary-color, #069e2d);
+  border-top-color: var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -427,7 +427,7 @@ onMounted(() => {
 }
 
 .authenticity-banner.valid {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .authenticity-banner.warning {
@@ -468,7 +468,7 @@ onMounted(() => {
 }
 
 .detail-label {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.875rem;
 }
 
@@ -502,7 +502,7 @@ onMounted(() => {
 }
 
 .detail-value.highlight-value {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
 }
 
@@ -522,7 +522,7 @@ onMounted(() => {
 
 .qr-caption {
   font-size: 0.75rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 @media (max-width: 768px) {

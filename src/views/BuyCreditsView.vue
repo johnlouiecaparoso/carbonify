@@ -455,7 +455,7 @@ onMounted(async () => {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
@@ -540,12 +540,12 @@ onMounted(async () => {
 .credit-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .credit-image {
   height: 120px;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -577,7 +577,7 @@ onMounted(async () => {
 
 .credit-location {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 0.5rem 0;
 }
 
@@ -599,8 +599,8 @@ onMounted(async () => {
 }
 
 .credit-category {
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  color: var(--primary-color, #069e2d);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  color: var(--primary-color, #058526);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.75rem;
@@ -622,13 +622,13 @@ onMounted(async () => {
 
 .price-label {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .price-value {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .credit-actions {
@@ -637,7 +637,7 @@ onMounted(async () => {
 
 .buy-button {
   width: 100%;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 0.5rem;
@@ -648,7 +648,7 @@ onMounted(async () => {
 }
 
 .buy-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
   transform: translateY(-1px);
 }
 
@@ -687,7 +687,7 @@ onMounted(async () => {
 
 .selected-credit p {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 1rem 0;
 }
 
@@ -734,7 +734,7 @@ onMounted(async () => {
 }
 
 .purchase-button {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 0.5rem;
@@ -745,7 +745,7 @@ onMounted(async () => {
 }
 
 .purchase-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
   transform: translateY(-1px);
 }
 
@@ -757,7 +757,7 @@ onMounted(async () => {
 
 .no-selection {
   text-align: center;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   padding: 2rem 0;
 }
 
@@ -788,13 +788,13 @@ onMounted(async () => {
 }
 
 .payment-method-card:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-secondary, #f8fdf8);
 }
 
 .payment-method-card.active {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .payment-method-icon {
@@ -814,13 +814,13 @@ onMounted(async () => {
 
 .payment-method-desc {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .wallet-balance {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .insufficient-balance {
@@ -875,7 +875,7 @@ onMounted(async () => {
 
 .payment-info p {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
 }
 
@@ -887,7 +887,7 @@ onMounted(async () => {
 }
 
 .help-button {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 0.5rem;
@@ -898,7 +898,7 @@ onMounted(async () => {
 }
 
 .help-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
   transform: translateY(-1px);
 }
 
@@ -914,7 +914,7 @@ onMounted(async () => {
   width: 2rem;
   height: 2rem;
   border: 3px solid var(--border-color, #e2e8f0);
-  border-top: 3px solid var(--primary-color, #069e2d);
+  border-top: 3px solid var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem auto;
@@ -945,12 +945,12 @@ onMounted(async () => {
 
 .error-state p,
 .empty-state p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 1rem 0;
 }
 
 .retry-button {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 0.5rem;
@@ -961,7 +961,7 @@ onMounted(async () => {
 }
 
 .retry-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 /* Responsive Design */

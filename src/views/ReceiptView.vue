@@ -532,7 +532,7 @@ onMounted(() => {
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   padding: 1.25rem 0;
   border-bottom: none;
 }
@@ -574,7 +574,7 @@ onMounted(() => {
   width: 50px;
   height: 50px;
   border: 4px solid var(--border-color, #d1e7dd);
-  border-top-color: var(--primary-color, #069e2d);
+  border-top-color: var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -589,7 +589,7 @@ onMounted(() => {
 .error-icon {
   font-size: 1rem;
   margin-bottom: 1rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .empty-state {
@@ -600,7 +600,7 @@ onMounted(() => {
 .empty-icon {
   font-size: 1rem;
   margin-bottom: 1rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .empty-state h3 {
@@ -610,7 +610,7 @@ onMounted(() => {
 }
 
 .empty-state p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 2rem 0;
 }
 
@@ -640,7 +640,7 @@ onMounted(() => {
 }
 .list-count {
   font-size: 0.85rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 .list-footer-actions {
   display: flex;
@@ -648,7 +648,7 @@ onMounted(() => {
 }
 .see-more-btn {
   padding: 0.5rem 1.1rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -657,7 +657,7 @@ onMounted(() => {
   font-size: 0.85rem;
 }
 .see-more-btn:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 .see-less-btn {
   padding: 0.5rem 1.1rem;
@@ -699,7 +699,7 @@ onMounted(() => {
   min-width: 4.5rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .receipt-info {
@@ -715,7 +715,7 @@ onMounted(() => {
 
 .receipt-number {
   display: block;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.875rem;
   margin: 0 0 0.25rem 0;
 }
@@ -724,7 +724,7 @@ onMounted(() => {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   background: var(--bg-secondary, #f8fdf8);
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   border-radius: 0.375rem;
   font-size: 0.75rem;
 }
@@ -746,7 +746,7 @@ onMounted(() => {
 }
 
 .detail-label {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.875rem;
 }
 
@@ -760,7 +760,7 @@ onMounted(() => {
 }
 
 .detail-value.completed {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
 }
 
 .detail-break {
@@ -814,7 +814,7 @@ onMounted(() => {
 
 .receipt-modal-header p {
   margin: 0.35rem 0 0;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .receipt-modal-grid {
@@ -851,12 +851,12 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .btn-outline {
@@ -871,7 +871,7 @@ onMounted(() => {
 
 .btn-ghost {
   background: transparent;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   border: none;
 }
 

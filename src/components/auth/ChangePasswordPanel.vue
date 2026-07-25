@@ -91,12 +91,12 @@ async function submit() {
 
 .sec-input:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .sec-message {
   font-size: 0.85rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   margin: 0;
 }
 
@@ -113,7 +113,7 @@ async function submit() {
 .security-button {
   padding: 0.5rem 1rem;
   border: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   border-radius: 8px;
   font-weight: 600;

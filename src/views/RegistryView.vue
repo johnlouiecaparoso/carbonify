@@ -221,7 +221,7 @@ onMounted(async () => {
   padding: 0 1.5rem;
 }
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   padding: 1.25rem 0;
 }
 .page-title {
@@ -328,7 +328,7 @@ onMounted(async () => {
   font-size: 0.8rem;
 }
 .verify-link {
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -339,7 +339,7 @@ onMounted(async () => {
   margin-top: 0.75rem;
 }
 .btn-more {
-  color: #069e2d;
+  color: #058526;
   border-color: #bbf7d0;
   background: #f0fdf4;
 }

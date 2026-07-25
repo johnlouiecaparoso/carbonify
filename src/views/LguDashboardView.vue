@@ -823,7 +823,7 @@ loadRecords()
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   padding: 1.25rem 0;
 }
@@ -861,9 +861,9 @@ loadRecords()
 }
 
 .tab.active {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .panel {
@@ -996,7 +996,7 @@ loadRecords()
 }
 
 .proj-link {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
   text-decoration: none;
 }
@@ -1106,7 +1106,7 @@ loadRecords()
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .hint {
@@ -1178,7 +1178,7 @@ loadRecords()
 .result-card strong,
 .esg-card strong {
   font-size: 1.15rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .data-table {
@@ -1240,13 +1240,13 @@ loadRecords()
 
 .endorse-count {
   font-size: 0.75rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .endorse-view {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   margin-top: 0.15rem;
 }
@@ -1319,7 +1319,7 @@ loadRecords()
 
 .message {
   margin: 0.75rem 0;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 500;
 }
 
@@ -1341,7 +1341,7 @@ loadRecords()
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 

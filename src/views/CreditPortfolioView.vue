@@ -536,7 +536,7 @@ onMounted(() => {
 /* Page Header */
 .page-header {
   padding: 1.25rem 0;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   border-bottom: none;
   border-radius: 0 0 24px 24px;
   box-shadow: 0 24px 48px rgba(4, 119, 59, 0.2);
@@ -557,7 +557,7 @@ onMounted(() => {
 
 .btn-export {
   background: #ffffff;
-  color: #04773b;
+  color: #045c1a;
   border: 2px solid #ffffff;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
@@ -671,7 +671,7 @@ onMounted(() => {
 
 .stat-content p {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
 }
 
@@ -743,12 +743,12 @@ onMounted(() => {
 .credit-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 30px rgba(15, 118, 110, 0.12);
-  border-color: rgba(6, 158, 45, 0.3);
+  border-color: rgba(5, 133, 38, 0.3);
 }
 
 .credit-card.retired {
   opacity: 0.75;
-  background: rgba(6, 158, 45, 0.12);
+  background: rgba(5, 133, 38, 0.12);
 }
 
 .insights-section {
@@ -799,7 +799,7 @@ onMounted(() => {
 .insight-empty {
   padding: 1rem;
   text-align: center;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   background: var(--bg-secondary, #f8fdf8);
   border-radius: 0.75rem;
 }
@@ -820,7 +820,7 @@ onMounted(() => {
   width: 100%;
   height: 12px;
   border-radius: 999px;
-  background: rgba(6, 158, 45, 0.15);
+  background: rgba(5, 133, 38, 0.15);
   overflow: hidden;
 }
 
@@ -846,7 +846,7 @@ onMounted(() => {
 .credit-image {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
@@ -882,7 +882,7 @@ onMounted(() => {
 }
 .holdings-count {
   font-size: 0.85rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 .holdings-footer-actions {
   display: flex;
@@ -890,7 +890,7 @@ onMounted(() => {
 }
 .see-more-btn {
   padding: 0.5rem 1.1rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -899,7 +899,7 @@ onMounted(() => {
   font-size: 0.85rem;
 }
 .see-more-btn:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 .see-less-btn {
   padding: 0.5rem 1.1rem;
@@ -928,8 +928,8 @@ onMounted(() => {
 }
 
 .credit-category {
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  color: var(--primary-color, #069e2d);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  color: var(--primary-color, #058526);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.75rem;
@@ -948,7 +948,7 @@ onMounted(() => {
 
 .detail-label {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .detail-value {
@@ -958,7 +958,7 @@ onMounted(() => {
 }
 
 .detail-value.retired {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .credit-actions {
@@ -1056,7 +1056,7 @@ onMounted(() => {
 
 .transaction-date {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
 }
 
@@ -1066,7 +1066,7 @@ onMounted(() => {
 }
 
 .transaction-amount.deposit {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
 }
 
 .transaction-amount.withdrawal {
@@ -1107,8 +1107,8 @@ onMounted(() => {
 }
 
 .badge-purchase {
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  color: var(--primary-color, #069e2d);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  color: var(--primary-color, #058526);
 }
 
 .purchase-title {
@@ -1118,7 +1118,7 @@ onMounted(() => {
 
 .purchase-date {
   font-size: 0.85rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .purchase-details {
@@ -1150,14 +1150,14 @@ onMounted(() => {
 .purchase-payment {
   font-size: 0.8rem;
   text-transform: uppercase;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   letter-spacing: 0.05em;
 }
 
 .empty-history {
   text-align: center;
   padding: 1rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -1175,7 +1175,7 @@ onMounted(() => {
   width: 2rem;
   height: 2rem;
   border: 3px solid var(--border-color, #e2e8f0);
-  border-top: 3px solid var(--primary-color, #069e2d);
+  border-top: 3px solid var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem auto;
@@ -1245,14 +1245,14 @@ onMounted(() => {
 
 .error-state p,
 .empty-state p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 1rem 0;
 }
 
 .empty-transactions {
   text-align: center;
   padding: 2rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 /* Responsive Design */

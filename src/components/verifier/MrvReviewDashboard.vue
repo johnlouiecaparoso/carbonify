@@ -474,12 +474,12 @@ loadQueue()
 }
 
 .queue-item:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .queue-item.active {
   background: var(--primary-light, #e8f5e8);
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .queue-title {
@@ -701,7 +701,7 @@ loadQueue()
 }
 
 .vers-box strong {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 1.2rem;
 }
 
@@ -734,7 +734,7 @@ loadQueue()
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .hint {
@@ -751,7 +751,7 @@ loadQueue()
 
 .message {
   margin-top: 0.6rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 500;
 }
 
@@ -779,7 +779,7 @@ loadQueue()
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 

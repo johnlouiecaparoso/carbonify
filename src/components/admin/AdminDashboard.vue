@@ -204,7 +204,7 @@ async function loadStats() {
 .page-header {
   padding: 1.25rem 0 3.5rem;
   border-bottom: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
@@ -246,13 +246,13 @@ async function loadStats() {
   padding: 1.4rem 1.5rem;
   border-radius: 1rem;
   border: 1px solid #eef2f1;
-  box-shadow: 0 10px 24px rgba(6, 158, 45, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 24px rgba(5, 133, 38, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 32px rgba(6, 158, 45, 0.16);
+  box-shadow: 0 16px 32px rgba(5, 133, 38, 0.16);
 }
 
 .stat-icon {
@@ -271,7 +271,7 @@ async function loadStats() {
 
 .stat-icon.users {
   background: #e8f5e8;
-  color: #069e2d;
+  color: #058526;
 }
 .stat-icon.apps {
   background: #fef3c7;
@@ -321,7 +321,7 @@ async function loadStats() {
   padding: 1.75rem;
   border-radius: 1rem;
   border: 1px solid #eef2f1;
-  box-shadow: 0 4px 16px rgba(6, 158, 45, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 16px rgba(5, 133, 38, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .admin-section h2 {
@@ -330,7 +330,7 @@ async function loadStats() {
   font-size: 1.4rem;
   font-weight: 700;
   padding-left: 0.7rem;
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
   line-height: 1.2;
 }
 
@@ -358,7 +358,7 @@ async function loadStats() {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
   font-size: 0.85rem;
   padding: 0.5rem 0.9rem;
@@ -369,9 +369,9 @@ async function loadStats() {
 }
 
 .section-link:hover {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 </style>

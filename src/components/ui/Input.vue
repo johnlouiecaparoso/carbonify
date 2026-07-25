@@ -177,7 +177,7 @@ function togglePasswordVisibility() {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.05),
-    0 2px 6px rgba(6, 158, 45, 0.1);
+    0 2px 6px rgba(5, 133, 38, 0.1);
   backdrop-filter: blur(10px);
   box-sizing: border-box;
   overflow: hidden;
@@ -188,12 +188,12 @@ function togglePasswordVisibility() {
 /* Removed hover transform to prevent layout issues */
 
 .enhanced-input__field:focus {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: rgba(255, 255, 255, 1);
   box-shadow:
-    0 0 0 4px rgba(6, 158, 45, 0.15),
+    0 0 0 4px rgba(5, 133, 38, 0.15),
     0 8px 25px rgba(0, 0, 0, 0.1),
-    0 4px 15px rgba(6, 158, 45, 0.2);
+    0 4px 15px rgba(5, 133, 38, 0.2);
 }
 
 .enhanced-input__field::placeholder {
@@ -257,8 +257,8 @@ function togglePasswordVisibility() {
 }
 
 .enhanced-input__toggle-password:hover {
-  color: var(--primary-color, #069e2d);
-  background: rgba(6, 158, 45, 0.1);
+  color: var(--primary-color, #058526);
+  background: rgba(5, 133, 38, 0.1);
 }
 
 /* Removed hover effect to prevent layout issues */
@@ -343,7 +343,7 @@ function togglePasswordVisibility() {
   transform: none;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.05),
-    0 2px 6px rgba(6, 158, 45, 0.1);
+    0 2px 6px rgba(5, 133, 38, 0.1);
 }
 
 /* Responsive adjustments */
@@ -430,25 +430,25 @@ function togglePasswordVisibility() {
   width: 100%;
   padding: 16px 24px;
   border-radius: var(--radius-xl, 1rem);
-  border: 2px solid var(--primary-color, #069e2d);
+  border: 2px solid var(--primary-color, #058526);
   background: var(--bg-primary, #ffffff);
   outline: none;
   font-size: 16px;
   font-weight: 500;
   color: var(--text-primary, #1a202c);
   transition: all 0.3s ease;
-  box-shadow: var(--shadow-green, 0 4px 12px rgba(6, 158, 45, 0.15));
+  box-shadow: var(--shadow-green, 0 4px 12px rgba(5, 133, 38, 0.15));
 }
 
 .ui-input input:focus {
-  border-color: var(--primary-hover, #058e3f);
+  border-color: var(--primary-hover, #04701f);
   box-shadow:
-    0 0 0 4px var(--primary-light, rgba(6, 158, 45, 0.2)),
-    var(--shadow-green-lg, 0 8px 20px rgba(6, 158, 45, 0.3));
+    0 0 0 4px var(--primary-light, rgba(5, 133, 38, 0.2)),
+    var(--shadow-green-lg, 0 8px 20px rgba(5, 133, 38, 0.3));
 }
 
 .ui-input input::placeholder {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-weight: 400;
   font-style: italic;
 }

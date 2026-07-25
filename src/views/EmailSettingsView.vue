@@ -35,7 +35,7 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   border-bottom: none;
   padding: 1.25rem 0;
 }

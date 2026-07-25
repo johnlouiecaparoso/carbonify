@@ -301,9 +301,9 @@ onMounted(load)
   cursor: pointer;
 }
 .filter-chip:has(input:checked) {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: #ecfdf5;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
 }
 
@@ -398,8 +398,8 @@ onMounted(load)
   cursor: pointer;
 }
 .act.primary {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 .act.danger {

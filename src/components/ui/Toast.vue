@@ -90,7 +90,7 @@ function getTitle() {
 }
 
 .toast--success {
-  border-left: 4px solid var(--success-color, #069e2d);
+  border-left: 4px solid var(--success-color, #058526);
 }
 
 .toast--error {

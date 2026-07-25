@@ -213,7 +213,7 @@
                 role="img"
                 aria-label="Price trend over the last 90 days"
               >
-                <polyline :points="sparkline.points" fill="none" stroke="#069e2d" stroke-width="2" />
+                <polyline :points="sparkline.points" fill="none" stroke="#058526" stroke-width="2" />
               </svg>
 
               <p class="muted price-history-foot">
@@ -394,8 +394,8 @@ async function renderMap() {
   if (coords.value) {
     L.circleMarker([coords.value.lat, coords.value.lng], {
       radius: 9,
-      color: '#069e2d',
-      fillColor: '#069e2d',
+      color: '#058526',
+      fillColor: '#058526',
       fillOpacity: 0.8,
       weight: 2,
     }).addTo(map)
@@ -403,7 +403,7 @@ async function renderMap() {
 
   if (project.value?.boundary) {
     try {
-      const layer = L.geoJSON(project.value.boundary, { style: { color: '#069e2d', weight: 2, fillOpacity: 0.1 } })
+      const layer = L.geoJSON(project.value.boundary, { style: { color: '#058526', weight: 2, fillOpacity: 0.1 } })
       layer.addTo(map)
       map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 13 })
     } catch (err) {
@@ -478,7 +478,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-size: 0.85rem;
   font-weight: 600;
@@ -490,7 +490,7 @@ onBeforeUnmount(() => {
 }
 .back-link:hover {
   background: var(--bg-green-light, #e8f5e8);
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   transform: translateX(-2px);
 }
 .hero {
@@ -499,7 +499,7 @@ onBeforeUnmount(() => {
   border-radius: 1rem;
   overflow: hidden;
   max-height: 340px;
-  box-shadow: 0 16px 40px rgba(6, 158, 45, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 16px 40px rgba(5, 133, 38, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 .hero::after {
   content: '';
@@ -579,7 +579,7 @@ onBeforeUnmount(() => {
 }
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(6, 158, 45, 0.12);
+  box-shadow: 0 12px 28px rgba(5, 133, 38, 0.12);
   border-color: var(--border-green-light, #d4edda);
 }
 .card h2 {
@@ -588,7 +588,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: var(--text-primary, #1a1a1a);
   padding-left: 0.7rem;
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
   line-height: 1.2;
 }
 .trust-card {
@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
 }
 .trust-card:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 .facts {
   display: grid;
@@ -648,7 +648,7 @@ onBeforeUnmount(() => {
 }
 .chip {
   background: #e8f5e8;
-  color: #069e2d;
+  color: #058526;
   border: 1px solid #c6ecc6;
   border-radius: 999px;
   padding: 0.3rem 0.8rem;
@@ -657,9 +657,9 @@ onBeforeUnmount(() => {
   transition: all 0.15s ease;
 }
 .chip:hover {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
-  border-color: #069e2d;
+  border-color: #058526;
 }
 .docs,
 .listings {
@@ -690,7 +690,7 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 .lst-price {
-  color: #069e2d;
+  color: #058526;
   font-weight: 700;
 }
 .price-verdict {
@@ -810,18 +810,18 @@ onBeforeUnmount(() => {
   gap: 0.3rem;
   margin-top: 1rem;
   padding: 0.6rem 1.1rem;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, var(--primary-hover, #04701f) 100%);
   color: #fff;
   font-weight: 600;
   font-size: 0.875rem;
   text-decoration: none;
   border-radius: 0.6rem;
-  box-shadow: 0 4px 12px rgba(6, 158, 45, 0.25);
+  box-shadow: 0 4px 12px rgba(5, 133, 38, 0.25);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .buy-link:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(6, 158, 45, 0.32);
+  box-shadow: 0 8px 18px rgba(5, 133, 38, 0.32);
 }
 .state {
   padding: 3rem 0;

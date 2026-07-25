@@ -294,7 +294,7 @@ function reset() {
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   padding: 1.25rem 0;
 }
@@ -357,7 +357,7 @@ function reset() {
 
 .card-title .material-symbols-outlined {
   font-size: 1.25rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .card-hint {
@@ -393,8 +393,8 @@ function reset() {
 
 .form-input:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.15);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.15);
 }
 
 .fuel-row {
@@ -470,7 +470,7 @@ function reset() {
 
 .result-value.highlight {
   font-size: 1.5rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .result-note {
@@ -507,12 +507,12 @@ function reset() {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .btn:disabled {
@@ -521,7 +521,7 @@ function reset() {
 }
 
 .btn-primary:disabled:hover {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .btn-outline {

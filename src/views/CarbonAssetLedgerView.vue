@@ -243,7 +243,7 @@ onMounted(load)
   flex-wrap: wrap;
 }
 .empty-inline { text-align: center; padding: 28px 16px; color: #6b7280; }
-.empty-inline .material-symbols-outlined { font-size: 34px; color: #069e2d; }
+.empty-inline .material-symbols-outlined { font-size: 34px; color: #058526; }
 .empty-inline p { margin: 8px 0 0; }
 .page-head p {
   color: #6b7280;
@@ -339,7 +339,7 @@ onMounted(load)
   border-bottom: none;
 }
 .proj-link {
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -377,7 +377,7 @@ onMounted(load)
   margin: 12px 0 0;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -396,7 +396,7 @@ onMounted(load)
 }
 .empty-icon {
   font-size: 48px;
-  color: #069e2d;
+  color: #058526;
 }
 .empty h2 {
   margin: 12px 0 6px;

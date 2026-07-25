@@ -299,7 +299,7 @@ onMounted(load)
   margin: 6px 0 12px;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border: none;
   border-radius: 8px;

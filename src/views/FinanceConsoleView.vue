@@ -202,7 +202,7 @@ onMounted(refresh)
   padding: 0 1.5rem;
 }
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   padding: 1.25rem 0;
 }
 .page-title {

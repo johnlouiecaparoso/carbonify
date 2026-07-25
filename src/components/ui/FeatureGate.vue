@@ -52,7 +52,7 @@ const upgradeTo = computed(() => ({ name: 'upgrade', query: { feature: props.fea
 }
 .lock-icon {
   font-size: 2.25rem;
-  color: #069e2d;
+  color: #058526;
 }
 .lock-title {
   margin: 0.5rem 0 0.25rem;
@@ -66,7 +66,7 @@ const upgradeTo = computed(() => ({ name: 'upgrade', query: { feature: props.fea
 .lock-cta {
   display: inline-block;
   padding: 0.55rem 1.1rem;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border-radius: 8px;
   font-weight: 600;

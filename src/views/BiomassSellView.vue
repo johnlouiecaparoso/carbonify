@@ -260,7 +260,7 @@ onMounted(load)
 .fg input, .fg select, .fg textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
 .err-list { margin: 14px 0 0; padding-left: 18px; color: #991b1b; font-size: 0.85rem; }
 .form-actions { margin-top: 16px; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 600; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 600; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 6px 12px; font-size: 0.85rem; }
 .table-scroll { width: 100%; overflow-x: auto; }
@@ -271,7 +271,7 @@ onMounted(load)
 .badge.active { background: #d1fae5; color: #065f46; }
 .badge.inactive { background: #e5e7eb; color: #6b7280; }
 .badge.sold_out { background: #fef3c7; color: #92400e; }
-.link-btn { background: none; border: none; color: #069e2d; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.link-btn { background: none; border: none; color: #058526; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
 .modal { background: #fff; border-radius: 16px; padding: 24px; max-width: 540px; width: 100%; max-height: 90vh; overflow-y: auto; }
 @media (max-width: 640px) {

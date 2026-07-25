@@ -39,7 +39,7 @@ defineProps({
 <style scoped>
 .page-header {
   padding: 1.25rem 0;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .container {

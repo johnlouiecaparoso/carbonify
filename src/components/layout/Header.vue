@@ -765,7 +765,7 @@ watch(
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  border: 3px solid var(--primary-color, #069e2d);
+  border: 3px solid var(--primary-color, #058526);
   padding: 0.35rem;
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
@@ -788,7 +788,7 @@ watch(
 .logo-name {
   font-weight: 800;
   font-size: 1.25rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   letter-spacing: 0.05em;
   text-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
@@ -1014,7 +1014,7 @@ watch(
   min-width: 1rem;
   height: 1rem;
   border-radius: 999px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-size: 0.6rem;
   line-height: 1rem;
@@ -1251,7 +1251,7 @@ watch(
   border: 1px solid var(--border-green-light);
   border-radius: var(--radius-xl);
   box-shadow:
-    0 16px 40px rgba(6, 158, 45, 0.18),
+    0 16px 40px rgba(5, 133, 38, 0.18),
     0 4px 12px rgba(0, 0, 0, 0.06);
   z-index: 1000;
   min-width: 16rem;
@@ -2080,7 +2080,7 @@ watch(
   color: white;
   font-weight: 600;
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.2);
 }
 
 /* Mobile User Profile Section */

@@ -130,7 +130,7 @@ async function save() {
 
 .msg {
   font-size: 0.82rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   margin: 0 0 0.5rem;
 }
 
@@ -141,7 +141,7 @@ async function save() {
 .save-btn {
   padding: 0.45rem 1rem;
   border: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   border-radius: 0.4rem;
   font-weight: 600;

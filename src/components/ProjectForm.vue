@@ -1799,7 +1799,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f), var(--primary-color, #069e2d));
+  background: linear-gradient(90deg, var(--primary-color, #058526), var(--primary-hover, #04701f), var(--primary-color, #058526));
   background-size: 200% 100%;
   animation: shimmer 3s ease-in-out infinite;
 }
@@ -1888,8 +1888,8 @@ onMounted(() => {
 
 .form-select:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .form-select.error {
@@ -1912,8 +1912,8 @@ onMounted(() => {
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .form-textarea.error {
@@ -1931,7 +1931,7 @@ onMounted(() => {
 .field-help,
 .field-hint {
   margin: 4px 0 0;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
@@ -1958,11 +1958,11 @@ onMounted(() => {
 }
 
 .sdg-chip:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .sdg-chip.selected {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: #ecfdf5;
 }
 
@@ -1971,7 +1971,7 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   font-weight: 700;
   font-size: 12px;
@@ -2029,12 +2029,12 @@ onMounted(() => {
 }
 
 .form::-webkit-scrollbar-thumb {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   border-radius: 4px;
 }
 
 .form::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 /* File Upload Styles */
@@ -2054,8 +2054,8 @@ onMounted(() => {
 }
 
 .file-upload-area:hover {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
 }
 
 .file-input {
@@ -2095,7 +2095,7 @@ onMounted(() => {
 
 .upload-restrictions {
   font-size: 12px;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .file-upload-error {
@@ -2264,8 +2264,8 @@ onMounted(() => {
 }
 
 .image-upload-area:hover {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
 }
 
 .image-input {
@@ -2306,7 +2306,7 @@ onMounted(() => {
 
 .image-upload-label .upload-restrictions {
   font-size: 11px;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .image-upload-error {
@@ -2350,9 +2350,9 @@ onMounted(() => {
 }
 
 .price-input-container-enhanced:focus-within {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-primary, #ffffff);
-  box-shadow: 0 0 0 4px var(--primary-light, rgba(6, 158, 45, 0.1));
+  box-shadow: 0 0 0 4px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .currency-badge {
@@ -2361,12 +2361,12 @@ onMounted(() => {
   justify-content: center;
   min-width: 2.5rem;
   height: 2.5rem;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   color: white;
   font-weight: 700;
   font-size: 1.125rem;
   border-radius: var(--radius-sm, 0.5rem);
-  box-shadow: 0 2px 6px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 2px 6px rgba(5, 133, 38, 0.2);
   flex-shrink: 0;
 }
 
@@ -2379,7 +2379,7 @@ onMounted(() => {
 
 .helper-text {
   font-size: 0.75rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-weight: 500;
 }
 
@@ -2392,8 +2392,8 @@ onMounted(() => {
 }
 
 .price-field-enhanced:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .price-label-enhanced {
@@ -2414,9 +2414,9 @@ onMounted(() => {
   gap: 0.5rem;
   margin-top: 0.5rem;
   padding: 0.45rem 0.6rem;
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
   border-radius: var(--radius-sm, 0.5rem);
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
 }
 
 .help-icon {
@@ -2430,12 +2430,12 @@ onMounted(() => {
   justify-content: center;
   min-width: 2.5rem;
   height: 2.5rem;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   color: white;
   font-weight: 700;
   font-size: 1.125rem;
   border-radius: var(--radius-sm, 0.5rem);
-  box-shadow: 0 2px 6px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 2px 6px rgba(5, 133, 38, 0.2);
   flex-shrink: 0;
 }
 
@@ -2448,8 +2448,8 @@ onMounted(() => {
 }
 
 .credits-field-enhanced:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .credits-input-container {
@@ -2465,9 +2465,9 @@ onMounted(() => {
 }
 
 .credits-input-container:focus-within {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-primary, #ffffff);
-  box-shadow: 0 0 0 4px var(--primary-light, rgba(6, 158, 45, 0.1));
+  box-shadow: 0 0 0 4px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .currency-symbol {
@@ -2547,8 +2547,8 @@ onMounted(() => {
 }
 
 .title-field-enhanced:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .title-label-enhanced {
@@ -2569,7 +2569,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--primary-color, #069e2d), transparent);
+  background: linear-gradient(90deg, var(--primary-color, #058526), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -2595,7 +2595,7 @@ onMounted(() => {
   bottom: 0;
   left: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(90deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   transition: width 0.3s ease;
   opacity: 0.3;
 }
@@ -2632,8 +2632,8 @@ onMounted(() => {
 }
 
 .project-title-card:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .project-title-label {
@@ -2673,14 +2673,14 @@ onMounted(() => {
 }
 
 .upload-dropzone:hover {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
 }
 
 .upload-dropzone.dragging {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  box-shadow: 0 0 10px rgba(6, 158, 45, 0.2);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  box-shadow: 0 0 10px rgba(5, 133, 38, 0.2);
 }
 
 .upload-loading {
@@ -2700,7 +2700,7 @@ onMounted(() => {
 
 .loading-spinner {
   border: 4px solid rgba(0, 0, 0, 0.1);
-  border-left-color: var(--primary-color, #069e2d);
+  border-left-color: var(--primary-color, #058526);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -2725,7 +2725,7 @@ onMounted(() => {
   justify-content: center;
   font-size: 1.75rem;
   margin-bottom: 0.35rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .document-icon {
@@ -2733,7 +2733,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   margin-right: 0.75rem;
 }
 
@@ -2794,14 +2794,14 @@ onMounted(() => {
 }
 
 .doc-card:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-secondary, #f8fdf8);
-  box-shadow: 0 6px 16px rgba(6, 158, 45, 0.12);
+  box-shadow: 0 6px 16px rgba(5, 133, 38, 0.12);
   transform: translateY(-1px);
 }
 
 .doc-card.filled {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
 }
 
@@ -2814,15 +2814,15 @@ onMounted(() => {
   flex-shrink: 0;
   border-radius: 0.6rem;
   background: var(--bg-muted, #e8f5e8);
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .doc-card:hover .doc-card-status {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .doc-card.filled .doc-card-status {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 
@@ -2857,7 +2857,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   background: var(--bg-muted, #eef2f1);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
@@ -2879,7 +2879,7 @@ onMounted(() => {
 }
 
 .doc-complete-hint {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .doc-missing-hint .material-symbols-outlined,
@@ -2897,12 +2897,12 @@ onMounted(() => {
   margin-top: 0.3rem;
   font-size: 0.76rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   word-break: break-word;
 }
 
 .doc-card:not(.filled) .doc-card-file {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-weight: 500;
 }
 
@@ -2914,7 +2914,7 @@ onMounted(() => {
 
 .subsection-hint {
   margin: 0;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
@@ -2946,8 +2946,8 @@ onMounted(() => {
 
 .credibility-select:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 /* UiInput ships a taller, heavier field (0.75rem padding, 2px border, drop
@@ -2967,14 +2967,14 @@ onMounted(() => {
 }
 
 .form :deep(.enhanced-input__field:focus) {
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .credit-card {
   background: #ffffff;
   border-radius: 14px;
   border: 1px solid rgba(5, 150, 105, 0.12);
-  box-shadow: 0 4px 14px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 4px 14px rgba(5, 133, 38, 0.1);
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -2990,7 +2990,7 @@ onMounted(() => {
 
 .credit-card-icon {
   font-size: 1.6rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .credit-card-title {
@@ -3014,7 +3014,7 @@ onMounted(() => {
   height: 2.5rem;
   border-radius: 12px;
   background: rgba(16, 185, 129, 0.12);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
 }
 
@@ -3031,7 +3031,7 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   background: rgba(16, 185, 129, 0.12);
-  color: #04773b;
+  color: #045c1a;
   padding: 0.5rem 0.75rem;
   border-radius: 10px;
   font-size: 0.9rem;

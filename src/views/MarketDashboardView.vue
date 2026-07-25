@@ -110,7 +110,7 @@ onMounted(async () => {
   padding: 0 1.5rem;
 }
 .market-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   padding: 1.25rem 0;
   color: #fff;
 }
@@ -229,7 +229,7 @@ onMounted(async () => {
   display: inline-block;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   text-decoration: none;

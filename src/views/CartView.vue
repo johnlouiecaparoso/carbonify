@@ -206,7 +206,7 @@ onMounted(() => {
 .browse-link {
   display: inline-block;
   margin-top: 0.75rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -336,7 +336,7 @@ onMounted(() => {
   padding: 0.75rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 700;
   cursor: pointer;

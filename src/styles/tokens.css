@@ -16,10 +16,25 @@
  * ==========================================================================*/
 
 :root {
-  /* Core Green Colors */
-  --primary-color: #069e2d;
-  --primary-hover: #058e3f;
-  --primary-dark: #04773b;
+  /* Core Green Colors
+   *
+   * Contrast against white, which is what every green page banner, primary
+   * button and badge puts on top of these. All three clear the WCAG AA 4.5:1
+   * floor for normal text, so the 0.95rem banner subtitle is legible:
+   *   --primary-color  4.78:1   --primary-hover  6.28:1   --primary-dark  8.23:1
+   *
+   * The ramp was darkened wholesale on 2026-07-26 (was #069e2d / #058e3f /
+   * #04773b). The old --primary-color measured 3.54:1 — it passed AA only for
+   * large text, so every banner title was fine and every banner subtitle was
+   * not. Keep the ordering primary > hover > dark in lightness: the old pair
+   * would have inverted if only --primary-color had been darkened, making the
+   * hover state lighter than the resting state.
+   *
+   * Guarded by src/test/styles/tokenContrast.test.js — it parses this file, so
+   * editing a value here to something that fails AA fails the suite. */
+  --primary-color: #058526;
+  --primary-hover: #04701f;
+  --primary-dark: #045c1a;
   --primary-light: #e8f5e8;
   --primary-lighter: #f0f9f0;
   --primary-lightest: #f8fdf8;
@@ -27,13 +42,12 @@
   /* Text Colors */
   --text-primary: #1a1a1a;
   --text-secondary: #4a5568;
-  /* NOTE: #718096 measures 4.02:1 on white — just under the WCAG AA 4.5:1 floor
-     for normal text. Darkening it to #64748b (4.76:1) would fix that everywhere
-     at once, but it restyles every role's muted text, so it is called out here
-     rather than changed silently. */
-  --text-muted: #718096;
+  /* Darkened 2026-07-26 in the same pass as the green ramp above. The previous
+     value measured 4.02:1 on white — under the AA 4.5:1 floor — and this token
+     backs ~150 muted labels across every role. #64748b is 4.76:1. */
+  --text-muted: #64748b;
   --text-light: #ffffff;
-  --text-green: #04773b;
+  --text-green: #045c1a;
 
   /* Background Colors - White & Green Theme */
   --bg-primary: #ffffff;
@@ -41,14 +55,14 @@
   --bg-tertiary: #f0f9f0;
   --bg-muted: #e8f5e8;
   --bg-accent: #d4edda;
-  --bg-green: #069e2d;
+  --bg-green: #058526;
   --bg-green-light: #e8f5e8;
-  --bg-green-dark: #04773b;
+  --bg-green-dark: #045c1a;
 
   /* Border Colors */
   --border-color: #d1e7dd;
   --border-light: #e8f5e8;
-  --border-green: #069e2d;
+  --border-green: #058526;
   --border-green-light: #d4edda;
 
   /* Spacing */
@@ -66,15 +80,15 @@
   --radius-xl: 0.75rem;
 
   /* Shadows with Green Tints */
-  --shadow-sm: 0 1px 2px rgba(6, 158, 45, 0.1);
-  --shadow-md: 0 4px 6px rgba(6, 158, 45, 0.15);
-  --shadow-lg: 0 10px 15px rgba(6, 158, 45, 0.2);
-  --shadow-xl: 0 20px 25px rgba(6, 158, 45, 0.25);
-  --shadow-green: 0 4px 12px rgba(6, 158, 45, 0.3);
-  --shadow-green-lg: 0 8px 24px rgba(6, 158, 45, 0.4);
+  --shadow-sm: 0 1px 2px rgba(5, 133, 38, 0.1);
+  --shadow-md: 0 4px 6px rgba(5, 133, 38, 0.15);
+  --shadow-lg: 0 10px 15px rgba(5, 133, 38, 0.2);
+  --shadow-xl: 0 20px 25px rgba(5, 133, 38, 0.25);
+  --shadow-green: 0 4px 12px rgba(5, 133, 38, 0.3);
+  --shadow-green-lg: 0 8px 24px rgba(5, 133, 38, 0.4);
 
   /* Status Colors */
-  --success-color: #069e2d;
+  --success-color: #058526;
   --success-light: #d4edda;
   --warning-color: #ffc107;
   --warning-light: #fff3cd;

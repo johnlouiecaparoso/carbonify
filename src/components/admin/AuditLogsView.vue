@@ -247,7 +247,7 @@ onMounted(() => {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
@@ -292,7 +292,7 @@ onMounted(() => {
 
 .refresh-btn {
   padding: 0.75rem 1.5rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 8px;
@@ -405,7 +405,7 @@ th {
 
 .see-more-btn {
   padding: 0.5rem 1.1rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   border: none;
   border-radius: 8px;

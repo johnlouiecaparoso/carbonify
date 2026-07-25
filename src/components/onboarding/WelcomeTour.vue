@@ -173,10 +173,10 @@ onBeforeUnmount(() => {
   transition: background 0.2s ease;
 }
 .tour-dot.active {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 .tour-dot.done {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .tour-title {
@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
 }
 
 .tour-next {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -229,7 +229,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .tour-next:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .tour-step-count {

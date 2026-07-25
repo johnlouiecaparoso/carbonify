@@ -269,7 +269,7 @@ onMounted(load)
 .browse-link {
   display: inline-block;
   margin-top: 0.75rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -301,8 +301,8 @@ onMounted(load)
   cursor: pointer;
 }
 .filter-tab.active {
-  background: #069e2d;
-  border-color: #069e2d;
+  background: #058526;
+  border-color: #058526;
   color: #fff;
 }
 .retry-error {
@@ -424,7 +424,7 @@ onMounted(load)
   cursor: not-allowed;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
 }
 .btn-outline {
@@ -461,7 +461,7 @@ onMounted(load)
 }
 .see-more-btn {
   padding: 0.5rem 1.1rem;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -470,7 +470,7 @@ onMounted(load)
   font-size: 0.85rem;
 }
 .see-more-btn:hover {
-  background: #058e3f;
+  background: #04701f;
 }
 .see-less-btn {
   padding: 0.5rem 1.1rem;

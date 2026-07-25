@@ -643,7 +643,7 @@ onMounted(async () => {
   width: 50px;
   height: 50px;
   border: 4px solid #e5e7eb;
-  border-top: 4px solid var(--primary-color, #069e2d);
+  border-top: 4px solid var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -1108,7 +1108,7 @@ body {
 .input textarea:focus {
   border-color: var(--primary-color);
   box-shadow:
-    0 0 0 3px rgba(6, 158, 45, 0.1),
+    0 0 0 3px rgba(5, 133, 38, 0.1),
     var(--shadow-md);
   background: var(--bg-primary);
 }
@@ -1293,7 +1293,7 @@ body {
 .footer-copy {
   margin: 0;
   font-size: 0.8125rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .footer-links {
@@ -1307,7 +1307,7 @@ body {
 .footer-link {
   background: none;
   border: none;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
@@ -1317,12 +1317,12 @@ body {
 }
 
 .footer-link:hover {
-  color: var(--primary-dark, #04773b);
+  color: var(--primary-dark, #045c1a);
   text-decoration: underline;
 }
 
 .footer-sep {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.75rem;
 }
 
@@ -1391,7 +1391,7 @@ body {
 .policy-close-btn {
   background: var(--bg-secondary, #f8fdf8);
   border: 1px solid var(--border-color, #d1e7dd);
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   width: 2rem;
   height: 2rem;
   border-radius: 0.5rem;
@@ -1435,12 +1435,12 @@ body {
 }
 
 .policy-tab:hover {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .policy-tab.active {
-  color: var(--primary-color, #069e2d);
-  border-bottom-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
+  border-bottom-color: var(--primary-color, #058526);
 }
 
 .policy-modal-body {
@@ -1475,7 +1475,7 @@ body {
 .policy-section h3 {
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   margin: 0 0 0.3rem;
 }
 
@@ -1502,7 +1502,7 @@ body {
 /* Green footer */
 .policy-modal-footer {
   padding: 1rem 1.5rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1519,7 +1519,7 @@ body {
 .policy-accept-btn {
   padding: 0.6rem 1.75rem;
   background: #fff;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   border: none;
   border-radius: 0.5rem;
   font-size: 0.875rem;

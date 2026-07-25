@@ -161,7 +161,7 @@ onMounted(load)
 .doc-list li:first-child { border-top: none; }
 
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty p { margin: 12px auto 0; max-width: 440px; }
 .foot { margin-top: 16px; }
 

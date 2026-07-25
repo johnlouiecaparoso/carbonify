@@ -141,7 +141,7 @@ function scrollToSignup() {
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   /* Sticky on desktop so the brand panel stays visible while the taller
      register form scrolls on its own side. */
@@ -308,13 +308,13 @@ function scrollToSignup() {
 
 .role-card:hover,
 .role-card:focus-visible {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: #f0fdf4;
   transform: translateY(-1px);
 }
 
 .role-card__icon {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 1.5rem;
   flex-shrink: 0;
 }
@@ -374,7 +374,7 @@ function scrollToSignup() {
 }
 
 .muted-link {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-weight: 500;
   font-size: 0.875rem;
@@ -384,7 +384,7 @@ function scrollToSignup() {
 }
 
 .muted-link:hover {
-  color: var(--primary-hover, #058e3f);
+  color: var(--primary-hover, #04701f);
 }
 
 /* Mobile responsive adjustments */

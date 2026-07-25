@@ -88,7 +88,7 @@ onMounted(async () => {
 .callback-link {
   display: inline-block;
   margin-top: 1rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -97,7 +97,7 @@ onMounted(async () => {
   height: 40px;
   margin: 0 auto;
   border: 3px solid #d1fae5;
-  border-top-color: #069e2d;
+  border-top-color: #058526;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

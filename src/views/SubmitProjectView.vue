@@ -298,10 +298,10 @@ onMounted(async () => {
   padding: 1.25rem 0;
   border-bottom: none;
   /* The one green banner, identical to components/layout/PageHeader.vue. This
-     page previously used --primary-dark (#04773b) for subtitle contrast, which
+     page previously used --primary-dark (#045c1a) for subtitle contrast, which
      made it visibly darker than every other page; the contrast gap is real but
      app-wide, so it belongs in the token, not in one view. */
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
@@ -362,7 +362,7 @@ onMounted(async () => {
 }
 
 .fees-card {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .fees-list {
@@ -385,7 +385,7 @@ onMounted(async () => {
 }
 
 .fees-list strong {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   white-space: nowrap;
 }
 
@@ -407,7 +407,7 @@ onMounted(async () => {
   content: '✓';
   position: absolute;
   left: 0;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: bold;
 }
 
@@ -427,7 +427,7 @@ onMounted(async () => {
 .step-number {
   width: 1.75rem;
   height: 1.75rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -447,7 +447,7 @@ onMounted(async () => {
 
 .step-content p {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
   line-height: 1.4;
 }
@@ -464,7 +464,7 @@ onMounted(async () => {
   display: inline-block;
   text-align: center;
   text-decoration: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 0.5rem;
@@ -475,7 +475,7 @@ onMounted(async () => {
 }
 
 .help-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
   transform: translateY(-1px);
 }
 
@@ -539,7 +539,7 @@ onMounted(async () => {
 }
 
 .success-card-header {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, var(--primary-hover, #04701f) 100%);
   padding: 1.5rem 1.5rem;
   text-align: center;
   color: white;
@@ -607,7 +607,7 @@ onMounted(async () => {
   padding: 0.75rem;
   background: var(--bg-secondary, #f8fdf8);
   border-radius: 0.5rem;
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
   transition: all 0.2s ease;
 }
 

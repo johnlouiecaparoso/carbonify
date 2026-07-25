@@ -768,10 +768,10 @@ onMounted(async () => {
 
 .page-header {
   padding: 1.25rem 0;
-  /* Brand green (#069e2d) gives white body text only 3.5:1 — fine for the large
+  /* Brand green (#058526) gives white body text only 3.5:1 — fine for the large
      title, a WCAG AA failure for the description under it. --primary-dark is the
      same hue at 5.7:1, so both pass without leaving the palette. */
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
@@ -862,7 +862,7 @@ onMounted(async () => {
 }
 
 .summary-card:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   transform: translateY(-1px);
 }
 
@@ -917,14 +917,14 @@ onMounted(async () => {
 }
 
 .status-tab.active {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
   background: #ecfdf5;
 }
 
 .submit-btn {
   border: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   padding: 0.65rem 1rem;
   border-radius: 10px;
@@ -1058,7 +1058,7 @@ onMounted(async () => {
 }
 
 .row-summary:focus-visible {
-  outline: 2px solid var(--primary-color, #069e2d);
+  outline: 2px solid var(--primary-color, #058526);
   outline-offset: -2px;
 }
 
@@ -1226,7 +1226,7 @@ onMounted(async () => {
 }
 .empty-hero__icon {
   font-size: 3rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 .empty-hero__title {
   margin: 0.75rem 0 0.5rem;
@@ -1294,8 +1294,8 @@ onMounted(async () => {
 }
 
 .resubmit-btn.primary {
-  background: #069e2d;
-  border-color: #069e2d;
+  background: #058526;
+  border-color: #058526;
   color: #fff;
 }
 
@@ -1324,7 +1324,7 @@ onMounted(async () => {
   padding: 0;
   font-weight: 600;
   font-size: 0.85rem;
-  color: #069e2d;
+  color: #058526;
   cursor: pointer;
   text-decoration: none;
 }

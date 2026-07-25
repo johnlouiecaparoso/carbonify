@@ -263,8 +263,8 @@ code {
   gap: 6px;
 }
 .tab.active {
-  background: var(--primary-color, #069e2d);
-  border-color: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
+  border-color: var(--primary-color, #058526);
   color: #fff;
 }
 .tab-count {

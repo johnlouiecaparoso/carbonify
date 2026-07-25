@@ -1336,7 +1336,7 @@ export default {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   margin-bottom: 2rem;
 }
 
@@ -1785,7 +1785,7 @@ export default {
 .form-input:focus,
 .form-textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .form-input:disabled,

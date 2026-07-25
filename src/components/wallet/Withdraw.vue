@@ -383,7 +383,7 @@ loadBalance()
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(6, 158, 45, 0.12);
+  background: rgba(5, 133, 38, 0.12);
   color: var(--carbonify-primary-600, #047857);
   font-size: 22px;
 }

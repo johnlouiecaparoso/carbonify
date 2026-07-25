@@ -295,8 +295,8 @@ async function handleSubmit() {
 }
 
 .password-toggle:hover {
-  color: #069e2d;
-  background: rgba(6, 158, 45, 0.1);
+  color: #058526;
+  background: rgba(5, 133, 38, 0.1);
 }
 
 .error-message {
@@ -331,7 +331,7 @@ async function handleSubmit() {
 .submit-button {
   width: 100%;
   padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, #069e2d 0%, #058e3f 100%);
+  background: linear-gradient(135deg, #058526 0%, #04701f 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -343,12 +343,12 @@ async function handleSubmit() {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 4px 12px rgba(6, 158, 45, 0.3);
+  box-shadow: 0 4px 12px rgba(5, 133, 38, 0.3);
 }
 
 .submit-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(6, 158, 45, 0.4);
+  box-shadow: 0 6px 20px rgba(5, 133, 38, 0.4);
 }
 
 .submit-button:active:not(:disabled) {

@@ -175,8 +175,8 @@ onMounted(load)
   gap: 6px;
 }
 .tab.active {
-  background: var(--primary-color, #069e2d);
-  border-color: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
+  border-color: var(--primary-color, #058526);
   color: #fff;
 }
 .tab-count {
@@ -293,7 +293,7 @@ onMounted(load)
   cursor: not-allowed;
 }
 .btn.approve {
-  background: var(--success-color, #069e2d);
+  background: var(--success-color, #058526);
   color: #fff;
 }
 .btn.reject {

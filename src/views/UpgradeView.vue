@@ -245,10 +245,10 @@ async function subscribe(planKey) {
   flex-direction: column;
 }
 .plan-card.paid {
-  border-color: #069e2d;
+  border-color: #058526;
 }
 .plan-card.current {
-  outline: 2px solid #069e2d;
+  outline: 2px solid #058526;
 }
 .plan-name {
   font-size: 1.2rem;
@@ -286,14 +286,14 @@ async function subscribe(planKey) {
   content: '✓';
   position: absolute;
   left: 0;
-  color: #069e2d;
+  color: #058526;
   font-weight: 700;
 }
 .plan-cta {
   padding: 0.7rem 1rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   font-size: 0.9rem;

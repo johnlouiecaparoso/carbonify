@@ -79,7 +79,7 @@ const showConfirmBanner = computed(() => route.query.confirm === '1')
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   /* Sticky on desktop so the brand panel stays visible while the form side
      scrolls if content ever exceeds the viewport. */
@@ -200,10 +200,10 @@ const showConfirmBanner = computed(() => route.query.confirm === '1')
 .success-banner {
   margin: 0 0 1.5rem 0;
   padding: 1rem 1.25rem;
-  border: 1px solid var(--primary-color, #069e2d);
+  border: 1px solid var(--primary-color, #058526);
   border-radius: 16px;
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  color: var(--primary-dark, #04773b);
+  color: var(--primary-dark, #045c1a);
   font-weight: 600;
   font-size: 0.875rem;
   display: flex;
@@ -214,7 +214,7 @@ const showConfirmBanner = computed(() => route.query.confirm === '1')
 
 .success-banner::before {
   content: '✓';
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border-radius: 50%;
   width: 22px;
@@ -266,7 +266,7 @@ const showConfirmBanner = computed(() => route.query.confirm === '1')
 }
 
 .muted-link {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-weight: 500;
   font-size: 0.875rem;
@@ -277,7 +277,7 @@ const showConfirmBanner = computed(() => route.query.confirm === '1')
 }
 
 .muted-link:hover {
-  color: var(--primary-hover, #058e3f);
+  color: var(--primary-hover, #04701f);
 }
 
 /* Mobile responsive adjustments */

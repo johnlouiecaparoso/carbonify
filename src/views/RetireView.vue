@@ -632,7 +632,7 @@ onMounted(() => {
 /* Page Header */
 .page-header {
   padding: 1.25rem 0;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   border-bottom: none;
 }
 
@@ -690,7 +690,7 @@ onMounted(() => {
 
 .generate-cert-btn {
   padding: 0.5rem 1rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: var(--radius-md, 0.5rem);
@@ -750,7 +750,7 @@ onMounted(() => {
 .form-select:focus,
 .form-textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .input-help {
@@ -895,7 +895,7 @@ onMounted(() => {
 
 .history-item:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .purchase-item {
@@ -903,7 +903,7 @@ onMounted(() => {
 }
 
 .retirement-item {
-  border-left: 4px solid var(--success-color, #069e2d);
+  border-left: 4px solid var(--success-color, #058526);
 }
 
 .history-project-info {
@@ -923,7 +923,7 @@ onMounted(() => {
 
 .purchase-badge {
   background: var(--primary-light, #e8f5e8);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .retirement-badge {

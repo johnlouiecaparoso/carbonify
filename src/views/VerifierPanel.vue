@@ -96,7 +96,7 @@ const activeTab = ref('projects')
 }
 
 .page-header {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   padding: 1.25rem 0;
   border-bottom: none;
@@ -170,7 +170,7 @@ const activeTab = ref('projects')
   display: inline-block;
   margin-top: 1rem;
   padding: 0.75rem 1.5rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   text-decoration: none;
   border-radius: 8px;
@@ -219,8 +219,8 @@ const activeTab = ref('projects')
 }
 
 .workbench-tab.active {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
   background: #ecfdf5;
 }
 

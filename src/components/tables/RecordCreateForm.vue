@@ -306,7 +306,7 @@ export default {
 
 .form-description {
   margin: 0;
-  color: #718096;
+  color: #64748b;
   font-size: 0.875rem;
 }
 
