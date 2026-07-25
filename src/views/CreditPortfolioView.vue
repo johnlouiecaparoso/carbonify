@@ -170,8 +170,9 @@
               </button>
             </div>
 
-            <!-- Credit Cards -->
-            <div v-else class="credits-grid">
+            <!-- Credit Cards: a horizontal scroller when collapsed, the full
+                 wrapping grid once expanded via "See more". -->
+            <div v-else :class="holdingsExpanded ? 'credits-grid' : 'credits-scroller'">
               <div
                 v-for="credit in shownHoldings"
                 :key="credit.id"
@@ -231,11 +232,15 @@
                 Showing {{ shownHoldings.length }} of {{ creditPortfolio.length }}
               </span>
               <div class="holdings-footer-actions">
-                <button v-if="hasMoreHoldings" class="see-more-btn" @click="showMoreHoldings">
+                <button
+                  v-if="hasMoreHoldings && !holdingsExpanded"
+                  class="see-more-btn"
+                  @click="showMoreHoldings"
+                >
                   See more
                 </button>
                 <button
-                  v-if="visibleHoldings > HOLDINGS_PAGE_SIZE"
+                  v-if="holdingsExpanded"
                   class="see-less-btn"
                   @click="showLessHoldings"
                 >
@@ -380,20 +385,26 @@ const totalOwnedCredits = computed(() =>
   creditPortfolio.value.reduce((sum, record) => sum + (record.quantity || 0), 0),
 )
 
-// Progressive reveal for the holdings grid so a large portfolio fits the screen
-// instead of scrolling for pages. The stats and breakdowns above always use the
-// full creditPortfolio — only the rendered cards are limited.
-const HOLDINGS_PAGE_SIZE = 6
-const visibleHoldings = ref(HOLDINGS_PAGE_SIZE)
-const shownHoldings = computed(() => creditPortfolio.value.slice(0, visibleHoldings.value))
-const hasMoreHoldings = computed(() => visibleHoldings.value < creditPortfolio.value.length)
+// Holdings display: collapsed, it shows the first few cards in a single
+// horizontal scroller so a large portfolio stays compact and fits the screen;
+// "See more" expands to every card in the wrapping grid. The stats and
+// breakdowns above always use the full creditPortfolio — only the rendered
+// cards are limited.
+const COLLAPSED_COUNT = 4
+const holdingsExpanded = ref(false)
+const shownHoldings = computed(() =>
+  holdingsExpanded.value
+    ? creditPortfolio.value
+    : creditPortfolio.value.slice(0, COLLAPSED_COUNT),
+)
+const hasMoreHoldings = computed(() => creditPortfolio.value.length > COLLAPSED_COUNT)
 
 function showMoreHoldings() {
-  visibleHoldings.value += HOLDINGS_PAGE_SIZE
+  holdingsExpanded.value = true
 }
 
 function showLessHoldings() {
-  visibleHoldings.value = HOLDINGS_PAGE_SIZE
+  holdingsExpanded.value = false
 }
 
 const categoryBreakdown = computed(() => {
@@ -468,7 +479,7 @@ async function loadPortfolio() {
     ])
 
     creditPortfolio.value = portfolio || []
-    visibleHoldings.value = HOLDINGS_PAGE_SIZE
+    holdingsExpanded.value = false
     marketPrice.value = Number(market?.avg_price) || 0
     creditStats.value = stats || {
       total_owned: 0,
@@ -708,6 +719,22 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
+}
+
+/* Collapsed view: one horizontally-scrollable row of cards, so the first few
+   holdings stay compact and fit any screen width before "See more". */
+.credits-scroller {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.credits-scroller .credit-card {
+  flex: 0 0 clamp(280px, 80%, 340px);
+  scroll-snap-align: start;
 }
 
 .credit-card {
