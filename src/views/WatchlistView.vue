@@ -1,8 +1,8 @@
 <template>
   <div class="watchlist-view">
+    <PageHeader title="Saved" description="Listings you've saved to follow." />
+
     <div class="container">
-      <h1 class="page-title">Saved</h1>
-      <p class="page-description">Listings you've saved to follow.</p>
 
       <div v-if="loading" class="state-card">Loading your saved listings…</div>
       <div v-else-if="error" class="state-card error">{{ error }}</div>
@@ -77,6 +77,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyWatchlist,
   removeFromWatchlist,
@@ -159,12 +160,14 @@ onMounted(load)
 
 <style scoped>
 .watchlist-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
 .page-title {
   font-size: 1.8rem;

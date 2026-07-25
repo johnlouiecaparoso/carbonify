@@ -1,10 +1,11 @@
 <template>
   <div class="social-view">
+    <PageHeader
+      title="Social Impact"
+      description="Connect with the community and share your environmental impact."
+    />
+
     <div class="container">
-      <h1 class="page-title">Social Impact</h1>
-      <p class="page-description">
-        Connect with the community and share your environmental impact.
-      </p>
 
       <!-- Impact Summary -->
       <div class="impact-summary">
@@ -159,12 +160,15 @@
 </template>
 
 <script setup>
-// Social view component
+import PageHeader from '@/components/layout/PageHeader.vue'
 </script>
 
 <style scoped>
+.social-view .container {
+  padding-top: 1.5rem;
+}
 .social-view {
-  padding: 2rem 0;
+  padding: 0 0 2rem;
   min-height: 100vh;
   background: var(--bg-secondary);
 }

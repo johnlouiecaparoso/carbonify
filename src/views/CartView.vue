@@ -1,7 +1,8 @@
 <template>
   <div class="cart-view">
+    <PageHeader title="Your Cart" description="Review your items and check out." />
+
     <div class="container">
-      <h1 class="page-title">Your Cart</h1>
 
       <!-- Same KYC gate the marketplace shows; the cart checkout path used to
            skip it entirely, so the two paths enforced different rules. -->
@@ -85,6 +86,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/store/cartStore'
 import { useUserStore } from '@/store/userStore'
@@ -172,12 +174,14 @@ onMounted(() => {
 
 <style scoped>
 .cart-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
 .page-title {
   font-size: 1.8rem;

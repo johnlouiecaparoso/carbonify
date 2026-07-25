@@ -125,6 +125,17 @@ describe('AppSidebar', () => {
     expect(current).toContain('/developer/ledger')
   })
 
+  it('lights only the most specific item when paths overlap (/biomass/sell vs /biomass)', () => {
+    // /biomass/sell sits beneath /biomass but is its own nav item, so a naive
+    // prefix match lit both and made "Sell feedstock" look like "Biomass".
+    signIn(ROLES.buyer)
+    currentPath = '/biomass/sell'
+    const wrapper = mountSidebar()
+
+    const current = wrapper.findAll('.nav-item.current').map((el) => el.attributes('href'))
+    expect(current).toEqual(['/biomass/sell'])
+  })
+
   it('does not light every link when sitting on the root path', () => {
     // '/' is a prefix of every path, so a naive startsWith check lights the
     // whole sidebar at once.

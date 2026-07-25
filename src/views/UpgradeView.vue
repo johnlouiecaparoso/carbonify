@@ -1,11 +1,13 @@
 <template>
   <div class="upgrade-view">
-    <div class="container">
-      <h1 class="page-title">Upgrade your plan</h1>
-      <p class="page-description">
+    <PageHeader title="Upgrade your plan">
+      <template #description>
         You're on the <strong>{{ currentPlanName }}</strong> plan.
         Unlock advanced analytics and unlimited listings.
-      </p>
+      </template>
+    </PageHeader>
+
+    <div class="container">
 
       <div v-if="reasonText" class="reason-banner">
         <span class="material-symbols-outlined" aria-hidden="true">lock</span>
@@ -78,6 +80,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { PLANS, FREE_LISTING_LIMIT, FEATURES, getPlanDisplayName } from '@/constants/plans'
@@ -175,12 +178,14 @@ async function subscribe(planKey) {
 
 <style scoped>
 .upgrade-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
 .page-title {
   font-size: 1.8rem;

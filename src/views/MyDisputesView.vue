@@ -4,6 +4,7 @@
  * opens them) and the admin refund console (which resolves them).
  */
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyDisputes } from '@/services/disputeService'
 import { formatDate } from '@/utils/formatDate'
 
@@ -42,11 +43,12 @@ onMounted(load)
 
 <template>
   <div class="disputes-view">
+    <PageHeader
+      title="Reported problems"
+      description="Issues you've raised on your purchases, and where each one stands."
+    />
+
     <div class="container">
-      <h1 class="page-title">Reported problems</h1>
-      <p class="page-description">
-        Issues you've raised on your purchases, and where each one stands.
-      </p>
 
       <div v-if="loading" class="state-card">Loading your reports…</div>
 
@@ -101,12 +103,14 @@ onMounted(load)
 
 <style scoped>
 .disputes-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
 .page-title {
   font-size: 1.8rem;

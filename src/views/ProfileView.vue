@@ -1341,7 +1341,7 @@ export default {
 }
 
 .page-title {
-  font-size: var(--font-size-4xl, 2rem);
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
@@ -1349,7 +1349,7 @@ export default {
 }
 
 .page-description {
-  font-size: var(--font-size-lg, 1.1rem);
+  font-size: 0.95rem;
   color: #fff;
   text-align: center;
   max-width: 600px;
@@ -2129,7 +2129,7 @@ export default {
   }
 
   .page-title {
-    font-size: var(--font-size-3xl);
+    font-size: 1.35rem;
   }
 
   /* Keep the identity card compact on phones. */

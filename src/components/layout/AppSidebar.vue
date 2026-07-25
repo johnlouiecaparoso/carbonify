@@ -52,13 +52,36 @@ function handleLogout() {
 }
 
 /**
- * A link is current when the route is that path, or nested beneath it —
- * /developer/projects must stay lit while you are on /developer/projects/42.
- * The root path is matched exactly, since every path is "beneath" '/'.
+ * Every nav path that could claim the "current" highlight. Used to resolve
+ * overlaps: /biomass/sell is beneath /biomass, and /admin/users beneath /admin,
+ * so a naive prefix match lights the parent AND the child. Only the most
+ * specific (longest) matching path should win.
  */
+const navPaths = computed(() => [
+  ...sections.value.flatMap((section) => section.items.map((item) => item.path)),
+  ...accountItems.value.map((item) => item.path),
+  '/about',
+])
+
+/**
+ * The single path that owns the current-route highlight: the longest nav path
+ * the route sits on. A path matches when the route equals it or is nested
+ * beneath it (/developer/projects stays lit on /developer/projects/42); '/' only
+ * matches the route '/' exactly, since every path is "beneath" root.
+ */
+const activePath = computed(() => {
+  const current = route.path
+  let best = ''
+  for (const path of navPaths.value) {
+    const matches =
+      path === '/' ? current === '/' : current === path || current.startsWith(`${path}/`)
+    if (matches && path.length > best.length) best = path
+  }
+  return best
+})
+
 function isCurrent(path) {
-  if (path === '/') return route.path === '/'
-  return route.path === path || route.path.startsWith(`${path}/`)
+  return activePath.value === path
 }
 
 // Navigating is the end of the drawer's job. Watching the route rather than

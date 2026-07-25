@@ -6,6 +6,7 @@
  */
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyOrders,
   attachListingTitles,
@@ -117,11 +118,12 @@ onMounted(load)
 
 <template>
   <div class="orders-view">
+    <PageHeader
+      title="My orders"
+      description="Every checkout you've started, including ones that didn't go through."
+    />
+
     <div class="container">
-      <h1 class="page-title">My orders</h1>
-      <p class="page-description">
-        Every checkout you've started, including ones that didn't go through.
-      </p>
 
       <div v-if="loading" class="state-card">Loading your orders…</div>
 
@@ -241,12 +243,14 @@ onMounted(load)
 
 <style scoped>
 .orders-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
 .page-title {
   font-size: 1.8rem;
