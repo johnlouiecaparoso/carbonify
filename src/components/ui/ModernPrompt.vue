@@ -72,7 +72,7 @@ function getIcon() {
 function getIconColor() {
   const colors = {
     confirm: '#f59e0b',
-    success: '#10b981',
+    success: '#069e2d',
     error: '#ef4444',
     warning: '#f59e0b',
     info: '#3b82f6',
@@ -234,7 +234,7 @@ function formatMessage(message) {
   content: '•';
   position: absolute;
   left: 0;
-  color: #10b981;
+  color: var(--success-color, #069e2d);
   font-weight: bold;
   font-size: 1.2rem;
 }

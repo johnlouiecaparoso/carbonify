@@ -112,7 +112,7 @@ onMounted(async () => {
       L.circleMarker([coords.lat, coords.lng], {
         radius: 9,
         color: '#069e2d',
-        fillColor: '#10b981',
+        fillColor: '#069e2d',
         fillOpacity: 0.8,
         weight: 2,
       })
@@ -161,7 +161,7 @@ function escapeHtml(str) {
 }
 
 .page-header {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   padding: 1.25rem 0;
 }
 

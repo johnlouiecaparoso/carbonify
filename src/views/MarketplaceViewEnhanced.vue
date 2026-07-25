@@ -49,6 +49,10 @@
             <option value="price-low">Cheapest to Expensive</option>
             <option value="price-high">Expensive to Cheapest</option>
           </select>
+        </div>
+
+        <!-- Actions kept on their own row so the filter grid stays aligned -->
+        <div class="search-actions">
           <button
             type="button"
             class="save-search-button"
@@ -1427,7 +1431,7 @@ onUnmounted(() => {
 }
 
 .marketplace-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: var(--primary-color, #069e2d);
   color: white;
   padding: 1.5rem 0;
   text-align: center;
@@ -1445,18 +1449,30 @@ onUnmounted(() => {
   margin: 0 0 1.25rem 0;
 }
 
+/* Six filters on a fixed 3-column grid: every box is the same width and the
+   rows always line up, instead of wrapping raggedly at arbitrary widths. */
 .search-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.search-actions {
   display: flex;
   justify-content: center;
-  gap: 1rem;
   flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 960px;
+  margin: 0.75rem auto 0;
 }
 
 .search-input-wrap {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  min-width: 240px;
+  min-width: 0;
 }
 
 .search-icon {
@@ -1468,7 +1484,7 @@ onUnmounted(() => {
 
 .search-input {
   width: 100%;
-  min-width: 240px;
+  min-width: 0;
   height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 8px;
@@ -1487,13 +1503,14 @@ onUnmounted(() => {
 }
 
 .filter-select {
+  width: 100%;
   height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.2);
   color: white;
   padding: 0 0.75rem;
-  min-width: 180px;
+  min-width: 0;
 }
 
 .filter-select option {
@@ -1501,16 +1518,23 @@ onUnmounted(() => {
 }
 
 .submit-project-button {
+  height: 42px;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: white;
-  padding: 0.75rem 1.5rem;
+  padding: 0 1.5rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.submit-project-button:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .submit-project-button .material-symbols-outlined {
@@ -1518,16 +1542,19 @@ onUnmounted(() => {
 }
 
 .save-search-button {
+  height: 42px;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: white;
-  padding: 0.75rem 1.25rem;
+  padding: 0 1.25rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .save-search-button:hover:not(:disabled) {
@@ -1547,8 +1574,10 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  margin-top: 1rem;
+  max-width: 960px;
+  margin: 1rem auto 0;
 }
 
 .saved-searches-label {
@@ -2232,6 +2261,13 @@ onUnmounted(() => {
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+  .search-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 640px;
+  }
+}
+
 @media (max-width: 768px) {
   .marketplace-header {
     padding: 2rem 0;
@@ -2257,26 +2293,19 @@ onUnmounted(() => {
   }
 
   .search-controls {
-    flex-direction: column;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.65rem;
+    max-width: 320px;
   }
 
-  .search-input-wrap,
-  .filter-select {
-    width: 100%;
-    max-width: 270px;
-    min-width: 270px;
+  .search-actions {
+    flex-direction: column;
+    max-width: 320px;
   }
 
-  .search-input {
-    min-width: 0;
-  }
-
+  .save-search-button,
   .submit-project-button {
     width: 100%;
-    max-width: 270px;
-    justify-content: center;
   }
 
   .marketplace-content {
@@ -2358,11 +2387,9 @@ onUnmounted(() => {
     padding: 0 1rem;
   }
 
-  .search-input-wrap,
-  .filter-select,
-  .submit-project-button {
+  .search-controls,
+  .search-actions {
     max-width: 100%;
-    min-width: 0;
   }
 
   .projects-grid {

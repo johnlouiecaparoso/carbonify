@@ -395,7 +395,7 @@ async function renderMap() {
     L.circleMarker([coords.value.lat, coords.value.lng], {
       radius: 9,
       color: '#069e2d',
-      fillColor: '#10b981',
+      fillColor: '#069e2d',
       fillOpacity: 0.8,
       weight: 2,
     }).addTo(map)

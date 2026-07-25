@@ -116,7 +116,7 @@ function formatDate(dateString) {
 function getTransactionStatusColor(status) {
   switch (status) {
     case 'completed':
-      return '#10b981'
+      return '#069e2d'
     case 'pending':
       return '#f59e0b'
     case 'failed':
@@ -274,7 +274,7 @@ onMounted(() => {
 
 .page-header {
   padding: 1.25rem 0;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   border-bottom: none;
 }
 

@@ -442,7 +442,7 @@ onMounted(() => {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {
@@ -703,7 +703,7 @@ th {
 }
 
 .btn-primary {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
 }
 

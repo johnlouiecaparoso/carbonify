@@ -204,7 +204,7 @@ async function loadStats() {
 .page-header {
   padding: 1.25rem 0 3.5rem;
   border-bottom: none;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {

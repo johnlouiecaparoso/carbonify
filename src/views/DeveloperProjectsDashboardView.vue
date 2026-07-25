@@ -771,7 +771,7 @@ onMounted(async () => {
   /* Brand green (#069e2d) gives white body text only 3.5:1 — fine for the large
      title, a WCAG AA failure for the description under it. --primary-dark is the
      same hue at 5.7:1, so both pass without leaving the palette. */
-  background: var(--primary-dark, #04773b);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {

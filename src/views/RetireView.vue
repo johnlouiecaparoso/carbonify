@@ -632,7 +632,7 @@ onMounted(() => {
 /* Page Header */
 .page-header {
   padding: 1.25rem 0;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   border-bottom: none;
 }
 
@@ -690,7 +690,7 @@ onMounted(() => {
 
 .generate-cert-btn {
   padding: 0.5rem 1rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   border: none;
   border-radius: var(--radius-md, 0.5rem);
@@ -903,7 +903,7 @@ onMounted(() => {
 }
 
 .retirement-item {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid var(--success-color, #069e2d);
 }
 
 .history-project-info {

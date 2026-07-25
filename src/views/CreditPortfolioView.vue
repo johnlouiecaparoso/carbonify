@@ -536,7 +536,7 @@ onMounted(() => {
 /* Page Header */
 .page-header {
   padding: 1.25rem 0;
-  background: linear-gradient(135deg, var(--primary-color, #10b981), var(--primary-dark, #04773b));
+  background: var(--primary-color, #069e2d);
   border-bottom: none;
   border-radius: 0 0 24px 24px;
   box-shadow: 0 24px 48px rgba(4, 119, 59, 0.2);
@@ -1066,7 +1066,7 @@ onMounted(() => {
 }
 
 .transaction-amount.deposit {
-  color: var(--success-color, #10b981);
+  color: var(--success-color, #069e2d);
 }
 
 .transaction-amount.withdrawal {

@@ -183,7 +183,7 @@ onMounted(() => {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {
@@ -232,7 +232,7 @@ onMounted(() => {
 
 .table-card h3 {
   margin: 0 0 0.5rem 0;
-  color: var(--primary-color, #10b981);
+  color: var(--primary-color, #069e2d);
 }
 
 .table-card p {
@@ -289,7 +289,7 @@ onMounted(() => {
 
 .refresh-btn {
   padding: 0.75rem 1.5rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   border: none;
   border-radius: 8px;

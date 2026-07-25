@@ -96,7 +96,7 @@ const activeTab = ref('projects')
 }
 
 .page-header {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   padding: 1.25rem 0;
   border-bottom: none;
@@ -170,7 +170,7 @@ const activeTab = ref('projects')
   display: inline-block;
   margin-top: 1rem;
   padding: 0.75rem 1.5rem;
-  background: #10b981;
+  background: var(--primary-color, #069e2d);
   color: white;
   text-decoration: none;
   border-radius: 8px;

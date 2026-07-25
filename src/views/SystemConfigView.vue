@@ -94,7 +94,7 @@
           <p v-if="factorMsg" class="msg" :class="factorMsg.type">{{ factorMsg.text }}</p>
 
           <div v-if="factors.length === 0" class="state-card">No emission factors found.</div>
-          <div v-else class="table-scroll">
+          <CollapsibleList v-else :count="factors.length">
           <table class="factor-table">
             <thead>
               <tr>
@@ -121,7 +121,7 @@
               </tr>
             </tbody>
           </table>
-          </div>
+          </CollapsibleList>
         </section>
       </template>
     </div>
@@ -131,6 +131,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import {
   getAllSettings,
   updateSetting,
@@ -336,11 +337,6 @@ onMounted(load)
 .save-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 .factor-table {
   width: 100%;

@@ -874,7 +874,7 @@ onUnmounted(() => {
 
 /* Page Header */
 .page-header {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   padding: 1.25rem 0;
   border-bottom: none;
 }

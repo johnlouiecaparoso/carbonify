@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import {
   listRecentTransactions,
   listAllDisputes,
@@ -21,6 +22,7 @@ const refundTarget = ref(null) // transaction id
 const refundReason = ref('')
 
 const openDisputes = computed(() => disputes.value.filter((d) => d.status === 'open'))
+const resolvedDisputes = computed(() => disputes.value.filter((d) => d.status !== 'open'))
 
 function peso(n) {
   return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -122,7 +124,7 @@ onMounted(load)
 
     <!-- Transactions -->
     <section v-else-if="activeTab === 'transactions'" class="panel">
-      <div v-if="transactions.length" class="table-scroll">
+      <CollapsibleList v-if="transactions.length" :count="transactions.length">
         <table class="data-table">
           <thead>
             <tr><th>Date</th><th>Buyer</th><th>Seller</th><th>Qty</th><th>Amount</th><th>Status</th><th></th></tr>
@@ -163,13 +165,19 @@ onMounted(load)
             </template>
           </tbody>
         </table>
-      </div>
+      </CollapsibleList>
       <p v-else class="muted">No transactions.</p>
     </section>
 
     <!-- Disputes -->
     <section v-else class="panel">
-      <div v-if="openDisputes.length" class="disputes">
+      <CollapsibleList
+        v-if="openDisputes.length"
+        :count="openDisputes.length"
+        :visible="2"
+        row-selector=".dispute-card"
+      >
+      <div class="disputes">
         <article v-for="d in openDisputes" :key="d.id" class="dispute-card">
           <div class="dispute-head">
             <span class="badge open">Open</span>
@@ -186,16 +194,19 @@ onMounted(load)
           </div>
         </article>
       </div>
+      </CollapsibleList>
       <p v-else class="muted">No open disputes.</p>
 
-      <div v-if="disputes.length && disputes.length !== openDisputes.length" class="resolved">
+      <div v-if="resolvedDisputes.length" class="resolved">
         <h3>Resolved</h3>
-        <ul>
-          <li v-for="d in disputes.filter((x) => x.status !== 'open')" :key="d.id">
-            <span class="badge" :class="d.status">{{ disputeStatusLabel(d.status) }}</span>
-            {{ d.reason }} <span class="muted small">· {{ shortDate(d.resolved_at) }}</span>
-          </li>
-        </ul>
+        <CollapsibleList :count="resolvedDisputes.length" row-selector="li">
+          <ul>
+            <li v-for="d in resolvedDisputes" :key="d.id">
+              <span class="badge" :class="d.status">{{ disputeStatusLabel(d.status) }}</span>
+              {{ d.reason }} <span class="muted small">· {{ shortDate(d.resolved_at) }}</span>
+            </li>
+          </ul>
+        </CollapsibleList>
       </div>
     </section>
     </div>
@@ -252,8 +263,8 @@ code {
   gap: 6px;
 }
 .tab.active {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #069e2d);
   color: #fff;
 }
 .tab-count {
@@ -278,10 +289,6 @@ code {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 18px;
-}
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
 }
 .data-table {
   width: 100%;

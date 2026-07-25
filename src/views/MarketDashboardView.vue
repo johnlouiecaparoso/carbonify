@@ -110,7 +110,7 @@ onMounted(async () => {
   padding: 0 1.5rem;
 }
 .market-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: var(--primary-color, #069e2d);
   padding: 1.25rem 0;
   color: #fff;
 }

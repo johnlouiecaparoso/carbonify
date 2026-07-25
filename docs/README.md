@@ -1,6 +1,6 @@
 # Carbonify — Documentation Index
 
-> **Updated 2026-07-25.** This folder mixes **current** docs with **historical** planning notes kept for
+> **Updated 2026-07-26.** This folder mixes **current** docs with **historical** planning notes kept for
 > traceability. Use the current set below; anything under "Historical" carries a superseded banner.
 >
 > 🧭 **Positioning (2026-07-25):** Carbonify is a **commercial** Philippine carbon-credit registry and
@@ -24,7 +24,7 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | One deduplicated Built / Partial / To-build checklist + owner responsibilities + third-party services |
 | [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) | The plain-language system map — what it is, who uses it, tech stack |
 | [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Product, roles, credit lifecycle, money model in plain language |
-| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c closed 2026-07-25; #14 (escrow) applies during the pilot; #18 (org accounts) is new** |
+| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c closed 2026-07-25; #14 (escrow) applies during the pilot; #18 (org accounts) and #19 (header contrast) are new** |
 | [ESCROW_DECISION.md](ESCROW_DECISION.md) | Why seller proceeds are held on cards and released immediately on push payments (Option B), and the apply plan |
 | [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) | 📋 **Scoped, not started** — company/team accounts: why every account being an individual blocks corporate customers, and the 5-phase build |
 
@@ -38,7 +38,7 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md) | Why a farmer's tCO₂e is calculated the way it is |
 | [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) | Security close-out status + step-by-step test runbook |
 | [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md) | The original live click-through; breadth is now covered by the soft-launch runbook |
-| [RELEASE_NOTES.md](RELEASE_NOTES.md) | Release summary for the 2026-07-03 server-authoritative money cutover |
+| [RELEASE_NOTES.md](RELEASE_NOTES.md) | User-facing release summaries, newest first — from the 2026-07-03 money cutover through the 2026-07-26 UI consistency pass |
 
 ## 💼 Commercial
 

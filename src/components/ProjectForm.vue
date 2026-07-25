@@ -1810,7 +1810,7 @@ onMounted(() => {
 }
 
 .form-header {
-  padding: 32px 32px 0 32px;
+  padding: 20px 24px 0 24px;
   margin-bottom: 0;
   text-align: center;
   background: var(--bg-primary, #ffffff);
@@ -1819,23 +1819,23 @@ onMounted(() => {
 }
 
 .form-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
+  margin: 0 0 4px 0;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary, #1a202c);
 }
 
 .form-header p {
-  margin: 0 0 24px 0;
+  margin: 0 0 16px 0;
   color: var(--text-secondary, #4a5568);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .form {
   background: var(--bg-primary, #ffffff);
   border: none;
   border-radius: 0;
-  padding: 32px;
+  padding: 20px 24px;
   box-shadow: none;
   flex: 1;
   overflow-y: auto;
@@ -1845,30 +1845,44 @@ onMounted(() => {
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+}
+
+/* Paired short fields (dates, capacity + unit, CAPEX + OPEX) sit side by side
+   instead of each taking a full row. `.form-grid` is global (App.vue). */
+.form-grid {
+  gap: 0.75rem 1rem;
+}
+
+.form-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid .form-group {
+  margin-bottom: 0;
 }
 
 .form-spacer {
   flex: 1;
-  min-height: 2rem;
+  min-height: 0;
 }
 
 .form-label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .form-select {
   width: 100%;
-  padding: 12px 16px;
+  padding: 9px 12px;
   border: 2px solid var(--border-color, #d1e7dd);
   border-radius: var(--radius-md, 0.5rem);
   background: var(--bg-primary, #ffffff);
   color: var(--text-primary, #1a202c);
-  font-size: 16px;
+  font-size: 15px;
   transition: all 0.2s ease;
 }
 
@@ -1884,15 +1898,15 @@ onMounted(() => {
 
 .form-textarea {
   width: 100%;
-  padding: 12px 16px;
+  padding: 9px 12px;
   border: 2px solid var(--border-color, #d1e7dd);
   border-radius: var(--radius-md, 0.5rem);
   background: var(--bg-primary, #ffffff);
   color: var(--text-primary, #1a202c);
-  font-size: 16px;
+  font-size: 15px;
   font-family: inherit;
-  resize: none;
-  min-height: 120px;
+  resize: vertical;
+  min-height: 84px;
   transition: all 0.2s ease;
 }
 
@@ -1911,27 +1925,30 @@ onMounted(() => {
   color: var(--carbonify-error);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.45;
 }
 
-.field-help {
-  margin-top: 4px;
+.field-help,
+.field-hint {
+  margin: 4px 0 0;
   color: var(--text-muted, #718096);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.45;
 }
 
 .sdg-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .sdg-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
   background: #fff;
@@ -1988,10 +2005,10 @@ onMounted(() => {
 
 .form-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: flex-end;
   margin-top: auto;
-  padding: 24px 32px 32px 32px;
+  padding: 14px 24px;
   border-top: 2px solid var(--border-light, #e8f5e8);
   background: linear-gradient(to bottom, var(--bg-primary, #ffffff), var(--bg-secondary, #f8fdf8));
   flex-shrink: 0;
@@ -2305,8 +2322,8 @@ onMounted(() => {
 .credit-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 8px;
+  gap: 14px;
+  margin-top: 6px;
 }
 
 .credit-field {
@@ -2369,7 +2386,7 @@ onMounted(() => {
 .price-field-enhanced {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
@@ -2383,7 +2400,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .label-icon {
@@ -2395,8 +2412,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
   background: var(--primary-light, rgba(6, 158, 45, 0.05));
   border-radius: var(--radius-sm, 0.5rem);
   border-left: 3px solid var(--primary-color, #069e2d);
@@ -2425,7 +2442,7 @@ onMounted(() => {
 .credits-field-enhanced {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
@@ -2469,16 +2486,30 @@ onMounted(() => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .form-header {
-    padding: 24px 24px 0 24px;
+    padding: 16px 16px 0 16px;
   }
 
   .form {
-    padding: 24px;
+    padding: 16px;
+  }
+
+  /* Paired fields stack once there isn't room for two readable columns. */
+  .form-grid.two-columns,
+  .credibility-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 16px keeps iOS from zooming the viewport on focus. */
+  .form-select,
+  .form-textarea,
+  .credibility-select,
+  .form :deep(.enhanced-input__field) {
+    font-size: 16px;
   }
 
   .form-actions {
     flex-direction: column;
-    padding: 24px;
+    padding: 14px 16px;
   }
 
   .form-actions button {
@@ -2510,7 +2541,7 @@ onMounted(() => {
 .title-field-enhanced {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
@@ -2524,7 +2555,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .title-input-wrapper {
@@ -2551,8 +2582,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
   background: var(--bg-secondary, #f8fdf8);
   border-radius: var(--radius-sm, 0.5rem);
   position: relative;
@@ -2570,30 +2601,32 @@ onMounted(() => {
 }
 
 .form-subsection {
-  margin-bottom: 24px;
-  padding-bottom: 24px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .subsection-header {
   display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-bottom: 10px;
+  padding-bottom: 7px;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .subsection-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
-  margin-left: 8px;
+  margin: 0;
 }
 
 .project-title-card {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
@@ -2617,22 +2650,22 @@ onMounted(() => {
   gap: 0.5rem;
   background: rgba(37, 99, 235, 0.08);
   color: #1d4ed8;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   border-radius: 8px;
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
 }
 
 .upload-dropzone {
   position: relative;
   border: 2px dashed var(--border-color, #d1e7dd);
   border-radius: var(--radius-md, 0.5rem);
-  padding: 24px 16px;
+  padding: 12px 16px;
   text-align: center;
   background: var(--bg-secondary, #f8fdf8);
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 150px; /* Ensure a minimum height for the dropzone */
+  min-height: 104px; /* Ensure a minimum height for the dropzone */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2682,7 +2715,7 @@ onMounted(() => {
 
 .upload-placeholder {
   text-align: center;
-  padding: 2rem 1rem;
+  padding: 0.5rem 1rem;
   color: #6b7280;
 }
 
@@ -2690,8 +2723,8 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
-  margin-bottom: 0.75rem;
+  font-size: 1.75rem;
+  margin-bottom: 0.35rem;
   color: var(--primary-color, #069e2d);
 }
 
@@ -2731,27 +2764,27 @@ onMounted(() => {
 
 /* ── Required Technical & Compliance Documents ── */
 .doc-intro {
-  margin: -4px 0 16px;
-  font-size: 0.875rem;
-  line-height: 1.55;
+  margin: -2px 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
   color: var(--text-secondary, #4a5568);
   background: var(--bg-secondary, #f8fdf8);
   border: 1px solid var(--border-light, #e8f5e8);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 0.75rem 0.9rem;
+  padding: 0.55rem 0.7rem;
 }
 
 .document-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
 }
 
 .doc-card {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.9rem 1rem;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
   background: #fff;
   border: 1.5px solid var(--border-color, #e2e8f0);
   border-radius: var(--radius-md, 0.625rem);
@@ -2875,54 +2908,84 @@ onMounted(() => {
 
 .credit-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
 }
 
 .subsection-hint {
-  margin: 0.25rem 0 0;
-  color: #6b7280;
-  font-size: 0.85rem;
+  margin: 0;
+  color: var(--text-muted, #718096);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .credibility-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 0.75rem 1rem;
+}
+
+/* Grid cells own the spacing; the per-field margin would double it. */
+.credibility-grid .form-group,
+.credit-info-grid .form-group,
+.credit-grid .form-group {
+  margin-bottom: 0;
 }
 
 .credibility-select {
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid #d1d5db;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
   background: #fff;
-  font-size: 0.95rem;
-  color: #111827;
+  font-size: 15px;
+  color: var(--text-primary, #1a202c);
 }
 
 .credibility-select:focus {
   outline: none;
-  border-color: #069e2d;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  border-color: var(--primary-color, #069e2d);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+}
+
+/* UiInput ships a taller, heavier field (0.75rem padding, 2px border, drop
+   shadow) than the native selects next to it, so a select and an input in the
+   same row rendered at different heights. Normalise them inside this form. */
+.form :deep(.enhanced-input) {
+  gap: 4px;
+}
+
+.form :deep(.enhanced-input__field) {
+  padding: 9px 12px;
+  border-width: 1px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.form :deep(.enhanced-input__field:focus) {
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
 }
 
 .credit-card {
   background: #ffffff;
   border-radius: 14px;
   border: 1px solid rgba(5, 150, 105, 0.12);
-  box-shadow: 0 10px 30px rgba(6, 158, 45, 0.12);
-  padding: 1.5rem;
+  box-shadow: 0 4px 14px rgba(6, 158, 45, 0.1);
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.65rem;
 }
 
 .credit-card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+  margin-bottom: 0;
 }
 
 .credit-card-icon {
@@ -2931,7 +2994,7 @@ onMounted(() => {
 }
 
 .credit-card-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #1f2937;
 }
@@ -2959,11 +3022,8 @@ onMounted(() => {
   width: 100%;
 }
 
-.field-hint {
+.credit-field .field-hint {
   grid-column: 1 / -1;
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin-top: -0.25rem;
 }
 
 .help-card {
@@ -2972,7 +3032,7 @@ onMounted(() => {
   gap: 0.5rem;
   background: rgba(16, 185, 129, 0.12);
   color: #04773b;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 10px;
   font-size: 0.9rem;
   border: 1px solid rgba(5, 150, 105, 0.2);

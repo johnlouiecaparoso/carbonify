@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -10,9 +10,96 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **687 tests green** (was 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **693 tests green** (was 687 before the 2026-07-26 UI-consistency pass, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch (85 commits) for review; `main` is otherwise ~85 commits behind. Not merged yet.
+>
+> ### 🆕 2026-07-26 (UI consistency pass) — one green, one list pattern, one control height
+>
+> Cosmetic + component work across every role, on `feature-user-onboarding-ux`. No
+> money-path, schema or service changes; all of it is Vue/CSS. Build green, lint
+> green, **693 tests** (687 + 6 new for the extracted list component).
+>
+> **1. One brand green — 27 page banners, and 28 stray literals.** The reported symptom
+> was that Submit a Project looked darker than everything else. The scan found *four*
+> different treatments: `--primary-dark` flat (#04773b — Submit a Project, Developer
+> Projects), a `primary → primary-hover` gradient (Marketplace, Registry, Profile,
+> Calculator, LGU, Admin, Finance, Market Dashboard), a `primary → primary-dark`
+> gradient (Credit Portfolio), and a hardcoded `#069e2d → #0b7a27` (Biomass hero).
+> Thirteen more used `var(--primary-color, #10b981)` — a Tailwind emerald fallback
+> that appears nowhere in the palette. **All 27 now carry the single declaration from
+> [PageHeader.vue](../src/components/layout/PageHeader.vue): `background: var(--primary-color, #069e2d)`.**
+> Separately, `#10b981` was swept out of the rest of the app (28 occurrences) — most
+> visibly the **nav logo text and avatar ring** in [Header.vue](../src/components/layout/Header.vue),
+> which were rendering a different green from the brand on every page, plus admin
+> active tabs, the spinner, progress bars, toasts, the connection indicator, map pin
+> fills and wallet/prompt status colours. They now use `--primary-color` /
+> `--success-color` (both #069e2d).
+>
+> > ⚠️ **Known trade-off, recorded deliberately.** Submit a Project had used
+> > `--primary-dark` *for contrast*: white subtitle text is **3.5:1** on #069e2d
+> > (below the WCAG AA 4.5:1 floor) versus 5.7:1 on #04773b. Matching the app returns
+> > those two pages to 3.5:1 — the same as the other 25 banners. The gap is real but
+> > **app-wide, so it belongs in the token, not in one view**: darkening
+> > `--primary-color` in [tokens.css](../src/styles/tokens.css) fixes every banner at
+> > once. Logged as [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #19.
+>
+> **2. A reusable collapse-and-scroll list — [CollapsibleList.vue](../src/components/ui/CollapsibleList.vue).**
+> The "compact list + See more" pattern from the 2026-07-25 records compaction was
+> being re-implemented per view. It is now one component: it **measures** the rendered
+> rows (row N's bottom edge minus the viewport top, plus scroll offset) instead of
+> assuming a row height, so a wrapping row still leaves exactly N rows visible. Props
+> `count` / `visible` (default 4) / `rowSelector` (default `tbody > tr`, so card lists
+> work too); a `ResizeObserver` re-measures and the box re-collapses when the list
+> changes. Applied to **Finance Console** (transactions + reconciliation drift),
+> **Audit Logs**, **Emission Factors** (System Config) and **Refunds & Disputes**
+> (transactions, open disputes at 2, resolved). Registry's certificate table got the
+> same treatment inline earlier the same day (kept separate: its toggle reads "Show
+> more" by request).
+>
+> Two traps worth knowing if you extend this:
+> - The component **replaces** existing `.table-scroll` wrappers rather than nesting
+>   inside them. An element with `overflow-x: auto` becomes the scrolling ancestor for
+>   `position: sticky`, so wrapping one silently kills the pinned table header.
+> - Sticky `th` needs an **opaque background** or rows scroll straight through the
+>   header text. Three of the four tables had none (Audit Logs put it on `thead`, which
+>   doesn't travel with a sticky `th`). The component supplies a default, overridable
+>   with `--collapsible-head-bg`.
+> - **Audit Logs already had a "See more"** that loads the next 25 rows — a different
+>   action. Relabelled to **"Load N more"** so two buttons don't share one name.
+>
+> **3. Marketplace filter bar realigned.** Eight controls in one `flex-wrap` row with
+> different intrinsic widths wrapped 3 / 4 / 1, and the buttons were ~46px against
+> 42px selects. The six filters are now a fixed `repeat(3, 1fr)` grid (3 → 2 → 1
+> columns), the two actions moved to their own centred row, and every control is 42px.
+> **This is why it looked wrong specifically to project developers** — the role-gated
+> *Submit Project* button was the item that pushed the grid out of alignment.
+>
+> **4. Submit a Project — density + a dead class.** `two-columns` is used four times
+> in [ProjectForm.vue](../src/components/ProjectForm.vue) (dates, capacity + unit,
+> CAPEX + OPEX) and **was never defined in any stylesheet** — every pair had been
+> stacking full-width, doubling the form's height. Defined, plus a density pass: field
+> gap 24→14px, section blocks 24→16px, form padding 32→20/24px, card padding
+> 1.25rem→0.85rem, textarea min-height 120→84px with `resize: vertical`, and the 2rem
+> `.form-spacer` above the buttons removed. Inputs stay at 15px with a mobile override
+> to 16px so iOS doesn't zoom on focus.
+>
+> **5. Credibility section (same form) — helper text unified.** `.field-help` (12px,
+> +4px), `.field-hint` (13.6px, **−4px**, different grey) and `.subsection-hint` were
+> three styles for one thing; they are now one rule. The section header's title and
+> hint had zero gap; the `UiInput` field rendered taller and heavier than the selects
+> beside it (0.75rem/2px/10px vs 0.6rem/1px/8px) — normalised via a scoped `:deep()`.
+> Grid is now three explicit columns instead of `auto-fit`, which had broken 2-then-1.
+>
+> **6. LGU land-use tab.** `.results` shared a `justify-content: space-between` flex
+> rule with `.esg-header`, so the tiles sized to their own text and drifted apart; it
+> is now a grid identical to `.esg-grid` (this also fixes the MSW Calculator's four
+> tiles). "+ Add parcel" floated a rem above the Horizon field because the field
+> carried a stray `margin-bottom`; parcel rows were doubly spaced for the same reason
+> (the file's existing `.form-grid .form-group` fix didn't match `.landuse-row`).
+> **One real bug:** parcels were keyed by array index with a Remove button, so
+> deleting a middle parcel made Vue reuse the removed row's DOM — parcels now carry a
+> stable id.
 >
 > ### 🆕 2026-07-25 (repositioning) — Carbonify is a commercial product, not an academic capstone
 >

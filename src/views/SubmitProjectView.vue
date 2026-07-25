@@ -290,17 +290,18 @@ onMounted(async () => {
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 1.5rem;
 }
 
 /* Page Header */
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  /* Matches the developer dashboard header. The old fallback (#10b981) was also
-     a third green that appears nowhere in the palette. White-on-brand-green is
-     3.5:1; --primary-dark is 5.7:1 and passes AA for the subtitle. */
-  background: var(--primary-dark, #04773b);
+  /* The one green banner, identical to components/layout/PageHeader.vue. This
+     page previously used --primary-dark (#04773b) for subtitle contrast, which
+     made it visibly darker than every other page; the contrast gap is real but
+     app-wide, so it belongs in the token, not in one view. */
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {
@@ -318,13 +319,13 @@ onMounted(async () => {
 
 /* Main Content */
 .submit-content {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .content-layout {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  gap: 1.25rem;
   align-items: start;
 }
 
@@ -342,22 +343,22 @@ onMounted(async () => {
 .info-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .info-card {
   background: var(--bg-primary, #ffffff);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 0.75rem;
-  padding: 1.5rem;
+  padding: 1rem 1.15rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .info-title {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
 }
 
 .fees-card {
@@ -395,7 +396,8 @@ onMounted(async () => {
 }
 
 .info-list li {
-  padding: 0.5rem 0;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
   color: var(--text-secondary, #4a5568);
   position: relative;
   padding-left: 1.5rem;
@@ -413,18 +415,18 @@ onMounted(async () => {
 .process-steps {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .step {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .step-number {
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   background: var(--primary-color, #069e2d);
   color: white;
   border-radius: 50%;
@@ -437,7 +439,7 @@ onMounted(async () => {
 }
 
 .step-content h4 {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
   margin: 0 0 0.25rem 0;
@@ -453,8 +455,9 @@ onMounted(async () => {
 /* Help Section */
 .help-text {
   color: var(--text-secondary, #4a5568);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   line-height: 1.5;
+  font-size: 0.9rem;
 }
 
 .help-button {
@@ -465,7 +468,7 @@ onMounted(async () => {
   color: white;
   border: none;
   border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.55rem 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;

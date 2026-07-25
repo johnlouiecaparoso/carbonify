@@ -294,7 +294,7 @@ function reset() {
 }
 
 .page-header {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: var(--primary-color, #069e2d);
   color: white;
   padding: 1.25rem 0;
 }

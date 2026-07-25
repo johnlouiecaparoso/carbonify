@@ -566,7 +566,7 @@ onMounted(() => {
 }
 
 .metric-change.positive {
-  color: #10b981;
+  color: var(--success-color, #069e2d);
 }
 
 .charts-section {
@@ -672,7 +672,7 @@ onMounted(() => {
 }
 
 .activity-value.positive {
-  color: #10b981;
+  color: var(--success-color, #069e2d);
 }
 
 .empty-activity {

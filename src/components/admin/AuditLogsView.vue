@@ -51,7 +51,7 @@
         <div v-if="loading" class="loading-state">Loading audit logs...</div>
         <div v-else-if="error" class="error-state">{{ error }}</div>
         <div v-else class="logs-table">
-          <div class="logs-table__scroll">
+          <CollapsibleList :count="visibleLogs.length">
             <table>
             <thead>
               <tr>
@@ -78,22 +78,24 @@
               </tr>
             </tbody>
             </table>
-          </div>
+          </CollapsibleList>
 
           <div v-if="logs.length === 0" class="empty-state">No audit logs found.</div>
           <div v-else-if="filteredLogs.length === 0" class="empty-state">
             No logs match the current filters.
           </div>
 
-          <!-- See more: rows reveal PAGE_SIZE at a time so a 500-row result set
-               doesn't render as one enormous page. -->
+          <!-- Rows load PAGE_SIZE at a time so a 500-row result set doesn't
+               render as one enormous page. This footer loads MORE rows into the
+               list; the "See more" toggle above expands the box around the rows
+               already loaded. -->
           <div v-else class="table-footer">
             <span class="row-count">
               Showing {{ visibleLogs.length }} of {{ filteredLogs.length }}
             </span>
             <div class="footer-actions">
               <button v-if="hasMore" class="see-more-btn" @click="showMore">
-                See more
+                Load {{ Math.min(PAGE_SIZE, filteredLogs.length - visibleLogs.length) }} more
               </button>
               <button
                 v-if="visibleCount > PAGE_SIZE"
@@ -112,6 +114,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import { searchAuditLogs } from '@/services/auditService'
 import { exportAuditLogsCsv } from '@/services/adminExportService'
 
@@ -244,7 +247,7 @@ onMounted(() => {
 .page-header {
   padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {
@@ -289,7 +292,7 @@ onMounted(() => {
 
 .refresh-btn {
   padding: 0.75rem 1.5rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   border: none;
   border-radius: 8px;
@@ -302,11 +305,6 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.logs-table__scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -407,7 +405,7 @@ th {
 
 .see-more-btn {
   padding: 0.5rem 1.1rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: #fff;
   border: none;
   border-radius: 8px;

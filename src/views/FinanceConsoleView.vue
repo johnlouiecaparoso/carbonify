@@ -59,12 +59,14 @@
         </div>
         <div v-else class="recon-bad">
           <p>⚠️ {{ drift.length }} issue{{ drift.length === 1 ? '' : 's' }} detected:</p>
-          <ul>
-            <li v-for="(d, i) in drift" :key="i">
-              <strong>{{ d.issue_type }}</strong>
-              <span class="muted"> · {{ d.ref_id }}</span> — {{ d.detail }}
-            </li>
-          </ul>
+          <CollapsibleList :count="drift.length" row-selector="li">
+            <ul>
+              <li v-for="(d, i) in drift" :key="i">
+                <strong>{{ d.issue_type }}</strong>
+                <span class="muted"> · {{ d.ref_id }}</span> — {{ d.detail }}
+              </li>
+            </ul>
+          </CollapsibleList>
         </div>
       </section>
 
@@ -75,7 +77,7 @@
         </div>
         <div v-if="loading && !transactions.length" class="state">Loading…</div>
         <div v-else-if="!transactions.length" class="state">No transactions yet.</div>
-        <div v-else class="table-scroll">
+        <CollapsibleList v-else :count="transactions.length">
           <table class="tx-table">
             <thead>
               <tr>
@@ -102,7 +104,7 @@
               </tr>
             </tbody>
           </table>
-        </div>
+        </CollapsibleList>
       </section>
     </div>
   </div>
@@ -110,6 +112,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import {
   getFinanceSummary,
   getRecentTransactions,
@@ -199,7 +202,7 @@ onMounted(refresh)
   padding: 0 1.5rem;
 }
 .page-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: var(--primary-color, #069e2d);
   padding: 1.25rem 0;
 }
 .page-title {
@@ -288,11 +291,6 @@ onMounted(refresh)
 .recon-bad ul {
   margin: 0.5rem 0 0;
   padding-left: 1.25rem;
-}
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 .tx-table {
   width: 100%;

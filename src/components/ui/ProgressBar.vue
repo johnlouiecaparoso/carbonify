@@ -83,7 +83,7 @@ const classes = computed(() => [
 }
 
 .progress-bar--success .progress-fill {
-  background: #10b981;
+  background: var(--success-color, #069e2d);
 }
 
 .progress-bar--warning .progress-fill {

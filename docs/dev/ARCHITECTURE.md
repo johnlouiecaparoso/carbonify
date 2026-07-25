@@ -50,6 +50,25 @@ Source under `src/`.
 
 Rule of thumb: **components/views never import `supabase` directly** — they call a service. Services own error handling and the shape returned to the UI.
 
+### Shared UI conventions
+
+Three things exist once and should not be hand-rolled per view. Each of these was a
+consistency bug before it was a component.
+
+| Use | Instead of |
+|---|---|
+| [`layout/PageHeader.vue`](../../src/components/layout/PageHeader.vue) — the green page banner (title / subtitle / icon / actions slot) | A per-view `.page-header`. ~30 views hand-rolled one; four different greens and two different paddings resulted. |
+| [`ui/CollapsibleList.vue`](../../src/components/ui/CollapsibleList.vue) — collapse a long list/table to its first `visible` rows in a scrollable box with a **See more** toggle | Per-view slice/`showMore` state. Pass `count`, optionally `visible` (default 4) and `rowSelector` (default `tbody > tr`; card lists pass their own). |
+| [`styles/tokens.css`](../../src/styles/tokens.css) — `--primary-color` (#069e2d) and friends | A literal hex. `#10b981` (Tailwind emerald) had spread to 28 places, including the nav logo, and reads as a visibly different green. |
+
+Two `CollapsibleList` gotchas: it **replaces** an existing `overflow-x: auto` wrapper
+rather than nesting inside one (an inner scroll container becomes the sticky ancestor
+and kills the pinned table header), and sticky `th` needs an opaque background —
+the component supplies one, overridable via `--collapsible-head-bg`.
+
+Colour contrast on the green banner is a known, tracked gap — see
+[DEFERRED_BACKLOG.md](../DEFERRED_BACKLOG.md) #19 before darkening any token.
+
 ---
 
 ## 3. Routing

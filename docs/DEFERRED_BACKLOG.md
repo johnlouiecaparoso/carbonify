@@ -14,6 +14,10 @@ Come back to this list after the phases are implemented.
 > **New 2026-07-25: #18 — no organization / company accounts.** Surfaced by the commercial
 > repositioning. Does **not** block the beta, but likely blocks the first *corporate* customer.
 > Scoped in [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
+>
+> **New 2026-07-26: #19 — white-on-green header text is 3.5:1, under the WCAG AA floor.** Surfaced by
+> the UI consistency pass, which unified all 27 page banners onto `--primary-color`. App-wide, not
+> per-view; the fix is one token in `tokens.css` plus a visual sweep. Blocks nothing.
 
 ---
 
@@ -329,3 +333,33 @@ migration set. Everything money-related keys to `auth.uid()`.
 
 **Owner decision:** whether Phases 1–3 gate the first corporate customer. They probably do — consequence
 (2) is what blocks the sale, and consequence (1) is what would lose a customer after it.
+
+---
+
+## From the 2026-07-26 UI consistency pass
+
+### 19. White-on-green header text is 3.5:1 — below the WCAG AA floor 🟡
+
+**Where:** every green page banner (27 views + [PageHeader.vue](../src/components/layout/PageHeader.vue)).
+
+White text on the brand green `--primary-color` (#069e2d) measures **3.54:1**. That passes AA for
+large text (the 1.5rem page title) but **fails the 4.5:1 floor for normal text** — which is what the
+0.95rem subtitle under every title is.
+
+**Why it is on this list rather than fixed.** Two views (Submit a Project, Developer Projects) had
+been set to `--primary-dark` (#04773b, **5.66:1**) specifically for this. That fixed the contrast on
+two pages and made them visibly darker than the other 25 — which is the inconsistency a user
+reported on 2026-07-26. Unifying them onto the brand green was the right call for consistency and
+returned those two pages to 3.5:1, the same as everywhere else. **The gap was never those two pages;
+it is app-wide.**
+
+**The fix is one line, not a per-view patch:** darken `--primary-color` in
+[tokens.css](../src/styles/tokens.css) so every banner, button and accent clears AA at once. It is
+🟡 rather than 🟢 because the token drives far more than headers — primary buttons, badges, links,
+map pins, chart series — so it needs a visual sweep, not just a find-and-replace. Anything approaching
+#04773b clears the subtitle; check the paired greens (`--primary-hover`, `--primary-dark`) stay
+distinguishable from it afterwards.
+
+**Related, already noted:** `--text-muted` (#718096) measures 4.02:1 on white — also just under the
+AA floor, and flagged in tokens.css itself. Same fix window, same reason it hasn't been changed
+silently.

@@ -143,7 +143,7 @@
           </p>
 
           <div class="landuse-parcels">
-            <div v-for="(p, i) in landParcels" :key="i" class="landuse-row">
+            <div v-for="(p, i) in landParcels" :key="p.id" class="landuse-row">
               <div class="form-group">
                 <label class="form-label" :for="`lu-type-${i}`">Land-use type</label>
                 <select :id="`lu-type-${i}`" v-model="p.type" class="form-input">
@@ -175,11 +175,11 @@
           </div>
 
           <div class="landuse-controls">
-            <button type="button" class="btn btn-outline" @click="addParcel">+ Add parcel</button>
             <div class="form-group lu-years">
               <label class="form-label" for="lu-years">Horizon (years)</label>
               <input id="lu-years" v-model.number="landYears" type="number" min="1" step="1" class="form-input" />
             </div>
+            <button type="button" class="btn btn-outline" @click="addParcel">+ Add parcel</button>
           </div>
 
           <div class="results">
@@ -489,11 +489,18 @@ const tabs = [
 const activeTab = ref('calculator')
 
 // ── Land-use carbon modeling (planning estimates) ──────────────────────────
-const landParcels = ref([{ type: 'reforestation', hectares: 0 }])
+// Each parcel carries its own id: keying the v-for by array index makes Vue
+// reuse the removed row's inputs for the parcel that shifts up into its slot.
+let parcelSeq = 0
+function newParcel() {
+  parcelSeq += 1
+  return { id: parcelSeq, type: 'reforestation', hectares: 0 }
+}
+const landParcels = ref([newParcel()])
 const landYears = ref(10)
 const landResult = computed(() => computeLandUseSequestration(landParcels.value, landYears.value))
 function addParcel() {
-  landParcels.value.push({ type: 'reforestation', hectares: 0 })
+  landParcels.value.push(newParcel())
 }
 function removeParcel(i) {
   landParcels.value.splice(i, 1)
@@ -816,7 +823,7 @@ loadRecords()
 }
 
 .page-header {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: var(--primary-color, #069e2d);
   color: #fff;
   padding: 1.25rem 0;
 }
@@ -1019,15 +1026,25 @@ loadRecords()
 }
 
 /* Land-use modeling */
+.landuse-parcels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 .landuse-row {
   display: grid;
   grid-template-columns: 2fr 1fr auto;
   gap: 1rem;
   align-items: end;
-  margin-bottom: 0.75rem;
+}
+/* The grid gap spaces these fields; the global .form-group margin would add a
+   second, invisible gutter under every row. */
+.landuse-row .form-group,
+.landuse-controls .form-group {
+  margin-bottom: 0;
 }
 .lu-remove {
-  padding-bottom: 0.6rem;
+  height: 40px;
   white-space: nowrap;
 }
 .landuse-controls {
@@ -1035,14 +1052,27 @@ loadRecords()
   align-items: flex-end;
   gap: 1rem;
   flex-wrap: wrap;
-  margin: 0.5rem 0 1.25rem;
+  margin: 1rem 0 1.25rem;
 }
 .lu-years {
-  max-width: 160px;
+  width: 160px;
+  flex-shrink: 0;
+}
+/* Bottom-aligned with the Horizon input next to it. */
+.landuse-controls .btn {
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 @media (max-width: 640px) {
   .landuse-row {
     grid-template-columns: 1fr;
+  }
+  .lu-years {
+    width: 100%;
+  }
+  .landuse-controls .btn {
+    width: 100%;
   }
 }
 
@@ -1084,7 +1114,16 @@ loadRecords()
   color: var(--text-muted, #6b7280);
 }
 
-.results,
+/* Equal-width tiles on one grid, identical to .esg-grid. As a flex row with
+   `space-between` the cards sized to their own text, so "Total area" and
+   "Annual sequestration" rendered at different widths and drifted apart. */
+.results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
 .esg-header {
   display: flex;
   align-items: flex-start;

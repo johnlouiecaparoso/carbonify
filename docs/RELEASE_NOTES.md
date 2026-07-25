@@ -1,5 +1,29 @@
 # Carbonify — Release Notes
 
+## 2026-07-26 — The same green everywhere, and shorter lists
+
+**Headline:** every page now uses one shade of green, long admin lists collapse to a few
+rows with a “See more”, and the Submit a Project form fits far more on screen.
+
+- **One green.** Some pages — Submit a Project and your Projects dashboard in particular —
+  were a noticeably darker green than the rest of the app, and the logo in the top bar was a
+  different green again. Every page banner and the navigation bar now use the same brand
+  green.
+- **Long lists stay short.** The Finance Console, Audit Logs, Emission Factors and
+  Refunds & Disputes now show a few rows at a time in a scrollable area with a **See more**
+  button, instead of running down the page. The public Registry’s certificate list works the
+  same way. Table headings stay pinned while you scroll.
+- **A tidier marketplace filter bar.** The search box, filters and buttons were wrapping into
+  uneven rows — most noticeably for project developers, whose extra “Submit Project” button
+  pushed everything out of line. Filters now sit on an even grid with the actions beneath.
+- **Submit a Project fits on screen.** Fields that were meant to sit side by side (start/end
+  dates, capacity, costs) had been stacking full-width, and the spacing between boxes was
+  larger than it needed to be. The form is now noticeably shorter without anything getting
+  harder to read, and the help text under every field is one consistent size.
+- **LGU Land Use tab.** The three result tiles are now equal width and evenly spaced, the
+  “Horizon (years)” field and “+ Add parcel” button line up, and removing a parcel no longer
+  shuffles the values in the rows beneath it.
+
 ## 2026-07-25 — New tools: fees, LGU land-use modeling, and a guided tour
 
 **Headline:** admins can set project fees, LGUs can model land-use carbon, and new users

@@ -765,7 +765,7 @@ watch(
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  border: 3px solid #10b981;
+  border: 3px solid var(--primary-color, #069e2d);
   padding: 0.35rem;
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
@@ -788,7 +788,7 @@ watch(
 .logo-name {
   font-weight: 800;
   font-size: 1.25rem;
-  color: #10b981;
+  color: var(--primary-color, #069e2d);
   letter-spacing: 0.05em;
   text-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }

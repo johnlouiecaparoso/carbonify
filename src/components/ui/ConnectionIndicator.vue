@@ -181,7 +181,7 @@ onMounted(() => {
 }
 
 .connection-indicator.connected {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid var(--success-color, #069e2d);
 }
 
 .connection-indicator.partial {
@@ -205,7 +205,7 @@ onMounted(() => {
 }
 
 .connection-indicator.connected .indicator-dot {
-  background: #10b981;
+  background: var(--success-color, #069e2d);
   animation: none;
 }
 
@@ -270,7 +270,7 @@ onMounted(() => {
 }
 
 .status-dot.connected {
-  background: #10b981;
+  background: var(--success-color, #069e2d);
 }
 
 .status-dot.warning {
