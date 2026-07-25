@@ -35,8 +35,8 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
 }
 
 .page-header {
-  background: var(--carbonify-surface);
-  border-bottom: 1px solid var(--carbonify-border);
+  background: var(--primary-color, #069e2d);
+  border-bottom: none;
   padding: 1.25rem 0;
 }
 
@@ -54,18 +54,18 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: none;
-  border: 1px solid var(--carbonify-border);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 6px;
-  color: var(--carbonify-text);
+  color: #fff;
   text-decoration: none;
   font-size: 0.9rem;
+  cursor: pointer;
   transition: all 0.2s;
 }
 
 .back-btn:hover {
-  background: var(--carbonify-bg);
-  border-color: var(--carbonify-primary);
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .back-icon {
@@ -80,12 +80,12 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
   margin: 0 0 0.5rem 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--carbonify-text);
+  color: #fff;
 }
 
 .page-description {
   margin: 0;
-  color: var(--carbonify-muted);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.95rem;
 }
 
