@@ -1,5 +1,27 @@
 # Carbonify — Release Notes
 
+## 2026-07-25 — A cleaner, more consistent interface
+
+**Headline:** every page now shares the same compact green header, the sidebar is the same
+shape for every role, and long lists stay short with a "See more" control.
+
+- **One consistent header everywhere.** Every dashboard and console now uses the same green
+  banner — including pages that previously had a plain white header (System Configuration,
+  KYB / AML / Privacy / Refunds reviews, Role Applications, Analytics, the AI Assistant, Cart,
+  Saved, Orders, Reported problems, Upgrade, and Social). The header is also **smaller**, so it
+  no longer takes up so much of the screen before your content starts.
+- **The sidebar starts the same for every role.** Your Dashboard and the Explore group
+  (marketplace, biomass, registry, map) are pinned to the top, with your role's own tools below.
+- **Fixed a confusing highlight.** Opening "Sell feedstock" no longer also lights up "Biomass"
+  in the sidebar — only the page you're on is highlighted now.
+- **Long lists stay tidy.** Your Portfolio holdings, Orders and Receipts now show a few at a
+  time in a compact scrollable area with a **See more / Show less** button, instead of running
+  down the page.
+- **"Watchlist" is now "Saved."**
+- **Carbon calculator fixes.** Negative entries can no longer cancel out your real emissions,
+  the credit count reads correctly ("1 credit", not "1 credits"), and the Buy button is disabled
+  until you've entered something.
+
 ## 2026-07-25 — Profile loading is more resilient
 
 **Headline:** a slow or failed profile load no longer makes you look like a lower-privileged

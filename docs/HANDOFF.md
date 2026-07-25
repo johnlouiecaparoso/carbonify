@@ -8,7 +8,47 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **679 tests green** (was 665 before the 2026-07-25 RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **681 tests green** (was 679 before the 2026-07-25 UX-consistency pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🆕 2026-07-25 (UX pass) — dashboard/header/nav consistency + records compaction
+>
+> Cosmetic + IA polish across every role, on `feature-user-onboarding-ux`. No
+> money-path or schema changes; all of it is Vue/CSS + navigation.
+>
+> - **One shared green header.** New [PageHeader.vue](../src/components/layout/PageHeader.vue)
+>   (title / subtitle / optional icon / actions slot) now backs every signed-in
+>   dashboard and console. ~30 views that hand-rolled their own banner — several of
+>   which had *no* green header at all (System Config, KYB/AML/Privacy/Refunds, Role
+>   Applications, Analytics, AI Assistant, Seller Earnings, Carbon Ledger, Offtakes,
+>   Data Room, Investor/MRV/Farmer/Buyer, Cart, **Saved**, Orders, Reported problems,
+>   Upgrade, Social) — were converted. Embedded panels (the verifier's tabs inside
+>   Verifier Panel) were correctly left alone.
+> - **Headers shrunk.** The banner was `2rem` padding + a 2–2.5rem title, eating the
+>   viewport; every one is now `1.25rem` padding / `1.5rem` title / `0.95rem`
+>   subtitle. A first rem-only pass missed three views whose titles used CSS tokens
+>   (`var(--font-size-4xl)` — Retire, Profile, Verifier Panel); those are pinned too.
+>   All banners resolve to the same `--primary-color` (#069e2d).
+> - **Sidebar IA.** Dashboard + Explore (marketplace-led) are pinned to the top of
+>   the sidebar for **every** role, with the role-specific workspace below
+>   ([navigation.js](../src/constants/navigation.js)).
+> - **Sidebar highlight bug fixed.** `isCurrent` used a naive prefix match, so
+>   `/biomass/sell` lit **both** "Sell feedstock" and its parent "Biomass" (and
+>   `/admin/users` lit "Admin Dashboard") — which read as "Sell feedstock takes me to
+>   Biomass". Now the longest matching nav path wins
+>   ([AppSidebar.vue](../src/components/layout/AppSidebar.vue)); covered by a new test.
+> - **Records compaction.** Portfolio holdings, Orders and Receipts render as a
+>   compact, **vertically**-scrollable list (~60vh, ~4 cards) with a **See more /
+>   Show less** toggle, so a long history no longer scrolls for pages. Portfolio
+>   stats/breakdowns still compute over the full set. Audit Logs got the same
+>   See-more treatment; User Management's table no longer clips its Actions column.
+> - **"Watchlist" → "Saved"** in all user-facing copy (route/service/DB names and the
+>   unrelated AML sanctions "watchlist" left intact).
+> - **Carbon calculator hardened:** per-source inputs clamped to ≥ 0 (a negative in
+>   one field was silently cancelling real emissions in the total), credit
+>   pluralisation, and the Buy button disabled at zero.
+>
+> Follow-ups worth a cleanup pass: the six title-page views converted to PageHeader
+> still carry orphaned `.page-title`/`.page-description` CSS (dead, harmless).
 >
 > ### 🆕 2026-07-25 — profile-fetch failure hardened, and the signup-trigger migration applied
 >
