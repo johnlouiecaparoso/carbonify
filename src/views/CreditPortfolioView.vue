@@ -173,7 +173,7 @@
             <!-- Credit Cards -->
             <div v-else class="credits-grid">
               <div
-                v-for="credit in creditPortfolio"
+                v-for="credit in shownHoldings"
                 :key="credit.id"
                 class="credit-card"
                 :class="{ retired: credit.ownership_status === 'retired' }"
@@ -223,6 +223,24 @@
                     Manage in Wallet
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div v-if="creditPortfolio.length > 0" class="holdings-footer">
+              <span class="holdings-count">
+                Showing {{ shownHoldings.length }} of {{ creditPortfolio.length }}
+              </span>
+              <div class="holdings-footer-actions">
+                <button v-if="hasMoreHoldings" class="see-more-btn" @click="showMoreHoldings">
+                  See more
+                </button>
+                <button
+                  v-if="visibleHoldings > HOLDINGS_PAGE_SIZE"
+                  class="see-less-btn"
+                  @click="showLessHoldings"
+                >
+                  Show less
+                </button>
               </div>
             </div>
           </div>
@@ -362,6 +380,22 @@ const totalOwnedCredits = computed(() =>
   creditPortfolio.value.reduce((sum, record) => sum + (record.quantity || 0), 0),
 )
 
+// Progressive reveal for the holdings grid so a large portfolio fits the screen
+// instead of scrolling for pages. The stats and breakdowns above always use the
+// full creditPortfolio — only the rendered cards are limited.
+const HOLDINGS_PAGE_SIZE = 6
+const visibleHoldings = ref(HOLDINGS_PAGE_SIZE)
+const shownHoldings = computed(() => creditPortfolio.value.slice(0, visibleHoldings.value))
+const hasMoreHoldings = computed(() => visibleHoldings.value < creditPortfolio.value.length)
+
+function showMoreHoldings() {
+  visibleHoldings.value += HOLDINGS_PAGE_SIZE
+}
+
+function showLessHoldings() {
+  visibleHoldings.value = HOLDINGS_PAGE_SIZE
+}
+
 const categoryBreakdown = computed(() => {
   const totals = new Map()
   creditPortfolio.value.forEach((record) => {
@@ -434,6 +468,7 @@ async function loadPortfolio() {
     ])
 
     creditPortfolio.value = portfolio || []
+    visibleHoldings.value = HOLDINGS_PAGE_SIZE
     marketPrice.value = Number(market?.avg_price) || 0
     creditStats.value = stats || {
       total_owned: 0,
@@ -811,6 +846,51 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-primary, #1a202c);
   margin: 0 0 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+/* See-more footer for the holdings grid */
+.holdings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.holdings-count {
+  font-size: 0.85rem;
+  color: var(--text-muted, #718096);
+}
+.holdings-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-more-btn:hover {
+  background: var(--primary-hover, #058e3f);
+}
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-less-btn:hover {
+  background: #f3f4f6;
 }
 
 .credit-location {
