@@ -4,7 +4,7 @@
  * completed. Receipts only cover successful purchases, so before this a pending
  * or failed payment was invisible to the person who made it.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   getMyOrders,
@@ -33,6 +33,26 @@ const visibleOrders = computed(() => {
   if (filter.value === 'unfinished') return orders.value.filter(isUnfinished)
   if (filter.value === 'completed') return orders.value.filter((o) => o.status === 'paid')
   return orders.value
+})
+
+// Progressive reveal: show a handful at a time so a long history fits the
+// screen instead of scrolling for pages. "See more" reveals the next batch.
+const PAGE_SIZE = 5
+const visibleCount = ref(PAGE_SIZE)
+const shownOrders = computed(() => visibleOrders.value.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < visibleOrders.value.length)
+
+function showMore() {
+  visibleCount.value += PAGE_SIZE
+}
+
+function showLess() {
+  visibleCount.value = PAGE_SIZE
+}
+
+// Switching the filter should start again from the top of the new list.
+watch(filter, () => {
+  visibleCount.value = PAGE_SIZE
 })
 
 function money(order) {
@@ -80,6 +100,7 @@ async function load() {
       getMarketplaceListings().catch(() => []),
     ])
     orders.value = attachListingTitles(rawOrders, listings)
+    visibleCount.value = PAGE_SIZE
   } catch (err) {
     console.error('Failed to load orders:', err)
     error.value = 'We could not load your orders. Please try again.'
@@ -142,7 +163,7 @@ onMounted(load)
         </p>
 
         <ul v-else class="order-list">
-          <li v-for="order in visibleOrders" :key="order.id" class="order-card">
+          <li v-for="order in shownOrders" :key="order.id" class="order-card">
             <div class="order-main">
               <div class="order-head">
                 <h2 class="order-title">{{ order.projectTitle }}</h2>
@@ -192,6 +213,22 @@ onMounted(load)
             </div>
           </li>
         </ul>
+
+        <div v-if="visibleOrders.length > 0" class="list-footer">
+          <span class="list-count">
+            Showing {{ shownOrders.length }} of {{ visibleOrders.length }}
+          </span>
+          <div class="list-footer-actions">
+            <button v-if="hasMore" class="see-more-btn" @click="showMore">See more</button>
+            <button
+              v-if="visibleCount > PAGE_SIZE"
+              class="see-less-btn"
+              @click="showLess"
+            >
+              Show less
+            </button>
+          </div>
+        </div>
       </template>
     </div>
   </div>
@@ -388,5 +425,54 @@ onMounted(load)
 .btn-ghost {
   background: transparent;
   color: #6b7280;
+}
+
+/* Never let a long project title push the card past the screen edge. */
+.order-title {
+  overflow-wrap: anywhere;
+}
+
+/* See-more footer */
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.1rem;
+}
+.list-count {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+.list-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: #069e2d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-more-btn:hover {
+  background: #058e3f;
+}
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-less-btn:hover {
+  background: #f3f4f6;
 }
 </style>

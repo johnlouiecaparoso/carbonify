@@ -130,7 +130,7 @@
           </div>
 
           <div v-else class="receipts-list">
-            <div v-for="receipt in receipts" :key="receipt.id" class="receipt-card">
+            <div v-for="receipt in shownReceipts" :key="receipt.id" class="receipt-card">
               <div class="receipt-header">
                 <div class="receipt-icon">Receipt</div>
                 <div class="receipt-info">
@@ -195,6 +195,22 @@
               </div>
             </div>
           </div>
+
+          <div v-if="receipts.length > 0" class="list-footer">
+            <span class="list-count">
+              Showing {{ shownReceipts.length }} of {{ receipts.length }}
+            </span>
+            <div class="list-footer-actions">
+              <button v-if="hasMore" class="see-more-btn" @click="showMore">See more</button>
+              <button
+                v-if="visibleCount > PAGE_SIZE"
+                class="see-less-btn"
+                @click="showLess"
+              >
+                Show less
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -218,7 +234,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getUserReceipts, downloadReceipt as downloadReceiptFile } from '@/services/receiptService'
@@ -232,6 +248,21 @@ const userStore = useUserStore()
 const receipts = ref([])
 const loading = ref(false)
 const error = ref('')
+
+// Progressive reveal so a long purchase history fits the screen; "See more"
+// reveals the next batch.
+const PAGE_SIZE = 5
+const visibleCount = ref(PAGE_SIZE)
+const shownReceipts = computed(() => receipts.value.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < receipts.value.length)
+
+function showMore() {
+  visibleCount.value += PAGE_SIZE
+}
+
+function showLess() {
+  visibleCount.value = PAGE_SIZE
+}
 const selectedReceipt = ref(null)
 const invoicingId = ref(null)
 const disputeReceipt = ref(null)
@@ -276,6 +307,7 @@ async function loadReceipts() {
   try {
     const data = await getUserReceipts(userStore.session.user.id)
     receipts.value = data || []
+    visibleCount.value = PAGE_SIZE
     syncSelectedReceiptFromRoute()
   } catch (err) {
     console.error('Error loading receipts:', err)
@@ -583,6 +615,50 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
+/* See-more footer */
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.list-count {
+  font-size: 0.85rem;
+  color: var(--text-muted, #718096);
+}
+.list-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-more-btn:hover {
+  background: var(--primary-hover, #058e3f);
+}
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-less-btn:hover {
+  background: #f3f4f6;
+}
+
 .receipt-card {
   background: var(--bg-primary, #ffffff);
   border: 1px solid var(--border-color, #d1e7dd);
@@ -665,6 +741,8 @@ onMounted(() => {
   font-weight: 500;
   font-size: 0.875rem;
   text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .detail-value.completed {
