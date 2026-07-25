@@ -61,13 +61,24 @@ describe('navigation information architecture', () => {
       expect(buildSidebar({ isAuthenticated: false })).toEqual([])
     })
 
-    it("leads with the role's own workspace, in an untitled group", () => {
+    it('leads with the Explore group, marketplace-first for buying roles', () => {
       for (const role of ROLE_KEYS) {
         const user = userWith(role)
         const [first] = buildSidebar(user)
-        expect(first.title).toBe('')
-        expect(first.items).toHaveLength(1)
-        expect(first.items[0].path).toBe(homeDestination(user).path)
+        expect(first.title).toBe('Explore')
+        // Farmers sell feedstock, so biomass leads for them; everyone else
+        // opens on the marketplace.
+        expect(first.items[0].path).toBe(user.isFarmer ? '/biomass' : '/marketplace')
+      }
+    })
+
+    it("places the role's own landing page right after Explore, in an untitled group", () => {
+      for (const role of ROLE_KEYS) {
+        const user = userWith(role)
+        const landing = buildSidebar(user)[1]
+        expect(landing.title).toBe('')
+        expect(landing.items).toHaveLength(1)
+        expect(landing.items[0].path).toBe(homeDestination(user).path)
       }
     })
 
@@ -88,12 +99,13 @@ describe('navigation information architecture', () => {
       }
     })
 
-    it('titles every group except the first', () => {
+    it('titles every group except the single untitled landing group', () => {
       for (const role of ROLE_KEYS) {
-        const [, ...rest] = buildSidebar(userWith(role))
-        for (const section of rest) {
-          expect(section.title).toBeTruthy()
-        }
+        const user = userWith(role)
+        const untitled = buildSidebar(user).filter((section) => section.title === '')
+        // Exactly one group carries no heading: the role's lone landing link.
+        expect(untitled).toHaveLength(1)
+        expect(untitled[0].items[0].path).toBe(homeDestination(user).path)
       }
     })
 
