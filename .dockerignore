@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.git
+.github
+.vscode
+.claude
+*.log
+.env
+.env.*
+playwright-report
+test-results
+lighthouse-report.html
+docs
+supabase/functions

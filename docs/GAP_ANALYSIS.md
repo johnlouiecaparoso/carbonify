@@ -30,16 +30,17 @@
 | PH-eligible project categories (biochar, WTE, agroforestry, RE, methane, industrial, coastal) | ✅ | `src/constants/mrv.js` — not generic |
 | Subscriptions (Free/Pro/Business) | 🟡 | Business tier == Pro (no distinct value yet) |
 | Email (transactional) | 🟡 | Approval email real (Resend edge fn); rest are `console.log` stubs |
-| Onboarding UX (tooltips vs guided tour) | 🟡 | Tooltips yes; no tour / LGU instructional guide |
-| LGU tools | 🟡 | MSW calc + diversion + ESG + endorsements built; **no land-use carbon modeling** |
-| AI Project Assistant | ❌ | UI shell only; no edge fn, no Anthropic SDK |
-| Monetization: onboarding fees | ❌ | To build |
-| Monetization: paid verification/certification | ❌ | To build |
-| Monetization: white-label MRV / public API | ❌ | To build |
+| Onboarding UX (guided tour) | ✅ | Role-aware WelcomeTour + LGU/coop guidance (2026-07-25) |
+| LGU tools | ✅ | MSW calc + diversion + ESG + endorsements + **land-use carbon modeling** (2026-07-25) |
+| AI Project Assistant | ❌ | UI shell only; no edge fn, no Anthropic SDK — **paused (needs key)** |
+| Monetization: onboarding fees | 🟡 | Admin config + disclosure built; **collection (PayMongo) to build** (2026-07-25) |
+| Monetization: paid verification/certification | 🟡 | Admin config + disclosure built; **collection to build** (2026-07-25) |
+| Monetization: white-label MRV / public API | 🟡 | Read-only `public-registry` edge fn scaffold; **key-gating/rate-limit to build** (2026-07-25) |
 | Blockchain tokenization / smart contracts | ⏭️ | Deferred everywhere |
 | IoT / real-time sensor MRV | ⏭️ | Code says "intentionally out of scope" |
 | AI fraud mapping | ⏭️ | |
-| Ops: Dockerfile, written DR/backup plan | ❌ | Not in repo |
+| Ops: Dockerfile | ✅ | Multi-stage Dockerfile + nginx SPA config (2026-07-25) |
+| Ops: written DR/backup plan | ❌ | Owner ops policy |
 
 ---
 
@@ -53,11 +54,13 @@ assistant needs an Anthropic API key.
 |---|---|---|---|---|
 | 0a | Finish transactional email wiring (route all through Resend edge fn) | Claude | Owner: provider/domain decision | ⏸️ Paused |
 | 0b | AI Assistant backend (edge fn + Claude API + wire existing UI) | Claude build / Owner key+deploy | Owner: Anthropic API key | ⏸️ Paused |
-| 1 | **Onboarding + verification/certification fees** (admin-configurable + collection) | Claude build / Owner sets amounts | — | ▶️ In progress |
-| 2 | **LGU land-use carbon modeling** calculator | Claude | — | ⬜ Queued |
-| 3 | **Guided onboarding tour** + LGU/coop help content | Claude | — | ⬜ Queued |
-| 4 | **White-label / public API** scaffolding (endpoints + key mgmt) | Claude build / Owner decides exposure | — | ⬜ Queued |
-| 5 | **Dockerfile** (container-ready claim) | Claude | — | ⬜ Queued |
+| 1 | **Onboarding + verification/certification fees** — admin config + disclosure | Claude | — | ✅ Done (collection still to wire) |
+| 2 | **LGU land-use carbon modeling** calculator | Claude | — | ✅ Done |
+| 3 | **Guided onboarding tour** + LGU/coop help content | Claude | — | ✅ Done |
+| 4 | **White-label / public API** — read-only `public-registry` scaffold | Claude build / Owner decides exposure | — | ✅ Scaffold done (key-gating to build) |
+| 5 | **Dockerfile** (container-ready claim) | Claude | — | ✅ Done |
+| 6 | Fee **collection** (PayMongo) for onboarding/verification | Claude build / Owner prod keys | Owner: prod keys | ⬜ Next |
+| 7 | Public API **key-gating + rate limits** | Claude build / Owner exposure decision | Owner decision | ⬜ Next |
 | — | Blockchain tokenization | Owner strategic | Owner decision | ⏭️ Deferred |
 | — | IoT / sensor MRV | Owner strategic | Owner decision + hardware | ⏭️ Deferred |
 | — | AI fraud mapping | Owner strategic | Depends on 0b | ⏭️ Deferred |
