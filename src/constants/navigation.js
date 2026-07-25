@@ -35,7 +35,7 @@ const D = {
 
   // Buying
   cart: { path: '/cart', label: 'Cart', icon: 'shopping_cart' },
-  watchlist: { path: '/watchlist', label: 'Watchlist', icon: 'bookmark' },
+  watchlist: { path: '/watchlist', label: 'Saved', icon: 'bookmark' },
   calculator: { path: '/carbon-calculator', label: 'Carbon calculator', icon: 'calculate' },
 
   // Credits

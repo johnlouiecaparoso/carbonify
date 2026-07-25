@@ -4,7 +4,7 @@
     class="watch-btn"
     :class="{ watched }"
     :aria-pressed="watched"
-    :title="watched ? 'Remove from watchlist' : 'Save to watchlist'"
+    :title="watched ? 'Remove from saved' : 'Save'"
     @click.stop.prevent="$emit('toggle')"
   >
     <span class="material-symbols-outlined heart" aria-hidden="true">

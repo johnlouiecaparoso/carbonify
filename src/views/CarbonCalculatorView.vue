@@ -137,14 +137,23 @@
               <span class="result-value highlight">{{ creditsToBuy }}</span>
             </div>
 
-            <p class="result-note">
-              To offset your footprint, purchase at least <strong>{{ creditsToBuy }} carbon credits</strong> from the marketplace.
+            <p v-if="creditsToBuy > 0" class="result-note">
+              To offset your footprint, purchase at least
+              <strong>{{ creditsToBuy }} carbon {{ creditNoun }}</strong> from the marketplace.
+            </p>
+            <p v-else class="result-note">
+              Enter your activity above to see how many credits would offset it.
             </p>
 
             <div class="actions">
-              <button type="button" class="btn btn-primary" @click="goToMarketplace">
+              <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="creditsToBuy === 0"
+                @click="goToMarketplace"
+              >
                 <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
-                Buy {{ creditsToBuy }} credits in Marketplace
+                Buy {{ creditsToBuy }} {{ creditNoun }} in Marketplace
               </button>
               <button type="button" class="btn btn-outline" @click="reset">
                 <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
@@ -211,25 +220,24 @@ const inputs = ref({
 
 const selectedFuelFactor = computed(() => FUEL_FACTORS[inputs.value.fuelType] || FUEL_FACTORS.diesel)
 
+// Each source is clamped to >= 0: the min="0" attribute doesn't stop a typed or
+// pasted negative, and a negative in one field would otherwise cancel real
+// emissions in another and understate the total.
+function nonNeg(value) {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
 // Electricity: kWh × grid factor ÷ 1000 → tonnes CO2e
-const electricityCo2e = computed(() => {
-  const kwh = Number(inputs.value.electricityKwh) || 0
-  return (kwh * GRID_FACTOR) / 1000
-})
+const electricityCo2e = computed(() => (nonNeg(inputs.value.electricityKwh) * GRID_FACTOR) / 1000)
 
 // Fuel: liters × factor ÷ 1000 → tonnes CO2e
-const fuelCo2e = computed(() => {
-  const liters = Number(inputs.value.fuelLiters) || 0
-  return (liters * selectedFuelFactor.value) / 1000
-})
+const fuelCo2e = computed(() => (nonNeg(inputs.value.fuelLiters) * selectedFuelFactor.value) / 1000)
 
 // Waste: tonnes waste × CH4 factor × GWP → tonnes CO2e
-const wasteCo2e = computed(() => {
-  const tonnes = Number(inputs.value.wasteTonnes) || 0
-  return tonnes * WASTE_CH4_FACTOR * CH4_GWP
-})
+const wasteCo2e = computed(() => nonNeg(inputs.value.wasteTonnes) * WASTE_CH4_FACTOR * CH4_GWP)
 
-const otherCo2e = computed(() => Number(inputs.value.otherCo2e) || 0)
+const otherCo2e = computed(() => nonNeg(inputs.value.otherCo2e))
 
 const totalEmissions = computed(() => {
   return Math.max(
@@ -256,6 +264,9 @@ const creditsToBuy = computed(() => {
   if (t <= 0) return 0
   return Math.ceil(t)
 })
+
+// "1 credit" not "1 credits".
+const creditNoun = computed(() => (creditsToBuy.value === 1 ? 'credit' : 'credits'))
 
 function goToMarketplace() {
   // Carry the computed tonnage across so the marketplace can pre-fill the
@@ -502,6 +513,15 @@ function reset() {
 
 .btn-primary:hover {
   background: var(--primary-hover, #058e3f);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary:disabled:hover {
+  background: var(--primary-color, #069e2d);
 }
 
 .btn-outline {

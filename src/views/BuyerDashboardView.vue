@@ -403,10 +403,10 @@ onMounted(load)
             </div>
           </section>
 
-          <!-- Watchlist -->
+          <!-- Saved -->
           <section class="panel">
             <div class="panel-head">
-              <h2 class="panel-title">Watchlist</h2>
+              <h2 class="panel-title">Saved</h2>
               <router-link to="/watchlist" class="panel-link">View all →</router-link>
             </div>
 

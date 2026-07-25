@@ -1,10 +1,10 @@
 <template>
   <div class="watchlist-view">
     <div class="container">
-      <h1 class="page-title">My Watchlist</h1>
+      <h1 class="page-title">Saved</h1>
       <p class="page-description">Listings you've saved to follow.</p>
 
-      <div v-if="loading" class="state-card">Loading your watchlist…</div>
+      <div v-if="loading" class="state-card">Loading your saved listings…</div>
       <div v-else-if="error" class="state-card error">{{ error }}</div>
       <div v-else-if="items.length === 0" class="state-card">
         <p>You haven't saved any listings yet.</p>
@@ -16,7 +16,7 @@
           <div class="watch-card__media">
             <img v-if="item.listing?.project_image" :src="item.listing.project_image" :alt="item.title" />
             <div v-else class="media-fallback"><span class="material-symbols-outlined">eco</span></div>
-            <button class="remove-btn" title="Remove from watchlist" @click="remove(item)">
+            <button class="remove-btn" title="Remove from saved" @click="remove(item)">
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
