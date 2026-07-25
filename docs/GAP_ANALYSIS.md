@@ -1,0 +1,110 @@
+# Carbonify — Gap Analysis & Implementation Tracker
+
+> Consolidated from three source documents reviewed 2026-07-25:
+> 1. **Expansion feature list** (Project Registry → AI Assistant + monetization #8–12)
+> 2. **Ecolink SRD** (full System Requirements Document)
+> 3. **PH-eligibility platform review** (what's needed for real PH carbon markets)
+>
+> All three overlap heavily and point at the **same handful of real gaps**. This
+> file is the single deduplicated checklist. Verified against the live codebase
+> (branch `feature-user-onboarding-ux`), not against the source docs' assumptions —
+> several docs were written against an early prototype and list as "missing" things
+> that are already built.
+>
+> Legend: ✅ Built · 🟡 Partial · ❌ Not built · ⏭️ Deferred (strategic)
+
+---
+
+## 1. Status at a glance
+
+| Area | Status | Notes |
+|---|---|---|
+| Auth (email/pw, **MFA**, reset, RBAC 6 roles) | ✅ | Exceeds SRD (SRD marked 2FA "future") |
+| Project registry (boundary, geo, docs, financials, permanence, risk) | ✅ | Exceeds SRD (financials marked "future") |
+| Validation workflow + status labels | ✅ | draft→submitted→in_review→needs_revision→validated→rejected |
+| MRV (reports, server-side calculator, verifier review, issuance) | ✅ | 1 credit = 1 tCO₂e; auto-mint on VER |
+| Certificates (serial, **QR**, **sha256 signature**, verify page) | ✅ | |
+| Marketplace (browse/filter, **real PayMongo**, transfer, retirement) | ✅ | Exceeds SRD ("manual for prototype") |
+| Carbon asset ledger / Investor Portal / Farmer Portal / LGU tools | ✅ | |
+| Money path (escrow, payouts, refunds, RLS, audit logs, DPA) | ✅ | |
+| PH-eligible project categories (biochar, WTE, agroforestry, RE, methane, industrial, coastal) | ✅ | `src/constants/mrv.js` — not generic |
+| Subscriptions (Free/Pro/Business) | 🟡 | Business tier == Pro (no distinct value yet) |
+| Email (transactional) | 🟡 | Approval email real (Resend edge fn); rest are `console.log` stubs |
+| Onboarding UX (tooltips vs guided tour) | 🟡 | Tooltips yes; no tour / LGU instructional guide |
+| LGU tools | 🟡 | MSW calc + diversion + ESG + endorsements built; **no land-use carbon modeling** |
+| AI Project Assistant | ❌ | UI shell only; no edge fn, no Anthropic SDK |
+| Monetization: onboarding fees | ❌ | To build |
+| Monetization: paid verification/certification | ❌ | To build |
+| Monetization: white-label MRV / public API | ❌ | To build |
+| Blockchain tokenization / smart contracts | ⏭️ | Deferred everywhere |
+| IoT / real-time sensor MRV | ⏭️ | Code says "intentionally out of scope" |
+| AI fraud mapping | ⏭️ | |
+| Ops: Dockerfile, written DR/backup plan | ❌ | Not in repo |
+
+---
+
+## 2. To-build backlog (this workstream)
+
+Ordered as agreed 2026-07-25. **Email (#0a) and AI Assistant (#0b) are paused** at
+the owner's request — email needs an owner decision on the provider/asset; the
+assistant needs an Anthropic API key.
+
+| # | Item | Owner | Blocked on | State |
+|---|---|---|---|---|
+| 0a | Finish transactional email wiring (route all through Resend edge fn) | Claude | Owner: provider/domain decision | ⏸️ Paused |
+| 0b | AI Assistant backend (edge fn + Claude API + wire existing UI) | Claude build / Owner key+deploy | Owner: Anthropic API key | ⏸️ Paused |
+| 1 | **Onboarding + verification/certification fees** (admin-configurable + collection) | Claude build / Owner sets amounts | — | ▶️ In progress |
+| 2 | **LGU land-use carbon modeling** calculator | Claude | — | ⬜ Queued |
+| 3 | **Guided onboarding tour** + LGU/coop help content | Claude | — | ⬜ Queued |
+| 4 | **White-label / public API** scaffolding (endpoints + key mgmt) | Claude build / Owner decides exposure | — | ⬜ Queued |
+| 5 | **Dockerfile** (container-ready claim) | Claude | — | ⬜ Queued |
+| — | Blockchain tokenization | Owner strategic | Owner decision | ⏭️ Deferred |
+| — | IoT / sensor MRV | Owner strategic | Owner decision + hardware | ⏭️ Deferred |
+| — | AI fraud mapping | Owner strategic | Depends on 0b | ⏭️ Deferred |
+
+---
+
+## 3. Owner (human/external) responsibilities
+
+These cannot be done in-repo by Claude:
+
+- **Secrets / keys**: Anthropic (Claude), PayMongo **production** keys, Resend domain verification
+- **Deploy** edge functions; **apply migrations** to the live Supabase DB (or explicitly authorize Claude to run them)
+- **Merge** decision: `feature-user-onboarding-ux` is 80+ commits ahead of `main` with no open PR
+- **Regulatory**: DENR/CCC accreditation, Carbon Pricing Framework alignment, DPA registration
+- **Security pentest** (external firm); email-confirmation domain verification
+- **Business decisions**: fee amounts, Business-tier pricing/features, blockchain/IoT go/no-go
+- **Ops policy**: DR/backup plan, hosting scale config
+- Investor/partner relations (Japan Energy Capital, Enechange, etc.)
+
+---
+
+## 4. Third-party services
+
+| Service | Use | Status |
+|---|---|---|
+| Supabase | DB, auth, storage, edge functions | ✅ Live |
+| PayMongo | Payments (checkout, webhook, payouts, reconcile) | ✅ Test keys — need prod (owner) |
+| Resend | Transactional email | 🟡 Partial — approval only |
+| Anthropic Claude API | AI Assistant | ❌ Not connected |
+| Sentry | Error monitoring | ✅ Present |
+| Leaflet / OpenStreetMap | Maps | ✅ (no key) |
+| Vercel (assumed) | Hosting | ✅ |
+| Blockchain (e.g. Polygon) | Tokenization | ⏭️ Future — owner decision |
+
+Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,
+`paymongo-reconcile`, `paymongo-resettle`, `paymongo-webhook`, `process-payouts`,
+`send-approval-email`.
+
+---
+
+## 5. Notable risks / watch items
+
+- **Email is the biggest hidden gap** — only approval email actually sends; purchase/rejection/reminders `console.log` only.
+- **Staged escrow migration (#14)** `20260725000200_restore_escrow_hold_window.sql` is written but **not applied** to live.
+- **`main` is 80+ commits behind** — all recent work is on the feature branch only.
+- Anthropic SDK not yet in `package.json` (added when 0b is built).
+
+---
+
+_Last updated: 2026-07-25 — created during the fees/LGU/tour implementation workstream._
