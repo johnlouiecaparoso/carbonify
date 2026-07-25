@@ -169,7 +169,7 @@ The platform policy is that each role only sees and does what it is allowed to d
 
 ### Current policy posture
 
-The policy design is strong for an academic capstone and credible for a hardened prototype. It is not yet equivalent to a fully accredited carbon registry, because institutional and regulatory controls still depend on external parties.
+The policy design is commercial-grade: access control, segregation of duties, and money authority are enforced in the database rather than in the interface, and the posture is provable from version control. It is not yet equivalent to a fully accredited carbon registry, because the remaining controls — accredited third-party verification, approved methodologies, and independent governance — depend on external institutions rather than on the software.
 
 ---
 
@@ -187,11 +187,11 @@ Carbonify is technically feasible because the core flows are already implemented
 
 ### Operational feasibility
 
-The platform is feasible as a working product and presentation demo today. It is strongest when presented as:
+The platform is feasible as a working commercial product today, entering a closed beta with real organizations. It is strongest when presented as:
 
-- A feature-complete carbon-credit platform prototype.
-- A PH-aligned capstone system.
-- A system with real security and finance controls.
+- A feature-complete Philippine carbon-credit registry and marketplace.
+- A platform built for institutional users — project developers, corporate buyers, verifiers, and LGUs.
+- A system with real security and finance controls, enforced at the database.
 
 ### Institutional feasibility
 
@@ -237,7 +237,7 @@ This is the most important section for honest presentation.
 
 ## 8. What Is Needed Next
 
-If the goal is to move from “strong prototype” to “production-ready registry,” the next work should be:
+To move from “commercially ready software” to “accredited, production registry,” the next work should be:
 
 1. Tighten trading integrity and double-claim prevention.
 2. Publish a full searchable registry view.
@@ -249,7 +249,7 @@ If the goal is to move from “strong prototype” to “production-ready regist
 
 If the goal is to present today, the key message is simpler:
 
-> Carbonify is already a credible end-to-end carbon-credit platform prototype with real security and transaction controls. The remaining work is mostly about institutional legitimacy, transparency, and a few hardening features rather than core product absence.
+> Carbonify is a working end-to-end carbon-credit platform with real security and transaction controls, entering a closed commercial beta. The remaining work is about institutional legitimacy and accreditation, not missing product.
 
 ---
 

@@ -1,7 +1,14 @@
 # Carbonify — Documentation Index
 
-> **Updated 2026-07-21.** This folder mixes **current** docs with **historical** planning notes kept for
+> **Updated 2026-07-25.** This folder mixes **current** docs with **historical** planning notes kept for
 > traceability. Use the current set below; anything under "Historical" carries a superseded banner.
+>
+> 🧭 **Positioning (2026-07-25):** Carbonify is a **commercial** Philippine carbon-credit registry and
+> marketplace for institutional users — project developers, corporate buyers, verifiers, LGUs, and
+> cooperatives. It is **not** an academic capstone; docs that framed it that way were corrected. Two
+> factual beta limits remain disclosed in-app and in the ToS: credits are **not yet registry-backed**,
+> and payments run on **PayMongo test keys**. Do not remove those two statements without the
+> corresponding capability actually shipping.
 
 ## 🟢 Start here (current, authoritative)
 
@@ -14,9 +21,12 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) | Per-role tick-box test scripts to hand to pilot users |
 | [TESTING_PLAN.md](TESTING_PLAN.md) | The layered what-to-test map: regression, integration, e2e, security, beta, load |
 | [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | **The real-money gate** — what blocks live payment keys, with a go/no-go checklist |
+| [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | One deduplicated Built / Partial / To-build checklist + owner responsibilities + third-party services |
 | [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) | The plain-language system map — what it is, who uses it, tech stack |
 | [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Product, roles, credit lifecycle, money model in plain language |
-| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c and #14 must close before live keys** |
+| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c closed 2026-07-25; #14 (escrow) applies during the pilot; #18 (org accounts) is new** |
+| [ESCROW_DECISION.md](ESCROW_DECISION.md) | Why seller proceeds are held on cards and released immediately on push payments (Option B), and the apply plan |
+| [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) | 📋 **Scoped, not started** — company/team accounts: why every account being an individual blocks corporate customers, and the 5-phase build |
 
 ## 🔎 Audits & feature status
 
@@ -33,6 +43,8 @@ Read them in this order — the first two answer "where are we" and "what do I d
 ## 💼 Commercial
 
 - [SYSTEM_COST_MODEL.md](SYSTEM_COST_MODEL.md) — what running Carbonify costs
+- [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) — **what it takes to serve company customers** (org entity, org-owned credits, org invoicing with a buyer TIN)
+- [POLICY_AND_USER_AGREEMENT.md](POLICY_AND_USER_AGREEMENT.md) — ToS / Privacy / Carbon Credits / AML. **Must stay in lockstep with the in-app modal in `src/App.vue`**
 - [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md) · [CARBONIFY_PRESENTATION.md](CARBONIFY_PRESENTATION.md)
 
 ## 📖 Use the app

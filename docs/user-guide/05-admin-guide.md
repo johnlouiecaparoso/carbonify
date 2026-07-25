@@ -175,7 +175,9 @@ The **Book Reconciliation** panel is the health check for the double-entry ledge
 
 A table of the latest transactions: **Date, Buyer, Seller, Qty, Amount, Fee, Status**.
 
-> **VAT invoices are provisional.** Any tax invoice the platform generates today is marked **"PROVISIONAL — not yet a BIR-accredited Official Receipt,"** issued pre-production. Treat these as provisional documents until Carbonify is BIR-registered; they are not yet official BIR receipts.
+> **VAT invoices are provisional.** Any tax invoice the platform generates today is marked **"PROVISIONAL — not yet a BIR-accredited Official Receipt."** Treat these as provisional documents until Carbonify is BIR-registered; they are not yet official BIR receipts.
+>
+> ⚠️ **They also carry no buyer TIN or registered business name** — the invoice fields exist but nothing supplies them, because accounts are individuals rather than companies. **A corporate buyer cannot claim input VAT on these.** Fixed by Phase 3 of [ORGANIZATION_ACCOUNTS_SCOPE.md](../ORGANIZATION_ACCOUNTS_SCOPE.md).
 
 ---
 

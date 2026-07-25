@@ -311,7 +311,8 @@ onMounted(async () => {
           </div>
 
           <div class="policy-modal-body">
-            <!-- Shared pre-production status notice (controls during pre-production) -->
+            <!-- Shared beta status notice. Controls over any conflicting term below while the
+                 closed beta runs. MUST stay in sync with docs/POLICY_AND_USER_AGREEMENT.md §0. -->
             <div class="policy-notice">
               <strong
                 ><span
@@ -322,16 +323,20 @@ onMounted(async () => {
                 >
                 Platform status — please read.</strong
               >
-              Carbonify is currently a
-              <strong>pre-production / demonstration platform</strong> (academic capstone stage).
-              Carbon credits here are <strong>simulated</strong> and are
-              <strong>not</strong> registered with or retired against any external registry
-              (Verra/VCS, Gold Standard, CAR, ACR); they <strong>must not</strong> be used for
-              regulatory compliance, official offset claims, ESG reporting, or resale as real-world
-              carbon instruments. Payments run on a <strong>sandbox/test gateway</strong>. Carbonify
-              is not a licensed financial institution, payment service provider, or investment
-              adviser, and nothing here is financial, investment, tax, or legal advice. While the
-              platform is in pre-production, this notice controls over any conflicting term below.
+              Carbonify is operating a <strong>closed commercial beta</strong>. The platform is
+              feature-complete and its money path is server-authoritative, RLS-locked and
+              reconciled, but two limits apply during the beta and you must read them before you
+              transact. <strong>First:</strong> credits are issued by Carbonify's own MRV and
+              verification workflow using published, IPCC-style emission factors. They are
+              <strong>not yet</strong> registered with or retired against an external registry
+              (Verra/VCS, Gold Standard, CAR, ACR), so they <strong>must not</strong> be used for
+              regulatory compliance, official offset claims, statutory ESG disclosure, or resale as
+              registry-backed instruments. <strong>Second:</strong> payments run against PayMongo in
+              <strong>test mode</strong> — no real funds are captured or settled until we announce
+              live status. Carbonify is not a licensed financial institution, payment service
+              provider, e-money issuer, or investment adviser, and nothing here is financial,
+              investment, tax, or legal advice. While the beta is running, this notice controls over
+              any conflicting term below.
             </div>
 
             <!-- ── TERMS & CONDITIONS ── -->
@@ -354,20 +359,29 @@ onMounted(async () => {
                   </li>
                   <li>
                     You are responsible for safeguarding your credentials. Two-factor authentication
-                    (TOTP) is supported and strongly recommended.
+                    (TOTP) is supported and is <strong>required at step-up</strong> for sensitive
+                    actions.
                   </li>
                   <li>
                     One person or entity per account unless expressly permitted. Misuse may result
                     in suspension.
+                  </li>
+                  <li>
+                    <strong>Email confirmation:</strong> during the beta, email verification may be
+                    disabled — you are responsible for registering an address you control. Account
+                    recovery and notices route through that address.
                   </li>
                 </ul>
               </section>
               <section class="policy-section">
                 <h3>3. Roles &amp; Permitted Use</h3>
                 <p>
-                  Carbonify supports general users, buyers/investors, project developers, verifiers,
-                  LGU users, and admins. You may use only the functions granted to your role.
-                  Developer and verifier applications are subject to review and approval.
+                  Carbonify supports seven roles — general user, buyer/investor, project developer,
+                  verifier, LGU user, farmer, and administrator. You may use only the functions
+                  granted to your role; this is enforced by route guards <em>and</em> by database
+                  Row-Level Security, not by the interface alone. Developer, verifier, and farmer
+                  applications are subject to review and approval, and remain restricted until
+                  approved.
                 </p>
               </section>
               <section class="policy-section">
@@ -375,23 +389,33 @@ onMounted(async () => {
                 <ul>
                   <li>Credits must be verified and issued in-platform before listing.</li>
                   <li>
-                    The purchase amount is computed server-side from the listing — you confirm
-                    quantity, not price.
+                    The purchase amount is computed server-side from the listing price — you confirm
+                    quantity, not price. The browser never dictates the amount charged.
+                  </li>
+                  <li>
+                    <strong>A seller may not buy their own listing.</strong> Wash trading is blocked
+                    in the settlement process itself, not just discouraged.
                   </li>
                   <li>
                     <strong>All sales are final once payment is confirmed</strong>, except as
                     provided in the Refunds &amp; Disputes section.
                   </li>
-                  <li>Market manipulation, wash trading, and collusive pricing are prohibited.</li>
+                  <li>Market manipulation and collusive pricing are prohibited.</li>
                 </ul>
               </section>
               <section class="policy-section">
                 <h3>5. Seller Payouts</h3>
                 <p>
-                  Seller earnings are held in <strong>escrow</strong> and released through a tracked
-                  payout process (requested → processing → settled/failed), and may be subject to
-                  hold periods. <strong>Payouts require completed KYB.</strong> You are responsible
-                  for the taxes applicable to your earnings.
+                  Seller earnings are released through a tracked payout process (requested →
+                  processing → settled/failed). A <strong>hold period applies by payment method</strong>:
+                  proceeds from <strong>card</strong> purchases are held in escrow for a configurable
+                  window (currently 7 days) so a fraudulent or disputed card payment can be reversed
+                  before funds leave the platform, while <strong>GCash, Maya and wallet</strong>
+                  purchases — which cannot be charged back — are released immediately. Your Seller
+                  Earnings page shows <strong>Held</strong> and <strong>Available</strong> separately.
+                  Funds are not released while a dispute on the transaction is open.
+                  <strong>Payouts require completed KYB.</strong> You are responsible for the taxes
+                  applicable to your earnings.
                 </p>
               </section>
               <section class="policy-section">
@@ -399,8 +423,10 @@ onMounted(async () => {
                 <p>
                   Refunds are issued only for <strong>verified technical errors</strong>, within any
                   stated window. Refunds and disputes are handled via compensating ledger entries —
-                  original records are never altered. A buyer dispute console and full admin
-                  resolution workflow are planned.
+                  original records are never altered, so the audit trail stays intact. You can raise
+                  a dispute from your order history; administrators resolve it through a tracked
+                  workflow, and a refund on a still-held sale reverses the escrow hold rather than
+                  clawing back settled funds.
                 </p>
               </section>
               <section class="policy-section">
@@ -423,9 +449,10 @@ onMounted(async () => {
                 <p>
                   Carbonify is provided
                   <strong>"as is" and "as available," without warranties</strong>. To the maximum
-                  extent permitted by law, Carbonify and its operators are not liable for losses
-                  arising from use of a pre-production platform, simulated credits, or sandbox
-                  transactions.
+                  extent permitted by law, Carbonify and its operators are not liable for indirect
+                  or consequential losses, nor for losses arising from the beta limitations
+                  disclosed in the platform status notice above — specifically that credits are not
+                  yet registry-backed and that payments run in test mode.
                 </p>
               </section>
               <section class="policy-section">
@@ -491,10 +518,12 @@ onMounted(async () => {
                 <h3>5. Your Rights (Data Privacy Act of 2012 / RA 10173)</h3>
                 <p>
                   You may request access to, correction of, or deletion of your personal data, and
-                  may withdraw consent, subject to legal retention requirements. Self-service
-                  consent, data export and deletion tools and an appointed Data Protection Officer
-                  (DPO) are planned; until then, email <strong>support@carbonify.com</strong> and
-                  requests will be handled manually.
+                  may withdraw consent, subject to legal retention requirements.
+                  <strong>Self-service data export and account deletion are available</strong> from
+                  your account settings, and requests are tracked in an administrative queue. A
+                  formally appointed Data Protection Officer and NPC registration are part of our
+                  compliance track and are <strong>not yet in place</strong>; in the meantime,
+                  privacy requests can also be sent to <strong>support@carbonify.com</strong>.
                 </p>
               </section>
               <section class="policy-section">

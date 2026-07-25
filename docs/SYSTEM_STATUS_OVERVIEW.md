@@ -28,11 +28,11 @@
 
 ## 1. The One-Paragraph Summary
 
-Carbonify is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The **core product is built and works end-to-end**: users register, projects get submitted and verified, credits are issued with tamper-evident certificates, and buyers can purchase them through a real payment gateway. The system has **6 user roles, MFA, KYC, a full MRV module, and LGU climate tools** — it has done and *exceeded* the original 14-week MVP plan. As of **2026-06-13**, the **production money foundation is now built in code** (roadmap Phases 0–2): payment amounts are server-authoritative, the webhook is signature-verified and idempotent, a double-entry ledger + escrow back every purchase, and sellers can request KYB-gated payouts — though **none of this has run end-to-end at runtime yet** (sandbox verification is the immediate next step). **What remains is mostly "real credits + trust" and "institutional/legal" work**: there's no mobile app, and the credits are still simulated rather than tied to a real registry (Verra/Gold Standard).
+Carbonify is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The **core product is built and works end-to-end**: users register, projects get submitted and verified, credits are issued with tamper-evident certificates, and buyers can purchase them through a real payment gateway. The system has **6 user roles, MFA, KYC, a full MRV module, and LGU climate tools** — it has done and *exceeded* the original 14-week MVP plan. As of **2026-06-13**, the **production money foundation is now built in code** (roadmap Phases 0–2): payment amounts are server-authoritative, the webhook is signature-verified and idempotent, a double-entry ledger + escrow back every purchase, and sellers can request KYB-gated payouts — though **none of this has run end-to-end at runtime yet** (sandbox verification is the immediate next step). **What remains is mostly "real credits + trust" and "institutional/legal" work**: there's no native mobile app, and credits are issued in-platform rather than backed by an external registry (Verra/Gold Standard).
 
 | How it's measured | Score | Meaning |
 |---|---|---|
-| As a capstone vs. its own requirements (SRD) | **9.0 / 10** | Nearly feature-complete |
+| Against its own functional requirements (SRD) | **9.0 / 10** | Nearly feature-complete |
 | As a Philippine-eligible platform | **8.5 / 10** | 7 of 8 target areas delivered |
 | As a real production registry (Verra-class) | **4.5 → ~5.5 / 10** | Money-safety foundation now coded (Phases 0–2); still lacks accreditation, real-credit API, and **runtime-proven** money safety |
 
@@ -135,7 +135,7 @@ Carbonify is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The 
 - 🟡 Admin finance console — refund/dispute flows exist (`disputeService.js`); a unified admin **finance console UI** (revenue, payouts, refunds, reconciliation view) is still **not built**
 
 ### 🔴 C. Real, Trustworthy Credits
-*Credits are currently simulated, not tied to a recognized registry.*
+*Credits are currently issued by Carbonify's own MRV and verification workflow, not backed by a recognized external registry.*
 - ❌ Credit-supplier API integration (real Verra/Gold Standard credits + retirement) — "Track A"
 - 🟡 Provider abstraction layer — `PaymentProvider` (+ mock + PayMongo) and `PayoutProvider` (+ mock) **done** (Phases 1–2); `CreditSupplier` interface + `MockCreditSupplier` **still to build** (Phase 3)
 - 🟡 Full project detail page (documents, methodology, map, vintage, co-benefits) for buyer due diligence
@@ -269,7 +269,7 @@ Carbonify is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The 
 
 ## 8. The Honest Bottom Line
 
-- **As an academic capstone:** Carbonify is **excellent and largely feature-complete** (8.7/10). It demonstrates the full carbon-credit lifecycle with real, credible software mechanics — and in *digital MRV* it's arguably ahead of where many real registries were until recently.
+- **As a software product:** Carbonify is **strong and largely feature-complete** (8.7/10). It implements the full carbon-credit lifecycle with real, credible mechanics — and in *digital MRV* it's arguably ahead of where many established registries were until recently.
 - **As a real, live platform:** the remaining work is **~40% software, ~60% business/legal** (per the go-live playbook). Two of the biggest software gaps — **money safety and seller payouts — are now closed in code** (Phases 0–2, pending sandbox verification). The remaining software gaps (real-credit API, public registry, admin finance/compliance tooling) are buildable. The institutional gaps (accredited VVBs, approved methodologies, national-registry interoperability, BSP/AMLA/DPA/BIR compliance) need **partners, lawyers, and accreditation — not just code.**
 - **Fastest path to "real":** plug into an existing credit-supplier API (Carbonmark/Cloverly/Patch) for real verified credits + a licensed PH PSP (PayMongo/Xendit/EMI) for real money — rather than trying to become a registry from scratch.
 

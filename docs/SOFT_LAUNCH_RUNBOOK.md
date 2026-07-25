@@ -70,7 +70,7 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 
 Tell the pilot group plainly, so nobody mistakes the pilot for production:
 
-- **Payments are simulated.** Use the PayMongo test card `4343 4343 4343 4345`, any future expiry, any
+- **Payments run in test mode — no real money moves.** Use the PayMongo test card `4343 4343 4343 4345`, any future expiry, any
   CVC. No real charge occurs.
 - **Email confirmation is OFF.** Sign-ups aren't verified yet, so **only invite people you trust**, and
   don't put anything sensitive behind an account. (Turning this on is the next gate before public

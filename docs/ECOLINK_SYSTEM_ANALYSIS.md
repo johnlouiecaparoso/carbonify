@@ -2,7 +2,13 @@
 
 **Prepared:** June 2026
 **Scope:** Implementation status against the SRD + Platform Review, a benchmark against real‑world carbon registries, and a rating of what is still missing.
-**Nature of the system:** Academic capstone prototype (Vue 3 + Supabase/PostgreSQL) architected toward real‑world Philippine carbon‑market use.
+**Nature of the system:** A commercial Philippine carbon‑credit registry and marketplace (Vue 3 + Supabase/PostgreSQL) built for real project developers, verifiers, corporate buyers, and LGUs.
+
+> 🧭 **Repositioned 2026-07-25.** Carbonify is no longer an academic capstone; it is a commercial
+> product preparing for a closed beta with real organizations. The "capstone SRD" lens below is kept
+> only because the SRD is still the functional-requirements baseline this system was measured against —
+> it is **not** a statement about the project's status or ambition. The commercial readiness gate is
+> [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) §5; current state is [HANDOFF.md](HANDOFF.md).
 
 ---
 
@@ -12,11 +18,11 @@ Carbonify has moved well beyond a "simple project listing" prototype. Over six i
 
 | Lens | Rating | One‑line verdict |
 |------|--------|------------------|
-| **vs. the capstone SRD** | **9.0 / 10** | Nearly all functional requirements implemented; only "future module" items remain. |
+| **vs. the SRD (functional baseline)** | **9.0 / 10** | Nearly all functional requirements implemented; only "future module" items remain. |
 | **vs. the Platform Review (PH eligibility)** | **8.5 / 10** | 7 of 8 improvement areas substantially delivered; blockchain + a few data fields outstanding. |
 | **vs. a real‑world production registry (Verra/Gold Standard class)** | **4.5 / 10** | Has the *shape* of a registry, but lacks accredited third‑party VVBs, approved methodologies, independent governance, interoperability/Article 6, and registry‑grade immutability. |
 
-**Bottom line:** As a capstone demonstrating a credible, PH‑aligned carbon platform, Carbonify is strong and largely feature‑complete. To operate as a *real* registry it would need external accreditation, methodology rigor, and interoperability that are beyond a software build — these are institutional, not just code, gaps.
+**Bottom line:** As a software product, Carbonify is strong and largely feature‑complete — the platform mechanics (server‑authoritative money, RLS‑locked ledger, verifier‑gated issuance, tamper‑evident certificates) are commercial‑grade. What separates it from an *accredited* registry is **institutional, not technical**: external accreditation, approved methodologies, independent governance, and Article 6 interoperability. Those are procurable through partnerships and regulatory work, not more code — and they are tracked on the go‑live gate rather than treated as product gaps.
 
 ---
 
@@ -152,7 +158,7 @@ Real voluntary‑market registries (Verra's VCS, Gold Standard) and the emerging
 | Financial settlement / escrow | 🟡 (PayMongo, manual confirmation) | ✅ (mature) | **Behind** |
 | MFA + RBAC + audit trail | ✅ | ✅ | **At parity** |
 
-**Interpretation:** Carbonify reproduces the *software mechanics* of a credible registry — and in digital MRV it is arguably ahead of where many incumbents were until recently. The gaps that remain are predominantly **institutional/regulatory** (accredited verifiers, approved methodologies, independent governance, national‑registry interoperability), which a capstone cannot satisfy by code alone, plus a few technical items (double‑claim prevention, public registry transparency, blockchain).
+**Interpretation:** Carbonify reproduces the *software mechanics* of a credible registry — and in digital MRV it is arguably ahead of where many incumbents were until recently. The gaps that remain are predominantly **institutional/regulatory** (accredited verifiers, approved methodologies, independent governance, national‑registry interoperability), which no software build can satisfy by code alone and which run on the partnership/regulatory track, plus a few technical items (double‑claim prevention, public registry transparency, blockchain).
 
 ---
 
@@ -195,7 +201,7 @@ Severity: 🔴 High (credibility/compliance‑critical) · 🟠 Medium (expected
 | LGU tools | 8.5 / 10 | Calculator, diversion, ESG, endorsements; no land‑use modeling. |
 | Dashboards & analytics | 8.0 / 10 | Role dashboards, charts, progress tracker, map. |
 | Regulatory/institutional readiness | 4.0 / 10 | No accreditation, approved methodologies, or national‑registry link (partly external). |
-| **Overall (capstone lens)** | **8.7 / 10** | Excellent academic prototype, PH‑aligned, broad and coherent. |
+| **Overall (product lens)** | **8.7 / 10** | Strong commercial product, PH‑aligned, broad and coherent. |
 | **Overall (real‑registry lens)** | **4.5 / 10** | Credible software shell; institutional & methodology rigor outstanding. |
 
 ---

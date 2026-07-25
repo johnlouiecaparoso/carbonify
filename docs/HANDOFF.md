@@ -2,7 +2,9 @@
 
 > ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22
 >
-> **Feature-complete for the current product scope. The money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
+> **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
+>
+> *(Repositioned 2026-07-25 — this is no longer an academic capstone. The two disclosed beta limits — credits not yet registry-backed, payments in test mode — are unchanged and remain disclosed in-app.)*
 >
 > **The next step is the closed beta on PayMongo test keys** — see [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) (execution), [TESTING_PLAN.md](TESTING_PLAN.md) (what to test), and [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (per-role scripts to hand to pilot users).
 >
@@ -11,6 +13,76 @@
 > **Current build state:** build green, lint green, **687 tests green** (was 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch (85 commits) for review; `main` is otherwise ~85 commits behind. Not merged yet.
+>
+> ### 🆕 2026-07-25 (repositioning) — Carbonify is a commercial product, not an academic capstone
+>
+> The project's own documentation and its **in-app policy modal** still described Carbonify as a
+> *"pre-production / demonstration platform (academic capstone stage)"* serving *"simulated"* credits.
+> That framing was stale, and it was the first thing a prospective business user would have read.
+> Repositioned across the app and the docs.
+>
+> **What changed — framing, not facts.** The two genuine limitations are still disclosed, because
+> removing them would be a material misrepresentation to exactly the institutional users this
+> repositioning targets:
+> 1. credits are issued by Carbonify's own MRV/verification workflow and are **not yet registry-backed**
+>    (Verra/VCS, Gold Standard, CAR, ACR);
+> 2. payments run against **PayMongo in test mode** during the closed beta.
+>
+> What went away is the *self-description* as a student project, a demo, or a simulation.
+>
+> - **[App.vue](../src/App.vue) policy modal rewritten** — the status notice now reads as a closed
+>   commercial beta with two named limits. Also corrected against the real build: **7 roles** (farmer
+>   was missing), MFA described as **enforced at step-up** rather than "recommended", the
+>   **self-purchase / wash-trading block** stated, the method-gated **escrow hold** described
+>   (Held vs Available), refunds/disputes described as **shipped** rather than "planned", and DPA
+>   self-service export/deletion described as **available** (only the formal DPO/NPC registration is
+>   still outstanding).
+> - **[POLICY_AND_USER_AGREEMENT.md](POLICY_AND_USER_AGREEMENT.md)** finished and reconciled with the
+>   modal — §1.9 liability, §4 planned-features, §6 precedence and the footer no longer say
+>   "pre-production" or "simulated".
+> - **⚠️ New hard pairing rule (§7 of the policy doc):** the modal and the ToS now describe the escrow
+>   hold window, but live behaviour is **still instant payout** until `20260725000200` is applied.
+>   **That migration must land before the first pilot seller is invited** or the platform is claiming a
+>   protection it does not provide. It is already step 1 of the pre-flight below — do not reorder it.
+> - **Positioning docs reframed** — ECOLINK_SYSTEM_ANALYSIS ("nature of the system", the rating
+>   lenses, the bottom line), SYSTEM_STATUS_OVERVIEW, CARBONIFY_PRESENTATION, CARBONIFY_BOARD_UPDATED,
+>   CARBONIFY_BUILD_PROMPT, ABOUT_CARBONIFY, SOFT_LAUNCH_RUNBOOK, IMPLEMENTATION_ROADMAP_TIMELINE.
+>   The recurring correction: the gap between Carbonify and an accredited registry is **institutional
+>   (accreditation, methodologies, governance), not technical** — so it belongs on the partnership and
+>   regulatory track, not in a list of product shortcomings.
+> - **📋 New gap surfaced + scoped — [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md)
+>   ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #18).** Repositioning for institutional users exposed
+>   that **every account in Carbonify is an individual person.** There is no company entity:
+>   `profiles.company` is a free-text string, `kyb_applications.user_id` makes a business an attribute
+>   of one person, and no `organizations`/`organization_members` tables exist. Three consequences:
+>   (1) `credit_ownership.user_id` is a person, so **an employee leaving takes the company's carbon
+>   assets, retirement history and ESG evidence with them**; (2) `buildVatInvoice` renders
+>   `buyer.tin`/`buyer.address` but `receiptService` never supplies them, so both are **always blank**
+>   and a company **cannot claim input VAT**; (3) one login per company means shared credentials, a
+>   broken audit trail, and a violation of our own ToS §1.2. **This does not block the beta** — but it
+>   likely blocks the first corporate customer. Phase 1 (org entity + membership) touches no money path
+>   and is safe to build in parallel; **Phase 2 rewrites `process_marketplace_purchase`, the same
+>   function the staged escrow migration rewrites, so it must wait until after the beta.**
+> - **Doc-set consistency pass.** [docs/README.md](README.md) (the index) was stale — it omitted
+>   GAP_ANALYSIS, ESCROW_DECISION and the new ORGANIZATION_ACCOUNTS_SCOPE, and still said #13c was
+>   open. Rebuilt, with the positioning statement at the top. Also corrected a **factual error
+>   repeated across the whole doc set and the in-app modal: Carbonify has SEVEN roles, not six** —
+>   `farmer` was missing everywhere ([roles.js](../src/constants/roles.js) has had it since the farmer
+>   portal shipped). Fixed in the user guides, ABOUT_CARBONIFY, dev/SECURITY, GAP_ANALYSIS,
+>   GO_LIVE_ROADMAP, the root README and App.vue. Historical snapshots (SYSTEM_STATUS_OVERVIEW,
+>   IMPLEMENTATION_TASKLIST, CARBONIFY_BOARD_UPDATED, ECOLINK_SYSTEM_ANALYSIS) were left at "6" on
+>   purpose — they are dated snapshots carrying superseded banners.
+> - **Invoice defaults fixed.** [vatInvoiceService.js](../src/services/vatInvoiceService.js) defaulted
+>   the invoice issuer name to `"Carbonify (pre-production)"` — a string that would have printed on
+>   tax documents. Now `"Carbonify"`. The admin guide now also states plainly that provisional invoices
+>   carry **no buyer TIN**, so a corporate buyer cannot claim input VAT (Phase 3 of the org scope).
+> - **⬜ Owner action — two dead demo files still to delete** (deletion was blocked by a tool
+>   permission): **`src/services/authServiceSimple.js`** — a mock auth service with a hardcoded
+>   `demo@carbonify.io / demo123` login — and **`src/services/sampleDataService.js`**, which seeds
+>   fake "Amazon Rainforest / Brazil" projects. Both are imported by **nothing** (verified), so removal
+>   is safe, but neither belongs in a repo for a commercial PH platform. `src/test/e2e/auth.spec.js`
+>   also still tests the demo credentials and should be dropped with them. Tracked in
+>   [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #8.
 >
 > ### 🆕 2026-07-25 (expansion pass) — gap tracker, fees, LGU land-use, guided tour, Docker/API
 >
@@ -291,6 +363,7 @@ Status of the later migrations is not ambiguous: **`000800` verified applied on 
 - [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) — per-role, tick-box test scripts for pilot users.
 - [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) — the real-money gate and priority tiers.
 - [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) — everything knowingly postponed, with the reasoning.
+- [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) — company/team accounts: the gap, why it matters commercially, and the 5-phase build. Scoped, not started.
 - `docs/dev/` — setup, architecture, database/RPCs, deployment, testing, security.
 
 > ## Historical notes below

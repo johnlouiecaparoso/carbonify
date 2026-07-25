@@ -41,7 +41,7 @@ function peso(n) {
 /** Load the platform's tax identity from app_settings (with placeholders). */
 async function getSellerTaxIdentity() {
   const [name, tin, address, businessStyle] = await Promise.all([
-    getSetting('company_name', 'Carbonify (pre-production)'),
+    getSetting('company_name', 'Carbonify'),
     getSetting('company_tin', 'TIN: ___-___-___-___'),
     getSetting('company_address', 'Registered address not yet configured'),
     getSetting('company_business_style', 'Carbon credit marketplace'),

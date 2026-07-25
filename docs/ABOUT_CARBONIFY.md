@@ -19,15 +19,20 @@ Carbon credits let an organization pay for verified climate action (reforestatio
 
 Carbonify puts all four in one system: registration → validation → monitoring/verification → issuance → trading → retirement, with the money handled server-side and the credits tracked by serial number.
 
-## Who uses it (the six roles)
+## Who uses it (the seven roles)
 
 | Role | What they do |
 |---|---|
 | **General User / Buyer** | Browse the marketplace, buy credits (card, GCash/Maya, or wallet), and **retire** them for a certificate. |
 | **Project Developer** | Register climate projects, upload compliance documents, file monitoring reports (MRV), and earn + sell credits. |
 | **Verifier** | Review project submissions and monitoring reports, score them against a rubric, and approve the verified emission reductions that mint credits. |
+| **Farmer** | Supply biomass feedstock to projects, log deliveries, and see an estimate of the carbon their feedstock contributed. |
 | **Administrator** | Manage users and roles, review KYC/KYB, oversee finance and refunds, and configure the platform. |
-| **LGU (Local Government Unit)** | Use climate tools — municipal-waste emissions calculator, waste-diversion tracking, city ESG summary, and endorsing local projects. |
+| **LGU (Local Government Unit)** | Use climate tools — municipal-waste emissions calculator, land-use carbon modeling, waste-diversion tracking, city ESG summary, and endorsing local projects. |
+
+> **Note — accounts are individual.** Every Carbonify account belongs to a person, not a company.
+> Organization/team accounts (shared ownership of credits, org-addressed invoices with a buyer TIN,
+> member roles) are **scoped but not built** — see [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
 
 ## The carbon-credit lifecycle Carbonify manages
 
@@ -66,7 +71,7 @@ Identity checks gate the sensitive actions: **KYC** (identity verification) is r
 
 - **The software is feature-complete** across registration, MRV, issuance, certificates, marketplace, wallet, payouts, admin/compliance tooling, the public registry, and LGU tools.
 - **The money path is proven and hardened** — every payment flow settles server-side and reconciles to zero, with the financial tables locked to server-write-only. See [RELEASE_NOTES.md](RELEASE_NOTES.md) and [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md).
-- **What remains needs an outside party or ops/legal, not more code:** integration with an accredited registry (Verra / Gold Standard / Carbonmark / Patch) for real-world credits, AML/sanctions screening, an independent penetration test before using live payment keys, and the business/legal track (legal entity, licensed payment partner, BIR registration, accredited third-party verifier). Until then, live-credit fulfillment is simulated and VAT invoices are provisional.
+- **What remains needs an outside party or ops/legal, not more code:** integration with an accredited registry (Verra / Gold Standard / Carbonmark / Patch) for real-world credits, AML/sanctions screening, an independent penetration test before using live payment keys, and the business/legal track (legal entity, licensed payment partner, BIR registration, accredited third-party verifier). Until then, credits are issued in-platform rather than fulfilled against an external registry, and VAT invoices are provisional.
 
 ## Technology at a glance
 

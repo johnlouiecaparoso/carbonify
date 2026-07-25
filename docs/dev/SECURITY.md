@@ -22,7 +22,7 @@ Related: [TESTING.md](./TESTING.md) · [CONTRIBUTING.md](./CONTRIBUTING.md) · [
 
 ## Authorization
 
-- **6 roles** with role constants in `src/constants/roles`. Route access is enforced by guards in `src/middleware/roleGuard.js`:
+- **7 roles** (general user, buyer/investor, project developer, verifier, LGU user, farmer, admin) with role constants in `src/constants/roles`. `super_admin` canonicalizes to `admin` everywhere via `canonicalizeRole()`, mirroring the DB's `canonicalize_notification_role()`. Route access is enforced by guards in `src/middleware/roleGuard.js`:
   - `createRoleGuard` (generic per-route role check via `canAccessRoute`)
   - `createAdminGuard`, `createVerifierGuard`, `createProjectDeveloperGuard`, `createLguGuard` (admins may also access LGU tools)
   - `createPermissionGuard` (permission-based, `hasAnyPermission`)

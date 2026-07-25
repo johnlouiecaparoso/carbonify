@@ -37,7 +37,7 @@
 
 | Area | Status |
 |---|---|
-| Auth, 6 roles + RLS, password reset, TOTP 2FA, audit logging | ✅ |
+| Auth, 7 roles + RLS, password reset, TOTP 2FA, audit logging | ✅ |
 | KYC (buy gate) + KYB (payout gate) | ✅ |
 | Project registration, documents, boundary map, status workflow, edit/resubmit | ✅ |
 | MRV: monitoring reports, server-side calculation, VER approval → mint | ✅ |
@@ -75,6 +75,7 @@
 ### 🟠 P1 — High (before scaling / to be genuinely credible)
 | Item | Type |
 |---|---|
+| **Organization / company accounts** — no company entity exists; credits are owned by the employee, and VAT invoices carry no buyer TIN so a company cannot claim input VAT. Blocks the first *corporate* customer, not the beta. Scoped in [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) | Code (5 phases) |
 | Real credit-supplier integration (Carbonmark/Cloverly/Patch) — registry serials + retirement receipts | Code + external partner |
 | External PSP settlement reconciliation (system-vs-PayMongo, not just system-vs-self) | Code |
 | CSP + rate limiting on public functions + Sentry error tracking | Code/infra + keys |

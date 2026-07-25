@@ -10,6 +10,10 @@ Come back to this list after the phases are implemented.
 > live payment keys:** **#14** (no escrow / chargeback hold window) — a decision now written up in
 > [ESCROW_DECISION.md](ESCROW_DECISION.md). Both are surfaced in [HANDOFF.md](HANDOFF.md) and the
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) go/no-go gate. P1 and P2 below are now closed.
+>
+> **New 2026-07-25: #18 — no organization / company accounts.** Surfaced by the commercial
+> repositioning. Does **not** block the beta, but likely blocks the first *corporate* customer.
+> Scoped in [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
 
 ---
 
@@ -289,3 +293,39 @@ BOTH triggers are active, a project validated **and** later granted VERs is issu
 model is canonical: issue-on-validation (simpler, current live behaviour) or the SRD-faithful mint-on-VER
 (drop the validation trigger). Until decided, don't approve VERs on an already-validated project. Both
 trigger functions were made column-safe in `20260718000900`, so either choice works mechanically.
+
+---
+
+## From the 2026-07-25 commercial repositioning
+
+### 18. No organization / company accounts — every account is an individual 🟠 (scoped 2026-07-25)
+
+**Full scope:** [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
+
+Surfaced while repositioning the platform from "academic capstone" to a commercial product for
+institutional users. Carbonify is *positioned* for companies, but there is **no company entity in the
+data model**: `profiles.company` is a free-text string, `kyb_applications.user_id` makes a business an
+attribute of one person, and no `organizations`/`organization_members` tables exist anywhere in the
+migration set. Everything money-related keys to `auth.uid()`.
+
+**The three consequences that matter:**
+1. **`credit_ownership.user_id` is a person** — when an employee leaves, the company's carbon assets,
+   retirement history, and ESG evidence leave with them. Asset loss, not friction.
+2. **`buildVatInvoice` renders `buyer.tin`/`buyer.address` but `receiptService` never supplies them**,
+   so both are always blank — the invoice is issued to a natural person and a company cannot claim
+   input VAT. A finance department will refuse it.
+3. **One login per company** → shared credentials, broken audit trail, and a direct violation of our
+   own ToS §1.2 ("one person or entity per account").
+
+**Phasing:** 1 = org entity + membership (no money path, safe to build now) · 2 = org-owned credits
+(touches `process_marketplace_purchase` + `retire_credits_atomic`) · 3 = org billing identity ·
+4 = org KYB + corporate payouts · 5 = admin/audit.
+
+> ⚠️ **Sequencing:** Phase 2 rewrites `process_marketplace_purchase` — **the same function the staged
+> escrow migration `20260725000200` rewrites.** Do not land both in one window, or a non-zero
+> `reconcile_financials()` is unattributable, and one of the two changes is the chargeback protection
+> the ToS now promises. Apply escrow → run the beta → then Phase 2. **Phase 1 is exempt** and can
+> proceed in parallel.
+
+**Owner decision:** whether Phases 1–3 gate the first corporate customer. They probably do — consequence
+(2) is what blocks the sale, and consequence (1) is what would lose a customer after it.

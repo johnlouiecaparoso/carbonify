@@ -14,7 +14,7 @@
 
 ## How to read this plan
 
-- **Estimates assume ONE full-time developer.** With 2 devs, cut wall-clock time roughly 40% (some phases parallelize, money work doesn't). For a part-time capstone schedule (≈15 hrs/week), multiply weeks by ~2.5.
+- **Estimates assume ONE full-time developer.** With 2 devs, cut wall-clock time roughly 40% (some phases parallelize, money work doesn't). For a part-time schedule (≈15 hrs/week), multiply weeks by ~2.5.
 - Phases are **ordered by dependency**, not just priority. You cannot safely build payouts before the money foundation, or compliance reporting before the data exists.
 - Each phase lists: **Goal → Tasks → "Done when" (acceptance) → Risk.**
 - 🔴 = blocks real-money operation · 🟠 = expected for serious use · 🟢 = polish/adoption · ⏳ = business/legal, not just code.

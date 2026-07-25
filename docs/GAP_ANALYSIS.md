@@ -19,7 +19,7 @@
 
 | Area | Status | Notes |
 |---|---|---|
-| Auth (email/pw, **MFA**, reset, RBAC 6 roles) | ✅ | Exceeds SRD (SRD marked 2FA "future") |
+| Auth (email/pw, **MFA**, reset, RBAC 7 roles) | ✅ | Exceeds SRD (SRD marked 2FA "future") |
 | Project registry (boundary, geo, docs, financials, permanence, risk) | ✅ | Exceeds SRD (financials marked "future") |
 | Validation workflow + status labels | ✅ | draft→submitted→in_review→needs_revision→validated→rejected |
 | MRV (reports, server-side calculator, verifier review, issuance) | ✅ | 1 credit = 1 tCO₂e; auto-mint on VER |
@@ -28,7 +28,8 @@
 | Carbon asset ledger / Investor Portal / Farmer Portal / LGU tools | ✅ | |
 | Money path (escrow, payouts, refunds, RLS, audit logs, DPA) | ✅ | |
 | PH-eligible project categories (biochar, WTE, agroforestry, RE, methane, industrial, coastal) | ✅ | `src/constants/mrv.js` — not generic |
-| Subscriptions (Free/Pro/Business) | 🟡 | Business tier == Pro (no distinct value yet) |
+| **Organization / company accounts** | ❌ | **Every account is an individual.** No org entity, no members/seats; credits are owned by the employee, not the company; invoices carry no buyer TIN. Scoped in **[ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md)** (2026-07-25) |
+| Subscriptions (Free/Pro/Business) | 🟡 | Business tier == Pro (no distinct value yet) — org accounts are what would give it one |
 | Email (transactional) | 🟡 | Approval email real (Resend edge fn); rest are `console.log` stubs |
 | Onboarding UX (guided tour) | ✅ | Role-aware WelcomeTour + LGU/coop guidance (2026-07-25) |
 | LGU tools | ✅ | MSW calc + diversion + ESG + endorsements + **land-use carbon modeling** (2026-07-25) |
@@ -61,6 +62,8 @@ assistant needs an Anthropic API key.
 | 5 | **Dockerfile** (container-ready claim) | Claude | — | ✅ Done |
 | 6 | Fee **collection** (PayMongo) for onboarding/verification | Claude build / Owner prod keys | Owner: prod keys | ⬜ Next |
 | 7 | Public API **key-gating + rate limits** | Claude build / Owner exposure decision | Owner decision | ⬜ Next |
+| 8 | **Org accounts Phase 1** — `organizations` + `organization_members` + invites | Claude | Owner: go/no-go (§6 of the scope) | 📋 Scoped |
+| 9 | **Org accounts Phases 2–3** — org-owned credits + org billing identity | Claude | **Must follow the beta** (settlement-RPC conflict with escrow) | 📋 Scoped |
 | — | Blockchain tokenization | Owner strategic | Owner decision | ⏭️ Deferred |
 | — | IoT / sensor MRV | Owner strategic | Owner decision + hardware | ⏭️ Deferred |
 | — | AI fraud mapping | Owner strategic | Depends on 0b | ⏭️ Deferred |
@@ -103,7 +106,8 @@ Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,
 
 ## 5. Notable risks / watch items
 
-- **Email is the biggest hidden gap** — only approval email actually sends; purchase/rejection/reminders `console.log` only.
+- **Email is the biggest hidden gap** — only approval email actually sends; purchase/rejection/reminders `console.log` only. (Also blocks org-account invites.)
+- **No company accounts** — the platform is positioned for institutional users but models a company as a free-text string on one person's profile. Credits belong to the employee, not the employer, and VAT invoices carry no buyer TIN so finance departments cannot claim input VAT. See [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
 - **Staged escrow migration (#14)** `20260725000200_restore_escrow_hold_window.sql` is written but **not applied** to live.
 - **`main` is 80+ commits behind** — all recent work is on the feature branch only.
 - Anthropic SDK not yet in `package.json` (added when 0b is built).
