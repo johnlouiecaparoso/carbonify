@@ -144,6 +144,12 @@ removed the dead `addCreditsToPortfolio` / `removeCreditsFromPortfolio` writers 
 `creditOwnershipService.js` (290 lines — non-atomic, client-userId money writes; a double-retire vector
 if ever called). Remainder of the list still pending; mind the two traps below before deleting more.
 
+**Done 2026-07-26:** deleted `services/authServiceSimple.js` (the `demo@carbonify.io / demo123` mock
+auth) and `services/sampleDataService.js` (fake "Amazon Rainforest / Brazil" seed projects) — both
+re-verified as imported by nothing. `src/test/e2e/auth.spec.js` was **kept**: only 1 of its 9 tests used
+the demo credentials (removed), the other 8 cover navigation and form validation and are still worth
+running. Build + 693 tests green after removal.
+
 **Two traps before deleting:**
 - `components/search/AdvancedSearch.vue` is dead but **pinned by `vite.config.js` manualChunks** —
   remove that line in the same commit or the build breaks.

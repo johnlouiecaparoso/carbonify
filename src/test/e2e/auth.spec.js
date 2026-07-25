@@ -58,16 +58,6 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('.error').first()).toBeVisible()
   })
 
-  test('should handle login with demo credentials', async ({ page }) => {
-    await page.goto('/login')
-    await page.fill('input[type="email"]', 'demo@carbonify.io')
-    await page.fill('input[type="password"]', 'demo123')
-    await page.click('button[type="submit"]')
-
-    // Should redirect to dashboard or stay on homepage
-    await expect(page).toHaveURL(/\/(dashboard|profile|\/)/)
-  })
-
   test('should handle registration flow', async ({ page }) => {
     await page.goto('/register')
 

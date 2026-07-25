@@ -163,13 +163,14 @@
 >   the invoice issuer name to `"Carbonify (pre-production)"` — a string that would have printed on
 >   tax documents. Now `"Carbonify"`. The admin guide now also states plainly that provisional invoices
 >   carry **no buyer TIN**, so a corporate buyer cannot claim input VAT (Phase 3 of the org scope).
-> - **⬜ Owner action — two dead demo files still to delete** (deletion was blocked by a tool
->   permission): **`src/services/authServiceSimple.js`** — a mock auth service with a hardcoded
->   `demo@carbonify.io / demo123` login — and **`src/services/sampleDataService.js`**, which seeds
->   fake "Amazon Rainforest / Brazil" projects. Both are imported by **nothing** (verified), so removal
->   is safe, but neither belongs in a repo for a commercial PH platform. `src/test/e2e/auth.spec.js`
->   also still tests the demo credentials and should be dropped with them. Tracked in
->   [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #8.
+> - **✅ Done 2026-07-26 — the two dead demo files are deleted.**
+>   **`src/services/authServiceSimple.js`** (a mock auth service with a hardcoded
+>   `demo@carbonify.io / demo123` login) and **`src/services/sampleDataService.js`** (which seeded
+>   fake "Amazon Rainforest / Brazil" projects) are gone — re-verified as imported by **nothing**
+>   before removal. Neither belonged in a repo for a commercial PH platform.
+>   **`src/test/e2e/auth.spec.js` was kept, not dropped:** only 1 of its 9 tests used the demo
+>   credentials, and the other 8 cover homepage/login/register navigation and form validation. That
+>   one test was removed; the rest stand. Tracked in [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #8.
 >
 > ### 🆕 2026-07-25 (expansion pass) — gap tracker, fees, LGU land-use, guided tour, Docker/API
 >
