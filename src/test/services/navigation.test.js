@@ -61,24 +61,24 @@ describe('navigation information architecture', () => {
       expect(buildSidebar({ isAuthenticated: false })).toEqual([])
     })
 
-    it('leads with the Explore group, marketplace-first for buying roles', () => {
+    it("leads with the role's own landing page, in an untitled group", () => {
       for (const role of ROLE_KEYS) {
         const user = userWith(role)
         const [first] = buildSidebar(user)
-        expect(first.title).toBe('Explore')
-        // Farmers sell feedstock, so biomass leads for them; everyone else
-        // opens on the marketplace.
-        expect(first.items[0].path).toBe(user.isFarmer ? '/biomass' : '/marketplace')
+        expect(first.title).toBe('')
+        expect(first.items).toHaveLength(1)
+        expect(first.items[0].path).toBe(homeDestination(user).path)
       }
     })
 
-    it("places the role's own landing page right after Explore, in an untitled group", () => {
+    it('pins the shared Explore group second for every role, marketplace-first', () => {
       for (const role of ROLE_KEYS) {
         const user = userWith(role)
-        const landing = buildSidebar(user)[1]
-        expect(landing.title).toBe('')
-        expect(landing.items).toHaveLength(1)
-        expect(landing.items[0].path).toBe(homeDestination(user).path)
+        const second = buildSidebar(user)[1]
+        expect(second.title).toBe('Explore')
+        // Farmers sell feedstock, so biomass leads for them; everyone else
+        // opens on the marketplace.
+        expect(second.items[0].path).toBe(user.isFarmer ? '/biomass' : '/marketplace')
       }
     })
 

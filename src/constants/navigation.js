@@ -187,23 +187,26 @@ function exploreGroup(user) {
 }
 
 /**
- * The full sidebar: the shared public surfaces on top (Explore, led by the
- * marketplace), then the role's own landing page, then its role-specific
- * groups. This is the complete list of every product feature the role can
- * reach, which is exactly what makes it possible to say "if it's a feature,
- * it's in the sidebar" and have that be true.
+ * The full sidebar. The top is a fixed two-part block that is the same for
+ * every role — the role's own landing page (Dashboard), then the shared
+ * Explore group (marketplace, biomass, registry, map) — followed by the
+ * role-specific workspace, which is the part that differs between roles. This
+ * is the complete list of every product feature the role can reach, which is
+ * exactly what makes it possible to say "if it's a feature, it's in the
+ * sidebar" and have that be true.
  *
- * Explore leads because buying/browsing the marketplace is the thing every
- * signed-in role does most, so it should be the first thing the eye lands on.
- * The role's landing page follows it in a deliberately untitled group — a lone
- * "Dashboard" link under a heading reads as a category with one thing in it.
+ * Keeping Dashboard + Explore pinned to the top in that order means the first
+ * two things every user sees are in the same place regardless of role; only
+ * what comes after changes. The landing page sits in a deliberately untitled
+ * group — a lone "Dashboard" link under a heading reads as a category with one
+ * thing in it.
  */
 export function buildSidebar(user, { cartCount = 0 } = {}) {
   if (!user.isAuthenticated) return []
 
   return [
-    exploreGroup(user),
     { title: '', items: [withHint(homeDestination(user))] },
+    exploreGroup(user),
     ...buildWorkspace(user, { cartCount }),
   ]
 }
