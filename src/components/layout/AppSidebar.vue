@@ -51,6 +51,12 @@ function handleLogout() {
   performLogout(userStore)
 }
 
+// WelcomeTour listens for this on the window (it's mounted at the app root).
+function startTour() {
+  closeDrawer()
+  window.dispatchEvent(new Event('carbonify:open-tour'))
+}
+
 /**
  * Every nav path that could claim the "current" highlight. Used to resolve
  * overlaps: /biomass/sell is beneath /biomass, and /admin/users beneath /admin,
@@ -183,6 +189,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
               <span class="material-symbols-outlined nav-icon" aria-hidden="true">info</span>
               <span class="nav-label">About</span>
             </router-link>
+          </li>
+          <li>
+            <button class="nav-item" type="button" @click="startTour">
+              <span class="material-symbols-outlined nav-icon" aria-hidden="true">tour</span>
+              <span class="nav-label">Take a tour</span>
+            </button>
           </li>
           <li>
             <button class="nav-item nav-item--logout" type="button" @click="handleLogout">

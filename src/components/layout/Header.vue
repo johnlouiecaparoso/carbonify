@@ -244,6 +244,11 @@
 
                 <div class="dropdown-divider" role="separator"></div>
 
+                <button type="button" class="dropdown-item" @click="startTour">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">tour</span>
+                  <span>Take a tour</span>
+                </button>
+
                 <router-link to="/about" class="dropdown-item" @click="showUserMenu = false">
                   <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
                     >info</span
@@ -418,6 +423,12 @@ function isActive(path) {
 function handleLogout() {
   showUserMenu.value = false
   performLogout(userStore)
+}
+
+// WelcomeTour (mounted at the app root) listens for this on the window.
+function startTour() {
+  showUserMenu.value = false
+  window.dispatchEvent(new Event('carbonify:open-tour'))
 }
 
 const avatarUrl = computed(() => {

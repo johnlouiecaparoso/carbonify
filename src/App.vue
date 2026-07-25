@@ -13,6 +13,7 @@ import { useRoute } from 'vue-router'
 import Header from '@/components/layout/Header.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
+import WelcomeTour from '@/components/onboarding/WelcomeTour.vue'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useUserStore } from '@/store/userStore'
 // import { useErrorStore } from '@/store/errorStore' // Temporarily disabled
@@ -251,6 +252,9 @@ onMounted(async () => {
           <router-view />
         </div>
       </div>
+
+      <!-- First-run guided walkthrough; self-gates on auth + first visit. -->
+      <WelcomeTour v-if="isAppReady" />
 
       <!-- Footer -->
       <footer v-if="showHeader" class="app-footer">
