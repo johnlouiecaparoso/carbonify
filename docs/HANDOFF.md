@@ -10,11 +10,64 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **693 tests green** (was 687 before the 2026-07-26 UI-consistency pass, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **703 tests green** (693 after the 2026-07-26 UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch (85 commits) for review; `main` is otherwise ~85 commits behind. Not merged yet.
 >
-> ### 🆕 2026-07-26 (UI consistency pass) — one green, one list pattern, one control height
+> ### 🆕 2026-07-26 (later) — accessibility close-out, a mobile header bug, and a one-shot pre-flight
+
+Follow-on to the consistency pass below, same branch. Build green, lint green,
+**703 tests** (693 + 10 new contrast assertions). Committed as `bb19629`,
+`f28a684`, `806546b`, `a2c2eee`.
+
+**1. #19 closed — the palette clears WCAG AA.** `--primary-color` went
+`#069e2d` → `#058526` (3.54:1 → **4.78:1** on white), with `--primary-hover`
+→ `#04701f` (6.28:1) and `--primary-dark` → `#045c1a` (8.23:1);
+`--text-muted` went `#718096` → `#64748b` (4.02:1 → 4.76:1). **Two traps, both
+hit:** (a) darkening `--primary-color` alone would have left `--primary-hover`
+*lighter* than the resting state, so the whole ramp had to move together; (b)
+the token was not the only source of the colour — of 411 `#069e2d` occurrences
+only 290 were `var()` fallbacks, and the **121 bare literals** would have kept
+the old light green and re-created the two-toned app the pass below had just
+fixed. 62 bare `#718096` and 110 `rgba(6,158,45)` tints likewise. New guard:
+[tokenContrast.test.js](../src/test/styles/tokenContrast.test.js) parses
+`tokens.css` and fails the suite on a regression.
+
+**2. 🐛 A real bug found while clearing "orphaned CSS": banners were BIGGER on
+phones than on desktop.** The 2026-07-25 header-shrink pass pinned the
+*desktop* rule to 1.5rem/0.95rem but never touched the `@media` blocks, so
+pre-shrink sizes survived there and won on small viewports — Marketplace
+`2rem` @768px and `1.75rem` @480px (plus banner padding `1.5rem → 2rem`), Retire
+`var(--font-size-3xl)` @768px. The "header eats the viewport" problem that pass
+set out to fix was still live on mobile. Both now inherit the desktop values;
+measured at 390px wide the marketplace title is 24px, was 28px. ProfileView's
+`1.35rem` @768px was left alone — that one is a deliberate step *down*. Also
+removed 10 genuinely redundant single-declaration overrides. **Note the
+handoff's own follow-up line was wrong:** only 1 of the 26 PageHeader adopters
+still carried leftover CSS, not six.
+
+**3. Dead demo files deleted (backlog #8).** `authServiceSimple.js` (hardcoded
+`demo@carbonify.io` login) and `sampleDataService.js` (fake Amazon/Brazil seed
+projects) are gone. `src/test/e2e/auth.spec.js` was **kept** — only 1 of its 9
+tests used the demo credentials; the other 8 cover navigation and validation.
+
+**4. 🆕 One-shot pilot pre-flight —
+[`supabase/diagnostics/pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql).**
+Read-only. Bundles runbook §1a/§1b, the money-table RLS posture, the escrow
+apply-status question and the `20260718*` apply-status question into one paste,
+each printing a `verdict` column instead of raw rows. **1c–1g stay manual**
+(edge functions, PayMongo keys/webhook, `ALLOW_UNSIGNED_WEBHOOKS`, Sentry,
+frontend deploy). While writing it: the runbook's §1b snippet queried
+`webhook_events.created_at`, **a column that does not exist** (it is
+`received_at`) — that snippet would have errored on paste. Corrected.
+
+> ⚠️ **Still owner-only, unchanged:** applying `20260725000200` (escrow),
+> running the pre-flight, and the beta itself. The Supabase account available
+> in the dev environment has access to two unrelated projects (SPMS, BSC), not
+> Carbonify's `fmngptolarydbgrtltnd`, so none of the live-DB steps could be
+> executed here.
+
+### 🆕 2026-07-26 (UI consistency pass) — one green, one list pattern, one control height
 >
 > Cosmetic + component work across every role, on `feature-user-onboarding-ux`. No
 > money-path, schema or service changes; all of it is Vue/CSS. Build green, lint
@@ -36,13 +89,12 @@
 > fills and wallet/prompt status colours. They now use `--primary-color` /
 > `--success-color` (both #069e2d).
 >
-> > ⚠️ **Known trade-off, recorded deliberately.** Submit a Project had used
-> > `--primary-dark` *for contrast*: white subtitle text is **3.5:1** on #069e2d
-> > (below the WCAG AA 4.5:1 floor) versus 5.7:1 on #04773b. Matching the app returns
-> > those two pages to 3.5:1 — the same as the other 25 banners. The gap is real but
-> > **app-wide, so it belongs in the token, not in one view**: darkening
-> > `--primary-color` in [tokens.css](../src/styles/tokens.css) fixes every banner at
-> > once. Logged as [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #19.
+> > ✅ **The trade-off this created was closed the same day.** Unifying the banners
+> > returned Submit a Project and Developer Projects to 3.5:1 subtitle contrast — the
+> > same as the other 25. That gap was app-wide, so it was fixed in the token: the
+> > whole green ramp was darkened later on 2026-07-26 and `--primary-color` now
+> > measures **4.78:1**. See the entry below and
+> > [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #19 (closed).
 >
 > **2. A reusable collapse-and-scroll list — [CollapsibleList.vue](../src/components/ui/CollapsibleList.vue).**
 > The "compact list + See more" pattern from the 2026-07-25 records compaction was

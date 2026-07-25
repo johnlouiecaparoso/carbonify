@@ -31,6 +31,12 @@ catch UX/role bugs that unit tests can't.
 Run each and confirm the expected result. The SQL runs in the Supabase **SQL Editor** (it executes with
 elevated rights, so the `service_role`-only grant on the reconcile function is fine there).
 
+> 💡 **Shortcut:** every SQL check below (1a, 1b) plus the money-table RLS audit, the escrow
+> apply-status question and the `20260718*` apply-status question are bundled into one read-only
+> script — [`supabase/diagnostics/pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql).
+> Paste it into the SQL Editor and read the `verdict` column. **1c–1g below are dashboard checks and
+> still have to be done by hand.**
+
 - [ ] **1a. Books reconcile to zero.**
   ```sql
   select * from reconcile_financials();
@@ -40,9 +46,11 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 - [ ] **1b. No stuck/orphaned payment intents.**
   ```sql
   select status, count(*) from webhook_events group by status order by 2 desc;
-  select id, error, created_at from webhook_events
-   where error is not null order by created_at desc limit 20;
+  select id, error, received_at from webhook_events
+   where error is not null order by received_at desc limit 20;
   ```
+  *(The column is `received_at`, not `created_at` — `webhook_events` has no `created_at`, so the
+  earlier version of this snippet errored. Corrected 2026-07-26.)*
   **Expected:** events settle to a processed state; the `error` column is empty on recent rows. A
   populated `error` is a handler that threw — read it before launch.
 

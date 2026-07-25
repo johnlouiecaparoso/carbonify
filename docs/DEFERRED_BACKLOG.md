@@ -15,9 +15,9 @@ Come back to this list after the phases are implemented.
 > repositioning. Does **not** block the beta, but likely blocks the first *corporate* customer.
 > Scoped in [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
 >
-> **New 2026-07-26: #19 — white-on-green header text is 3.5:1, under the WCAG AA floor.** Surfaced by
-> the UI consistency pass, which unified all 27 page banners onto `--primary-color`. App-wide, not
-> per-view; the fix is one token in `tokens.css` plus a visual sweep. Blocks nothing.
+> **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
+> app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
+> `tokens.css`. Guarded by a contrast test. Details in #19 below.
 
 ---
 
@@ -344,7 +344,41 @@ migration set. Everything money-related keys to `auth.uid()`.
 
 ## From the 2026-07-26 UI consistency pass
 
-### 19. White-on-green header text is 3.5:1 — below the WCAG AA floor 🟡
+### 19. White-on-green header text is 3.5:1 — below the WCAG AA floor ✅ CLOSED 2026-07-26
+
+**Resolution.** The whole green ramp was darkened in `tokens.css`, not just `--primary-color`:
+
+| token | was | now | contrast on white |
+|---|---|---|---|
+| `--primary-color` | `#069e2d` | `#058526` | 3.54:1 → **4.78:1** |
+| `--primary-hover` | `#058e3f` | `#04701f` | **6.28:1** |
+| `--primary-dark` | `#04773b` | `#045c1a` | **8.23:1** |
+| `--text-muted` | `#718096` | `#64748b` | 4.02:1 → **4.76:1** |
+
+Two things made this more than a one-line change, both worth knowing before touching the palette again:
+
+1. **The ramp had to move together.** Darkening only `--primary-color` would have left
+   `--primary-hover` (#058e3f) *lighter* than the resting state, so every hover would have read as a
+   bug. Ordering is now asserted by a test.
+2. **The token was not the only source of the colour.** Of 411 `#069e2d` occurrences, 290 were
+   `var(--primary-color, #069e2d)` fallbacks but **121 were bare literals** that ignore the token
+   entirely — plus 62 bare `#718096` and 110 `rgba(6,158,45)` tints. Editing `tokens.css` alone would
+   have left 121 surfaces on the old light green, re-creating the exact two-toned inconsistency the
+   2026-07-26 consistency pass had just removed. All were swept.
+
+**Guard:** [`src/test/styles/tokenContrast.test.js`](../src/test/styles/tokenContrast.test.js) parses
+`tokens.css` and asserts the AA floor, the light→dark ordering, visible separation between steps, and
+that the aliased greens (`--bg-green`, `--border-green`, `--bg-green-dark`) still equal their ramp
+entry. A brighter brand green now fails the suite.
+
+Verified in a real browser (home, login, register, marketplace) at 1440px and 390px. The
+`--text-muted` note that used to sit in `tokens.css` is resolved by the same change.
+
+*Original entry below.*
+
+---
+
+### 19 (original). White-on-green header text is 3.5:1 — below the WCAG AA floor 🟡
 
 **Where:** every green page banner (27 views + [PageHeader.vue](../src/components/layout/PageHeader.vue)).
 

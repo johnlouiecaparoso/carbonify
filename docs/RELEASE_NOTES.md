@@ -1,5 +1,21 @@
 # Carbonify — Release Notes
 
+## 2026-07-26 (later) — Easier-to-read text, and headings sized right on phones
+
+**Headline:** the brand green is slightly deeper so white text on it is comfortably
+readable, grey helper text is darker, and page headings no longer look oversized on a phone.
+
+- **Readable text on green.** White text on the old brand green sat just under the
+  accessibility standard for normal-size text — page titles were fine, but the smaller line of
+  description text under each title was harder to read than it should be. The green is now a
+  little deeper across the whole app, which fixes every page banner, button and badge at once.
+  Grey "helper" text throughout the app is darker for the same reason.
+- **Headings sized right on phones.** On a phone, several page banners — the Marketplace and
+  Retire pages most visibly — were rendering their heading *larger* than on a desktop, so the
+  green banner took up more of the screen than it should. Fixed.
+- **Housekeeping.** Two unused leftover files containing sample/demo data were removed from
+  the codebase. No change to anything you can see.
+
 ## 2026-07-26 — The same green everywhere, and shorter lists
 
 **Headline:** every page now uses one shade of green, long admin lists collapse to a few

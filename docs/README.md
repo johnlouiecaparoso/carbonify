@@ -17,14 +17,14 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | Doc | What it answers |
 |---|---|
 | [HANDOFF.md](HANDOFF.md) | **Where we are right now, one screen** — implemented vs not, and the ordered next steps |
-| [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) | 🔴 **The active next step** — pre-flight checks, the closed-beta click-through, daily monitoring, abort criteria |
+| [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) | 🔴 **The active next step** — pre-flight checks, the closed-beta click-through, daily monitoring, abort criteria. The SQL half of §1 is bundled into [`supabase/diagnostics/pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) |
 | [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) | Per-role tick-box test scripts to hand to pilot users |
 | [TESTING_PLAN.md](TESTING_PLAN.md) | The layered what-to-test map: regression, integration, e2e, security, beta, load |
 | [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | **The real-money gate** — what blocks live payment keys, with a go/no-go checklist |
 | [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | One deduplicated Built / Partial / To-build checklist + owner responsibilities + third-party services |
 | [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) | The plain-language system map — what it is, who uses it, tech stack |
 | [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Product, roles, credit lifecycle, money model in plain language |
-| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c closed 2026-07-25; #14 (escrow) applies during the pilot; #18 (org accounts) and #19 (header contrast) are new** |
+| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c closed 2026-07-25, #19 (contrast) closed 2026-07-26; #14 (escrow) applies during the pilot; #18 (org accounts) is the open commercial one** |
 | [ESCROW_DECISION.md](ESCROW_DECISION.md) | Why seller proceeds are held on cards and released immediately on push payments (Option B), and the apply plan |
 | [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) | 📋 **Scoped, not started** — company/team accounts: why every account being an individual blocks corporate customers, and the 5-phase build |
 
