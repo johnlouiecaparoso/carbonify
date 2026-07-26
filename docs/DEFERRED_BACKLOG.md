@@ -827,7 +827,23 @@ alongside credit transactions. If it stays an introduction-and-records layer, th
 read-only feedstock view and a way to record an off-platform resolution — otherwise "contact
 support" resolves to nobody.
 
-### 30. ~100 exported functions are referenced nowhere 🟢
+### 30. ~100 exported functions are referenced nowhere 🟢 (first pass done 2026-07-26)
+
+> **Progress 2026-07-26 (`bfc4526`).** The detector was widened to search
+> `supabase/functions`, `scripts/` and `docs/` as this entry asked, which immediately spared
+> `getCertificate` / `verifyCertificate` (called from `scripts/test/components/`) and `exportMyData`
+> (referenced in a migration). It also now separates *dead function* from *unnecessary export* — an
+> export used inside its own file is real code, which is why `ERROR_CODES` (30 in-file references),
+> `setupLazyLoading` and `preloadCriticalImages` were left alone.
+>
+> Four files swept: `utils/cache.js` (220 → 45), `utils/formatDate.js` (104 → 24),
+> `utils/imageOptimization.js` (196 → 128), `utils/errorHandler.js` (`withRetry`). **347 lines
+> removed.** 61 flagged exports remain — mostly ones needing an `export` keyword dropped rather than
+> a function deleted.
+>
+> **Do the rest with exact-string edits, not line arithmetic.** Two removals in that pass were done
+> by computing line ranges and both were wrong; one required restoring `auditService.js` from a
+> backup. Lint caught them, but the method invites the error.
 
 **Where:** across `src/services` and `src/utils`. Found while removing five dead exports from
 `auditService` (444 lines → 203) during the admin pass.
