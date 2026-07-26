@@ -440,8 +440,6 @@ onMounted(load)
 <style scoped>
 .rfqs { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
 .page-body { max-width: 820px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 .tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; }

@@ -210,22 +210,6 @@ onMounted(load)
   padding: 24px 16px;
 }
 
-.page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
-.page-head p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-}
 
 .btn-ghost {
   border: 1px solid #cbd5e1;
@@ -425,9 +409,6 @@ onMounted(load)
 }
 
 @media (max-width: 640px) {
-  .page-head h1 {
-    font-size: 1.35rem;
-  }
   .cards {
     grid-template-columns: 1fr 1fr;
   }

@@ -227,10 +227,6 @@ onMounted(load)
   margin: 0 auto;
   padding: 24px 16px;
 }
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
 .sub { margin: -6px 0 14px; }
 .buyer-block { margin-bottom: 22px; }
 .buyer-block:last-child { margin-bottom: 0; }
@@ -245,10 +241,6 @@ onMounted(load)
 .empty-inline { text-align: center; padding: 28px 16px; color: #6b7280; }
 .empty-inline .material-symbols-outlined { font-size: 34px; color: #058526; }
 .empty-inline p { margin: 8px 0 0; }
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
-}
 .muted {
   color: #6b7280;
 }
@@ -409,9 +401,6 @@ onMounted(load)
 @media (max-width: 640px) {
   .asset-ledger {
     padding: 16px 12px;
-  }
-  .page-head h1 {
-    font-size: 1.35rem;
   }
   .cards {
     grid-template-columns: 1fr;

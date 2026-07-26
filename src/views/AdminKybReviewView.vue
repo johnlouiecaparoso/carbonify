@@ -142,14 +142,6 @@ onMounted(load)
   margin: 0 auto;
   padding: 24px 16px;
 }
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
-}
 .muted {
   color: #6b7280;
 }

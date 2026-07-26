@@ -239,10 +239,7 @@ onMounted(load)
 
 <style scoped>
 .sell { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
-.page-body { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; }
-.muted { color: #6b7280; }
+.page-body { max-width: 960px; margin: 0 auto; padding: 24px 16px; }.muted { color: #6b7280; }
 .notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; }
 .notice.warn { background: #fef3c7; color: #92400e; }
 .notice.error { background: #fee2e2; color: #991b1b; }

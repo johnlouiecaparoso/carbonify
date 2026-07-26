@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import router from '@/router'
 import { ROLES, canonicalizeRole } from '@/constants/roles'
 import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
+import { buildSidebar } from '@/constants/navigation'
 
 /**
  * Guards against the route table drifting from what the app actually promises.
@@ -151,4 +152,62 @@ describe('role restrictions', () => {
       expect(paths.has(getRoleDefaultRoute(role))).toBe(true)
     }
   })
+})
+
+/**
+ * The rule constants/navigation.js states about itself: the sidebar is "the
+ * complete list of every product feature the role can reach". Nothing enforced
+ * it, and it had already broken — /monitoring, the MRV report editor a
+ * developer has to revisit every reporting period, was gated to developers but
+ * appeared in no sidebar group. It was reachable only by noticing a card on the
+ * dashboard, which is exactly the "three ways to reach one page, none of them
+ * the menu" problem navigation.js was written to end.
+ *
+ * Checking the ROUTE TABLE rather than the nav map is the point: a feature can
+ * only go missing from the sidebar by existing as a route and not as a
+ * destination, so the route table is the only place the omission is visible.
+ */
+describe('role-gated routes are reachable from that role sidebar', () => {
+  const GATES = [
+    { meta: 'requiresProjectDeveloper', role: 'developer' },
+    { meta: 'requiresLgu', role: 'lgu' },
+    { meta: 'requiresFarmer', role: 'farmer' },
+  ]
+
+  /** Minimal stand-in for the Pinia store's role getters. */
+  const userWith = (role) => ({
+    isAuthenticated: true,
+    isAdmin: false,
+    isVerifier: false,
+    isProjectDeveloper: role === 'developer',
+    isLguUser: role === 'lgu',
+    isFarmer: role === 'farmer',
+    isBuyerInvestor: false,
+  })
+
+  /**
+   * Routes deliberately absent from the sidebar. Each needs a reason, because
+   * "it isn't in the menu" is the bug this suite exists to catch.
+   */
+  const NOT_IN_SIDEBAR = new Set([])
+
+  for (const { meta, role } of GATES) {
+    it(`lists every ${meta} route in the ${role} sidebar`, () => {
+      const sidebarPaths = new Set(
+        buildSidebar(userWith(role)).flatMap((s) => s.items.map((i) => i.path)),
+      )
+      const gated = routes
+        .filter((r) => r.meta?.[meta] && !NOT_IN_SIDEBAR.has(r.path))
+        .map((r) => r.path)
+
+      expect(gated.length, `no ${meta} routes found — did the meta flag get renamed?`).toBeGreaterThan(0)
+
+      for (const path of gated) {
+        expect(
+          sidebarPaths.has(path),
+          `${path} is gated to ${role} but is in no sidebar group — either add it to constants/navigation.js or list it in NOT_IN_SIDEBAR with a reason`,
+        ).toBe(true)
+      }
+    })
+  }
 })

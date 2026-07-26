@@ -484,8 +484,8 @@ const stats = computed(() => ({
 const tabs = computed(() => {
   const list = [
     { value: 'all', label: 'All', count: stats.value.total },
-    // Drafts have no writer today, but the status is valid per the projects
-    // CHECK constraint. Without this the tab counts silently fail to sum to All.
+    // Written by ProjectForm's "Save as draft", which parks a submission
+    // outside the review queue. Without this tab the counts would not sum to All.
     { value: 'draft', label: 'Draft', count: stats.value.draft },
     { value: 'pending', label: 'Pending', count: stats.value.pending },
     { value: 'needs_revision', label: 'Needs Revision', count: stats.value.needsRevision },

@@ -290,9 +290,6 @@ onMounted(load)
 <style scoped>
 .mrv-dash { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
 .page-body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 0; max-width: 640px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 .notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; }
@@ -342,6 +339,5 @@ onMounted(load)
 .empty p { max-width: 460px; margin: 0 auto 18px; }
 @media (max-width: 720px) {
   .charts { grid-template-columns: 1fr; }
-  .page-head { flex-direction: column; }
 }
 </style>

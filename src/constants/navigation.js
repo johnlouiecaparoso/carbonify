@@ -77,7 +77,13 @@ const D = {
   devLedger: { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
   devOfftakes: { path: '/developer/offtakes', label: 'Offtake agreements', icon: 'handshake' },
   devDataRoom: { path: '/developer/data-room', label: 'Data room activity', icon: 'visibility' },
-  devMrv: { path: '/developer/mrv-dashboard', label: 'MRV & monitoring', icon: 'query_stats' },
+  // Two distinct pages, deliberately named as a pair: the dashboard is where
+  // you see what is due, the reports page is where you file it. /monitoring had
+  // no sidebar entry at all and was reachable only by clicking through from a
+  // dashboard card — which broke this file's own rule that the sidebar is the
+  // complete list of what a role can reach.
+  devMrv: { path: '/developer/mrv-dashboard', label: 'MRV dashboard', icon: 'query_stats' },
+  devMonitoring: { path: '/monitoring', label: 'Monitoring reports', icon: 'edit_document' },
   sellerEarnings: { path: '/sales', label: 'Seller earnings', icon: 'payments' },
 
   // Verifier
@@ -127,7 +133,8 @@ const HINTS = {
   '/developer/ledger': 'Credits issued and inventory',
   '/developer/offtakes': 'Forward sale agreements',
   '/developer/data-room': 'Who viewed your documents',
-  '/developer/mrv-dashboard': 'Monitoring reports and schedules',
+  '/developer/mrv-dashboard': 'What is due, and what you have filed',
+  '/monitoring': 'File and revise monitoring reports',
   '/sales': 'Earnings, escrow and withdrawals',
   '/admin/users': 'Accounts, roles and permissions',
   '/admin/finance': 'Sales, fees, payouts, reconciliation',
@@ -280,7 +287,7 @@ export function buildWorkspace(user, { cartCount = 0 } = {}) {
   if (user.isProjectDeveloper) {
     return [
       group('Projects', [D.submitProject, D.devLedger]),
-      group('Monitoring', [D.devMrv]),
+      group('Monitoring', [D.devMrv, D.devMonitoring]),
       group('Commercial', [D.devOfftakes, D.devDataRoom, D.sellerEarnings]),
       group('Biomass', [D.sellFeedstock, D.feedstockRfqs]),
       insights,

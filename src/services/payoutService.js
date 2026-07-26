@@ -63,9 +63,16 @@ export async function getMySales(limit = 50) {
   } = await supabase.auth.getUser()
   if (!user) return []
 
+  // transaction_fee is selected because the seller is entitled to see it: the
+  // "Total" on a sale is GROSS, but what reaches their balance is gross minus
+  // this fee (process_marketplace_purchase computes v_seller_net exactly this
+  // way and credits seller_payable with it). Without the fee column the sales
+  // table and the available balance disagree and nothing in the UI explains why.
   const { data, error } = await supabase
     .from('credit_transactions')
-    .select('id, quantity, price_per_credit, total_amount, currency, status, created_at, completed_at')
+    .select(
+      'id, quantity, price_per_credit, total_amount, transaction_fee, currency, status, created_at, completed_at',
+    )
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -74,7 +81,21 @@ export async function getMySales(limit = 50) {
     console.error('Error fetching sales:', error)
     return []
   }
-  return data || []
+  return (data || []).map((row) => ({ ...row, net_amount: netOf(row) }))
+}
+
+/**
+ * What the seller actually receives for a sale: gross less the platform fee.
+ *
+ * Mirrors `v_seller_net := v_amount - v_fee` in
+ * `20260606000400_process_marketplace_purchase.sql`. Kept as one exported
+ * helper so the per-sale row and the per-project rollup cannot drift apart.
+ *
+ * @param {{total_amount?: number|string, transaction_fee?: number|string}} row
+ * @returns {number}
+ */
+export function netOf(row) {
+  return round2((Number(row?.total_amount) || 0) - (Number(row?.transaction_fee) || 0))
 }
 
 function round2(n) {
@@ -104,6 +125,8 @@ export function aggregateSalesByProject(rows = []) {
       salesCount: 0,
       creditsSold: 0,
       grossEarnings: 0,
+      platformFees: 0,
+      netEarnings: 0,
       currency: r.currency || 'PHP',
       lastSaleDate: null,
     }
@@ -111,6 +134,8 @@ export function aggregateSalesByProject(rows = []) {
     existing.salesCount += 1
     existing.creditsSold += Number(r.quantity) || 0
     existing.grossEarnings += Number(r.total_amount) || 0
+    existing.platformFees += Number(r.transaction_fee) || 0
+    existing.netEarnings += netOf(r)
     if (r.date && (!existing.lastSaleDate || new Date(r.date) > new Date(existing.lastSaleDate))) {
       existing.lastSaleDate = r.date
     }
@@ -119,7 +144,12 @@ export function aggregateSalesByProject(rows = []) {
   }
 
   return Array.from(byProject.values())
-    .map((p) => ({ ...p, grossEarnings: round2(p.grossEarnings) }))
+    .map((p) => ({
+      ...p,
+      grossEarnings: round2(p.grossEarnings),
+      platformFees: round2(p.platformFees),
+      netEarnings: round2(p.netEarnings),
+    }))
     .sort((a, b) => b.grossEarnings - a.grossEarnings)
 }
 
@@ -140,7 +170,7 @@ export async function getMySalesByProject(limit = 200) {
   const { data, error } = await supabase
     .from('credit_transactions')
     .select(
-      `id, quantity, total_amount, currency, status, created_at, completed_at,
+      `id, quantity, total_amount, transaction_fee, currency, status, created_at, completed_at,
        project_credits!inner(projects!inner(id, title))`,
     )
     .eq('seller_id', user.id)
@@ -157,6 +187,7 @@ export async function getMySalesByProject(limit = 200) {
     project_title: t.project_credits?.projects?.title,
     quantity: t.quantity,
     total_amount: t.total_amount,
+    transaction_fee: t.transaction_fee,
     currency: t.currency,
     status: t.status,
     date: t.completed_at || t.created_at,

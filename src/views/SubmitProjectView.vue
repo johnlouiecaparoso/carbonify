@@ -220,9 +220,10 @@ const handleProjectSuccess = (projectData) => {
 }
 
 const handleProjectCancel = () => {
-  console.log('Project submission cancelled')
-  // Navigate back to dashboard or homepage
-  router.push('/')
+  // Back to the developer's own workspace. This used to push '/', which
+  // redirects to /home — so abandoning a submission dropped a signed-in
+  // developer onto the public marketing page.
+  router.push('/developer/projects')
 }
 
 const goToMarketplace = () => {

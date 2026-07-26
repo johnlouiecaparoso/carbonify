@@ -169,11 +169,8 @@ const draft = ref('')
 <style scoped>
 .assistant { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
 .page-body { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
-.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
 .head-row { display: flex; gap: 12px; align-items: flex-start; }
 .head-icon { font-size: 36px; color: #058526; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 0; }
 .pill { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }

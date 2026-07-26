@@ -16,15 +16,21 @@ const kyb = ref({ verified: false, application: null })
 const showWithdraw = ref(false)
 const showKyb = ref(false)
 
+const completedSales = computed(() => sales.value.filter((s) => s.status === 'completed'))
+
 const totalEarned = computed(() =>
-  sales.value
-    .filter((s) => s.status === 'completed')
-    .reduce((sum, s) => sum + Number(s.total_amount || 0), 0),
+  completedSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0),
 )
+// Gross is what the buyer paid; net is what reaches this seller's balance. The
+// page showed only gross, so a seller could not reconcile "I sold PHP 10,000"
+// against a smaller available balance — the fee was recorded per transaction
+// but never queried or displayed.
+const totalFees = computed(() =>
+  completedSales.value.reduce((sum, s) => sum + Number(s.transaction_fee || 0), 0),
+)
+const totalNet = computed(() => totalEarned.value - totalFees.value)
 const creditsSold = computed(() =>
-  sales.value
-    .filter((s) => s.status === 'completed')
-    .reduce((sum, s) => sum + Number(s.quantity || 0), 0),
+  completedSales.value.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
 )
 
 function peso(n) {
@@ -37,26 +43,36 @@ function shortDate(d) {
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [b, s, sp, p, k] = await Promise.all([
-      getSellerBalance(),
-      getMySales(),
-      getMySalesByProject(),
-      getMyPayouts(),
-      getMyKyb(),
-    ])
-    balance.value = b
-    sales.value = s
-    salesByProject.value = sp
-    payouts.value = p
-    kyb.value = k
-  } catch (err) {
-    console.error('Failed to load seller earnings:', err)
+
+  // allSettled, not all: this is the page a seller comes to in order to see
+  // their money and withdraw it. Under Promise.all a failure in any ONE of the
+  // five — the per-project rollup, the payout history, the KYB lookup — threw
+  // away the balance too and left the whole page on an error card. The same
+  // reasoning is spelled out in BuyerDashboardView.
+  const [b, s, sp, p, k] = await Promise.allSettled([
+    getSellerBalance(),
+    getMySales(),
+    getMySalesByProject(),
+    getMyPayouts(),
+    getMyKyb(),
+  ])
+
+  if (b.status === 'fulfilled') balance.value = b.value
+  if (s.status === 'fulfilled') sales.value = s.value || []
+  if (sp.status === 'fulfilled') salesByProject.value = sp.value || []
+  if (p.status === 'fulfilled') payouts.value = p.value || []
+  if (k.status === 'fulfilled') kyb.value = k.value
+
+  // Only the balance is load-bearing enough to replace the page: without it we
+  // cannot honestly show what is withdrawable, and the withdraw action would be
+  // operating on a zero we invented.
+  if (b.status === 'rejected') {
+    console.error('Failed to load seller balance:', b.reason)
     loadError.value =
-      err?.message || 'We could not load your earnings right now. Please try again.'
-  } finally {
-    loading.value = false
+      b.reason?.message || 'We could not load your earnings right now. Please try again.'
   }
+
+  loading.value = false
 }
 
 function onWithdrawSuccess() {
@@ -133,9 +149,16 @@ onMounted(load)
           <div class="muted small">Released after the hold period</div>
         </div>
         <div class="card">
-          <div class="card-label">Total earned</div>
-          <div class="card-value">{{ peso(totalEarned) }}</div>
-          <div class="muted small">{{ creditsSold }} credits sold</div>
+          <div class="card-label">Net earned</div>
+          <div class="card-value">{{ peso(totalNet) }}</div>
+          <!-- Both figures, because the gap between them is the question a
+               seller asks first. "Total earned" alone read as gross and did not
+               reconcile against the balance beside it. -->
+          <div class="muted small">
+            {{ peso(totalEarned) }} gross
+            <template v-if="totalFees > 0">less {{ peso(totalFees) }} in fees</template>
+            · {{ creditsSold }} credits sold
+          </div>
         </div>
       </section>
 
@@ -161,7 +184,14 @@ onMounted(load)
                src/styles/responsive-table.css -->
           <table class="data-table stack-on-mobile">
             <thead>
-              <tr><th>Project</th><th>Sales</th><th>Credits sold</th><th>Gross earned</th><th>Last sale</th></tr>
+              <tr>
+                <th>Project</th>
+                <th>Sales</th>
+                <th>Credits sold</th>
+                <th>Gross earned</th>
+                <th>Net earned</th>
+                <th>Last sale</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="row in salesByProject" :key="row.projectId">
@@ -169,6 +199,7 @@ onMounted(load)
                 <td data-label="Sales">{{ row.salesCount }}</td>
                 <td data-label="Credits sold">{{ row.creditsSold }}</td>
                 <td data-label="Gross earned">{{ peso(row.grossEarnings) }}</td>
+                <td data-label="Net earned" class="net-cell">{{ peso(row.netEarnings) }}</td>
                 <td data-label="Last sale">{{ shortDate(row.lastSaleDate) }}</td>
               </tr>
             </tbody>
@@ -183,14 +214,26 @@ onMounted(load)
         <div v-if="sales.length" class="table-scroll">
           <table class="data-table stack-on-mobile">
             <thead>
-              <tr><th>Date</th><th>Credits</th><th>Unit</th><th>Total</th><th>Status</th></tr>
+              <tr>
+                <th>Date</th>
+                <th>Credits</th>
+                <th>Unit</th>
+                <th>Gross</th>
+                <th>Platform fee</th>
+                <th>Net to you</th>
+                <th>Status</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="s in sales" :key="s.id">
                 <td data-label="Date">{{ shortDate(s.created_at) }}</td>
                 <td data-label="Credits">{{ s.quantity }}</td>
                 <td data-label="Unit">{{ peso(s.price_per_credit) }}</td>
-                <td data-label="Total">{{ peso(s.total_amount) }}</td>
+                <td data-label="Gross">{{ peso(s.total_amount) }}</td>
+                <td data-label="Platform fee" class="muted">
+                  {{ Number(s.transaction_fee) > 0 ? '−' + peso(s.transaction_fee) : '—' }}
+                </td>
+                <td data-label="Net to you" class="net-cell">{{ peso(s.net_amount) }}</td>
                 <td data-label="Status"><span class="badge" :class="s.status">{{ s.status }}</span></td>
               </tr>
             </tbody>
@@ -234,13 +277,11 @@ onMounted(load)
   margin: 0 auto;
   padding: 24px 16px;
 }
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
+/* Net is the number a seller actually acts on, so it carries the weight the
+   gross column used to have all to itself. */
+.net-cell {
+  font-weight: 600;
+  color: #0f172a;
 }
 .muted {
   color: #6b7280;
@@ -395,9 +436,6 @@ onMounted(load)
 @media (max-width: 640px) {
   .seller-earnings {
     padding: 16px 12px;
-  }
-  .page-head h1 {
-    font-size: 1.35rem;
   }
   .cards {
     grid-template-columns: 1fr;
