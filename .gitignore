@@ -44,3 +44,7 @@ supabase/.temp/linked-project.json
 # settings.local.json is Claude Code's convention for machine-local overrides
 # (personal permission grants), so it must not be committed.
 .claude/settings.local.json
+
+# Playwright output (created by `npm run test:e2e`)
+test-results/
+playwright-report/
