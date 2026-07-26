@@ -54,6 +54,12 @@ Come back to this list after the phases are implemented.
 > notified that a project appeared in its jurisdiction, though endorsing local projects is one of the
 > four things its onboarding promises; jurisdiction-scoping needs a DB change.
 >
+> **New 2026-07-26 (admin review): #29 and #30.** #29 — the feedstock side of the marketplace has no
+> admin surface at all: no console reads `farmer_deliveries` or `biomass_rfqs`, so the escalation
+> point for **#26** does not exist and a farmer owed money can be helped by nobody. #30 — ~100
+> exported functions are referenced nowhere; the orphan scan misses them because it only finds unused
+> FILES. Admin feature gaps are tracked separately in `docs/role-needs/04-admin.md`.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -787,3 +793,59 @@ to endorse.
 `notifyProjectSubmittedForReview` alongside the verifier notification. Fails closed by design: an
 LGU with no declared municipality, or a project with none, should receive nothing rather than
 everything.
+
+---
+
+## From the 2026-07-26 admin review
+
+Last of the six role reviews. Admin feature gaps were already tracked and prioritized in
+[role-needs/04-admin.md](role-needs/04-admin.md) (#5 fraud signals, #10 feature flags, #11
+maker-checker, #12 moderation) and are not duplicated here. Defects fixed in `647d3b2`. These two
+are new.
+
+### 29. The feedstock side of the marketplace has no admin at all 🟠
+
+**Where:** nothing. No file under `src/components/admin/`, no `Admin*View.vue`, and neither
+`adminFinanceService` nor `adminExportService` reads `farmer_deliveries`, `biomass_rfqs` or
+`biomass_products`.
+
+Admin financial oversight is marked ✅ in the role-needs doc, and it is — for the *credit* trade.
+`/admin/finance` reports gross sales, fees, platform revenue, payouts and reconciliation drift, all
+from `credit_transactions`. `/admin/refunds` resolves disputes, and `disputes` rows are keyed to a
+`transaction_id` on the credit side. The feedstock trade — listings, RFQs, quotes, deliveries,
+payment status — is invisible to every admin screen.
+
+**Why that matters more than an ordinary gap:** it is the other half of **#26**. A farmer whose
+confirmed delivery is never marked paid has no dispute path of their own, and this entry is why they
+also cannot be helped: the escalation point has no screen showing the delivery, no way to see the
+buyer's side of it, and no record of the trade in any oversight console. For the party with the
+least leverage on the platform, there is neither self-service recourse nor staff recourse.
+
+**How to close:** decide #26 first, because the answer changes what this needs. If Carbonify becomes
+the payment rail for feedstock, deliveries belong in the finance console and in the dispute schema
+alongside credit transactions. If it stays an introduction-and-records layer, the admin still needs a
+read-only feedstock view and a way to record an off-platform resolution — otherwise "contact
+support" resolves to nobody.
+
+### 30. ~100 exported functions are referenced nowhere 🟢
+
+**Where:** across `src/services` and `src/utils`. Found while removing five dead exports from
+`auditService` (444 lines → 203) during the admin pass.
+
+The existing orphan scan only detects whole unused **files**, which is why it reports zero while this
+does not: these are live modules carrying dead exports. A sample of what turned up —
+`notifyProjectSubmittedForReview` (superseded by the `notify_project_submitted` DB trigger, which the
+*calling* code documents but the function does not), `emailService.getUserEmailPreferences` /
+`updateUserEmailPreferences` (the stubs behind the deleted `/email-settings` page),
+`paymentGatewayService.createGCashPayment` / `createMayaPayment`, and several `marketplaceService`
+helpers.
+
+**Why it is on this list rather than swept now.** Some are plausibly deliberate API surface, some are
+superseded by database triggers in ways only a comment elsewhere records, and a few may be called
+from Edge Functions rather than the client — which this check does not look at. Deleting 100 exports
+on a single reading is how a working function gets removed because its only caller was somewhere the
+scan could not see.
+
+**How to close:** sweep per service, not in one pass, and check `supabase/functions/` as well as
+`src/` for each name before deleting. The detector is a dozen lines: collect `^export (async )?
+function|const` names per file, then look for a bare-word match anywhere else under `src/`.
