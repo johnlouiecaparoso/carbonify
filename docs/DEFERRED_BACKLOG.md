@@ -20,6 +20,11 @@ Come back to this list after the phases are implemented.
 > together with **#14**, not after it. #21 — the `services/credits|payments|payouts` provider layer is
 > imported only by tests, so ~40 passing tests overstate money-path coverage. Neither blocks the beta.
 >
+> **New 2026-07-26 (project-developer review): #22 and #23.** #22 — sellers get no invoice or receipt
+> for a sale where the buyer gets both; blocked on the seller-of-record question, not on code. #23 —
+> developers have no forward/projection view of their own projects, which investors do have. Neither
+> blocks the beta.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -488,3 +493,52 @@ same for `payments`, `payouts`, `credits/fulfillmentSaga` and `paymentService`. 
 generic import-graph scan here — a naive block-comment strip mis-reads Vue SFCs whose `<style>` blocks
 contain `/* … */`, and will wrongly report genuinely-used services (`endorsementService`,
 `lguReportService`) as test-only.
+
+---
+
+## From the 2026-07-26 project-developer review
+
+Same live-readiness pass, developer role. The defects and the two closable gaps
+are fixed in `f310258`, `0e5f3fa` and the escrow-date change; these two are left
+open because both are compliance-shaped rather than code-shaped.
+
+### 22. Sellers get no sales document — only buyers do 🟠
+
+**Where:** [vatInvoiceService.js](../src/services/vatInvoiceService.js), reachable only from
+[ReceiptView.vue](../src/views/ReceiptView.vue) — a route in `FINANCE_RESTRICTED_ROLES`, so project
+developers are blocked from it outright.
+
+A buyer gets a receipt and a provisional VAT invoice for every purchase. The seller on the other side
+of that same transaction gets nothing: no invoice, no receipt, no per-sale document of any kind. They
+can now see gross/fee/net on screen and export both tables as CSV (`0e5f3fa`), which covers
+bookkeeping — but not the document a counterparty or the BIR asks for.
+
+**Why it is on this list rather than fixed.** It is the same unresolved question `vatInvoiceService`
+already flags for the buyer side: Carbonify is not yet a BIR-registered entity with accredited
+receipts, which is why the buyer's invoice is watermarked provisional (see
+[POLICY_AND_USER_AGREEMENT.md](POLICY_AND_USER_AGREEMENT.md)). Issuing seller-side documents raises a
+second question the buyer flow never had to answer: in a marketplace sale, is Carbonify the seller of
+record issuing on the developer's behalf, or an agent facilitating a sale between two parties who each
+issue their own? That determines whose TIN goes on the document, and it is a tax-advice question, not
+an implementation choice.
+
+**How to close:** settle the seller-of-record question first, then mirror the existing
+`computeVatBreakdown` + provisional watermark for the seller side. The arithmetic already exists and
+is unit-tested; only the identity on the document is undecided.
+
+### 23. Developers cannot see a forward view of their own projects 🟢
+
+**Where:** [InvestorPortalView.vue](../src/views/InvestorPortalView.vue) /
+[investorAnalytics.js](../src/services/investorAnalytics.js).
+
+Investors get projected value, IRR/NPV, payback, and contracted-vs-speculative revenue across the
+pipeline. The developer who *owns* a project sees only what has already happened — issued, sold,
+retired, on hand — plus offtake agreements as a separate list. They have every input the investor
+projection uses, for their own projects, and no view that combines them.
+
+**Why it is on this list rather than fixed.** Straightforward to build, but it is a product decision
+about what a developer should be shown: the investor model's assumptions (discount rate, price curve)
+are calibrated for a diligence audience, and putting an IRR in front of a project owner invites it
+into a funding conversation where the platform is implicitly vouching for the number. Worth doing
+deliberately, with its own framing, rather than by pointing the existing component at a different
+`user_id`.

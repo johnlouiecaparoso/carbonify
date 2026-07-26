@@ -1,7 +1,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
-import { getSellerBalance, getMySales, getMySalesByProject, getMyPayouts } from '@/services/payoutService'
+import {
+  getSellerBalance,
+  getMySales,
+  getMySalesByProject,
+  getMyPayouts,
+  getMyEscrowHolds,
+  nextEscrowRelease,
+} from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
 import { exportSalesCsv, exportSalesByProjectCsv } from '@/services/sellerExportService'
 import Withdraw from '@/components/wallet/Withdraw.vue'
@@ -14,8 +21,11 @@ const sales = ref([])
 const salesByProject = ref([])
 const payouts = ref([])
 const kyb = ref({ verified: false, application: null })
+const escrowHolds = ref([])
 const showWithdraw = ref(false)
 const showKyb = ref(false)
+
+const nextRelease = computed(() => nextEscrowRelease(escrowHolds.value))
 
 const completedSales = computed(() => sales.value.filter((s) => s.status === 'completed'))
 
@@ -50,12 +60,13 @@ async function load() {
   // five — the per-project rollup, the payout history, the KYB lookup — threw
   // away the balance too and left the whole page on an error card. The same
   // reasoning is spelled out in BuyerDashboardView.
-  const [b, s, sp, p, k] = await Promise.allSettled([
+  const [b, s, sp, p, k, e] = await Promise.allSettled([
     getSellerBalance(),
     getMySales(),
     getMySalesByProject(),
     getMyPayouts(),
     getMyKyb(),
+    getMyEscrowHolds(),
   ])
 
   if (b.status === 'fulfilled') balance.value = b.value
@@ -63,6 +74,7 @@ async function load() {
   if (sp.status === 'fulfilled') salesByProject.value = sp.value || []
   if (p.status === 'fulfilled') payouts.value = p.value || []
   if (k.status === 'fulfilled') kyb.value = k.value
+  if (e.status === 'fulfilled') escrowHolds.value = e.value || []
 
   // Only the balance is load-bearing enough to replace the page: without it we
   // cannot honestly show what is withdrawable, and the withdraw action would be
@@ -147,7 +159,13 @@ onMounted(load)
         <div class="card">
           <div class="card-label">Held in escrow</div>
           <div class="card-value">{{ peso(balance.held) }}</div>
-          <div class="muted small">Released after the hold period</div>
+          <!-- "Released after the hold period" was all this said. The date has
+               always been on escrow_holds.hold_until, and sellers have always
+               been able to read their own rows; nothing queried it. -->
+          <div v-if="nextRelease" class="muted small">
+            Next {{ peso(nextRelease.amount) }} releases {{ shortDate(nextRelease.holdUntil) }}
+          </div>
+          <div v-else class="muted small">Released after the hold period</div>
         </div>
         <div class="card">
           <div class="card-label">Net earned</div>

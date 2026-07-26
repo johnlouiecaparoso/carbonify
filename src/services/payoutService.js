@@ -28,6 +28,76 @@ export async function getSellerBalance() {
 }
 
 /**
+ * The caller's still-held escrow, soonest release first.
+ *
+ * `get_my_seller_balance` returns a single `held` total with no dates, so the
+ * earnings page could tell a seller that money existed and was not theirs yet,
+ * without ever saying when it would be — the one question that balance actually
+ * raises. `escrow_holds.hold_until` has always carried the answer, and sellers
+ * have had RLS read access to their own rows since 20260606000600; nothing
+ * queried it.
+ *
+ * @returns {Promise<Array<{id: string, amount: number, currency: string, holdUntil: (string|null), transactionId: string}>>}
+ */
+export async function getMyEscrowHolds(limit = 50) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('escrow_holds')
+    .select('id, amount, currency, hold_until, transaction_id')
+    .eq('seller_id', user.id)
+    .eq('status', 'held')
+    // Matches idx_escrow_holds_due (status, hold_until); nulls last so a hold
+    // with no window set never claims to be the next release.
+    .order('hold_until', { ascending: true, nullsFirst: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Error fetching escrow holds:', error)
+    return []
+  }
+
+  return (data || []).map((h) => ({
+    id: h.id,
+    amount: Number(h.amount) || 0,
+    currency: h.currency || 'PHP',
+    holdUntil: h.hold_until || null,
+    transactionId: h.transaction_id,
+  }))
+}
+
+/**
+ * The soonest upcoming escrow release, or null when nothing is held.
+ *
+ * Pure so the "next release" line can be unit-tested without a database.
+ *
+ * @param {Array<{amount?: number, holdUntil?: (string|null)}>} holds
+ */
+export function nextEscrowRelease(holds = []) {
+  const dated = (holds || []).filter((h) => h?.holdUntil)
+  if (!dated.length) return null
+
+  let soonest = dated[0]
+  for (const h of dated) {
+    if (new Date(h.holdUntil) < new Date(soonest.holdUntil)) soonest = h
+  }
+  // Sum everything releasing on that same day, not just the one row — a seller
+  // reads this as "what lands next", and same-day holds land together.
+  const day = String(soonest.holdUntil).slice(0, 10)
+  const amount = dated
+    .filter((h) => String(h.holdUntil).slice(0, 10) === day)
+    .reduce((sum, h) => sum + (Number(h.amount) || 0), 0)
+
+  return { holdUntil: soonest.holdUntil, amount: round2(amount) }
+}
+
+/**
  * Request a withdrawal of `amount` to `destination`.
  * @param {{ amount: number, destination: { method: string, accountName: string, accountNumber: string, bankCode?: string }, idempotencyKey?: string }} args
  * @returns {Promise<string>} the payout request id

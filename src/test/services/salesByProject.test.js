@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateSalesByProject, netOf } from '@/services/payoutService'
+import { aggregateSalesByProject, netOf, nextEscrowRelease } from '@/services/payoutService'
 
 describe('aggregateSalesByProject', () => {
   it('returns an empty array for no rows', () => {
@@ -133,5 +133,47 @@ describe('aggregateSalesByProject — fees and net', () => {
     expect(p1.grossEarnings).toBe(100)
     expect(p1.platformFees).toBe(10)
     expect(p1.netEarnings).toBe(90)
+  })
+})
+
+/**
+ * The escrow card told a seller that money existed and was not theirs yet,
+ * without saying when it would be — the only question a held balance raises.
+ * hold_until has carried the answer since 20260606000600 and sellers have had
+ * RLS read access to their own holds the whole time; nothing queried it.
+ */
+describe('nextEscrowRelease', () => {
+  it('returns the soonest release, not merely the first row', () => {
+    const r = nextEscrowRelease([
+      { amount: 100, holdUntil: '2026-08-10T00:00:00.000Z' },
+      { amount: 250, holdUntil: '2026-08-01T00:00:00.000Z' },
+      { amount: 400, holdUntil: '2026-09-01T00:00:00.000Z' },
+    ])
+    expect(r.holdUntil).toBe('2026-08-01T00:00:00.000Z')
+    expect(r.amount).toBe(250)
+  })
+
+  it('sums everything releasing on the same day', () => {
+    // A seller reads this as "what lands next", and same-day holds land together.
+    const r = nextEscrowRelease([
+      { amount: 250, holdUntil: '2026-08-01T02:00:00.000Z' },
+      { amount: 175.5, holdUntil: '2026-08-01T20:00:00.000Z' },
+      { amount: 999, holdUntil: '2026-08-05T00:00:00.000Z' },
+    ])
+    expect(r.amount).toBe(425.5)
+  })
+
+  it('ignores holds with no window set rather than treating them as imminent', () => {
+    const r = nextEscrowRelease([
+      { amount: 500, holdUntil: null },
+      { amount: 100, holdUntil: '2026-08-01T00:00:00.000Z' },
+    ])
+    expect(r.amount).toBe(100)
+  })
+
+  it('returns null when nothing is held or nothing is dated', () => {
+    expect(nextEscrowRelease([])).toBeNull()
+    expect(nextEscrowRelease()).toBeNull()
+    expect(nextEscrowRelease([{ amount: 500, holdUntil: null }])).toBeNull()
   })
 })
