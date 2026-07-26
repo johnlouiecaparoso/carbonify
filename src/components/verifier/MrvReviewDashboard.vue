@@ -395,11 +395,25 @@ async function doApprove() {
       notes: notes.value,
       reductionType: reductionType.value,
     })
-    setMessage('Approved. Credits issued and listed on the marketplace.')
-    selected.value = null
-    await loadQueue()
   } catch (err) {
     setMessage(err.message || 'Failed to approve', true)
+    working.value = false
+    return
+  }
+
+  setMessage('Approved. Credits issued and listed on the marketplace.')
+  selected.value = null
+
+  // Reloading the queue is NOT part of the issuance and must never be reported
+  // as a failed issuance. This used to sit inside the try above, so a failed
+  // reload — after credits had already been minted and listed — showed "Failed
+  // to approve". The obvious response to that is to approve again, which mints
+  // a second time. Refresh failures are now their own, non-alarming message.
+  try {
+    await loadQueue()
+  } catch (refreshError) {
+    console.error('Credits issued, but reloading the queue failed:', refreshError)
+    setMessage('Approved and issued. The queue below may be stale — press Refresh.')
   } finally {
     working.value = false
   }
@@ -422,11 +436,23 @@ async function doReject() {
   setMessage('')
   try {
     await rejectReport(selected.value.id, notes.value)
-    setMessage('Report rejected.')
-    selected.value = null
-    await loadQueue()
   } catch (err) {
     setMessage(err.message || 'Failed to reject', true)
+    working.value = false
+    return
+  }
+
+  setMessage('Report rejected.')
+  selected.value = null
+
+  // Same separation as doApprove: a rejection that committed must not be
+  // reported as failed because the reload afterwards did. Rejecting mints
+  // nothing, but a retry re-notifies the developer of a decision already sent.
+  try {
+    await loadQueue()
+  } catch (refreshError) {
+    console.error('Report rejected, but reloading the queue failed:', refreshError)
+    setMessage('Report rejected. The queue below may be stale — press Refresh.')
   } finally {
     working.value = false
   }

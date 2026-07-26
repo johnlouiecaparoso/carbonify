@@ -1209,9 +1209,6 @@ async function openVerificationModal(project, newStatus) {
     }
     pendingProjects.value = pendingProjects.value.filter((p) => p.id !== project.id)
 
-    // Reload the list to ensure consistency
-    await loadPendingProjects()
-
     setDecisionCard(project, newStatus)
 
     // Show modern success prompt
@@ -1220,6 +1217,18 @@ async function openVerificationModal(project, newStatus) {
       message: `"${project.title}" has been marked as ${statusLabel.toLowerCase()}.`,
       confirmText: 'OK',
     })
+
+    // Reload AFTER reporting the outcome, and never inside the decision's catch.
+    // Validating mints a credit pool and an active marketplace listing, so a
+    // reload that failed here used to raise "Validation Failed — please try
+    // again" over a validation that had already succeeded and already listed
+    // credits for sale. The list being stale is a far smaller problem than
+    // telling a verifier the opposite of what happened.
+    try {
+      await loadPendingProjects()
+    } catch (refreshErr) {
+      console.error('Decision saved, but reloading the project list failed:', refreshErr)
+    }
   } catch (err) {
     console.error('Error updating project status:', err)
     await showErrorPrompt({

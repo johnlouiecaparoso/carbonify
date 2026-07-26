@@ -164,11 +164,23 @@ async function updateStatus(newStatus) {
     }
 
     decisionCard.value = buildDecisionCard(result.application, newStatus)
-
-    await Promise.all([loadApplications(), refreshPendingCount()])
   } catch (error) {
     console.error('Failed to update application status:', error)
     feedbackMessage.value = error.message || 'Unable to update application status.'
+    actionLoading.value = false
+    return
+  }
+
+  // Refreshing the list is NOT part of the decision, and must not be reported as
+  // if it were. This used to sit inside the try above, so a failed refresh —
+  // after the role had already been assigned — overwrote "Application approved."
+  // with "Unable to update application status." The verifier would then retry a
+  // decision that had in fact committed.
+  try {
+    await Promise.all([loadApplications(), refreshPendingCount()])
+  } catch (refreshError) {
+    console.error('Decision saved, but refreshing the queue failed:', refreshError)
+    feedbackMessage.value += ' (The list below may be out of date — refresh to update it.)'
   } finally {
     actionLoading.value = false
   }
