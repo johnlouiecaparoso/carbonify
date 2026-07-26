@@ -1,5 +1,44 @@
 # Carbonify — Release Notes
 
+## 2026-07-26 (latest) — Clearer money figures, honest error messages, and a fix to how credits are issued
+
+**Headline:** sellers can now see what they actually earn after fees and export it; farmers are told
+plainly that Carbonify does not handle their payment; and a bug that could have issued the same credits
+twice was found and fixed.
+
+- **Credits are now issued only once, at the right moment.** Validating a project used to create its
+  credits and list them for sale immediately, *and* approving its first monitoring report created them
+  again — so the same tonne could exist twice. Now a validated project issues nothing until a verifier
+  approves its first monitoring report. **If you are a project developer:** a project you validate today
+  will not appear on the marketplace straight away, which is a change from last week. Nothing already
+  listed was affected, and no credits had actually been issued twice.
+- **Sellers see fees and net earnings.** The Seller Earnings page showed only the gross amount, which
+  never matched the balance beside it. It now shows the platform fee and **what actually reaches you**,
+  per sale and per project — plus **Export CSV** for both, for your accountant.
+- **You can see when escrow releases.** The "Held in escrow" figure now names the date and amount of
+  the next release instead of just saying "after the hold period".
+- **Farmers: payment is between you and the buyer.** A delivery marked paid now reads "Buyer recorded
+  payment" and says plainly that payment is made directly by the buyer, not through Carbonify —
+  **check that the money actually arrived.** "Awaiting payment" is now "Owed by buyers", because
+  nothing is queued for us to pay you.
+- **LGU accounts can buy and retire credits.** If you run the waste calculator and want to offset what
+  you measured, the Buying, Credits and Records sections are now in your menu. They were always
+  reachable; nothing offered them.
+- **Verifiers see how much is waiting.** Each workbench tab now carries a count, so you can tell which
+  queue needs you without opening all three. Approving a report for a project that already has credits
+  now warns you first.
+- **Error messages tell the truth.** Across the app, a failed lookup used to look like an answer —
+  "No sales yet", "₱0.00 available", "No parcels registered yet", "no accepted quotes". Those are now
+  distinguished from genuinely having none, with a retry. If a page cannot load your data it says so
+  instead of implying you have nothing.
+- **Offline support works for the first time.** The app was deleting its own saved files a second after
+  every page load, so pages were re-downloaded every visit and offline mode never worked.
+- **A proper app icon.** The icon in your browser tab and on your home screen was a photo with a grey
+  checkerboard behind it. It is now a real transparent icon, and much smaller to download.
+- **Housekeeping.** Several unreachable pages were removed, including one showing made-up impact
+  figures. The language selector in Preferences is now clearly marked unavailable — it never did
+  anything, and the interface is English only for now.
+
 ## 2026-07-26 (later) — Easier-to-read text, and headings sized right on phones
 
 **Headline:** the brand green is slightly deeper so white text on it is comfortably

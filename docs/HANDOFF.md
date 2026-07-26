@@ -37,8 +37,9 @@
 > ### 🆕 2026-07-26 (latest) — role-by-role live-readiness review, all six roles
 
 Buyer, project developer, verifier, farmer, LGU and admin, each asked the same three questions: is it
-deployable, are there errors/bugs/dead code, and would someone in that role be satisfied. 20 commits,
-**703 → 757 tests**, ~9,950 lines of dead code removed. Build and lint green throughout.
+deployable, are there errors/bugs/dead code, and would someone in that role be satisfied. **30 commits**
+(`3fe8ff5`…), 118 files, **4,212 insertions against 11,631 deletions**, unit tests **703 → 757** plus a
+new 9-check runtime smoke. Build and lint green throughout.
 
 **The one that mattered: #17, closed.** See the LIVE BEHAVIOUR CHANGED box above — both issuance
 triggers were live, so validate-then-approve issued the same tonne twice. Found during the verifier
@@ -72,6 +73,46 @@ exactly as designed.
 
 Per-role feature gaps continue to live in [role-needs/](role-needs/) — now including
 [06-farmer.md](role-needs/06-farmer.md), which did not exist before this pass.
+
+**Then a documentation reconciliation across all 75 markdown files**, which turned up two *code* bugs
+the role passes had missed:
+
+- **`AdvancedSearch.vue` was dead and un-findable by tooling.** Its only reference anywhere was the
+  `vite.config.js` manualChunks pin, which an import-graph scan counts as a use — so the orphan scan
+  reported zero orphans while a 347-line component sat unreachable. [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md)
+  had called this exactly, including the warning that component and config line must go together or
+  the build breaks. That audit now carries a resolution banner instead of edits: its dead-code list
+  was right, and its value is that it called all of this two and a half weeks early.
+- **`vue-chartjs` was an unused dependency** — the chart components import `chart.js` directly.
+  Removed from `package.json`.
+- **Four documented environment variables have never done anything.** `VITE_API_BASE_URL`,
+  `VITE_ENABLE_ANALYTICS`, `VITE_ENABLE_ERROR_REPORTING` and `VITE_ENABLE_PERFORMANCE_MONITORING`
+  were read only by `config/environment.js` and `config/production.js` — files nothing imported.
+  They are marked "No effect" in [dev/ENVIRONMENT_VARIABLES.md](dev/ENVIRONMENT_VARIABLES.md) rather
+  than deleted, so anyone with them in a `.env` knows they can go. **If you have
+  `VITE_ENABLE_ANALYTICS=false` set expecting it to suppress analytics, it is not doing that.**
+
+**The user guides needed almost no correction — because they already described the model #17 made
+true.** `04-verifier-guide.md` states "Validating a project does not itself mint credits… Credits are
+only minted later when you approve an MRV report." That was false on live until this morning's
+cutover. The guides had been written against the intended design all along, which is further evidence
+the resurrected validation trigger was an accident. Added the missing
+[07-farmer-guide.md](user-guide/07-farmer-guide.md); corrected `06-lgu-guide.md`, which documented
+four dashboard tabs when there are six.
+
+**First runtime verification of the whole session** (`a7631b8`): `src/test/e2e/runtime-smoke.spec.js`
+runs the app and checks seven public routes for console errors (**zero** — notable because the
+`console.error` monkey-patch that used to hide them was removed today), asserts every manifest icon
+really begins `89 50 4E 47` (this test would have **failed** yesterday — they were JPEGs named
+`.png`), and asserts the service worker registers **at most once** (it was registered three times).
+Public routes only; an authenticated pass through checkout, retirement and certificate generation is
+still unrun.
+
+**Backlog additions from the whole pass: #20–#31.** The two that matter most are unchanged: **#26**
+(farmers are not paid through the platform) and **#29** (the feedstock side has no admin surface, so
+#26 has no escalation point). **#31** was recorded rather than fixed — farmers have exactly the
+buying-path contradiction that was fixed for LGU users, but without the evidence that justified
+fixing it.
 
 > ### 🆕 2026-07-26 (later) — accessibility close-out, a mobile header bug, and a one-shot pre-flight
 

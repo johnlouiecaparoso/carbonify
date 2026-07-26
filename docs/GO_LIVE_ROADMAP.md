@@ -1,5 +1,35 @@
 # Carbonify — Go-Live Roadmap (Real Users)
 
+> ## 🧭 2026-07-26 — a role-by-role review changed the gate list. Read this first.
+>
+> **A registry-corrupting defect was found and closed on live.** Both issuance triggers were active at
+> once, so validating a project *and* later approving a VER against it issued the same tonne twice
+> (backlog **#17**, upgraded to 🔴 and then closed the same day). An audit against live confirmed the
+> exposure was real but **never exercised** — nothing double-issued, nothing sold — so
+> `supabase/cutover/adopt_mint_on_ver.sql` was applied with no reconciliation needed.
+> **Live behaviour changed: a validated project no longer mints or lists anything.** See the warning
+> box at the top of [HANDOFF.md](HANDOFF.md).
+>
+> **Two NEW items belong on this gate, and neither is a code task:**
+>
+> - **#26 — farmers are not paid through the platform.** `mark_farmer_delivery_paid` sets a boolean the
+>   *buyer* controls and moves no money, while buyers get PayMongo and developers get escrow plus
+>   KYB-gated payouts. The least powerful party carries all the counterparty risk. The UI is now honest
+>   about it, but the prior question is unanswered: **is Carbonify the payment rail for feedstock, or an
+>   introduction-and-records layer?** That answer decides whether this blocks a farmer-facing launch.
+> - **#29 — the feedstock side has no admin surface at all.** No console reads `farmer_deliveries` or
+>   `biomass_rfqs`, so #26 has no escalation point: a farmer owed money cannot be helped by staff either.
+>
+> **Unchanged P0s:** independent penetration test, email confirmation (off by choice), runtime/pilot
+> verification. **#14** (escrow hold window) is decided and staged — apply during pilot pre-flight and
+> schedule `release_matured_escrow()`.
+>
+> **Newly enforced since this page was written:** the CSP is no longer `Report-Only` (it had no
+> reporting endpoint either, so it was collecting nothing). It has been audited statically but **first
+> runs for real on deploy** — watch the console on that first load.
+>
+> Full list of what the review found: **#20–#31** in [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md).
+
 > 🧭 **2026-07-21 — the P0 table in §3 was reconciled against what has actually shipped.** Rows closed
 > since this page was written are struck through and dated. **Three P0 blockers remain:** an independent
 > penetration test, email confirmation (off by choice), and the runtime/pilot verification now being run
