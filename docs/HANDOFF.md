@@ -10,10 +10,69 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **703 tests green** (693 after the 2026-07-26 UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **757 tests green** (703 before the 2026-07-26 role-by-role review below, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### ⚠️ LIVE BEHAVIOUR CHANGED 2026-07-26 — validating a project no longer issues credits
+>
+> **Read this before testing anything on the issuance path.** Both issuance triggers had been live at
+> once (backlog #17): `trg_activate_validated_project` minted a credit pool *and* an active
+> marketplace listing when a project was validated, and `trg_mint_credits_on_ver_approval` minted
+> again when a VER was approved — the same tonne issued twice. `20260604010100` had deliberately
+> retired the validation trigger; `20260626000500` brought it back as a side effect of fixing an
+> unrelated `credits_available` column bug, and nothing ever dropped the VER one.
+>
+> `supabase/diagnostics/issuance_model_audit.sql` was run against live and found the exposure real but
+> **never exercised** — nothing double-issued, nothing sold — so
+> `supabase/cutover/adopt_mint_on_ver.sql` was applied with no reconciliation needed. The audit now
+> returns zero rows.
+>
+> **What is different now:** a validated project mints nothing and does **not** appear on the
+> marketplace. Credits exist only once a verifier approves a monitoring report's VERs. Pools and
+> listings created before the change are untouched, so a project validated last week behaves
+> differently from one validated today — worth saying to any pilot developer before they report it as
+> a bug.
 >
 > **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch (85 commits) for review; `main` is otherwise ~85 commits behind. Not merged yet.
 >
+> ### 🆕 2026-07-26 (latest) — role-by-role live-readiness review, all six roles
+
+Buyer, project developer, verifier, farmer, LGU and admin, each asked the same three questions: is it
+deployable, are there errors/bugs/dead code, and would someone in that role be satisfied. 20 commits,
+**703 → 757 tests**, ~9,950 lines of dead code removed. Build and lint green throughout.
+
+**The one that mattered: #17, closed.** See the LIVE BEHAVIOUR CHANGED box above — both issuance
+triggers were live, so validate-then-approve issued the same tonne twice. Found during the verifier
+pass, audited against live, fixed by `supabase/cutover/adopt_mint_on_ver.sql`. Nothing had been
+double-issued.
+
+**One bug class ran through every single role**: service reads that swallow their error and return
+`[]` or zeros. On these screens that does not read as "something went wrong", it reads as a fact
+about the user — "No sales yet", "₱0.00 available", "No parcels registered yet", "you have no
+accepted quotes", "no audit entries". Fixed in the seller, farmer, biomass, LGU and admin paths. The
+sharpest instances: `getMyAcceptedRfqs` failing removed a farmer's only route to logging a delivery
+they were owed for, while telling them no buyer had accepted anything; `getMyKyb` failing told an
+already-verified seller they were unverified and disabled their withdrawal; and `searchAuditLogs`
+returning `[]` meant an investigation concluded no such events existed.
+
+**Also fixed:** the app was deleting its own service-worker caches on every load (offline support had
+never once worked); the favicon and PWA icons were a JPEG named `.png` with a transparency
+checkerboard baked in; the CSP was `Report-Only` with no reporting endpoint, so it collected nothing —
+now enforced, after fixing a placeholder GA measurement ID that would have violated it on every page;
+32 dead files and five unreachable routes deleted, including one serving fabricated impact figures and
+one public test page; four verifier decision paths reported committed decisions as failures when only
+the list refresh failed; and `/monitoring` and the whole LGU buying path were reachable by URL but in
+no sidebar.
+
+**Recorded, not built — decisions rather than defects:** #20 (cart charges per listing), #21 + `paymentService` (provider layer is test-only), #22 (sellers get no invoice), #23 (no developer forward view), #24 (verifiers cannot see their own decision history), #25 (reviews are not assigned), **#26 (farmers are not paid through the platform — a flag the buyer sets, no escrow, no dispute path)**, #27 (i18n absent; Filipino missing), #28 (LGUs are never told a project appeared in their jurisdiction), **#29 (the feedstock side has no admin surface at all — the escalation point for #26 does not exist)**, #30 (~100 unused exports).
+
+**The highest-value next decision is #26**, and it is not a coding task: is Carbonify the payment rail
+for feedstock, or an introduction-and-records layer? It gates #29, it decides what farmer testing
+should look for, and it is the one open item where a real user can be harmed by the product working
+exactly as designed.
+
+Per-role feature gaps continue to live in [role-needs/](role-needs/) — now including
+[06-farmer.md](role-needs/06-farmer.md), which did not exist before this pass.
+
 > ### 🆕 2026-07-26 (later) — accessibility close-out, a mobile header bug, and a one-shot pre-flight
 
 Follow-on to the consistency pass below, same branch. Build green, lint green,
