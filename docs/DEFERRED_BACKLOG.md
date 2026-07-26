@@ -288,8 +288,14 @@ ledger leg to `process_marketplace_purchase` (behind configurable `app_settings`
 `release_matured_escrow()`. **Not yet applied** — it rewrites the live settlement RPC, so it lands in the
 pilot pre-flight window with a full reconcile-to-0 check (see ESCROW_DECISION §6). The refund path already
 reverses `escrow_held` while held (`20260606000900`), and `get_my_seller_balance()` already returns
-`held`/`available`. Remaining: apply during pilot, wire `release_matured_escrow()` to a worker/cron, surface
-Held vs Available in `SellerEarningsView.vue`. Original analysis kept below.
+`held`/`available`. Remaining: apply during pilot, and wire `release_matured_escrow()` to a worker/cron.
+
+**Corrected 2026-07-26:** this list also said "surface Held vs Available in `SellerEarningsView.vue`",
+which was already done — the page has carried *Available to withdraw* and *Held in escrow* cards for
+some time. The 2026-07-26 farmer/developer pass added the missing half: the held card now names the
+**next release date and amount** (`getMyEscrowHolds` / `nextEscrowRelease`), which `hold_until` has
+always carried and nothing queried. So the only open work here is operational — apply the staged
+migration and schedule the release worker. Original analysis kept below.
 
 ---
 
