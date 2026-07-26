@@ -360,7 +360,14 @@ export async function processPaymentCallback(sessionId, options = {}) {
       throw new Error('PayMongo secret key not configured. Set PAYMONGO_SECRET_KEY in Supabase Edge Function secrets.')
     }
 
-    // Fallback: verify from browser when secret key is in env (e.g. legacy dev)
+    // Fallback: verify from browser when secret key is in env (e.g. legacy dev).
+    //
+    // This path is unreachable in production and deliberately so: it only runs
+    // when PAYMONGO_CONFIG.secretKey is present in the BROWSER bundle, which
+    // would mean a PayMongo secret key had been shipped to every visitor. The
+    // enforcing CSP in vercel.json omits api.paymongo.com from connect-src, so
+    // if that ever happens these two fetches are blocked rather than quietly
+    // working — a loud failure is the right outcome for a leaked secret key.
     const sessionResponse = await fetch(
       `${PAYMONGO_CONFIG.apiBaseUrl}/checkout_sessions/${sessionId}`,
       {

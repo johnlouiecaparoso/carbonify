@@ -18,7 +18,11 @@ class AnalyticsTracker {
    */
   initialize(config = {}) {
     this.config = {
-      trackingId: config.trackingId || import.meta.env.VITE_GA_TRACKING_ID || 'GA-XXXXXXXXX',
+      // No placeholder default. This used to fall back to the literal string
+      // 'GA-XXXXXXXXX', which is truthy — so setupGoogleAnalytics() below saw a
+      // "configured" tracker and, on every production page load, injected a
+      // gtag script tag for a measurement ID that does not exist.
+      trackingId: config.trackingId || import.meta.env.VITE_GA_TRACKING_ID || '',
       apiEndpoint: config.apiEndpoint || '/api/analytics',
       batchSize: config.batchSize || 10,
       flushInterval: config.flushInterval || 30000, // 30 seconds
@@ -37,7 +41,13 @@ class AnalyticsTracker {
    * Setup Google Analytics
    */
   setupGoogleAnalytics() {
-    if (this.config.trackingId && typeof window !== 'undefined') {
+    // A measurement ID that is absent or still a placeholder means analytics is
+    // not set up; loading gtag for it only produces a blocked request and a CSP
+    // violation. Google's own IDs are G-XXXX (GA4) or UA-XXXX (legacy).
+    const id = this.config.trackingId
+    const configured = id && !/^(GA-X+|G-X+|UA-X+)$/i.test(id)
+
+    if (configured && typeof window !== 'undefined') {
       // Load Google Analytics script
       const script = document.createElement('script')
       script.async = true
