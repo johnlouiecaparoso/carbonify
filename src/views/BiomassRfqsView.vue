@@ -24,6 +24,9 @@ const sellerRfqs = ref([])
 const deliveries = ref([])
 const busyId = ref(null)
 const actionError = ref('')
+// Per-side, so a farmer is told their quote requests are unread rather than
+// shown an empty list that reads as "no buyer wants your feedstock".
+const sectionErrors = ref({ buyer: false, seller: false, deliveries: false })
 
 // Quote modal (seller)
 const quoteRfq = ref(null)
@@ -52,23 +55,44 @@ function label(rfq) {
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [b, s, d, projects] = await Promise.all([
-      getMyBuyerRfqs(),
-      getMySellerRfqs(),
-      getIncomingDeliveries(),
-      getMyProjects(),
-    ])
-    buyerRfqs.value = b
-    sellerRfqs.value = s
-    deliveries.value = d
-    myProjects.value = projects
-  } catch (err) {
-    console.error('Failed to load RFQs:', err)
-    loadError.value = err?.message || 'We could not load your requests right now.'
-  } finally {
-    loading.value = false
+
+  // allSettled, not all: this page serves both sides of a trade and a farmer
+  // only uses one of them. Under Promise.all, a failure in getMyProjects —
+  // buyer-side context a supplier never touches — took the supplier's quote
+  // requests down with it.
+  const [b, s, d, projects] = await Promise.allSettled([
+    getMyBuyerRfqs(),
+    getMySellerRfqs(),
+    getIncomingDeliveries(),
+    getMyProjects(),
+  ])
+
+  if (b.status === 'fulfilled') buyerRfqs.value = b.value || []
+  if (s.status === 'fulfilled') sellerRfqs.value = s.value || []
+  if (d.status === 'fulfilled') deliveries.value = d.value || []
+  if (projects.status === 'fulfilled') myProjects.value = projects.value || []
+
+  sectionErrors.value = {
+    buyer: b.status === 'rejected',
+    seller: s.status === 'rejected',
+    deliveries: d.status === 'rejected',
   }
+  // `what`, not `label` — there is already a label() helper in this file.
+  for (const [what, res] of [
+    ['your requests', b],
+    ['quote requests', s],
+    ['incoming deliveries', d],
+    ['your projects', projects],
+  ]) {
+    if (res.status === 'rejected') console.error(`Failed to load ${what}:`, res.reason)
+  }
+
+  // Only if BOTH sides failed is there nothing to show at all.
+  if (b.status === 'rejected' && s.status === 'rejected') {
+    loadError.value = s.reason?.message || 'We could not load your requests right now.'
+  }
+
+  loading.value = false
 }
 
 /** The signed-in buyer's own projects — offered when confirming a delivery. */
@@ -220,7 +244,12 @@ onMounted(load)
 
       <!-- Buyer tab -->
       <section v-if="tab === 'buyer'">
-        <div v-if="!buyerRfqs.length" class="empty">
+        <div v-if="sectionErrors.buyer" class="notice error sm">
+          We couldn't load your requests. This is not the same as having none.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!buyerRfqs.length" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">request_quote</span>
           <p class="muted">You haven't requested any feedstock quotes yet.</p>
           <router-link to="/biomass" class="btn-primary">Browse feedstock</router-link>
@@ -260,7 +289,13 @@ onMounted(load)
 
       <!-- Seller tab -->
       <section v-else-if="tab === 'seller'">
-        <div v-if="!sellerRfqs.length" class="empty">
+        <div v-if="sectionErrors.seller" class="notice error sm">
+          We couldn't load your quote requests — this does not mean no buyer has sent one. If a
+          buyer is waiting on you, their request is still there.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!sellerRfqs.length" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">inbox</span>
           <p class="muted">No incoming quote requests. List feedstock to start receiving them.</p>
           <router-link to="/biomass/sell" class="btn-primary">Sell feedstock</router-link>
@@ -294,7 +329,12 @@ onMounted(load)
 
       <!-- Deliveries tab (buyer confirms receipt, then records payment) -->
       <section v-else>
-        <div v-if="!deliveries.length" class="empty">
+        <div v-if="sectionErrors.deliveries" class="notice error sm">
+          We couldn't load incoming deliveries.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!deliveries.length" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">local_shipping</span>
           <p class="muted">
             No deliveries yet. Once you accept a quote, the supplier logs deliveries here for you to
@@ -480,6 +520,12 @@ onMounted(load)
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
 .btn-ghost.sm { padding: 7px 12px; font-size: 0.85rem; }
 .link-btn { background: none; border: none; color: #058526; font-weight: 600; cursor: pointer; font-size: 0.85rem; margin-left: 8px; }
+.link-retry {
+  background: none; border: none; padding: 0 0 0 4px;
+  color: inherit; font: inherit; font-weight: 700;
+  text-decoration: underline; cursor: pointer;
+}
+.link-retry:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
 .empty-icon { font-size: 48px; color: #058526; }
 .empty p { margin: 12px auto 18px; max-width: 380px; }

@@ -16,6 +16,9 @@ const userStore = useUserStore()
 const loading = ref(true)
 const loadError = ref('')
 const kyb = ref({ verified: false, application: null })
+// Distinct from "not verified": a failed lookup is not a decision about the
+// account. Farmers are unaffected either way — canList exempts them.
+const kybUnknown = ref(false)
 const products = ref([])
 const showKyb = ref(false)
 
@@ -48,16 +51,28 @@ function peso(n) {
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [k, p] = await Promise.all([getMyKyb(), getMyBiomassProducts()])
-    kyb.value = k
-    products.value = p
-  } catch (err) {
-    console.error('Failed to load supplier data:', err)
-    loadError.value = err?.message || 'We could not load your listings right now.'
-  } finally {
-    loading.value = false
+
+  // allSettled, not all: a farmer's right to list does not depend on KYB at all
+  // (see canList), so a failed KYB lookup must not take their listings page down
+  // with it. Only the listings themselves are load-bearing here.
+  const [k, p] = await Promise.allSettled([getMyKyb(), getMyBiomassProducts()])
+
+  if (k.status === 'fulfilled') {
+    kyb.value = k.value
+    kybUnknown.value = false
+  } else {
+    console.error('Could not check business verification:', k.reason)
+    kybUnknown.value = true
   }
+
+  if (p.status === 'fulfilled') {
+    products.value = p.value || []
+  } else {
+    console.error('Failed to load listings:', p.reason)
+    loadError.value = p.reason?.message || 'We could not load your listings right now.'
+  }
+
+  loading.value = false
 }
 
 function resetForm() {
@@ -125,8 +140,21 @@ onMounted(load)
     </div>
 
     <template v-else>
+      <!-- KYB status unreadable. Only shown to accounts whose listing right
+           actually depends on it — a farmer is exempt via canList, so telling
+           them we couldn't check would be noise about something irrelevant. -->
+      <div v-if="kybUnknown && !canList" class="notice warn">
+        <span class="material-symbols-outlined" aria-hidden="true">help</span>
+        <div class="notice-body">
+          <strong>We couldn't check your business verification.</strong>
+          Listing stays unavailable until we can confirm it. This is a problem on our side, not a
+          decision about your account.
+          <div class="notice-action"><button class="btn-primary sm" @click="load">Try again</button></div>
+        </div>
+      </div>
+
       <!-- KYB gate -->
-      <div v-if="!canList" class="notice warn">
+      <div v-else-if="!canList" class="notice warn">
         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
         <div class="notice-body">
           <strong>Business verification required.</strong>

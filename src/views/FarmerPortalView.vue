@@ -77,6 +77,18 @@ const totalAttributed = computed(() =>
 )
 const excluded = computed(() => unattributableDeliveries(deliveries.value))
 
+const anySectionFailed = computed(() => Object.values(sectionErrors.value).some(Boolean))
+
+/** "deliveries", "parcels and deliveries", … — named so the warning is specific. */
+const failedSectionLabel = computed(() => {
+  const parts = []
+  if (sectionErrors.value.parcels) parts.push('parcels')
+  if (sectionErrors.value.deliveries) parts.push('deliveries')
+  if (sectionErrors.value.rfqs) parts.push('accepted quotes')
+  if (parts.length <= 1) return parts[0] || 'farm data'
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+})
+
 /** parcelId → { performance, deliveredTrailingYear, … } for the parcel cards. */
 const performanceByParcel = computed(() => {
   const rows = aggregateParcelPerformance(parcels.value, deliveries.value)
@@ -186,6 +198,24 @@ async function changeParcelStatus(parcel, status) {
 }
 
 async function removeParcel(parcel) {
+  // Deleting a parcel was a single click with no confirmation — on the portal
+  // whose users are least likely to expect an irreversible action to be one tap
+  // away, while the developer dashboard confirms before deleting a project.
+  //
+  // farmer_deliveries.parcel_id is ON DELETE SET NULL, so the delivery and
+  // earnings records survive; what is lost for good is the link between them
+  // and the land they came from, and aggregateParcelPerformance skips any
+  // delivery without a parcel_id. So the yield history for this parcel
+  // disappears. Say that, with the count, rather than just "are you sure?".
+  const linked = deliveries.value.filter((d) => d.parcel_id === parcel.id).length
+  const consequence = linked
+    ? `\n\n${linked} recorded ${linked === 1 ? 'delivery stays' : 'deliveries stay'} in your history, but ${linked === 1 ? 'it' : 'they'} will no longer count towards this parcel's yield performance.`
+    : ''
+
+  if (!window.confirm(`Delete the parcel "${parcel.name}"? This cannot be undone.${consequence}`)) {
+    return
+  }
+
   busyId.value = parcel.id
   actionError.value = ''
   try {
@@ -265,6 +295,21 @@ onMounted(load)
     </div>
 
     <template v-else>
+      <!-- The stat strip is computed from whatever loaded, so a failed section
+           renders as PHP 0.00 and 0 ha — the most confident-looking numbers on
+           the page, and wrong. The per-section notices further down explain
+           each failure in place, but a farmer reads these figures first, so the
+           warning has to be here too. -->
+      <div v-if="anySectionFailed" class="notice warn" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+        <div>
+          <strong>These totals are incomplete.</strong>
+          We couldn't load your {{ failedSectionLabel }}, so the figures below are lower than your
+          real ones — they are not what you have earned or delivered.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+      </div>
+
       <!-- Headline numbers -->
       <div class="stats">
         <div class="stat">
@@ -273,7 +318,10 @@ onMounted(load)
           <span class="stat-sub">{{ summary.paidCount }} settled</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Awaiting payment</span>
+          <!-- "Owed by buyers", not "Awaiting payment": nothing is queued to
+               pay out here. Carbonify holds no money for the farmer and settles
+               nothing — the buyer pays them directly (backlog #26). -->
+          <span class="stat-label">Owed by buyers</span>
           <span class="stat-value owed">{{ peso(summary.amountOwed) }}</span>
           <span class="stat-sub">{{ summary.confirmedCount - summary.paidCount }} confirmed, unpaid</span>
         </div>
@@ -524,8 +572,19 @@ onMounted(load)
           <div v-if="d.status === 'rejected' && d.decision_note" class="notice error sm inline">
             Buyer rejected: {{ d.decision_note }}
           </div>
+          <!-- "Paid" here is the BUYER's assertion, not a settled platform
+               payment: mark_farmer_delivery_paid only sets a flag and stores a
+               reference — no money moves through Carbonify (backlog #26). Saying
+               so plainly is the difference between a record and a receipt, and
+               the farmer is the one who bears the cost of confusing them. -->
           <div v-else-if="d.payment_status === 'paid'" class="notice ok sm inline">
-            Paid {{ shortDate(d.paid_at) }}<span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>
+            <div>
+              Buyer recorded payment {{ shortDate(d.paid_at) }}<span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>
+            </div>
+            <div class="paid-caveat">
+              Payment is made directly by the buyer, not through Carbonify — check that you actually
+              received it.
+            </div>
           </div>
         </div>
       </section>
@@ -716,6 +775,7 @@ onMounted(load)
 .perf-value.ok { color: #065f46; }
 .perf-value.good { color: #047857; }
 .notice.ok { background: #ecfdf5; color: #065f46; }
+.paid-caveat { margin-top: 4px; font-size: 0.82rem; opacity: 0.85; }
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; }
 .notice.inline { margin: 10px 0 0; }
 .retry-btn { margin-top: 8px; padding: 6px 14px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 8px; font-weight: 600; cursor: pointer; }
