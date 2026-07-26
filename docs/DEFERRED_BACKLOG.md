@@ -25,6 +25,14 @@ Come back to this list after the phases are implemented.
 > developers have no forward/projection view of their own projects, which investors do have. Neither
 > blocks the beta.
 >
+> **New 2026-07-26 (verifier review): #24 and #25, and #17 is upgraded.** #17 is no longer
+> conditional — the migration chain confirms BOTH issuance triggers are live (20260604010100 dropped
+> the validation trigger and created the VER one; 20260626000500 re-created the validation trigger;
+> nothing ever dropped the VER one), so validate-then-approve issues the same tonne twice. A warning
+> now reaches the verifier at the point of decision (`f0b111b`), but the trigger question is still
+> open and is the one item here that can corrupt the registry. #24 — a verifier cannot see their own
+> decision history. #25 — reviews are not assigned and concurrent reviewers are invisible.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -542,3 +550,52 @@ are calibrated for a diligence audience, and putting an IRR in front of a projec
 into a funding conversation where the platform is implicitly vouching for the number. Worth doing
 deliberately, with its own framing, rather than by pointing the existing component at a different
 `user_id`.
+
+---
+
+## From the 2026-07-26 verifier review
+
+Same live-readiness pass, verifier role. Defects are fixed in `f0b111b` and
+`30089a3`; queue backlog counts added on the workbench tabs. **#17 is upgraded
+below** — the verifier review turned its conditional "if BOTH triggers are
+active" into a settled fact. These two remain open.
+
+### 24. A verifier cannot see their own decision history 🟠
+
+**Where:** nothing renders it. `projects.verified_by` / `verified_at` and
+`monitoring_reports.reviewed_by` / `reviewed_at` are written on every decision, and
+`logUserAction` records `MRV_REPORT_APPROVED` and `project_validated` to the audit log —
+but no verifier-facing screen reads any of it back.
+
+A verifier can see what is *waiting* (three queues, now with counts) and nothing about what
+they have *done*. For the one role on the platform whose entire job is to attest, that is
+backwards: they cannot answer "what did I approve last quarter, and on what evidence" without
+an administrator running a query for them. The audit log that would answer it lives at
+`/admin/audit-logs`, which is admin-gated — a verifier cannot reach their own attestations.
+
+**Why it is on this list rather than fixed.** The data is all present, so the screen is easy;
+what is not decided is the *scope*. A verifier's decision history is also the evidence trail an
+external auditor or a registry counterparty would ask for, which raises questions this pass
+should not answer alone: does it need to be exportable and signed, should it show the evidence
+as it stood at decision time rather than as it stands now, and is it per-verifier or
+per-project. Building the easy version first would likely have to be thrown away.
+
+**How to close:** decide whether this is a convenience view or an attestation record. If the
+former, a "My decisions" tab reading `verified_by = auth.uid()` closes it in an afternoon. If
+the latter, it needs point-in-time evidence snapshots, which is a schema question.
+
+### 25. Reviews are not assigned, and concurrent reviewers are invisible 🟢
+
+**Where:** [MrvReviewDashboard.vue](../src/components/verifier/MrvReviewDashboard.vue) /
+`startReview` in [monitoringService.js](../src/services/monitoringService.js).
+
+`startReview` moves a report to `under_review` and stamps `reviewed_by`, so a second verifier
+opening the same report sees an "under review" badge — but not *who*, and nothing stops them
+proceeding. The project queue has no equivalent at all. With one verifier this is invisible;
+with two it is duplicated work and, on the approve path, a race on an issuance-bearing action.
+
+**Why it is on this list rather than fixed.** It only starts to matter at more than one active
+verifier, which the platform does not have yet, and doing it properly means deciding whether
+reviews are *claimed* (an assignment model, with release and timeout) or merely *advertised*
+(show the name and let people coordinate). The second is nearly free; the first is a workflow
+feature. Worth taking the decision before the second verifier is hired, not after.

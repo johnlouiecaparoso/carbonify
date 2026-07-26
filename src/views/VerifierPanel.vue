@@ -50,6 +50,11 @@
             >
               <span class="material-symbols-outlined" aria-hidden="true">{{ tab.icon }}</span>
               {{ tab.label }}
+              <!-- Hidden at zero: a row of "0" badges is noise, and an empty
+                   queue is already the least interesting thing on the page. -->
+              <span v-if="tab.count > 0" class="tab-count" :aria-label="`${tab.count} awaiting review`">
+                {{ tab.count }}
+              </span>
             </button>
           </div>
 
@@ -71,22 +76,43 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '@/store/userStore'
 import ProjectApprovalPanel from '@/components/admin/ProjectApprovalPanel.vue'
 import DeveloperApplicationsDashboard from '@/components/verifier/DeveloperApplicationsDashboard.vue'
 import MrvReviewDashboard from '@/components/verifier/MrvReviewDashboard.vue'
+import { getVerifierQueueCounts } from '@/services/verifierQueueCounts'
 
 const store = useUserStore()
 
-const tabs = [
-  { value: 'projects', label: 'Project Reviews', icon: 'fact_check' },
-  { value: 'mrv', label: 'MRV Reports', icon: 'query_stats' },
-  { value: 'applications', label: 'Developer Applications', icon: 'how_to_reg' },
-]
+// Backlog per queue. Only one panel mounts at a time, so without these the
+// verifier had to open all three dashboards to find out which had work —
+// the role's first question was its most expensive one to answer.
+const counts = ref({ projects: 0, mrv: 0, applications: 0 })
+
+const tabs = computed(() => [
+  { value: 'projects', label: 'Project Reviews', icon: 'fact_check', count: counts.value.projects },
+  { value: 'mrv', label: 'MRV Reports', icon: 'query_stats', count: counts.value.mrv },
+  {
+    value: 'applications',
+    label: 'Developer Applications',
+    icon: 'how_to_reg',
+    count: counts.value.applications,
+  },
+])
 
 // Project validation is the queue a verifier opens the panel for.
 const activeTab = ref('projects')
+
+async function loadCounts() {
+  counts.value = await getVerifierQueueCounts()
+}
+
+onMounted(() => {
+  // Only for verifiers: the other branches of this view render an access notice
+  // and must not fire three queries the viewer has no right to.
+  if (store.isVerifier) loadCounts()
+})
 </script>
 
 <style scoped>
@@ -212,6 +238,27 @@ const activeTab = ref('projects')
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* On the active tab the grey pill disappears into the fill, so invert it. */
+.workbench-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.9);
+  color: #058526;
 }
 
 .workbench-tab .material-symbols-outlined {
