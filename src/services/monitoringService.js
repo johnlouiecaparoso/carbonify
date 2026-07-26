@@ -79,14 +79,24 @@ export async function getReport(reportId) {
   // The project rides along the way it does on the review-queue rows. Without
   // it the reviewer had no category, so the reduction-type suggestion always
   // received '' — and the emission factors (keyed by project_type) could not be
-  // looked up at all. `user_id` is the owner, used for the self-review guard.
+  // looked up at all. `user_id` is the owner, used for the self-review guard;
+  // `status` drives the double-issuance warning.
   const { data: project } = await supabase
     .from('projects')
-    .select('id, title, category, location, user_id')
+    .select('id, title, category, location, user_id, status')
     .eq('id', report.project_id)
     .maybeSingle()
 
-  return { ...report, project: project || null, activity: activity || [], evidence: evidence || [] }
+  // Set here as well as in getReviewQueue: the review screen selects a report
+  // through THIS function, not from the queue row, so a flag attached only to
+  // the queue would never reach the screen that has to show it.
+  return {
+    ...report,
+    project: project || null,
+    doubleIssuanceRisk: alreadyIssuedOnValidation(project),
+    activity: activity || [],
+    evidence: evidence || [],
+  }
 }
 
 /**
@@ -374,15 +384,48 @@ export async function getReviewQueue() {
   if (!reports || reports.length === 0) return []
 
   const projectIds = [...new Set(reports.map((r) => r.project_id))]
+  // `status` is selected so the reviewer can be told when approving this report
+  // would be a SECOND issuance against the same project — see
+  // alreadyIssuedOnValidation below.
   const { data: projects } = await supabase
     .from('projects')
-    .select('id, title, category, location, user_id')
+    .select('id, title, category, location, user_id, status')
     .in('id', projectIds)
 
   return reports.map((r) => {
     const project = (projects || []).find((p) => p.id === r.project_id)
-    return { ...r, project: project || null }
+    return { ...r, project: project || null, doubleIssuanceRisk: alreadyIssuedOnValidation(project) }
   })
+}
+
+/**
+ * Would approving a VER against this project mint credits it has ALREADY been
+ * issued once?
+ *
+ * Live runs both issuance triggers at the same time, which no single migration
+ * intended:
+ *
+ *   20260604010100  dropped trg_activate_validated_project and created
+ *                   trg_mint_credits_on_ver_approval  (decoupled, mint-on-VER)
+ *   20260626000500  re-created trg_activate_validated_project
+ *   ...             nothing ever dropped trg_mint_credits_on_ver_approval
+ *
+ * So validating a project mints a pool and an active listing, and then
+ * approving a VER against that same project mints again. For a registry that is
+ * the cardinal error — the same tonne sold twice — and the only thing currently
+ * preventing it is a reviewer remembering a sentence in DEFERRED_BACKLOG.md
+ * (#17, still open: which model is canonical has not been decided).
+ *
+ * This does NOT block the approval. Which trigger to drop is an architecture
+ * decision, and blocking would strand legitimate approvals if mint-on-VER turns
+ * out to be the intended model. It exists so the warning reaches the one person
+ * in a position to notice, at the moment they are deciding.
+ *
+ * @param {{status?: string}|null} project
+ * @returns {boolean}
+ */
+export function alreadyIssuedOnValidation(project) {
+  return ['validated', 'approved'].includes(String(project?.status || '').toLowerCase())
 }
 
 /**

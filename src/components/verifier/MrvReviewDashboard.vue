@@ -132,6 +132,22 @@
             <strong>{{ Number(selected.proposed_vers || 0).toLocaleString() }} tCO₂e</strong>
           </div>
 
+          <!-- Double-issuance warning. Live runs BOTH issuance triggers: this
+               project already minted a pool and a listing when it was validated,
+               so approving here mints a second time against the same project.
+               Deliberately a warning and not a block — see
+               alreadyIssuedOnValidation in monitoringService and backlog #17,
+               which has not yet settled which model is canonical. -->
+          <div v-if="selected.doubleIssuanceRisk" class="double-issue-warn" role="alert">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            <div>
+              <strong>This project was already issued credits when it was validated.</strong>
+              Approving this report mints a <em>second</em> batch against the same project. Unless
+              these reductions are genuinely additional to the ones already issued, do not approve —
+              confirm the issuance model with an administrator first.
+            </div>
+          </div>
+
           <!-- Decision -->
           <div class="decision">
             <div class="form-group">
@@ -356,9 +372,16 @@ async function doApprove() {
   // Approving mints credits and lists them for sale. That deserves the same
   // styled, readable confirmation the project panel uses — this was a native
   // blocking confirm() on the highest-stakes action in the product.
+  const qty = Number(approvedQuantity.value || 0).toLocaleString()
+  const base = `Approve this report and issue ${qty} tCO₂e to "${selectedProjectTitle.value}"? Credits are minted and listed on the marketplace. This cannot be undone.`
+
+  // Escalate the wording when this would be a second issuance — the inline
+  // banner can be scrolled past, the confirmation cannot.
   const ok = await confirmPrompt({
-    title: 'Issue credits?',
-    message: `Approve this report and issue ${Number(approvedQuantity.value || 0).toLocaleString()} tCO₂e to "${selectedProjectTitle.value}"? Credits are minted and listed on the marketplace. This cannot be undone.`,
+    title: selected.value?.doubleIssuanceRisk ? 'Issue credits a second time?' : 'Issue credits?',
+    message: selected.value?.doubleIssuanceRisk
+      ? `"${selectedProjectTitle.value}" was already issued credits when it was validated. ${base} You would be issuing against this project TWICE.`
+      : base,
     confirmText: 'Approve & issue',
   })
   if (!ok) return
@@ -690,6 +713,24 @@ loadQueue()
   font-size: 0.85rem;
 }
 
+.double-issue-warn {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin: 12px 0;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.double-issue-warn .material-symbols-outlined {
+  color: #dc2626;
+  flex-shrink: 0;
+}
 .vers-box {
   display: flex;
   justify-content: space-between;
