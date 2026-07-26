@@ -10,7 +10,9 @@
  * Bump TOUR_VERSION when the steps change enough that returning users should
  * see the tour again.
  */
-export const TOUR_VERSION = 1
+// v2: added the KYC step to the buyer flow. Existing buyers should see the tour
+// again — the thing it now explains is the one that was blocking them.
+export const TOUR_VERSION = 2
 
 const COMMON_CLOSING = {
   title: 'You are set',
@@ -26,6 +28,14 @@ const ROLE_STEPS = {
     {
       title: 'Browse & buy credits',
       body: 'Open the Marketplace to browse verified projects. Filter by location, price, category or SDG, then buy — your purchase quantity can be pre-filled from the Carbon Calculator.',
+    },
+    {
+      // Buying is KYC-gated, and the tour used to send people to the marketplace
+      // without saying so — they met the gate at checkout instead, after picking
+      // a project and a quantity. Verification is not instant, so it belongs
+      // before the browsing step pays off, not after.
+      title: 'Verify your identity first',
+      body: 'Browsing is open to everyone, but buying credits requires ID verification — it usually takes about one business day. Start it early from “KYC verification” in the menu under your avatar, so your first purchase is not held up.',
     },
     {
       title: 'Track what you own',

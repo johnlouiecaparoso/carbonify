@@ -51,10 +51,15 @@ const D = {
   // Insights
   analytics: { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
   marketPrices: { path: '/market', label: 'Market prices', icon: 'trending_up' },
-  assistant: { path: '/assistant', label: 'AI Assistant', icon: 'smart_toy' },
+  // Labelled preview because it is one: the Claude-backed edge function behind
+  // /assistant is not built, and the page says so on arrival. The sidebar
+  // renders labels only (never HINTS), so without this the only nav entry in
+  // the app that leads nowhere looked exactly like the ones that don't.
+  assistant: { path: '/assistant', label: 'AI Assistant (preview)', icon: 'smart_toy' },
 
   // Account
   profile: { path: '/profile', label: 'Profile & settings', icon: 'manage_accounts' },
+  preferences: { path: '/preferences', label: 'Preferences', icon: 'display_settings' },
   kyc: { path: '/kyc', label: 'KYC verification', icon: 'verified_user' },
   wallet: { path: '/wallet', label: 'Wallet', icon: 'account_balance_wallet' },
   upgrade: { path: '/upgrade', label: 'Upgrade plan', icon: 'rocket_launch' },
@@ -100,6 +105,7 @@ const D = {
 
 /** Short blurbs, used only by the card layout of the workspace directory. */
 const HINTS = {
+  '/preferences': 'Theme, accessibility, language',
   '/marketplace': 'Browse and buy verified credits',
   '/cart': 'Finish a checkout you started',
   '/watchlist': 'Listings you saved to track',
@@ -112,7 +118,7 @@ const HINTS = {
   '/disputes': 'Problems you have reported',
   '/analytics': 'Trends across your activity',
   '/market': 'Live pricing across the market',
-  '/assistant': 'Ask questions about your portfolio',
+  '/assistant': 'Interface preview — not connected yet',
   '/biomass/rfqs': 'Buyers looking for feedstock',
   '/biomass/sell': 'List feedstock for sale',
   '/investor': 'Deal flow and project financing',
@@ -219,7 +225,12 @@ export function buildSidebar(user, { cartCount = 0 } = {}) {
 export function buildAccountMenu(user) {
   if (!user.isAuthenticated) return []
 
-  const items = [D.profile]
+  // Preferences applies to every role: App.vue applies the theme and the
+  // accessibility settings (high contrast, large text) from preferencesStore on
+  // mount, and /preferences is the only screen that can change them. The page
+  // existed and worked but nothing linked to it, so those settings were
+  // unreachable outside of typing the URL.
+  const items = [D.profile, D.preferences]
 
   // Admins and verifiers don't buy, so identity/funding/plan don't apply.
   if (!(user.isAdmin || user.isVerifier)) {

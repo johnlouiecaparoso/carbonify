@@ -19,7 +19,7 @@ import { generateCarbonImpactReport } from '@/services/receiptService'
 import { getMarketStats } from '@/services/registryService'
 import { getMyWatchlist, checkWatchlistPriceAlerts } from '@/services/watchlistService'
 import { getMarketplaceListings } from '@/services/marketplaceService'
-import { getUserNotifications } from '@/services/notificationService'
+import { getUserNotifications, markNotificationAsRead } from '@/services/notificationService'
 import { getMyOrders, attachListingTitles, isUnfinished } from '@/services/orderService'
 import { useTradeEligibility } from '@/composables/useTradeEligibility'
 import { formatDate } from '@/utils/formatDate'
@@ -79,6 +79,39 @@ const retirementPercent = computed(() => {
 })
 
 const unreadNotifications = computed(() => notifications.value.filter((n) => !n.is_read))
+
+/**
+ * Open a notification: mark it read, then follow its link.
+ *
+ * This panel used to render notifications as inert text next to an unread
+ * count, so the dashboard could tell a buyer they had unread items and give
+ * them no way to read one or clear the badge — only the header bell could do
+ * that. Marked read optimistically so the badge responds immediately; a failed
+ * write is rolled back rather than left lying about the state.
+ */
+async function openNotification(note) {
+  const id = userId.value
+  if (!note || !id) return
+
+  const wasUnread = !note.is_read
+  if (wasUnread) {
+    notifications.value = notifications.value.map((n) =>
+      n.id === note.id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n,
+    )
+    try {
+      await markNotificationAsRead(note.id, id)
+    } catch (err) {
+      console.warn('Could not mark notification read:', err?.message)
+      notifications.value = notifications.value.map((n) =>
+        n.id === note.id ? { ...n, is_read: false, read_at: null } : n,
+      )
+    }
+  }
+
+  // router.push, not a location assign: this is the same SPA, and a full
+  // reload here would throw away the dashboard we just spent six queries on.
+  if (note.link) router.push(note.link)
+}
 
 /**
  * Watchlist rows only store listing ids, so join them against the (cached)
@@ -436,17 +469,22 @@ onMounted(load)
             <p v-if="notifications.length === 0" class="panel-empty">You're all caught up.</p>
 
             <ul v-else class="simple-list">
-              <li
-                v-for="note in notifications"
-                :key="note.id"
-                class="simple-item"
-                :class="{ unread: !note.is_read }"
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
-                <div class="simple-text">
-                  <p class="note-title">{{ note.title }}</p>
-                  <p class="note-time">{{ formatDate(note.created_at, { month: 'short' }) }}</p>
-                </div>
+              <li v-for="note in notifications" :key="note.id">
+                <button
+                  type="button"
+                  class="simple-item note-button"
+                  :class="{ unread: !note.is_read }"
+                  @click="openNotification(note)"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+                  <div class="simple-text">
+                    <p class="note-title">
+                      {{ note.title }}
+                      <span v-if="!note.is_read" class="sr-only">(unread)</span>
+                    </p>
+                    <p class="note-time">{{ formatDate(note.created_at, { month: 'short' }) }}</p>
+                  </div>
+                </button>
               </li>
             </ul>
           </section>
@@ -489,26 +527,6 @@ onMounted(load)
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
-}
-
-/* Header */
-.dash-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-.dash-title {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 0.25rem;
-}
-.dash-subtitle {
-  color: #64748b;
-  margin: 0;
 }
 
 /* Buttons */
@@ -882,6 +900,26 @@ onMounted(load)
 .simple-item.unread {
   background: #f0fdf4;
 }
+/* Notifications are actionable, so they are buttons; strip the UA chrome and
+   let .simple-item own the appearance. */
+.note-button {
+  width: 100%;
+  border: 1px solid transparent;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.note-button:hover {
+  background: #f1f5f9;
+}
+.note-button.unread:hover {
+  background: #dcfce7;
+}
+.note-button:focus-visible {
+  outline: 2px solid #058526;
+  outline-offset: 2px;
+}
 .simple-item .material-symbols-outlined {
   font-size: 1.15rem;
   color: #94a3b8;
@@ -982,12 +1020,8 @@ onMounted(load)
 }
 
 @media (max-width: 640px) {
-  .dash-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .dash-title {
-    font-size: 1.4rem;
+  .stat-value {
+    font-size: 1.35rem;
   }
 }
 </style>

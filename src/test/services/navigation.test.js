@@ -142,12 +142,12 @@ describe('navigation information architecture', () => {
   describe('account menu', () => {
     it('stays short enough to render without scrolling', () => {
       for (const role of ROLE_KEYS) {
-        expect(buildAccountMenu(userWith(role)).length).toBeLessThanOrEqual(4)
+        expect(buildAccountMenu(userWith(role)).length).toBeLessThanOrEqual(5)
       }
     })
 
     it('holds only account pages — no product features', () => {
-      const accountPaths = new Set(['/profile', '/kyc', '/wallet', '/upgrade'])
+      const accountPaths = new Set(['/profile', '/preferences', '/kyc', '/wallet', '/upgrade'])
       for (const role of ROLE_KEYS) {
         for (const item of buildAccountMenu(userWith(role))) {
           expect(accountPaths.has(item.path)).toBe(true)
@@ -165,7 +165,18 @@ describe('navigation information architecture', () => {
     it('hides identity, funding and plan from roles that never transact', () => {
       for (const role of ['admin', 'verifier']) {
         const paths = buildAccountMenu(userWith(role)).map((item) => item.path)
-        expect(paths).toEqual(['/profile'])
+        expect(paths).toEqual(['/profile', '/preferences'])
+      }
+    })
+
+    // App.vue applies theme + accessibility settings from preferencesStore on
+    // mount, and /preferences is the only screen that can change them. It was
+    // routed but unlinked, so those settings could only be reached by typing the
+    // URL. Every role reads the app, so every role gets the entry.
+    it('offers preferences to every role, since every role renders the theme', () => {
+      for (const role of ROLE_KEYS) {
+        const paths = buildAccountMenu(userWith(role)).map((item) => item.path)
+        expect(paths, `${role} cannot reach /preferences`).toContain('/preferences')
       }
     })
   })
