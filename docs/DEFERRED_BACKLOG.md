@@ -40,6 +40,13 @@ Come back to this list after the phases are implemented.
 > open and is the one item here that can corrupt the registry. #24 — a verifier cannot see their own
 > decision history. #25 — reviews are not assigned and concurrent reviewers are invisible.
 >
+> **New 2026-07-26 (farmer review): #26 and #27.** #26 — farmers are **not paid through the
+> platform**: `mark_farmer_delivery_paid` flips a boolean the *buyer* sets and moves no money, while
+> buyers get PayMongo and developers get escrow + payouts. The least powerful party carries all the
+> counterparty risk and has no dispute path. Deliberate scoping, but the UI implies otherwise. #27 —
+> the language selector offered seven languages and delivered none (no i18n library at all); now
+> disabled honestly, but Filipino is still missing from a Philippine platform.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -668,3 +675,72 @@ verifier, which the platform does not have yet, and doing it properly means deci
 reviews are *claimed* (an assignment model, with release and timeout) or merely *advertised*
 (show the name and let people coordinate). The second is nearly free; the first is a workflow
 feature. Worth taking the decision before the second verifier is hired, not after.
+
+---
+
+## From the 2026-07-26 farmer review
+
+Same live-readiness pass, farmer role. Defects are fixed in `9d4e2ae`; the dormant language
+selector is disabled honestly rather than left pretending. These two remain open, and #26 is the
+most consequential item to come out of any of the four role reviews so far.
+
+### 26. Farmers are not paid through the platform — payment is an honour-system flag 🟠
+
+**Where:** `mark_farmer_delivery_paid` in
+[`20260711000000_farmer_portal.sql`](../supabase/migrations/20260711000000_farmer_portal.sql), and
+[farmerService.js](../src/services/farmerService.js), whose own header states it plainly: *"Payment
+status here is bookkeeping only — it never touches `ledger_entries` / `escrow_holds` /
+`payout_requests`, so the proven money path is unaffected."*
+
+The RPC sets `payment_status = 'paid'`, stamps `paid_at`, and stores an optional free-text
+`payment_reference`. **No money moves.** The buyer pays the farmer off-platform — cash, GCash, bank
+transfer — and then asserts that they did.
+
+Compare what every other party gets:
+
+| Role | Money path |
+|---|---|
+| Buyer | Real PayMongo checkout, server-settled via webhook |
+| Project developer | Escrow hold → KYB-gated `request_payout` → payout worker |
+| **Farmer** | **A boolean the counterparty sets** |
+
+So the farmer — typically the least powerful party, and on this platform explicitly a smallholder or
+cooperative — carries all of the counterparty risk. A buyer can confirm a delivery and never mark it
+paid, or mark it paid without paying, and the platform records the latter as fact. There is also **no
+recourse**: `/disputes` is `openDispute({ transactionId })` against `credit_transactions` only, and
+it is not in the farmer's sidebar at all, so nothing in the product lets a farmer raise a
+non-payment.
+
+**Why it is on this list rather than fixed.** The scoping was deliberate and correct at the time —
+keeping deliveries out of `ledger_entries` is exactly what kept the money core stable while it was
+being proven. Undoing that is a real payments project: it needs escrow on the buyer side for a
+physical good whose delivery is confirmed off-platform, a payout path for farmers (which means KYC/KYB
+for smallholders — a significant onboarding burden), and a dispute mechanism for "delivered but
+unpaid". It also interacts with **#14**: the escrow/chargeback question, answered for credits, would
+have to be answered again for a good that cannot be clawed back once delivered.
+
+**How to close:** decide first whether Carbonify intends to be the payment rail for feedstock at all,
+or an introduction and record-keeping layer with payment left to the parties. Both are defensible;
+only one of them is what the UI currently implies. If the latter, say so explicitly in the farmer
+portal and in the terms, because "Paid" rendering as a settled fact is the misleading part. If the
+former, it is a phase of work, not a ticket.
+
+### 27. The language selector offered seven languages and delivered none 🟢 (partly addressed)
+
+**Where:** [preferencesStore.js](../src/store/preferencesStore.js) `loadLanguagePack()` —
+a `console.log`. No i18n library is installed and there is no locales directory, so `setLanguage`
+persisted a preference that changed nothing.
+
+Surfaced because `/preferences` was linked into the account menu in `5f56aeb`, which made a
+previously unreachable control discoverable for the first time. The selector is now **disabled with
+an explanation** rather than silently inert.
+
+**The part still open:** Filipino/Tagalog was not even among the seven offered (English, Spanish,
+French, German, Portuguese, Chinese, Japanese). For a Philippine platform whose farmers and
+cooperatives are named in the onboarding material as the users most needing an instructional guide,
+English-only is a real accessibility barrier, and the language list as it stands reflects a template
+rather than this product's users.
+
+**How to close:** install an i18n library, extract strings, and translate Filipino first. Scope it
+against the farmer and LGU surfaces before the buyer ones — those are the users for whom English is
+the actual obstacle.

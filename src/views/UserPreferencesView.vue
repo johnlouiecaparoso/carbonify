@@ -440,12 +440,29 @@ function importPreferences(event) {
 
         <!-- Language & Region -->
         <div v-if="activeTab === 'language'" class="tab-panel">
-          <h2 class="panel-title">Language & Region</h2>
+          <h2 class="panel-title">Language &amp; Region</h2>
+
+          <!-- Honest rather than hidden, matching how /assistant handles its own
+               unbuilt backend. The selector stored a preference and called
+               loadLanguagePack(), which is a console.log — no i18n library is
+               installed and there are no translation files, so picking "Español"
+               changed nothing at all. Disabled until that exists. -->
+          <div class="notice-inline" role="status">
+            <strong>Translations aren't available yet.</strong>
+            The interface is English only for now. This setting is disabled rather than hidden so
+            it's clear the option is coming, not silently ignored.
+          </div>
 
           <div class="settings-grid">
             <div class="setting-group">
-              <label class="setting-label">Language</label>
-              <select v-model="formData.language" class="setting-select">
+              <label class="setting-label" for="pref-language">Language</label>
+              <select
+                id="pref-language"
+                v-model="formData.language"
+                class="setting-select"
+                disabled
+                aria-describedby="pref-language-note"
+              >
                 <option
                   v-for="lang in preferencesStore.availableLanguages"
                   :key="lang.code"
@@ -454,6 +471,10 @@ function importPreferences(event) {
                   {{ lang.flag }} {{ lang.name }}
                 </option>
               </select>
+              <p id="pref-language-note" class="setting-hint">
+                When translations land, Filipino comes first — this is a Philippine platform and
+                its farmers and cooperatives are the users least well served by English-only.
+              </p>
             </div>
           </div>
         </div>
@@ -568,6 +589,26 @@ function importPreferences(event) {
   gap: 0.5rem;
 }
 
+.notice-inline {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.setting-hint {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+.setting-select:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
 .setting-label {
   font-weight: 500;
   color: #374151;
