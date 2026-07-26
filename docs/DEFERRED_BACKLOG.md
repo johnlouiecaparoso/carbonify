@@ -25,11 +25,12 @@ Come back to this list after the phases are implemented.
 > developers have no forward/projection view of their own projects, which investors do have. Neither
 > blocks the beta.
 >
-> **🔴 #17 IS NOW A BLOCKER (upgraded 2026-07-26).** Both issuance triggers are live, so validating a
-> project and then approving a VER against it issues the same tonne twice. Audit script:
-> `supabase/diagnostics/issuance_model_audit.sql` (read-only, finds already-double-issued projects and
-> flags any whose excess is already SOLD). Fix: `supabase/cutover/adopt_mint_on_ver.sql`, gated behind
-> that audit. This is the one open item that can corrupt the registry.
+> **✅ #17 IS CLOSED (2026-07-26).** Both issuance triggers had been live — validating a project and
+> then approving a VER against it would have issued the same tonne twice. The audit
+> (`supabase/diagnostics/issuance_model_audit.sql`) confirmed the exposure but found **nothing had
+> been double-issued and nothing sold**, so `supabase/cutover/adopt_mint_on_ver.sql` was applied to
+> live with no reconciliation needed. The audit now returns zero rows. Mint-on-VER is the single
+> issuance path.
 >
 > **New 2026-07-26 (verifier review): #24 and #25, and #17 is upgraded.** #17 is no longer
 > conditional — the migration chain confirms BOTH issuance triggers are live (20260604010100 dropped
@@ -318,7 +319,35 @@ service layer — that miss is what dropped a still-referenced column; (b) the b
 exists` migrations from a live dump so fresh envs rebuild faithfully; (c) adopt CLI migration tracking (#7)
 so live can't silently diverge from `supabase/migrations/` again. This item is the umbrella for #7 + #13.
 
-### 17. BOTH issuance triggers are live — the same tonne can be issued twice 🔴 (upgraded 2026-07-26)
+### 17. BOTH issuance triggers are live — the same tonne can be issued twice ✅ CLOSED 2026-07-26
+
+**Resolution (2026-07-26).** `supabase/diagnostics/issuance_model_audit.sql` was run against live and
+returned the `A.` finding only — both triggers enabled, and **no `B.` or `C.` rows: nothing had been
+double-issued, and nothing double-issued had been sold**. The exposure was real but had never been
+exercised, so closing it required no reconciliation of existing credits.
+
+`supabase/cutover/adopt_mint_on_ver.sql` was then applied to live, retiring
+`trg_activate_validated_project` and leaving `trg_mint_credits_on_ver_approval` as the single
+issuance path. Re-running the audit afterwards returned **zero rows**.
+
+**Live behaviour is now:** validating a project marks it eligible for MRV and mints nothing. Credits
+come into existence only when a verifier approves a monitoring report's VERs — which is what
+`20260604010100_decouple_issuance_mint_on_ver` intended before `20260626000500` inadvertently
+reverted it while fixing an unrelated column-drift bug. Pools and listings that already existed were
+untouched.
+
+**Follow-through:** a validated project no longer reaches the marketplace by itself, so a project
+validated before this change behaves differently from one validated after — worth telling active
+project developers. The double-issuance warning added to the verifier's MRV screen in `f0b111b` is
+now belt-and-braces rather than the only safeguard; it costs nothing and stays. Rollback is in the
+cutover script header; if mint-on-VER is ever abandoned, close it the other way by dropping the VER
+trigger rather than reinstating both.
+
+*Original entry below.*
+
+---
+
+### 17 (original). BOTH issuance triggers are live — the same tonne can be issued twice 🔴
 
 **Upgraded from 🟡 to 🔴 by the verifier review.** This entry used to read "*if* BOTH triggers are
 active". They are. The migration chain settles it:
