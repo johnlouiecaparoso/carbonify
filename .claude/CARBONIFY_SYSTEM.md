@@ -129,9 +129,10 @@ carbonify/
 │   │   └── ...                   # cart.js, lgu.js
 │   │
 │   ├── config/
-│   │   ├── environment.js        # VITE_* env var reader
-│   │   ├── production.js         # Production flags
 │   │   └── database.js           # Database config helpers
+│   │                             # (environment.js / production.js were deleted
+│   │                             #  2026-07-26 — nothing imported them, and the
+│   │                             #  four VITE_* flags they read had no effect)
 │   │
 │   ├── middleware/
 │   │   └── roleGuard.js          # Route-level role enforcement

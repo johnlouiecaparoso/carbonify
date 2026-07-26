@@ -96,7 +96,7 @@ src/
   store/        Pinia stores (userStore, ...)
   router/       Vue Router + role/MFA guards
   constants/    roles and other enums
-  config/       environment.js, production.js, database.js
+  config/       database.js
   middleware/   role guards
   utils/        analytics, helpers
 supabase/

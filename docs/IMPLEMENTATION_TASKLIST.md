@@ -158,7 +158,7 @@
 ---
 
 ## Reference docs
-- Platform analysis + market benchmark → [`CARBONIFY_SYSTEM_ANALYSIS.md`](CARBONIFY_SYSTEM_ANALYSIS.md)
+- Platform analysis + market benchmark → [`ECOLINK_SYSTEM_ANALYSIS.md`](ECOLINK_SYSTEM_ANALYSIS.md) *(the link read `CARBONIFY_SYSTEM_ANALYSIS.md` and resolved to nothing until 2026-07-26; the file carries the repo's internal name)*
 - Payments architecture → [`PAYMENTS_ARCHITECTURE.md`](PAYMENTS_ARCHITECTURE.md)
 - Real‑world go‑live → [`REAL_WORLD_GOLIVE_PLAYBOOK.md`](REAL_WORLD_GOLIVE_PLAYBOOK.md)
 - Vendor scorecard + tech design → [`VENDOR_SCORECARD_AND_TECH_DESIGN.md`](VENDOR_SCORECARD_AND_TECH_DESIGN.md)

@@ -202,8 +202,12 @@ running. Build + 693 tests green after removal.
   They are the Phase 1–2 provider abstractions. Decide *abandoned vs pending wiring* before deleting;
   the live path is `realPaymentService`/`paymongoService`.
 
-Also: `/mobile-test` is a **live route** in production routing. `vue-chartjs` is a dependency imported
-nowhere.
+~~Also: `/mobile-test` is a **live route** in production routing. `vue-chartjs` is a dependency imported
+nowhere.~~ **Both resolved 2026-07-26.** `/mobile-test` and its view were deleted (`750ea37`);
+`vue-chartjs` was removed from `package.json` — the two chart components import `chart.js` directly, so
+it had never been bundled. `AdvancedSearch.vue` from the line above went at the same time, together
+with its `vite.config.js` manualChunks pin: that pin was the file's only reference anywhere, which is
+why an import-graph scan reports it as used and misses it.
 
 ### 9. Consolidate duplicated formatters 🟢
 `peso()` × 11, `round2()` × 9, `shortDate()` × 8, `formatCurrency()` × 6. Two competing currency

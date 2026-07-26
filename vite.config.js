@@ -43,10 +43,11 @@ export default defineConfig({
             './src/components/auth/LoginForm.vue',
             './src/components/auth/RegisterForm.vue',
           ],
-          marketplace: [
-            './src/views/MarketplaceViewEnhanced.vue',
-            './src/components/search/AdvancedSearch.vue',
-          ],
+          // AdvancedSearch.vue was pinned here and imported by nothing else —
+          // the manualChunks entry was its only reference in the whole repo,
+          // which is why an import-graph scan reports it as used. Both went
+          // 2026-07-26; removing the component without this line breaks the build.
+          marketplace: ['./src/views/MarketplaceViewEnhanced.vue'],
           analytics: ['./src/views/AnalyticsView.vue', './src/utils/analytics.js'],
         },
         assetFileNames: (assetInfo) => {
