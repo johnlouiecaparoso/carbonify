@@ -13,7 +13,7 @@
           <span class="material-symbols-outlined">group</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.totalUsers }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.totalUsers ? '—' : stats.totalUsers }}</p>
           <h3>Total Users</h3>
         </div>
       </div>
@@ -22,7 +22,7 @@
           <span class="material-symbols-outlined">pending_actions</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.pendingRoleApplications }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.pendingRoleApplications ? '—' : stats.pendingRoleApplications }}</p>
           <h3>Pending Role Applications</h3>
         </div>
       </div>
@@ -31,7 +31,7 @@
           <span class="material-symbols-outlined">shield_person</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.totalAdmins }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.totalAdmins ? '—' : stats.totalAdmins }}</p>
           <h3>Administrators</h3>
         </div>
       </div>
@@ -40,7 +40,7 @@
           <span class="material-symbols-outlined">how_to_reg</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.pendingVerifierApplications }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.pendingVerifierApplications ? '—' : stats.pendingVerifierApplications }}</p>
           <h3>Pending Verifier Applicants</h3>
         </div>
       </div>
@@ -82,6 +82,15 @@ const stats = ref({
   pendingRoleApplications: 0,
   totalAdmins: 0,
   pendingVerifierApplications: 0,
+})
+
+// Which of the four counts could not be read. Distinct from a count of zero,
+// which on this page is a statement that there is no work waiting.
+const statErrors = ref({
+  totalUsers: false,
+  pendingRoleApplications: false,
+  totalAdmins: false,
+  pendingVerifierApplications: false,
 })
 
 const loading = ref(true)
@@ -156,17 +165,24 @@ async function loadStats() {
         .eq('role_requested', 'verifier'),
     ])
 
-    if (totalUsersError) {
-      console.error('Error counting users:', totalUsersError)
+    // A count that failed is NOT zero. "0 pending role applications" on the
+    // admin landing page reads as "nothing needs my attention", so an unread
+    // count renders as an explicit unknown instead — otherwise applicants wait
+    // on an admin who was told there was no queue.
+    statErrors.value = {
+      totalUsers: Boolean(totalUsersError),
+      totalAdmins: Boolean(adminError),
+      pendingRoleApplications: Boolean(pendingRoleApplicationsError),
+      pendingVerifierApplications: Boolean(pendingVerifierApplicationsError),
     }
-    if (adminError) {
-      console.error('Error counting admin users:', adminError)
-    }
-    if (pendingRoleApplicationsError) {
-      console.error('Error counting pending role applications:', pendingRoleApplicationsError)
-    }
-    if (pendingVerifierApplicationsError) {
-      console.error('Error counting pending verifier applications:', pendingVerifierApplicationsError)
+
+    for (const [what, err] of [
+      ['users', totalUsersError],
+      ['admin users', adminError],
+      ['pending role applications', pendingRoleApplicationsError],
+      ['pending verifier applications', pendingVerifierApplicationsError],
+    ]) {
+      if (err) console.error(`Error counting ${what}:`, err)
     }
 
     stats.value.totalUsers = totalUsersCount || 0
@@ -175,12 +191,19 @@ async function loadStats() {
     stats.value.pendingVerifierApplications = pendingVerifierApplicationsCount || 0
   } catch (error) {
     console.error('Error loading admin stats:', error)
-    // Set defaults on error
+    // Nothing was read, so every tile is unknown rather than zero — see the
+    // note on statErrors above.
     stats.value = {
       totalUsers: 0,
       pendingRoleApplications: 0,
       totalAdmins: 0,
       pendingVerifierApplications: 0,
+    }
+    statErrors.value = {
+      totalUsers: true,
+      pendingRoleApplications: true,
+      totalAdmins: true,
+      pendingVerifierApplications: true,
     }
   } finally {
     loading.value = false

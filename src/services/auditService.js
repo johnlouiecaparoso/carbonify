@@ -119,117 +119,6 @@ export async function logSystemEvent(event, entityType, entityId, metadata = {})
 }
 
 /**
- * Get audit logs for a specific entity
- */
-export async function getAuditLogs(entityType, entityId, limit = 50) {
-  const supabase = getSupabase()
-
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(
-        `
-        *,
-        profiles!audit_logs_user_id_fkey(full_name, email)
-      `,
-      )
-      .eq('resource_type', entityType)
-      .eq('resource_id', entityId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('Error fetching audit logs:', error)
-      throw new Error('Failed to fetch audit logs')
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('Error in getAuditLogs:', error)
-    throw error
-  }
-}
-
-/**
- * Get user activity logs
- */
-export async function getUserActivityLogs(userId, limit = 100) {
-  const supabase = getSupabase()
-
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('Error fetching user activity logs:', error)
-      throw new Error('Failed to fetch user activity logs')
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('Error in getUserActivityLogs:', error)
-    throw error
-  }
-}
-
-/**
- * Get system-wide audit logs (admin only)
- */
-export async function getSystemAuditLogs(filters = {}, limit = 100) {
-  const supabase = getSupabase()
-
-  try {
-    let query = supabase
-      .from('audit_logs')
-      .select(
-        `
-        *,
-        profiles!audit_logs_user_id_fkey(full_name, email)
-      `,
-      )
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    // Apply filters
-    if (filters.action) {
-      query = query.eq('action', filters.action)
-    }
-
-    if (filters.entityType) {
-      query = query.eq('resource_type', filters.entityType)
-    }
-
-    if (filters.userId) {
-      query = query.eq('user_id', filters.userId)
-    }
-
-    if (filters.startDate) {
-      query = query.gte('created_at', filters.startDate)
-    }
-
-    if (filters.endDate) {
-      query = query.lte('created_at', filters.endDate)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error('Error fetching system audit logs:', error)
-      throw new Error('Failed to fetch system audit logs')
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('Error in getSystemAuditLogs:', error)
-    throw error
-  }
-}
-
-/**
  * Get client IP address (placeholder)
  */
 function getClientIP() {
@@ -283,10 +172,12 @@ export async function searchAuditLogs(filters = {}, limit = 100) {
 
     const { data, error } = await query
 
-    if (error) {
-      console.error('Error searching audit logs:', error)
-      return []
-    }
+    // Throw, never []. This is the highest-stakes instance of that pattern in
+    // the app: an empty audit log does not read as "the query failed", it reads
+    // as "no such events exist". An admin filtering by user or date range
+    // during an investigation would conclude nothing happened — and might say
+    // so in a report. AuditLogsView already has an error branch waiting.
+    if (error) throw new Error(error.message || 'Could not search the audit log')
 
     const enrichedLogs = await attachAuditLogUsers(supabase, data || [])
 
@@ -303,138 +194,10 @@ export async function searchAuditLogs(filters = {}, limit = 100) {
       created_at: log.created_at || log.timestamp,
     }))
   } catch (error) {
+    // Rethrow for the same reason: silence here becomes "nothing happened" on
+    // the screen an investigation depends on.
     console.error('Error in searchAuditLogs:', error)
-    return []
+    throw error instanceof Error ? error : new Error('Could not search the audit log')
   }
 }
 
-/**
- * Get user activity summary
- */
-export async function getUserActivitySummary(userId = null) {
-  // Skip if database is disabled
-  if (!USE_DATABASE) {
-    console.log('Database disabled, returning empty activity summary')
-    return {
-      total_actions: 0,
-      actions_24h: 0,
-      actions_7d: 0,
-      last_activity: null,
-    }
-  }
-
-  const supabase = getSupabase()
-
-  try {
-    // Get total actions count
-    let totalQuery = supabase.from('audit_logs').select('id', { count: 'exact', head: true })
-
-    if (userId) {
-      totalQuery = totalQuery.eq('user_id', userId)
-    }
-
-    const { count: totalActions } = await totalQuery
-
-    // Get actions in last 24 hours
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    let actions24hQuery = supabase
-      .from('audit_logs')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', yesterday.toISOString())
-
-    if (userId) {
-      actions24hQuery = actions24hQuery.eq('user_id', userId)
-    }
-
-    const { count: actions24h } = await actions24hQuery
-
-    // Get actions in last 7 days
-    const lastWeek = new Date()
-    lastWeek.setDate(lastWeek.getDate() - 7)
-
-    let actions7dQuery = supabase
-      .from('audit_logs')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', lastWeek.toISOString())
-
-    if (userId) {
-      actions7dQuery = actions7dQuery.eq('user_id', userId)
-    }
-
-    const { count: actions7d } = await actions7dQuery
-
-    // Get last activity
-    let lastActivityQuery = supabase
-      .from('audit_logs')
-      .select('created_at')
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    if (userId) {
-      lastActivityQuery = lastActivityQuery.eq('user_id', userId)
-    }
-
-    const { data: lastActivityData } = await lastActivityQuery
-
-    return {
-      total_actions: totalActions || 0,
-      actions_24h: actions24h || 0,
-      actions_7d: actions7d || 0,
-      last_activity: lastActivityData?.[0]?.created_at || null,
-    }
-  } catch (error) {
-    console.error('Error in getUserActivitySummary:', error)
-    return {
-      total_actions: 0,
-      actions_24h: 0,
-      actions_7d: 0,
-      last_activity: null,
-    }
-  }
-}
-
-/**
- * Get recent audit logs
- */
-export async function getRecentAuditLogs(limit = 50) {
-  // Skip if database is disabled
-  if (!USE_DATABASE) {
-    console.log('Database disabled, returning empty recent audit logs')
-    return []
-  }
-
-  const supabase = getSupabase()
-
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('Error fetching recent audit logs:', error)
-      return []
-    }
-
-    const enrichedLogs = await attachAuditLogUsers(supabase, data || [])
-
-    return enrichedLogs.map((log) => ({
-      id: log.id,
-      action: log.action,
-      resource_type: log.resource_type || log.entity_type,
-      resource_id: log.resource_id || log.entity_id,
-      user_id: log.user_id,
-      user_name: log.user_name || 'Unknown User',
-      user_role: log.user_role || 'unknown',
-      ip_address: log.ip_address,
-      metadata: log.metadata,
-      created_at: log.created_at || log.timestamp,
-    }))
-  } catch (error) {
-    console.error('Error in getRecentAuditLogs:', error)
-    return []
-  }
-}
