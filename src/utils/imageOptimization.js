@@ -3,47 +3,6 @@
  */
 
 /**
- * Generate responsive image URLs with different sizes
- */
-export function getResponsiveImageUrl(baseUrl, width, height, quality = 80) {
-  if (!baseUrl) return null
-
-  // For Unsplash images, we can optimize them
-  if (baseUrl.includes('unsplash.com')) {
-    const url = new URL(baseUrl)
-    url.searchParams.set('w', width.toString())
-    url.searchParams.set('h', height.toString())
-    url.searchParams.set('q', quality.toString())
-    url.searchParams.set('fit', 'crop')
-    url.searchParams.set('auto', 'format')
-    return url.toString()
-  }
-
-  // For other images, return as-is
-  return baseUrl
-}
-
-/**
- * Generate WebP image URLs for better compression
- */
-export function getWebPImageUrl(baseUrl, width, height, quality = 80) {
-  if (!baseUrl) return null
-
-  if (baseUrl.includes('unsplash.com')) {
-    const url = new URL(baseUrl)
-    url.searchParams.set('w', width.toString())
-    url.searchParams.set('h', height.toString())
-    url.searchParams.set('q', quality.toString())
-    url.searchParams.set('fit', 'crop')
-    url.searchParams.set('auto', 'format')
-    url.searchParams.set('fm', 'webp')
-    return url.toString()
-  }
-
-  return baseUrl
-}
-
-/**
  * Lazy load images with intersection observer
  */
 export function setupLazyLoading() {
@@ -112,33 +71,6 @@ export function preloadCriticalImages(imageUrls) {
 
     document.head.appendChild(link)
   })
-}
-
-/**
- * Generate image placeholder
- */
-export function generateImagePlaceholder(width, height, text = 'Loading...') {
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-
-  canvas.width = width
-  canvas.height = height
-
-  // Create gradient background
-  const gradient = ctx.createLinearGradient(0, 0, width, height)
-  gradient.addColorStop(0, '#f0f0f0')
-  gradient.addColorStop(1, '#e0e0e0')
-
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, width, height)
-
-  // Add text
-  ctx.fillStyle = '#999'
-  ctx.font = '14px Arial'
-  ctx.textAlign = 'center'
-  ctx.fillText(text, width / 2, height / 2)
-
-  return canvas.toDataURL()
 }
 
 /**
