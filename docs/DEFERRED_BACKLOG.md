@@ -47,6 +47,13 @@ Come back to this list after the phases are implemented.
 > the language selector offered seven languages and delivered none (no i18n library at all); now
 > disabled honestly, but Filipino is still missing from a Philippine platform.
 >
+> **New 2026-07-26 (LGU review): #28, plus an LGU navigation contradiction fixed in code.** The app
+> treated LGU users as buyers everywhere except `isBuyerRole` — the router let them reach the whole
+> checkout path, `/kyc` is open to them "to move money", and `/analytics` shows them a Buying tab with
+> portfolio value — while their sidebar offered none of it. Now aligned. #28 — an LGU is never
+> notified that a project appeared in its jurisdiction, though endorsing local projects is one of the
+> four things its onboarding promises; jurisdiction-scoping needs a DB change.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -744,3 +751,39 @@ rather than this product's users.
 **How to close:** install an i18n library, extract strings, and translate Filipino first. Scope it
 against the farmer and LGU surfaces before the buyer ones — those are the users for whom English is
 the actual obstacle.
+
+---
+
+## From the 2026-07-26 LGU review
+
+Same live-readiness pass, LGU role — the best-built role surface in the app, and the only one where
+the services already threw on failure, every section had its own error state, and the destructive
+action already confirmed. Defects fixed in the accompanying commit; this one remains open.
+
+### 28. An LGU is never told a project appeared in its jurisdiction 🟠
+
+**Where:** [notificationService.js](../src/services/notificationService.js) —
+`notifyProjectSubmittedForReview` notifies `['verifier']` and nobody else. No notification anywhere
+in the codebase targets LGU users.
+
+Endorsing local projects is one of the four things the LGU onboarding tour promises ("Endorse carbon
+projects hosted in your area"), and the dashboard has a whole Endorsements tab for it. But an LGU
+only discovers there is something to endorse by remembering to open that tab and look. Every other
+role is told when work arrives: verifiers on submission, developers on a decision and on MRV due
+dates, buyers on watchlist price drops. The LGU — whose endorsement is a trust signal the project
+developer actively wants — has to poll.
+
+**Why it is on this list rather than fixed.** Notifying *every* LGU about *every* project would be
+spam, so it has to be jurisdiction-scoped, and that is a database change rather than a service one.
+Role→recipient resolution runs through the `resolve_notification_recipient_ids` SECURITY DEFINER RPC
+precisely because `profiles` SELECT is deliberately hardened (`20260703000300`, and see #3's warning
+against loosening it), so the client cannot look up "LGU users in municipality X" itself. The match
+also has to go through `normalize_jurisdiction()` to agree with the endorsement guard in
+`20260722000500` — otherwise an LGU gets notified about a project it will then be refused permission
+to endorse.
+
+**How to close:** extend `resolve_notification_recipient_ids` with an optional municipality filter
+(normalized the same way the guard normalizes), then call it from
+`notifyProjectSubmittedForReview` alongside the verifier notification. Fails closed by design: an
+LGU with no declared municipality, or a project with none, should receive nothing rather than
+everything.

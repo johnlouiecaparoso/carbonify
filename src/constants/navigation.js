@@ -161,13 +161,12 @@ function group(title, destinations) {
  * roles that get /dashboard, a cart, and the buying-side workspace.
  */
 export function isBuyerRole(user) {
-  return !(
-    user.isAdmin ||
-    user.isVerifier ||
-    user.isProjectDeveloper ||
-    user.isLguUser ||
-    user.isFarmer
-  )
+  // LGU users count. They were excluded here while every other part of the app
+  // treated them as buyers — the router lets them reach /cart, /wallet and the
+  // whole checkout path, /kyc is open to them "to move money", and /analytics
+  // shows them a Buying tab. This function decided their sidebar and their
+  // wallet entry, so it was the single place making the contradiction visible.
+  return !(user.isAdmin || user.isVerifier || user.isProjectDeveloper || user.isFarmer)
 }
 
 /** The route each role lands on — and the first item in its top nav. */
@@ -298,12 +297,33 @@ export function buildWorkspace(user, { cartCount = 0 } = {}) {
     return [group('Feedstock', [D.sellFeedstock, D.feedstockRfqs]), insights]
   }
 
+  const cart = cartCount > 0 ? { ...D.cart, label: `${D.cart.label} (${cartCount})` } : D.cart
+
+  /**
+   * An LGU buys — it just isn't ALL an LGU does, which is why /lgu stays its
+   * landing page (see homeDestination) rather than the buyer dashboard.
+   *
+   * Everything below was already reachable by an LGU: none of these routes list
+   * ROLES.LGU_USER in their disallowedRoles, /kyc is open to them precisely
+   * because the router says LGU users "need KYC to move money", and /analytics —
+   * which IS in their sidebar — shows a Buying tab with portfolio value and
+   * monthly spend. The navigation was the only place that disagreed, so a
+   * municipality that had just calculated its emissions with the MSW tool had no
+   * offered route to offsetting them.
+   *
+   * Deliberately narrower than the general buyer's list: no Biomass group, since
+   * an LGU is not a feedstock supplier, and no Investor group.
+   */
   if (user.isLguUser) {
-    return [insights]
+    return [
+      group('Buying', [cart, D.watchlist, D.calculator]),
+      group('Credits', [D.portfolio, D.retire, D.certificates]),
+      group('Records', [D.orders, D.receipts, D.disputes]),
+      insights,
+    ]
   }
 
   // Buyers / general users.
-  const cart = cartCount > 0 ? { ...D.cart, label: `${D.cart.label} (${cartCount})` } : D.cart
 
   const sections = [
     group('Buying', [cart, D.watchlist, D.calculator]),

@@ -275,9 +275,32 @@ describe('navigation information architecture', () => {
     it('treats only the buying roles as buyers', () => {
       expect(isBuyerRole(userWith('buyer'))).toBe(true)
       expect(isBuyerRole(userWith('investor'))).toBe(true)
-      for (const role of ['admin', 'verifier', 'developer', 'lgu', 'farmer']) {
+      // LGU counts: a municipality that has just quantified its emissions with
+      // the MSW calculator is the archetypal offset buyer, and the router has
+      // always let them reach /cart, /wallet and the whole checkout path.
+      expect(isBuyerRole(userWith('lgu'))).toBe(true)
+      for (const role of ['admin', 'verifier', 'developer', 'farmer']) {
         expect(isBuyerRole(userWith(role))).toBe(false)
       }
+    })
+
+    /**
+     * The contradiction this resolves: FINANCE_RESTRICTED_ROLES never included
+     * LGU, so every buying route was reachable by them, /kyc is open to them
+     * because the router says they "need KYC to move money", and /analytics —
+     * in their sidebar — shows a Buying tab with portfolio value and spend.
+     * Only isBuyerRole disagreed, and it is what builds their menu, so the
+     * routes were reachable and undiscoverable at the same time.
+     */
+    it('offers an LGU the buying path its routes already permit', () => {
+      const lgu = userWith('lgu')
+      const paths = pathsOf(buildSidebar(lgu))
+      for (const path of ['/cart', '/credit-portfolio', '/retire', '/orders', '/receipts']) {
+        expect(paths, `LGU cannot reach ${path} from the sidebar`).toContain(path)
+      }
+      // Still not a supplier, and still landing on its own tools.
+      expect(paths).not.toContain('/biomass/sell')
+      expect(homeDestination(lgu).path).toBe('/lgu')
     })
 
     it('lands each role on its own workspace', () => {

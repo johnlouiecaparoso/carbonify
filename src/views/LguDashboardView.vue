@@ -32,6 +32,18 @@
           <span>Jurisdiction: <strong>{{ jurisdictionLabel }}</strong></span>
           <router-link to="/profile" class="jurisdiction-link">Change</router-link>
         </div>
+        <!-- Unreadable is not the same as unset: telling an LGU that HAS a
+             municipality to go and set one sends them to a profile page that
+             already has it filled in. -->
+        <div v-else-if="jurisdictionLoaded && jurisdictionUnknown" class="jurisdiction-bar warn">
+          <span class="material-symbols-outlined" aria-hidden="true">help</span>
+          <span>
+            <strong>We couldn't read your jurisdiction.</strong>
+            Lists below are unscoped as a result, and endorsing a project outside your municipality
+            will be refused. This is a problem on our side, not a missing setting.
+          </span>
+          <button class="jurisdiction-link" @click="loadJurisdiction">Try again</button>
+        </div>
         <div v-else-if="jurisdictionLoaded" class="jurisdiction-bar warn">
           <span class="material-symbols-outlined" aria-hidden="true">warning</span>
           <span>
@@ -512,11 +524,20 @@ function removeParcel(i) {
 const jurisdiction = ref(null)
 const jurisdictionLoaded = ref(false)
 
+// Three states, not two: declared, genuinely undeclared, and unreadable. The
+// first two drive whether project lists are scoped; the third must not be
+// silently folded into "undeclared", which would unscope the lists and offer
+// endorsements the database will refuse.
+const jurisdictionUnknown = ref(false)
+
 async function loadJurisdiction() {
   try {
     jurisdiction.value = await getMyJurisdiction()
-  } catch {
+    jurisdictionUnknown.value = false
+  } catch (err) {
+    console.error('Could not read jurisdiction:', err)
     jurisdiction.value = null
+    jurisdictionUnknown.value = true
   } finally {
     jurisdictionLoaded.value = true
   }
@@ -899,12 +920,20 @@ loadRecords()
   flex: 0 0 auto;
 }
 
+/* Used as both a router-link and a plain button (retry), so the button's UA
+   chrome is stripped to keep the two visually identical. */
 .jurisdiction-link {
   margin-left: auto;
   font-weight: 600;
   color: inherit;
   text-decoration: underline;
   white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 /* Supporting documents ---------------------------------------------------- */

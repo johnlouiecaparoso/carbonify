@@ -47,10 +47,13 @@ export async function getMyJurisdiction() {
     .select('municipality, province')
     .eq('id', uid)
     .maybeSingle()
-  if (error) {
-    console.warn('[lgu] jurisdiction unavailable:', error.message)
-    return null
-  }
+  // Throw rather than returning null. Null is a MEANINGFUL value here — it is
+  // how "no municipality declared" is represented, and the dashboard unscopes
+  // its project lists on the strength of it. Collapsing a failed lookup into
+  // that state told an LGU with a declared municipality that it had none, and
+  // then offered them out-of-area projects that the endorsement jurisdiction
+  // guard (20260722000500) rejects at the database.
+  if (error) throw new Error(error.message || 'Could not read your jurisdiction')
   return data?.municipality ? { municipality: data.municipality, province: data.province } : null
 }
 
