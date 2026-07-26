@@ -25,6 +25,12 @@ Come back to this list after the phases are implemented.
 > developers have no forward/projection view of their own projects, which investors do have. Neither
 > blocks the beta.
 >
+> **🔴 #17 IS NOW A BLOCKER (upgraded 2026-07-26).** Both issuance triggers are live, so validating a
+> project and then approving a VER against it issues the same tonne twice. Audit script:
+> `supabase/diagnostics/issuance_model_audit.sql` (read-only, finds already-double-issued projects and
+> flags any whose excess is already SOLD). Fix: `supabase/cutover/adopt_mint_on_ver.sql`, gated behind
+> that audit. This is the one open item that can corrupt the registry.
+>
 > **New 2026-07-26 (verifier review): #24 and #25, and #17 is upgraded.** #17 is no longer
 > conditional — the migration chain confirms BOTH issuance triggers are live (20260604010100 dropped
 > the validation trigger and created the VER one; 20260626000500 re-created the validation trigger;
@@ -312,15 +318,49 @@ service layer — that miss is what dropped a still-referenced column; (b) the b
 exists` migrations from a live dump so fresh envs rebuild faithfully; (c) adopt CLI migration tracking (#7)
 so live can't silently diverge from `supabase/migrations/` again. This item is the umbrella for #7 + #13.
 
-### 17. Live issuance model is issue-on-VALIDATION, not the "decoupled MRV" model the code comments describe 🟡
-`activate_validated_project_trigger` (re-established by `20260626000500`) creates the pool **and** an active
-listing the moment a project is validated — so a validated project goes straight to the marketplace. The
-`20260604010100` "decouple, mint-on-VER" migration was superseded on live. Code comments (e.g.
-`approveProject`) still describe the mint-on-VER model, and `mint_credits_on_ver_approval` also exists — if
-BOTH triggers are active, a project validated **and** later granted VERs is issued twice. **Decide** which
-model is canonical: issue-on-validation (simpler, current live behaviour) or the SRD-faithful mint-on-VER
-(drop the validation trigger). Until decided, don't approve VERs on an already-validated project. Both
-trigger functions were made column-safe in `20260718000900`, so either choice works mechanically.
+### 17. BOTH issuance triggers are live — the same tonne can be issued twice 🔴 (upgraded 2026-07-26)
+
+**Upgraded from 🟡 to 🔴 by the verifier review.** This entry used to read "*if* BOTH triggers are
+active". They are. The migration chain settles it:
+
+| Migration | Effect |
+|---|---|
+| `20260604010100_decouple_issuance_mint_on_ver` | **dropped** `trg_activate_validated_project`, **created** `trg_mint_credits_on_ver_approval` |
+| `20260626000500_fix_credit_pool_availability` | **re-created** `trg_activate_validated_project` |
+| — | nothing ever dropped the VER trigger |
+
+So validating a project mints a pool **and an active marketplace listing**, and approving a VER
+against that same project mints again.
+
+**The current state is an accident, not a decision.** `20260626000500` is titled "Fix credit pool
+availability — write the column the app actually reads"; its subject is the
+`credits_available` / `available_credits` drift, and it does not discuss issuance models anywhere.
+The trigger returned as a side effect of redefining the function to keep both columns in sync,
+three weeks after `20260604010100` had deliberately retired it — that file is *named* for what it
+was doing.
+
+**On the merits it is also not close.** Validation means "this project is legitimate and may
+proceed"; verification means "these reductions actually happened". Issuing at validation sells
+credits for reductions nobody has measured — which is what the MRV module exists to prevent, and
+what offtake agreements already handle properly for genuine forward sales.
+
+**What is already done:** the verifier is warned at the point of decision when approving a VER
+against an already-validated project (`f0b111b` — inline banner plus escalated confirmation
+wording). That is a mitigation, not a fix: it depends on a human heeding it.
+
+**How to close:**
+1. Run [`supabase/diagnostics/issuance_model_audit.sql`](../supabase/diagnostics/issuance_model_audit.sql)
+   against live. Read-only. It confirms which triggers are enabled and, more urgently, finds
+   projects **already** double-issued — separating those whose excess credits have already been
+   **sold**, which a migration cannot repair because a buyer holds them.
+2. Reconcile anything that audit reports before changing triggers.
+3. Apply [`supabase/cutover/adopt_mint_on_ver.sql`](../supabase/cutover/adopt_mint_on_ver.sql).
+   Deliberately kept out of `supabase/migrations/` so `db push` cannot apply it ahead of step 1.
+   It asserts the VER trigger is present and enabled before retiring the validation one, so the
+   failure mode is never "no issuance path at all".
+
+**Expect a product change:** a validated project will no longer reach the marketplace by itself. It
+gets there when its first monitoring report is approved. Existing pools and listings are untouched.
 
 ---
 
