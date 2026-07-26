@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { getSellerBalance, getMySales, getMySalesByProject, getMyPayouts } from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
+import { exportSalesCsv, exportSalesByProjectCsv } from '@/services/sellerExportService'
 import Withdraw from '@/components/wallet/Withdraw.vue'
 import KybForm from '@/components/wallet/KybForm.vue'
 
@@ -178,7 +179,17 @@ onMounted(load)
 
       <!-- Earnings by project -->
       <section class="panel">
-        <h2>Earnings by project</h2>
+        <div class="panel-head">
+          <h2>Earnings by project</h2>
+          <button
+            v-if="salesByProject.length"
+            class="export-btn"
+            @click="exportSalesByProjectCsv(salesByProject)"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
+        </div>
         <div v-if="salesByProject.length" class="table-scroll">
           <!-- data-label drives the under-640px card layout; see
                src/styles/responsive-table.css -->
@@ -210,7 +221,17 @@ onMounted(load)
 
       <!-- Recent sales -->
       <section class="panel">
-        <h2>Recent sales</h2>
+        <div class="panel-head">
+          <h2>Recent sales</h2>
+          <button
+            v-if="sales.length"
+            class="export-btn"
+            @click="exportSalesCsv(sales)"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
+        </div>
         <div v-if="sales.length" class="table-scroll">
           <table class="data-table stack-on-mobile">
             <thead>
@@ -282,6 +303,44 @@ onMounted(load)
 .net-cell {
   font-weight: 600;
   color: #0f172a;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  /* Carries the spacing the h2 used to own, so the heading and the button sit
+     on one baseline. Needs .panel in the selector to outrank `.panel h2`, which
+     is declared later in this block. */
+  margin-bottom: 12px;
+}
+.panel .panel-head h2 {
+  margin: 0;
+}
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.export-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+.export-btn:focus-visible {
+  outline: 2px solid #058526;
+  outline-offset: 2px;
+}
+.export-btn .material-symbols-outlined {
+  font-size: 1.05rem;
 }
 .muted {
   color: #6b7280;
