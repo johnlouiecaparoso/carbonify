@@ -28,6 +28,7 @@ Access in Carbonify is controlled by three separate ideas. Understanding them up
 | Verifier Guide | Accredited verifiers who review project submissions and validate carbon claims | [04-verifier-guide.md](04-verifier-guide.md) |
 | Admin Guide | Administrators who manage users, roles, KYC/KYB, finance, refunds, and system config | [05-admin-guide.md](05-admin-guide.md) |
 | LGU Guide | Local Government Unit users who upload emissions data and manage community projects | [06-lgu-guide.md](06-lgu-guide.md) |
+| Farmer Guide | Farmers and cooperatives supplying biomass feedstock, logging deliveries, and tracking carbon participation | [07-farmer-guide.md](07-farmer-guide.md) |
 
 ## The seven roles at a glance
 
@@ -42,7 +43,11 @@ Access in Carbonify is controlled by three separate ideas. Understanding them up
 | Administrator | Full system access to manage every aspect of the platform. |
 
 Developer, verifier, and farmer are **specialist roles**: you apply, and the role stays restricted
-until an administrator approves it.
+until an administrator approves it. Farmers have a memorable sign-up link to hand out offline:
+**`/register/farmer`**.
+
+> *Added 2026-07-26: the Farmer Guide. This table has always listed Farmer as a role, but the guide
+> set had no entry for it.*
 
 ---
 

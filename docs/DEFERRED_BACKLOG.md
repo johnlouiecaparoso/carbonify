@@ -60,6 +60,12 @@ Come back to this list after the phases are implemented.
 > exported functions are referenced nowhere; the orphan scan misses them because it only finds unused
 > FILES. Admin feature gaps are tracked separately in `docs/role-needs/04-admin.md`.
 >
+> **New 2026-07-26 (doc reconciliation): #31.** Farmers can reach the whole buying path by URL and see
+> an ungated Buying tab in `/analytics`, but are offered none of it in the sidebar — the same
+> contradiction fixed for LGU users, minus the evidence that justified fixing it. Recorded rather than
+> resolved: nothing says a feedstock supplier is meant to buy credits. Their `/kyc` entry is the loose
+> thread — no current flow uses it.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -875,3 +881,33 @@ scan could not see.
 **How to close:** sweep per service, not in one pass, and check `supabase/functions/` as well as
 `src/` for each name before deleting. The detector is a dozen lines: collect `^export (async )?
 function|const` names per file, then look for a bare-word match anywhere else under `src/`.
+
+---
+
+### 31. Farmers can reach the buying path but are not offered it 🟢
+
+**Where:** `FINANCE_RESTRICTED_ROLES` in [router/index.js](../src/router/index.js) is
+`[admin, verifier, developer]`; `isBuyerRole` in [constants/navigation.js](../src/constants/navigation.js)
+excludes farmers.
+
+The same contradiction that was resolved for LGU users on 2026-07-26, one role over. A farmer can open
+`/cart`, `/credit-portfolio`, `/retire`, `/orders`, `/receipts` and `/wallet` by URL — nothing blocks
+them — `/kyc` is open to them because the router says farmers "need KYC to move money", and
+`/analytics` is in their sidebar with an **ungated Buying tab** showing portfolio value and monthly
+spend. Their sidebar offers none of it.
+
+**Why this was NOT fixed alongside the LGU one.** For LGU the evidence was decisive: `BuyerDashboardView`
+names `lgu_user` in its own docstring as a role whose job is to buy, and a municipality that has just
+quantified its emissions is the archetypal offset buyer. No equivalent exists for farmers — nothing in
+the code or the docs says a feedstock supplier is also expected to purchase credits, and it is at least
+arguable that a smallholder should not be shown a checkout at all. Applying the LGU reasoning here
+would have been extending a judgement past its evidence.
+
+**The KYC line is the loose thread.** Farmers are told they need KYC "to move money", but the money
+they receive is paid off-platform (**#26**) and they are blocked from `/sales` by `NON_SELLING_ROLES`.
+So there is currently no flow in which a farmer's KYC does anything.
+
+**How to close:** decide whether a farmer is a buyer. If yes, give them the buying groups as the LGU
+branch now does. If no, add `ROLES.FARMER` to `FINANCE_RESTRICTED_ROLES` and drop their `/kyc` entry —
+and note that the same question then applies to whether the Buying tab in `/analytics` should be
+role-gated, since it is currently ungated for every role that can see the page.
