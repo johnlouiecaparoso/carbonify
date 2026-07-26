@@ -455,7 +455,12 @@ listings from two different sellers, including a refund of one line.
 
 **Where:** `src/services/credits/`, `src/services/payments/`, `src/services/payouts/` — ten files,
 including `fulfillmentSaga.runFulfillment`, `PayMongoProvider`, `MockPaymentProvider`,
-`CreditSupplier`, `MockPayoutProvider`.
+`CreditSupplier`, `MockPayoutProvider` — plus **`src/services/paymentService.js`**, which joined them
+when the dead-code pass removed its last two consumers (`PaymentModal.vue` and
+`PaymentSettingsView.vue`, both of which had already commented the import out and substituted an
+inline stub). Its own test header says the payment layer "is slated for a rebuild in Phase 1
+(server-side amounts + provider abstraction)" — i.e. it is waiting on the same decision as the rest
+of this entry, which is why it was flagged here rather than deleted with the others.
 
 Nothing in `src/` outside `src/test/` imports any of it. Production checkout goes
 `CartView → paymongoService → paymongo-checkout`, and fulfilment happens server-side in the webhook.
@@ -474,6 +479,12 @@ provider swap is possible, and its own header says as much. That is an architect
 confirm or abandon, not a judgement to make during a cleanup pass.
 
 **How to close:** decide whether the provider seam is still wanted. If yes, route the client through
-it so the tests test something real. If no, delete all ten files and their tests, and port the
+it so the tests test something real. If no, delete all eleven files and their tests, and port the
 webhook-signature test to cover the edge function instead — that assertion is worth keeping either
 way, just against the code that runs.
+
+**Verifying this list:** `grep -rn "from '@/services/credits'" src | grep -v "^src/test/"` and the
+same for `payments`, `payouts`, `credits/fulfillmentSaga` and `paymentService`. Do not trust a
+generic import-graph scan here — a naive block-comment strip mis-reads Vue SFCs whose `<style>` blocks
+contain `/* … */`, and will wrongly report genuinely-used services (`endorsementService`,
+`lguReportService`) as test-only.

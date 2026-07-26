@@ -18,14 +18,8 @@ const RegisterView = () => import(/* webpackChunkName: "auth" */ '@/views/Regist
 const WalletView = () => import(/* webpackChunkName: "user" */ '@/views/WalletView.vue')
 const ProfileView = () => import(/* webpackChunkName: "user" */ '@/views/ProfileView.vue')
 
-// Hidden Components removed - all old dashboard routes now redirect to homepage
-const EmailSettingsView = () =>
-  import(/* webpackChunkName: "settings" */ '@/views/EmailSettingsView.vue')
-const PaymentSettingsView = () =>
-  import(/* webpackChunkName: "settings" */ '@/views/PaymentSettingsView.vue')
 const UserPreferencesView = () =>
   import(/* webpackChunkName: "user" */ '@/views/UserPreferencesView.vue')
-const SocialView = () => import(/* webpackChunkName: "user" */ '@/views/SocialView.vue')
 
 /**
  * Roles that never buy credits. Blocked from the whole buying path — browsing a
@@ -175,13 +169,6 @@ const router = createRouter({
       component: () => import('@/views/CertificateVerifyView.vue'),
     },
     {
-      path: '/mobile-test',
-      name: 'mobile-test',
-      meta: { public: true },
-      component: () => import('@/views/MobileTestView.vue'),
-    },
-
-    {
       // Buyer / general-user workspace. Every other role has a dashboard to land
       // on; before this, buyers landed on the public marketing homepage. Roles
       // that never buy are bounced to their own default route by the guard.
@@ -289,12 +276,6 @@ const router = createRouter({
         requiresAuth: true,
         requiresFarmer: true,
       },
-    },
-    {
-      path: '/buy-credits',
-      name: 'buy-credits',
-      component: () => import('@/views/BuyCreditsView.vue'),
-      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/credit-portfolio',
@@ -469,20 +450,6 @@ const router = createRouter({
       meta: { requiresAuth: true, disallowedRoles: NON_SELLING_ROLES },
     },
 
-    // Settings Routes
-    {
-      path: '/email-settings',
-      name: 'email-settings',
-      component: EmailSettingsView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/payment-settings',
-      name: 'payment-settings',
-      component: PaymentSettingsView,
-      meta: { requiresAuth: true },
-    },
-
     // Certificate and Receipt Routes
     {
       path: '/certificates',
@@ -534,17 +501,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
-    // User Preference & Social Routes
     {
+      // Theme, accessibility, language and display settings. App.vue applies
+      // these on mount, so this is the only screen that can change what the app
+      // looks like; it is reached from the account menu (constants/navigation).
       path: '/preferences',
       name: 'preferences',
       component: UserPreferencesView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/social',
-      name: 'social',
-      component: SocialView,
       meta: { requiresAuth: true },
     },
   ],

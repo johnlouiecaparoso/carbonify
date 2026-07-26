@@ -11,9 +11,11 @@ import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
  *     because a hand-maintained allowlist of route names in the guard had
  *     fallen behind the route table. The public marketplace linked from the
  *     signed-out header bounced every visitor to /login.
- *   - /cart, /credit-portfolio, /watchlist and /buy-credits carried no role
- *     restriction, so admins, verifiers and project developers — none of whom
- *     buy credits — could walk the entire checkout path.
+ *   - /cart, /credit-portfolio and /watchlist carried no role restriction, so
+ *     admins, verifiers and project developers — none of whom buy credits —
+ *     could walk the entire checkout path. (/buy-credits was in this list too,
+ *     until it was deleted as an unreachable duplicate of the marketplace
+ *     purchase flow.)
  *   - /sales exposed seller earnings to any signed-in account.
  */
 
@@ -99,13 +101,7 @@ describe('role restrictions', () => {
   const restricted = (name) => byName(name)?.meta?.disallowedRoles || []
 
   it('keeps non-buying roles out of the entire buying path', () => {
-    for (const name of [
-      'cart',
-      'buy-credits',
-      'credit-portfolio',
-      'watchlist',
-      'buyer-dashboard',
-    ]) {
+    for (const name of ['cart', 'credit-portfolio', 'watchlist', 'buyer-dashboard']) {
       const blocked = restricted(name)
       expect(blocked, `${name} has no role restriction`).toContain(ROLES.ADMIN)
       expect(blocked, `${name} allows verifiers`).toContain(ROLES.VERIFIER)
