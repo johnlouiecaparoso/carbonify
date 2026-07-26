@@ -15,6 +15,11 @@ Come back to this list after the phases are implemented.
 > repositioning. Does **not** block the beta, but likely blocks the first *corporate* customer.
 > Scoped in [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
 >
+> **New 2026-07-26 (live-readiness review): #20 and #21.** #20 — the cart charges once per listing
+> rather than once per cart; closing it is a multi-seller escrow decision that should be taken
+> together with **#14**, not after it. #21 — the `services/credits|payments|payouts` provider layer is
+> imported only by tests, so ~40 passing tests overstate money-path coverage. Neither blocks the beta.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -403,3 +408,72 @@ distinguishable from it afterwards.
 **Related, already noted:** `--text-muted` (#718096) measures 4.02:1 on white — also just under the
 AA floor, and flagged in tokens.css itself. Same fix window, same reason it hasn't been changed
 silently.
+
+---
+
+## From the 2026-07-26 live-readiness review
+
+Found reviewing the signed-in buyer path for deployment. The defects from that pass are fixed in
+`3fe8ff5` (service worker / icons / mobile init) and `5f56aeb` (stranded preferences page, notification
+panel, tour, preview labelling). The two items below were deliberately **not** actioned in that pass —
+both are architecture decisions rather than defects, and one of them touches money.
+
+### 20. The cart charges once per listing, not once per cart 🟠
+
+**Where:** [CartView.vue](../src/views/CartView.vue) → [paymongoService.createMarketplaceCheckout](../src/services/paymongoService.js)
+→ `supabase/functions/paymongo-checkout` → `paymongo-webhook` → `process_marketplace_purchase`.
+
+`startCheckout()` takes `cart.items[0]`, opens a PayMongo session for that one listing, and the
+payment callback clears the paid item and returns the buyer to the cart for the next one. Three
+listings means three redirects, three PayMongo sessions and three sets of transaction fees.
+
+**This is not a UI gap.** The cart is honest about it — the summary says "Items are paid for one at a
+time; you'll be returned here to continue after each payment", and a resume banner counts down the
+remainder. The limitation is that the whole server chain is single-listing: the edge function takes
+`listing_id` + `quantity` and records one `payment_intent` with `purpose: 'marketplace_purchase'`, and
+the webhook settles it through `process_marketplace_purchase(listing_id, quantity, …)`.
+
+**Why it is on this list rather than fixed.** A cart-level checkout is a **multi-seller** payment, and
+that is a financial design decision, not a refactor:
+
+- One PayMongo payment covering listings from several sellers has to split into per-seller escrow
+  holds, per-seller fees and per-seller payouts. That interacts directly with **#14** (no escrow /
+  chargeback hold window) — a partial refund against a multi-seller payment is the case #14 is about,
+  arrived at from a second direction.
+- Settlement has to be atomic across N listings. If listing 2 sold out between checkout and webhook,
+  the buyer has already paid for the whole cart: either the RPC reserves inventory at checkout time,
+  or partial settlement plus automatic partial refund becomes a supported path.
+- It needs a new RPC, an edge-function change, a webhook change and a migration — and PayMongo
+  sandbox verification, which is the same gate Phase 1 items sit behind.
+
+**How to close:** decide the multi-seller escrow split first (with #14, not after it), then reserve
+inventory at checkout rather than at settlement, then `process_marketplace_cart(line_items[], …)` as a
+single transaction. Keep the sequential path until the new one has settled a sandbox cart of two
+listings from two different sellers, including a refund of one line.
+
+### 21. The payment/credit/payout provider layer is imported only by tests 🟡
+
+**Where:** `src/services/credits/`, `src/services/payments/`, `src/services/payouts/` — ten files,
+including `fulfillmentSaga.runFulfillment`, `PayMongoProvider`, `MockPaymentProvider`,
+`CreditSupplier`, `MockPayoutProvider`.
+
+Nothing in `src/` outside `src/test/` imports any of it. Production checkout goes
+`CartView → paymongoService → paymongo-checkout`, and fulfilment happens server-side in the webhook.
+`runFulfillment` has never run outside a test.
+
+**Why this matters more than ordinary dead code:** roughly 40 of the suite's tests exercise this
+layer, and several of them look like coverage of the money path —
+[`paymongoWebhookSignature.test.js`](../src/test/services/paymongoWebhookSignature.test.js) tests
+signature verification against `PayMongoProvider`, while the verification that actually guards live
+money is the one inside `supabase/functions/paymongo-webhook`. A green suite therefore overstates how
+much of the real payment path is covered.
+
+**Why it is on this list rather than deleted.** It is plausibly deliberate Phase 1 scaffolding —
+`PayMongoProvider` is written as a thin adapter over `paymongoService`/`paymentGatewayService` so a
+provider swap is possible, and its own header says as much. That is an architectural intent to
+confirm or abandon, not a judgement to make during a cleanup pass.
+
+**How to close:** decide whether the provider seam is still wanted. If yes, route the client through
+it so the tests test something real. If no, delete all ten files and their tests, and port the
+webhook-signature test to cover the edge function instead — that assertion is worth keeping either
+way, just against the code that runs.
