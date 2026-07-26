@@ -29,6 +29,7 @@ const acceptedRfqs = ref([])
 const carbon = ref([])
 const busyId = ref(null)
 const actionError = ref('')
+const sectionErrors = ref({ parcels: false, deliveries: false, rfqs: false })
 
 // Parcel form (inline)
 const showParcelForm = ref(false)
@@ -115,23 +116,44 @@ const deliveryEstimate = computed(() =>
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [p, d, r, c] = await Promise.all([
-      getMyParcels(),
-      getMyDeliveries(),
-      getMyAcceptedRfqs(),
-      getMyCarbonParticipation(),
-    ])
-    parcels.value = p
-    deliveries.value = d
-    acceptedRfqs.value = r
-    carbon.value = c
-  } catch (err) {
-    console.error('Failed to load farmer portal:', err)
-    loadError.value = err?.message || 'We could not load your farm data right now.'
-  } finally {
-    loading.value = false
+
+  // allSettled, not all: these are four independent parts of one farm. A
+  // farmer on a rural connection should not lose their parcels because the
+  // deliveries query timed out, and — more importantly — an empty list must not
+  // be presented as a fact about their farm. Every read below now throws on
+  // failure instead of returning [], so a rejection here is a real failure and
+  // an empty array is a real emptiness.
+  const [p, d, r, c] = await Promise.allSettled([
+    getMyParcels(),
+    getMyDeliveries(),
+    getMyAcceptedRfqs(),
+    getMyCarbonParticipation(),
+  ])
+
+  if (p.status === 'fulfilled') parcels.value = p.value || []
+  if (d.status === 'fulfilled') deliveries.value = d.value || []
+  if (r.status === 'fulfilled') acceptedRfqs.value = r.value || []
+  // Carbon participation degrades to [] inside the service by design (it is
+  // gated on migration #31), so it never rejects and needs no branch here.
+  if (c.status === 'fulfilled') carbon.value = c.value || []
+
+  sectionErrors.value = {
+    parcels: p.status === 'rejected',
+    deliveries: d.status === 'rejected',
+    rfqs: r.status === 'rejected',
   }
+  for (const [label, res] of [['parcels', p], ['deliveries', d], ['accepted quotes', r]]) {
+    if (res.status === 'rejected') console.error(`Failed to load ${label}:`, res.reason)
+  }
+
+  // Only a total failure replaces the page; anything partial is reported in the
+  // section it belongs to, so the rest of the farm stays usable.
+  if (p.status === 'rejected' && d.status === 'rejected' && r.status === 'rejected') {
+    loadError.value =
+      p.reason?.message || 'We could not load your farm data right now.'
+  }
+
+  loading.value = false
 }
 
 async function saveParcel() {
@@ -355,7 +377,13 @@ onMounted(load)
           </div>
         </div>
 
-        <div v-if="!parcels.length && !showParcelForm" class="empty">
+        <div v-if="sectionErrors.parcels" class="notice error sm">
+          We couldn't load your parcels — this is not the same as having none, so please don't
+          re-register land you already have.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!parcels.length && !showParcelForm" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">agriculture</span>
           <p class="muted">No parcels registered yet. Add your first plantation parcel to get started.</p>
           <button class="btn-primary" @click="showParcelForm = true">Add parcel</button>
@@ -453,12 +481,23 @@ onMounted(load)
             <button class="btn-primary sm" @click="openDelivery(rfq)">Log delivery</button>
           </div>
         </div>
+        <div v-else-if="sectionErrors.rfqs" class="notice error sm">
+          We couldn't load your accepted quotes, so logging a delivery is unavailable right now. If a
+          buyer has accepted a quote, it is still there — this is a problem on our side.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
         <div v-else class="notice info sm">
           You have no accepted quotes yet. Deliveries are logged against an accepted quote —
           <router-link to="/biomass/sell">list your feedstock</router-link> so buyers can request one.
         </div>
 
-        <div v-if="!deliveries.length" class="empty">
+        <div v-if="sectionErrors.deliveries" class="notice error sm">
+          We couldn't load your deliveries, so the totals above are incomplete — they are not your
+          real earnings.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!deliveries.length" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">local_shipping</span>
           <p class="muted">No deliveries logged yet.</p>
         </div>
@@ -648,6 +687,18 @@ onMounted(load)
 
 .notice { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; }
 .notice.error { background: #fee2e2; color: #991b1b; }
+/* Inherits the notice's colour so it reads as part of the sentence it ends. */
+.link-retry {
+  background: none;
+  border: none;
+  padding: 0 0 0 4px;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-retry:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .notice.info { background: #eff6ff; color: #1e40af; display: flex; gap: 12px; align-items: flex-start; }
 .notice.warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; display: flex; gap: 12px; align-items: flex-start; }
 .excl-list { margin: 6px 0 0; padding-left: 18px; }

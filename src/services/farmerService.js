@@ -304,10 +304,10 @@ export async function getMyParcels() {
     .select('*')
     .eq('farmer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading farm parcels:', error.message)
-    return []
-  }
+  // Throw rather than returning []. An empty array is indistinguishable from
+  // "you have registered no parcels", and a farmer shown an empty farm may
+  // reasonably re-register land they already have, creating duplicates.
+  if (error) throw new Error(error.message || 'Could not load your parcels')
   return data || []
 }
 
@@ -378,10 +378,11 @@ export async function getMyAcceptedRfqs() {
     .eq('seller_id', user.id)
     .eq('status', 'accepted')
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading accepted RFQs:', error.message)
-    return []
-  }
+  // The sharpest of the three to swallow: this list is what the "Record
+  // delivery" action is driven from, so returning [] on failure told a farmer
+  // who had an accepted order that they had none, and removed the only way to
+  // log the delivery they are owed money for.
+  if (error) throw new Error(error.message || 'Could not load your accepted quotes')
   return data || []
 }
 
@@ -394,10 +395,10 @@ export async function getMyDeliveries() {
     .select('*')
     .eq('farmer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading deliveries:', error.message)
-    return []
-  }
+  // Deliveries drive the earnings summary, so a swallowed failure here did not
+  // just hide history — it reported the farmer's total paid and outstanding as
+  // PHP 0.00.
+  if (error) throw new Error(error.message || 'Could not load your deliveries')
   return data || []
 }
 
@@ -410,10 +411,7 @@ export async function getIncomingDeliveries() {
     .select('*')
     .eq('buyer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading incoming deliveries:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load incoming deliveries')
   return data || []
 }
 

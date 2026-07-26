@@ -79,10 +79,10 @@ export async function getBiomassProducts({ type = '', search = '' } = {}) {
   if (type) query = query.eq('product_type', type)
 
   const { data, error } = await query
-  if (error) {
-    console.error('Error loading biomass products:', error.message)
-    return []
-  }
+  // Throw: BiomassMarketplaceView already has a loadError branch waiting for
+  // this, and "no feedstock is for sale" is a very different message to a buyer
+  // than "we couldn't reach the listings".
+  if (error) throw new Error(error.message || 'Could not load feedstock listings')
   let rows = data || []
   const q = String(search || '').trim().toLowerCase()
   if (q) {
@@ -104,10 +104,10 @@ export async function getMyBiomassProducts() {
     .select('*')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading my biomass products:', error.message)
-    return []
-  }
+  // Same reasoning as getMyParcels in farmerService: a supplier shown an empty
+  // list may re-list feedstock they already have up, and BiomassSellView
+  // already wraps this call in a try/catch with a loadError branch.
+  if (error) throw new Error(error.message || 'Could not load your listings')
   return data || []
 }
 
@@ -213,10 +213,7 @@ export async function getMyBuyerRfqs() {
     .select('*')
     .eq('buyer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading buyer RFQs:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load your requests')
   return data || []
 }
 
@@ -229,10 +226,9 @@ export async function getMySellerRfqs() {
     .select('*')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading seller RFQs:', error.message)
-    return []
-  }
+  // Income-critical for a supplier: swallowing this reported "no buyer has
+  // requested a quote from you" when the query had simply failed.
+  if (error) throw new Error(error.message || 'Could not load quote requests')
   return data || []
 }
 
