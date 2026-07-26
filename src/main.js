@@ -30,32 +30,16 @@ initSupabase().catch(() => {
   // Error already logged in initSupabase, no need to log again
 })
 
-// Mount the app - Cache buster: 2024-10-02-V3-SINGLE-BOX-LOGIN
 app.mount('#app')
 
-// Gentle cache invalidation after app is mounted
-if (typeof window !== 'undefined') {
-  // Only clear caches after app is fully loaded
-  setTimeout(() => {
-    if ('caches' in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => {
-          if (name.includes('carbonify')) {
-            caches.delete(name)
-          }
-        })
-      })
-    }
-  }, 1000)
-
-  // Version check without forced reload
-  const currentVersion = '1.0.0'
-  const storedVersion = localStorage.getItem('app-version')
-  if (storedVersion !== currentVersion) {
-    localStorage.setItem('app-version', currentVersion)
-    console.log('App version updated to:', currentVersion)
-  }
-}
+// NOTE: a "gentle cache invalidation" block used to sit here. One second after
+// every load it deleted every Cache Storage entry whose name contained
+// "carbonify" — which is exactly what public/sw.js names its caches
+// (carbonify-shell-* / carbonify-assets-*). The service worker precached the
+// app shell and the app immediately wiped it, so offline support and
+// stale-while-revalidate asset caching never worked once. sw.js already
+// invalidates old caches on activate via CACHE_VERSION; that is the only cache
+// invalidation this app needs.
 
 // Initialize analytics
 analytics.initialize()
@@ -66,52 +50,15 @@ initializeMobile()
 // Initialize performance optimizations
 optimizeImageLoading()
 
-// Handle manifest.json fetch errors gracefully (suppress 401 errors from Vercel preview protection)
-if (typeof window !== 'undefined') {
-  // Intercept fetch requests to suppress manifest.json 401 errors
-  const originalFetch = window.fetch
-  window.fetch = function(...args) {
-    const url = args[0]
-    if (typeof url === 'string' && url.includes('manifest.json')) {
-      return originalFetch.apply(this, args).catch((error) => {
-        // Suppress 401 errors for manifest.json (expected on preview deployments)
-        if (error.message?.includes('401') || error.status === 401) {
-          console.debug('Manifest.json 401 (expected on preview deployments, harmless)')
-          // Return a mock response to prevent error propagation
-          return new Response(JSON.stringify({}), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          })
-        }
-        throw error
-      })
-    }
-    return originalFetch.apply(this, args)
-  }
+// NOTE: this file used to monkey-patch window.fetch and console.error globally
+// to hide a manifest.json 401 on password-protected Vercel PREVIEW deploys. It
+// could not work: <link rel="manifest"> is fetched by the browser itself, not
+// through window.fetch, so the patch never saw the request it was written for.
+// Meanwhile it wrapped every fetch in the app and swallowed any console.error
+// mentioning manifest.json — including real ones, and including the breadcrumbs
+// Sentry collects. The <link rel="manifest" onerror> in index.html already
+// handles the preview case quietly.
 
-  // Suppress manifest.json 401 errors in console
-  const originalError = console.error
-  console.error = function(...args) {
-    const message = args.join(' ')
-    if ((message.includes('manifest.json') && message.includes('401')) ||
-        (message.includes('Manifest fetch') && message.includes('401'))) {
-      // Silently ignore - this is expected on Vercel preview deployments
-      return
-    }
-    originalError.apply(console, args)
-  }
-
-  // Handle network errors for manifest.json
-  window.addEventListener('error', (event) => {
-    if (event.message?.includes('manifest.json') || 
-        event.filename?.includes('manifest.json') ||
-        (event.target?.href && event.target.href.includes('manifest.json'))) {
-      event.preventDefault()
-      event.stopPropagation()
-      return false
-    }
-  }, true)
-}
 setupServiceWorkerCache()
 
 // Handle browser extension context errors (harmless)

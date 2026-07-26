@@ -11,10 +11,13 @@
  *
  * Bump CACHE_VERSION to invalidate old caches on the next activate.
  */
-const CACHE_VERSION = 'v1'
+// Bumped to v2 with the icon rework. Until now these caches were deleted a
+// second after every page load by a stray block in main.js, so no user has ever
+// held a populated v1 cache.
+const CACHE_VERSION = 'v2'
 const SHELL_CACHE = `carbonify-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `carbonify-assets-${CACHE_VERSION}`
-const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/carbonify-logo.png']
+const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/carbonify-logo.png', '/icon-192.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
