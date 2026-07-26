@@ -82,23 +82,13 @@ double_issued as (
   group by p.id, p.title
 ),
 
--- Reported here only if NOT already reported by (C); a project whose credits
--- have been sold is the more severe finding and should appear once, not twice.
-check_b as (
-  select
-    'B. double-issued project'::text as finding,
-    'Project "' || d.title || '" (' || d.id || ') was validated AND has '
-      || d.approved_vers || ' approved VER(s) totalling ' || d.ver_quantity
-      || ' tCO2e. Credits were minted on both paths; reconcile the pool against '
-      || 'what was actually verified before any further sale.' as detail
-  from double_issued d
-  where not exists (select 1 from sold s where s.id = d.id)
-),
-
 -- (C) DOUBLE-ISSUED **AND ALREADY SOLD**
 --     The subset of (B) where credits have left the platform. These cannot be
 --     fixed by adjusting a pool — a buyer holds them — so they are listed
 --     separately and first in severity.
+--
+--     Defined BEFORE check_b because check_b subtracts it: a plain WITH clause
+--     may only reference CTEs declared earlier.
 sold as (
   select
     d.id,
@@ -111,6 +101,19 @@ sold as (
    and ct.status = 'completed'
   group by d.id, d.title
   having coalesce(sum(ct.quantity), 0) > 0
+),
+
+-- Reported here only if NOT already reported by (C); a project whose credits
+-- have been sold is the more severe finding and should appear once, not twice.
+check_b as (
+  select
+    'B. double-issued project'::text as finding,
+    'Project "' || d.title || '" (' || d.id || ') was validated AND has '
+      || d.approved_vers || ' approved VER(s) totalling ' || d.ver_quantity
+      || ' tCO2e. Credits were minted on both paths; reconcile the pool against '
+      || 'what was actually verified before any further sale.' as detail
+  from double_issued d
+  where not exists (select 1 from sold s where s.id = d.id)
 ),
 
 check_c as (
