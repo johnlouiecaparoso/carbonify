@@ -22,6 +22,8 @@ const salesByProject = ref([])
 const payouts = ref([])
 const kyb = ref({ verified: false, application: null })
 const escrowHolds = ref([])
+const sectionErrors = ref({ sales: false, byProject: false, payouts: false })
+const kybUnknown = ref(false)
 const showWithdraw = ref(false)
 const showKyb = ref(false)
 
@@ -76,6 +78,23 @@ async function load() {
   if (k.status === 'fulfilled') kyb.value = k.value
   if (e.status === 'fulfilled') escrowHolds.value = e.value || []
 
+  // Per-section, because "No sales yet" and "we could not load your sales" are
+  // completely different statements to make to someone about their own money,
+  // and an empty list cannot tell them apart.
+  sectionErrors.value = {
+    sales: s.status === 'rejected',
+    byProject: sp.status === 'rejected',
+    payouts: p.status === 'rejected',
+  }
+  // Unknown is its own state, distinct from "not verified". Withdraw stays
+  // disabled either way — the server is the real gate, and refusing on unknown
+  // is the safe direction — but we do not accuse a verified seller of being
+  // unverified because a lookup failed.
+  kybUnknown.value = k.status === 'rejected'
+  for (const [label, r] of [['sales', s], ['earnings by project', sp], ['withdrawals', p], ['escrow', e], ['KYB', k]]) {
+    if (r.status === 'rejected') console.error(`Failed to load ${label}:`, r.reason)
+  }
+
   // Only the balance is load-bearing enough to replace the page: without it we
   // cannot honestly show what is withdrawable, and the withdraw action would be
   // operating on a zero we invented.
@@ -122,8 +141,19 @@ onMounted(load)
     </div>
 
     <template v-else>
+      <!-- KYB status could not be read — say so, rather than asserting a status -->
+      <div v-if="kybUnknown" class="notice warn">
+        <span class="material-symbols-outlined" aria-hidden="true">help</span>
+        <div class="notice-body">
+          <strong>We couldn't check your business verification.</strong>
+          Withdrawals stay disabled until we can confirm it. This is a problem on our side, not a
+          decision about your account.
+          <div class="notice-action"><button class="btn-primary sm" @click="load">Try again</button></div>
+        </div>
+      </div>
+
       <!-- KYB gate notice -->
-      <div v-if="!kyb.verified" class="notice warn">
+      <div v-else-if="!kyb.verified" class="notice warn">
         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
         <div class="notice-body">
           <strong>Business verification required.</strong>
@@ -150,7 +180,7 @@ onMounted(load)
           <div class="card-value">{{ peso(balance.available) }}</div>
           <button
             class="btn-primary"
-            :disabled="!kyb.verified || balance.available <= 0"
+            :disabled="!kyb.verified || kybUnknown || balance.available <= 0"
             @click="showWithdraw = true"
           >
             Withdraw
@@ -234,6 +264,9 @@ onMounted(load)
             </tbody>
           </table>
         </div>
+        <p v-else-if="sectionErrors.byProject" class="load-fail">
+          Couldn't load your earnings by project. <button class="link-retry" @click="load">Retry</button>
+        </p>
         <p v-else class="muted">No completed sales yet.</p>
       </section>
 
@@ -278,6 +311,10 @@ onMounted(load)
             </tbody>
           </table>
         </div>
+        <p v-else-if="sectionErrors.sales" class="load-fail">
+          Couldn't load your sales — this is not the same as having none.
+          <button class="link-retry" @click="load">Retry</button>
+        </p>
         <p v-else class="muted">No sales yet.</p>
       </section>
 
@@ -299,6 +336,9 @@ onMounted(load)
             </tbody>
           </table>
         </div>
+        <p v-else-if="sectionErrors.payouts" class="load-fail">
+          Couldn't load your withdrawals. <button class="link-retry" @click="load">Retry</button>
+        </p>
         <p v-else class="muted">No withdrawals yet.</p>
       </section>
     </template>
@@ -321,6 +361,20 @@ onMounted(load)
 .net-cell {
   font-weight: 600;
   color: #0f172a;
+}
+.load-fail {
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+.link-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #991b1b;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .panel-head {
   display: flex;

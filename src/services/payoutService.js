@@ -14,10 +14,11 @@ export async function getSellerBalance() {
   if (!supabase) return { available: 0, held: 0, currency: 'PHP' }
 
   const { data, error } = await supabase.rpc('get_my_seller_balance')
-  if (error) {
-    console.error('Error fetching seller balance:', error)
-    return { available: 0, held: 0, currency: 'PHP' }
-  }
+  // Throw rather than returning zeros. A swallowed error here rendered
+  // "PHP 0.00 available" — which a seller reads as "I have no money", not as
+  // "we could not look". On the page where someone decides whether to withdraw,
+  // an invented zero is worse than an error.
+  if (error) throw new Error(error.message || 'Could not load your seller balance')
   // RPC returns a single-row table.
   const row = Array.isArray(data) ? data[0] : data
   return {
@@ -58,10 +59,7 @@ export async function getMyEscrowHolds(limit = 50) {
     .order('hold_until', { ascending: true, nullsFirst: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching escrow holds:', error)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load your escrow holds')
 
   return (data || []).map((h) => ({
     id: h.id,
@@ -147,10 +145,10 @@ export async function getMySales(limit = 50) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching sales:', error)
-    return []
-  }
+  // Throw, don't return []. An empty array is indistinguishable from "you have
+  // made no sales", so a failed query used to tell a seller with a full ledger
+  // that they had sold nothing.
+  if (error) throw new Error(error.message || 'Could not load your sales')
   return (data || []).map((row) => ({ ...row, net_amount: netOf(row) }))
 }
 
@@ -247,10 +245,7 @@ export async function getMySalesByProject(limit = 200) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching sales by project:', error)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load your earnings by project')
 
   const rows = (data || []).map((t) => ({
     project_id: t.project_credits?.projects?.id,
@@ -277,9 +272,6 @@ export async function getMyPayouts(limit = 20) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching payouts:', error)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load your withdrawals')
   return data || []
 }

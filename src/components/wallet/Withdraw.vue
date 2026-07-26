@@ -30,6 +30,7 @@ function buildDestination() {
 const errors = ref({})
 const loading = ref(false)
 const currentBalance = ref(0)
+const balanceError = ref('')
 
 const paymentMethods = [
   { value: 'gcash', label: 'GCash', icon: 'smartphone' },
@@ -109,11 +110,18 @@ function setMaxAmount() {
 }
 
 async function loadBalance() {
+  balanceError.value = ''
   try {
     const balance = await getSellerBalance()
     currentBalance.value = balance.available || 0
   } catch (error) {
+    // Say the balance is unknown rather than displaying PHP 0. A seller who
+    // opened this modal from a page showing PHP 5,000 available, and is then
+    // shown zero with the submit button greyed out, has been told their money
+    // is gone. The submit stays disabled either way — the server is the real
+    // gate — but the reason on screen has to be the true one.
     console.error('Error loading balance:', error)
+    balanceError.value = error?.message || 'Could not load your available balance.'
   }
 }
 
@@ -135,7 +143,11 @@ loadBalance()
     <!-- Current Balance -->
     <div class="balance-display">
       <div class="balance-label">Available Balance</div>
-      <div class="balance-amount">₱{{ currentBalance.toLocaleString() }}</div>
+      <div v-if="balanceError" class="balance-unknown">
+        Unavailable — {{ balanceError }}
+        <button type="button" class="balance-retry" @click="loadBalance">Retry</button>
+      </div>
+      <div v-else class="balance-amount">₱{{ currentBalance.toLocaleString() }}</div>
     </div>
 
     <form @submit.prevent="handleSubmit" class="form-grid">
@@ -231,7 +243,7 @@ loadBalance()
         <UiButton type="button" variant="ghost" @click="handleCancel" :disabled="loading">
           Cancel
         </UiButton>
-        <UiButton type="submit" variant="primary" :disabled="loading || currentBalance === 0">
+        <UiButton type="submit" variant="primary" :disabled="loading || currentBalance === 0 || !!balanceError">
           <span v-if="!loading">Withdraw ₱{{ formData.amount || '0' }}</span>
           <span v-else>Processing...</span>
         </UiButton>
@@ -290,6 +302,20 @@ loadBalance()
   margin-bottom: 8px;
 }
 
+.balance-unknown {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #991b1b;
+}
+.balance-retry {
+  background: none;
+  border: none;
+  padding: 0 0 0 6px;
+  color: #991b1b;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .balance-amount {
   font-size: 32px;
   font-weight: 800;
