@@ -42,6 +42,7 @@ The last section, **"Verifier Applicant Approval,"** embeds the pending *verifie
 | KYB / Business Review | `/admin/kyb` |
 | Refunds & Disputes | `/admin/refunds` |
 | Finance Console | `/admin/finance` |
+| Feedstock Oversight | `/admin/feedstock` |
 | System Configuration | `/admin/config` |
 | Audit Logs | `/admin/audit-logs` |
 | Database Management | `/admin/database` |
@@ -178,6 +179,48 @@ A table of the latest transactions: **Date, Buyer, Seller, Qty, Amount, Fee, Sta
 > **VAT invoices are provisional.** Any tax invoice the platform generates today is marked **"PROVISIONAL — not yet a BIR-accredited Official Receipt."** Treat these as provisional documents until Carbonify is BIR-registered; they are not yet official BIR receipts.
 >
 > ⚠️ **They also carry no buyer TIN or registered business name** — the invoice fields exist but nothing supplies them, because accounts are individuals rather than companies. **A corporate buyer cannot claim input VAT on these.** Fixed by Phase 3 of [ORGANIZATION_ACCOUNTS_SCOPE.md](../ORGANIZATION_ACCOUNTS_SCOPE.md).
+
+---
+
+## Feedstock oversight (`/admin/feedstock`)
+
+The **biomass** side of the marketplace: farmer deliveries, their payment records, and disputes.
+
+> ⚠️ **This is not a finance console, and it deliberately cannot do what one does.** Carbonify does
+> **not** hold or transfer feedstock payments — the buyer pays the farmer directly and the platform
+> records that they did. There is no payout to release and no refund to issue here. See
+> [POLICY_AND_USER_AGREEMENT §1.14](../POLICY_AND_USER_AGREEMENT.md).
+
+### The payment record is two-sided
+
+Each delivery shows **one** payment state, read from both parties:
+
+| State | Meaning |
+|---|---|
+| **Disputed by farmer** | The farmer says they were not paid. **This is your queue.** |
+| **Reopened after resolution** | The farmer disputed again after staff closed it. The earlier outcome stays on the record. |
+| **Buyer claims paid** | The buyer says they settled; the farmer has not answered yet. |
+| **Confirmed, unpaid** | Delivery received, no payment claimed by anyone. |
+| **Both parties agree** | The farmer confirmed they received the money. |
+| **Resolved by staff** | Closed with a recorded outcome. |
+
+Open disputes sort to the top whatever filter is active, and the farmer's own account of what happened
+is shown inline under the row — you should not have to open anything to read the substance of a
+complaint.
+
+### Recording an outcome
+
+**Record outcome** is offered only where it means something: a dispute, or a payment the farmer has not
+responded to. It is not offered on a record both parties already accept.
+
+- **Payment was made** — marks it paid and records the farmer's side as confirmed.
+- **Payment was NOT made** — **reverses the buyer's claim.** The delivery returns to unpaid and the
+  `paid_at` stamp is cleared. This is the point of the screen: a buyer's false "Paid" must be
+  correctable by someone.
+- **Report withdrawn** / **Other outcome** — recorded with a note; nothing else changes.
+
+> **A note is required.** Without one the record says a decision was taken and nothing about what you
+> established. Both the farmer and the buyer are notified of the outcome.
 
 ---
 

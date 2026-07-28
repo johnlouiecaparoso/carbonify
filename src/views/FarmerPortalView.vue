@@ -16,6 +16,7 @@ import {
   getMyCarbonParticipation,
   unattributableDeliveries,
   aggregateParcelPerformance,
+  acknowledgeDeliveryPayment,
 } from '@/services/farmerService'
 import { FARM_CROP_TYPES, PARCEL_STATUSES, cropTypeLabel } from '@/constants/farmer'
 import { biomassTypeLabel } from '@/constants/biomass'
@@ -42,6 +43,58 @@ const deliveryRfq = ref(null)
 const deliveryForm = ref(emptyDelivery())
 const savingDelivery = ref(false)
 const uploadingProof = ref(false)
+
+// Payment dispute modal — the farmer's half of the two-sided payment record (#26)
+const disputeDelivery = ref(null)
+const disputeNote = ref('')
+
+const RESOLUTION_LABELS = {
+  paid_confirmed: 'Carbonify established that the payment was made',
+  unpaid_confirmed: 'Carbonify established that the payment was not made',
+  withdrawn: 'the report was withdrawn',
+  other: 'closed with a note',
+}
+
+function resolutionLabel(code) {
+  return RESOLUTION_LABELS[code] || 'closed'
+}
+
+/**
+ * The payment badge reads BOTH sides of the record. `payment_status` alone is
+ * the buyer's assertion, and showing it as "paid" was the #26 defect: the farmer
+ * has no way to tell an agreed payment from a claimed one.
+ */
+function paymentBadge(d) {
+  if (d?.farmer_payment_ack === 'disputed') return { cls: 'disputed', label: 'disputed' }
+  if (d?.farmer_payment_ack === 'confirmed') return { cls: 'paid', label: 'paid' }
+  if (d?.payment_status === 'paid') return { cls: 'claimed', label: 'buyer says paid' }
+  return { cls: 'unpaid', label: 'unpaid' }
+}
+
+function openDispute(d) {
+  disputeDelivery.value = d
+  disputeNote.value = ''
+  actionError.value = ''
+}
+
+/**
+ * Record the farmer's answer to the buyer's assertion. `confirm = false` needs a
+ * reason (the RPC enforces it as well — this is the friendly half).
+ */
+async function answerPayment(d, confirm, note = '') {
+  busyId.value = d.id
+  actionError.value = ''
+  try {
+    const updated = await acknowledgeDeliveryPayment(d, confirm, note)
+    const i = deliveries.value.findIndex((x) => x.id === (updated?.id || d.id))
+    if (i !== -1) deliveries.value[i] = updated || deliveries.value[i]
+    disputeDelivery.value = null
+  } catch (err) {
+    actionError.value = err?.message || 'Could not record your response.'
+  } finally {
+    busyId.value = null
+  }
+}
 
 function emptyParcel() {
   return {
@@ -306,9 +359,15 @@ onMounted(load)
       <!-- Headline numbers -->
       <div class="stats">
         <div class="stat">
-          <span class="stat-label">Paid to date</span>
+          <span class="stat-label">Recorded as paid</span>
           <span class="stat-value">{{ peso(summary.totalEarned) }}</span>
-          <span class="stat-sub">{{ summary.paidCount }} settled</span>
+          <!-- "settled" was the wrong word for a buyer's assertion. The sub-line
+               now says how much of this total the farmer has actually agreed to. -->
+          <span class="stat-sub">
+            {{ summary.paidCount }} recorded<span v-if="summary.awaitingAck">
+              · {{ summary.awaitingAck }} awaiting your confirmation</span
+            ><span v-if="summary.disputedCount"> · {{ summary.disputedCount }} disputed</span>
+          </span>
         </div>
         <div class="stat">
           <!-- "Owed by buyers", not "Awaiting payment": nothing is queued to
@@ -551,8 +610,10 @@ onMounted(load)
             </div>
             <div class="badges">
               <span class="badge" :class="d.status">{{ d.status }}</span>
-              <span v-if="d.status === 'confirmed'" class="badge" :class="d.payment_status">
-                {{ d.payment_status }}
+              <!-- Reads the two-sided state, not payment_status alone: a bare
+                   "paid" badge is the buyer's word presented as the platform's. -->
+              <span v-if="d.status === 'confirmed'" class="badge" :class="paymentBadge(d).cls">
+                {{ paymentBadge(d).label }}
               </span>
             </div>
           </div>
@@ -569,16 +630,75 @@ onMounted(load)
                payment: mark_farmer_delivery_paid only sets a flag and stores a
                reference — no money moves through Carbonify (backlog #26). Saying
                so plainly is the difference between a record and a receipt, and
-               the farmer is the one who bears the cost of confusing them. -->
-          <div v-else-if="d.payment_status === 'paid'" class="notice ok sm inline">
-            <div>
-              Buyer recorded payment {{ shortDate(d.paid_at) }}<span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>
+               the farmer is the one who bears the cost of confusing them.
+
+               Since 2026-07-29 the record is two-sided: the buyer asserts, the
+               farmer confirms or disputes. Never render the assertion alone. -->
+          <template v-else-if="d.status === 'confirmed'">
+            <!-- The farmer has already answered. -->
+            <div v-if="d.farmer_payment_ack === 'confirmed'" class="notice ok sm inline">
+              <div>
+                <strong>You confirmed you were paid</strong>
+                <span v-if="d.farmer_payment_ack_at"> on {{ shortDate(d.farmer_payment_ack_at) }}</span>
+                <span v-if="d.payment_reference"> · buyer's ref {{ d.payment_reference }}</span>
+              </div>
             </div>
-            <div class="paid-caveat">
-              Payment is made directly by the buyer, not through Carbonify — check that you actually
-              received it.
+
+            <div v-else-if="d.farmer_payment_ack === 'disputed'" class="notice error sm inline">
+              <div>
+                <strong>You reported that you have not been paid</strong>
+                <span v-if="d.farmer_payment_ack_at"> on {{ shortDate(d.farmer_payment_ack_at) }}</span>.
+                Carbonify has been notified and will look into it.
+              </div>
+              <p v-if="d.farmer_payment_ack_note" class="note">"{{ d.farmer_payment_ack_note }}"</p>
+              <div v-if="d.payment_resolution" class="paid-caveat">
+                <strong>Carbonify's record:</strong> {{ resolutionLabel(d.payment_resolution) }}
+                <span v-if="d.payment_resolved_at"> ({{ shortDate(d.payment_resolved_at) }})</span>.
+                {{ d.payment_resolution_note }}
+              </div>
+              <div class="pay-actions">
+                <button class="btn-primary sm" :disabled="busyId === d.id" @click="answerPayment(d, true)">
+                  I have now been paid
+                </button>
+              </div>
             </div>
-          </div>
+
+            <!-- The buyer says they paid. Awaiting the farmer's answer. -->
+            <div v-else-if="d.payment_status === 'paid'" class="notice warn sm inline">
+              <div>
+                <strong>The buyer says they paid you</strong>
+                <span v-if="d.paid_at"> on {{ shortDate(d.paid_at) }}</span
+                ><span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>.
+              </div>
+              <div class="paid-caveat">
+                This is what the buyer recorded — Carbonify does not hold or transfer this money.
+                Check your own cash, GCash or bank record, then tell us what actually happened.
+              </div>
+              <div class="pay-actions">
+                <button class="btn-primary sm" :disabled="busyId === d.id" @click="answerPayment(d, true)">
+                  Yes, I received it
+                </button>
+                <button class="btn-ghost sm danger" :disabled="busyId === d.id" @click="openDispute(d)">
+                  No, I was not paid
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirmed but the buyer has not even claimed to have paid. This
+                 is the common real-world failure and the product had no way to
+                 express it at all before #26. -->
+            <div v-else class="notice info sm inline">
+              <div>
+                The buyer confirmed this delivery but has not recorded a payment yet. Payment is
+                arranged directly between you and the buyer.
+              </div>
+              <div class="pay-actions">
+                <button class="btn-ghost sm danger" :disabled="busyId === d.id" @click="openDispute(d)">
+                  I have not been paid
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </section>
 
@@ -711,6 +831,52 @@ onMounted(load)
         </div>
       </div>
     </div>
+
+    <!-- Report-non-payment modal (#26). A dispute carries a reason: it is a
+         claim against a counterparty, and staff can only act on the record. -->
+    <div
+      v-if="disputeDelivery"
+      class="modal-overlay"
+      v-modal-a11y="() => (disputeDelivery = null)"
+      @click.self="disputeDelivery = null"
+    >
+      <div class="modal">
+        <h2>Report that you have not been paid</h2>
+        <p class="muted small">
+          {{ qty(disputeDelivery.quantity) }} {{ disputeDelivery.unit }} delivered
+          {{ shortDate(disputeDelivery.delivered_on) }}<span v-if="disputeDelivery.total_amount != null">
+            · {{ peso(disputeDelivery.total_amount) }}</span
+          >
+        </p>
+
+        <div class="notice info sm">
+          Carbonify does not hold or transfer feedstock payments — the buyer pays you directly. What
+          we can do is put this on the record, notify the buyer, and escalate it to Carbonify staff.
+        </div>
+
+        <div class="form-row">
+          <label for="dispute-note">What happened?</label>
+          <textarea
+            id="dispute-note"
+            v-model="disputeNote"
+            rows="4"
+            placeholder="e.g. The buyer marked this paid on 12 July but nothing has arrived in my GCash. I have messaged them twice."
+          ></textarea>
+        </div>
+
+        <p v-if="actionError" class="notice error sm">{{ actionError }}</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" @click="disputeDelivery = null">Cancel</button>
+          <button
+            class="btn-primary"
+            :disabled="!disputeNote.trim() || busyId === disputeDelivery.id"
+            @click="answerPayment(disputeDelivery, false, disputeNote)"
+          >
+            {{ busyId === disputeDelivery.id ? 'Sending…' : 'Report non-payment' }}
+          </button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 </template>
@@ -770,7 +936,10 @@ onMounted(load)
 .notice.ok { background: #ecfdf5; color: #065f46; }
 .paid-caveat { margin-top: 4px; font-size: 0.82rem; opacity: 0.85; }
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; }
-.notice.inline { margin: 10px 0 0; }
+/* `info` and `warn` are flex rows for the icon+text layout used at the top of a
+   section. Inline notices stack a caveat and an action row under their sentence,
+   so they must not inherit that. */
+.notice.inline { margin: 10px 0 0; display: block; }
 .retry-btn { margin-top: 8px; padding: 6px 14px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 8px; font-weight: 600; cursor: pointer; }
 
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
@@ -802,6 +971,12 @@ onMounted(load)
 .badge.retired { background: #f3f4f6; color: #6b7280; }
 .badge.paid { background: #d1fae5; color: #065f46; }
 .badge.unpaid { background: #fef3c7; color: #92400e; }
+/* Deliberately NOT green: the buyer has claimed payment and the farmer has not
+   agreed yet. Only a farmer-confirmed payment gets the settled colour. */
+.badge.claimed { background: #fef3c7; color: #92400e; border: 1px dashed #d97706; }
+.badge.disputed { background: #fee2e2; color: #991b1b; }
+
+.pay-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
 .btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }

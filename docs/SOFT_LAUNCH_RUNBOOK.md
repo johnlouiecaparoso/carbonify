@@ -34,8 +34,11 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 > 💡 **Shortcut:** every SQL check below (1a, 1b) plus the money-table RLS audit, the escrow
 > apply-status question and the `20260718*` apply-status question are bundled into one read-only
 > script — [`supabase/diagnostics/pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql).
-> Paste it into the SQL Editor and read the `verdict` column. **1c–1g below are dashboard checks and
-> still have to be done by hand.**
+> Paste it into the SQL Editor and **read the §7 SUMMARY table at the very bottom** — the Supabase
+> editor shows only the LAST statement's result, so the summary is placed last on purpose. Every row
+> must say PASS. **1c–1h below are dashboard checks and still have to be done by hand.**
+>
+> Step-by-step owner instructions for all of this: **[YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md)**.
 
 - [ ] **1a. Books reconcile to zero.**
   ```sql
@@ -54,9 +57,9 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
   **Expected:** events settle to a processed state; the `error` column is empty on recent rows. A
   populated `error` is a handler that threw — read it before launch.
 
-- [ ] **1c. All 7 edge functions are deployed** (Supabase Dashboard → Edge Functions):
+- [ ] **1c. All 8 edge functions are deployed** (Supabase Dashboard → Edge Functions):
   `paymongo-checkout` · `paymongo-webhook` · `process-payouts` · `paymongo-reconcile` ·
-  `paymongo-resettle` · `send-approval-email` · `account-deletion`.
+  `paymongo-resettle` · `send-approval-email` · `account-deletion` · `public-registry`.
 
 - [ ] **1d. PayMongo is in TEST mode.** Confirm the deployed `paymongo-checkout` / `paymongo-webhook`
   secrets hold **test** keys (`sk_test_…`), and the PayMongo webhook points at the live Supabase
@@ -71,6 +74,27 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 
 - [ ] **1g. Frontend deployed** from the current `feature-user-onboarding-ux` build; the header/login
   logo renders (the green-leaf badge), and `/` hero stats load real numbers, not `—`.
+
+- [ ] 🔴 **1h. `process-payouts` is deployed, its secret is set, AND it is scheduled.** Added
+  2026-07-29, when escrow went live. `process_marketplace_purchase` now holds card sellers' net in
+  `escrow_held`, and `release_matured_escrow()` — called only from this worker — is the only thing that
+  frees it. **Unscheduled means every card seller's money is held permanently, not late.**
+  **It is not a one-click schedule:** the function 401s unless `PAYOUT_WORKER_SECRET` is set on it and
+  sent as the `x-worker-secret` header, so a naive schedule fails silently every 15 minutes. Full
+  procedure: [`supabase/cutover/schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql)
+  and [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) Step 0. Prove it with
+  [`escrow_verification.sql`](../supabase/diagnostics/escrow_verification.sql) row 3 — note that it
+  reports **UNPROVEN**, not PASS, while `escrow_holds` is empty.
+
+- [ ] **1i. Escrow behaviour verified**, not just applied — the four flows in
+  [ESCROW_DECISION.md §6](ESCROW_DECISION.md), each followed by
+  [`escrow_verification.sql`](../supabase/diagnostics/escrow_verification.sql). The Terms §1.5 already
+  promise sellers this hold window.
+
+- [ ] **1j. The farmer payment record verified** —
+  [`feedstock_verification.sql`](../supabase/diagnostics/feedstock_verification.sql) after the
+  click-through in [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) §1c. The Terms §1.14 promise farmers
+  they can contest a payment record.
 
 ---
 
@@ -127,6 +151,12 @@ the affected step.
 ---
 
 ## 4. Daily monitoring during the pilot
+
+> 💡 **All of this is one script:**
+> [`supabase/diagnostics/daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql). One
+> paste, one table, eight rows, each with its own escalation level. It also covers two failure modes
+> the list below does not: **stranded seller money** (the payout cron stopped — invisible from the app,
+> nobody gets an error, a seller simply never gets paid) and **farmers reporting non-payment**.
 
 - [ ] **Reconciliation:** `select * from reconcile_financials();` → **0 rows**. This is the single most
   important daily check. A non-zero result means money and ledger disagree — pause new activity.

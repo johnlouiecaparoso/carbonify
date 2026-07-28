@@ -23,8 +23,8 @@
 
 | # | What I want (my voice) | Status | Why it matters to me | Developer action | Priority | Effort |
 |---|---|---|---|---|---|---|
-| 1 | "**Pay me through the platform**, or tell me plainly that you don't." | 🟡 | This is the whole relationship. Buyers pay by PayMongo; developers get escrow and KYB-gated payouts; I get a flag my *counterparty* sets. | **UI now honest** (2026-07-26): the card reads "Buyer recorded payment", the stat is "Owed by buyers" not "Awaiting payment", and it says payment is made directly by the buyer. The structural gap is **DEFERRED_BACKLOG #26** — `mark_farmer_delivery_paid` moves no money. | 🟠 | L |
-| 2 | "Give me **somewhere to go when a buyer doesn't pay**." | ❌ | I have delivered a physical good I cannot take back. | No dispute path exists for me: `openDispute` works on `credit_transactions` only, and `/disputes` is not in my sidebar. And per **#29** no admin console reads `farmer_deliveries`, so staff cannot see it either. | 🟠 | M |
+| 1 | "**Pay me through the platform**, or tell me plainly that you don't." | 🟡 | This is the whole relationship. Buyers pay by PayMongo; developers get escrow and KYB-gated payouts; I get a flag my *counterparty* sets. | ✅ **Answered plainly (2026-07-29).** The decision is "we do not pay you — we record it" (#26, 2026-07-28), and it is now stated in the **ToS §1.14 and the in-app policy modal §6**, not just implied by careful UI copy. The record is also two-sided: the badge reads **"buyer says paid"** until *I* confirm. Carbonify still moves no money, deliberately. | ✅ | — |
+| 2 | "Give me **somewhere to go when a buyer doesn't pay**." | ❌ | I have delivered a physical good I cannot take back. | ✅ **Closed 2026-07-29.** "No, I was not paid" / "I have not been paid" on the delivery itself — notifies the buyer **and** admins, who now have `/admin/feedstock` (#29) and can reverse a false "Paid". Built **without** touching `disputes`/`credit_transactions`. Inert until `20260729000100` is applied. | ✅ | — |
 | 3 | "Let me use the app **in Filipino**." | ❌ | English is the actual obstacle for me, more than any missing feature. | **#27**: no i18n library exists; the selector offered seven languages, delivered none, and did not include Filipino. Now disabled honestly. Scope translations against this role and LGU *before* the buyer surfaces. | 🟠 | L |
 | 4 | "Work on **a cheap phone with bad signal**, in a field." | 🟡 | That is where I am when I log a delivery. | The service worker now functions at all (it was being wiped on every load until 2026-07-26), and reads no longer report a failed query as an empty farm. Still missing: offline capture of a delivery for later sync. | 🟢 | L |
 | 5 | "Tell me **what my residue is worth** before I agree a price." | ❌ | I am quoting blind. The buyer knows the market; I do not. | Add indicative feedstock pricing — recent accepted quote ranges by biomass type and region. The data exists in `biomass_rfqs`. | 🟢 | M |
@@ -43,14 +43,15 @@ empty farm plus a parcel delete that had no confirmation.
 
 **What is left is not really portal work — it is whether this role is a real participant:**
 
-1. **Payment (#1/#2, 🟠)** — the single most consequential open item across all six role reviews. The
-   least powerful party on the platform carries all the counterparty risk, has no recourse, and no
-   staff member has a screen that shows the trade. The prior question is **DEFERRED_BACKLOG #26**: is
-   Carbonify the payment rail for feedstock, or an introduction-and-records layer? Both are
-   defensible. Only one matches what the UI implied before this pass, and the answer decides #2 and
-   #29 with it.
-2. **Filipino (#3, 🟠)** — a farmer-facing product in the Philippines that exists only in English has
-   an adoption ceiling that no feature will lift.
+1. ~~**Payment (#1/#2, 🟠)**~~ — ✅ **answered 2026-07-28, built 2026-07-29.** Carbonify is an
+   introduction-and-records layer for feedstock, it now says so in the terms, and the record is
+   two-sided with a route to staff who can correct it. Carbonify still does not move the money, and
+   that remains the honest limit of this role — a farmer's counterparty risk is reduced by
+   transparency and escalation, not removed.
+2. **Filipino (#3, 🟠)** — **now the top item for this role.** A farmer-facing product in the
+   Philippines that exists only in English has an adoption ceiling that no feature will lift — and the
+   dispute flow built on 2026-07-29 is the sharpest case: a smallholder contesting a payment does it
+   in a second language.
 3. **Cooperatives (#6, 🟠)** — blocked on #18, but worth noting that the farmer is the role where
    "an account is a person" hurts soonest, because a co-op is the normal unit of organisation.
 

@@ -12,22 +12,30 @@
 >
 > **Two NEW items belong on this gate, and neither is a code task:**
 >
-> - **#26 — farmers are not paid through the platform. ✅ ANSWERED 2026-07-28: Carbonify is an
->   introduction-and-records layer for feedstock, not the payment rail.** Buyers and farmers settle
->   directly; Carbonify records it. This ratifies the existing implementation, so **it does not block a
->   farmer-facing launch** — but it makes two follow-ups load-bearing rather than optional: the ToS +
->   in-app modal must state it (they move in lockstep, and one is code), and the "Paid" flag must stop
->   rendering a buyer's one-sided assertion as settled fact. Neither is done. See
->   [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #26.
-> - **#29 — the feedstock side has no admin surface at all.** No console reads `farmer_deliveries` or
->   `biomass_rfqs`, so #26 has no escalation point: a farmer owed money cannot be helped by staff either.
->   **Scoped by the #26 decision:** no payments console is needed, but a **read-only feedstock view plus
->   a way to record an off-platform resolution** is now the minimum, or "contact support" resolves to
->   nobody.
+> - **#26 — farmers are not paid through the platform. ✅ ANSWERED 2026-07-28** (Carbonify is an
+>   introduction-and-records layer for feedstock, not the payment rail) **and ✅ BUILT 2026-07-29.** The
+>   record is now two-sided — the buyer asserts, the farmer confirms or contests — and the ToS §1.14 +
+>   in-app modal §6 state the position in lockstep.
+> - **#29 — the feedstock side has no admin surface at all. ✅ CLOSED 2026-07-29.** `/admin/feedstock`
+>   is read-only oversight plus one write: recording an off-platform resolution, including reversing a
+>   buyer's false "Paid". "Contact support" now resolves to somebody who can see the trade.
+> - ✅ **Both shipped in `20260729000100_feedstock_payment_record.sql`, applied to live 2026-07-29**
+>   alongside the escrow migration, with `reconcile_financials()` = 0 after each. Click-through
+>   pending.
 >
 > **Unchanged P0s:** independent penetration test, email confirmation (off by choice), runtime/pilot
-> verification. **#14** (escrow hold window) is decided and staged — apply during pilot pre-flight and
-> schedule `release_matured_escrow()`.
+> verification.
+>
+> 🔴 **#14 (escrow) is APPLIED as of 2026-07-29 — and that created a new urgent item.**
+> `process_marketplace_purchase` now holds card sellers' net in `escrow_held`, and the **only** thing
+> that releases it is `release_matured_escrow()`, called from the `process-payouts` edge function.
+> **Until that function is deployed and on a ~15-minute cron, every card seller's money is held
+> permanently — not delayed.** Applying escrow without scheduling the worker is worse than not applying
+> it. **And it is not a one-click schedule** — the worker rejects any call without a
+> `x-worker-secret` header matching `PAYOUT_WORKER_SECRET`, so a naive schedule 401s silently forever.
+> Procedure: [`supabase/cutover/schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql).
+> The four behaviour checks in [ESCROW_DECISION.md §6](ESCROW_DECISION.md) are also still unrun:
+> **applied is not verified.**
 >
 > **Newly enforced since this page was written:** the CSP is no longer `Report-Only` (it had no
 > reporting endpoint either, so it was collecting nothing). It has been audited statically but **first
@@ -183,7 +191,9 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 - [ ] `ALLOW_UNSIGNED_WEBHOOKS` unset; all edge secrets present — re-confirm at pre-flight
 - [ ] Legacy/demo code paths removed — 🟡 partial ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #8)
 - [x] **Money-table RLS posture captured into a versioned migration** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #13c) — captured + applied to live 2026-07-25 (`20260725000100`); `supabase/diagnostics/money_table_rls_audit.sql` returns **0 findings**
-- [x] **Escrow decision made** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14) — Option B (method-gated hold) decided 2026-07-25; implementation staged in `20260725000200`, applied + verified during the pilot. See [ESCROW_DECISION.md](ESCROW_DECISION.md).
+- [x] **Escrow decision made + APPLIED** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14) — Option B (method-gated hold) decided 2026-07-25, `20260725000200` **applied to live 2026-07-29**, reconcile = 0. See [ESCROW_DECISION.md](ESCROW_DECISION.md).
+- [ ] 🔴 **`process-payouts` deployed + scheduled (~15 min)** — escrow now HOLDS card sellers' funds and `release_matured_escrow()` is the only releaser. Unscheduled = permanently stranded seller money.
+- [ ] **The 4 escrow behaviour checks run** ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — applied is not the same as verified
 - [ ] **Email confirmation re-enabled** with a verified sender domain
 - [ ] **Closed beta completed** against its exit criteria ([SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §6)
 - [ ] **Independent penetration test passed**

@@ -17,6 +17,7 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | Doc | What it answers |
 |---|---|
 | [HANDOFF.md](HANDOFF.md) | **Where we are right now, one screen** — implemented vs not, and the ordered next steps |
+| [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) | 👤 **The owner runbook** — what only you can do, in order, with the SQL file to run at each step. Start here if you are the owner |
 | [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) | 🔴 **The active next step** — pre-flight checks, the closed-beta click-through, daily monitoring, abort criteria. The SQL half of §1 is bundled into [`supabase/diagnostics/pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) |
 | [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) | Per-role tick-box test scripts to hand to pilot users |
 | [TESTING_PLAN.md](TESTING_PLAN.md) | The layered what-to-test map: regression, integration, e2e, security, beta, load |
@@ -85,5 +86,5 @@ status; they point back to the docs above.
 
 - [SYSTEM_STATUS_OVERVIEW.md](SYSTEM_STATUS_OVERVIEW.md) · [SYSTEM_LATEST_UPDATE.md](SYSTEM_LATEST_UPDATE.md)
 - [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) · [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md) · [IMPLEMENTATION_ROADMAP_TIMELINE.md](IMPLEMENTATION_ROADMAP_TIMELINE.md) · [IMPLEMENTATION_TASKLIST.md](IMPLEMENTATION_TASKLIST.md)
-- [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) · [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md) · [PHASE1_VERIFICATION_RUNBOOK.md](PHASE1_VERIFICATION_RUNBOOK.md)
+- [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md) · [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md) · [PHASE1_VERIFICATION_RUNBOOK.md](PHASE1_VERIFICATION_RUNBOOK.md)
 - [CONSOLE_ERRORS_AFTER_PAYMENT.md](CONSOLE_ERRORS_AFTER_PAYMENT.md) · [CARBONIFY_BOARD_UPDATED.md](CARBONIFY_BOARD_UPDATED.md)

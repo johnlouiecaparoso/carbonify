@@ -5,6 +5,7 @@ vi.mock('@/services/supabaseClient', () => ({
 }))
 vi.mock('@/services/notificationService', () => ({
   createNotificationsForUsers: vi.fn(),
+  createNotificationsForRoles: vi.fn(),
 }))
 vi.mock('@/services/storageService', () => ({
   uploadProjectDocument: vi.fn(),

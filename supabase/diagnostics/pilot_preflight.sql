@@ -10,6 +10,16 @@
 -- docs/HANDOFF.md flags as unsettled. Each check prints its own verdict, so you
 -- are reading a PASS/FAIL column rather than eyeballing raw rows.
 --
+-- ⚠️ HOW TO READ THE RESULT. The Supabase SQL editor shows only the LAST
+-- statement's result when several are pasted at once. §7 at the bottom is
+-- therefore a SUMMARY of every verdict in this file, as one statement — so
+-- pasting the whole file and reading the final table is the correct way to run
+-- it. Every row must say PASS. If one does not, scroll up and run that section
+-- on its own for the detail rows.
+--
+-- (This matters: on 2026-07-29 a full run was read as nothing but the project
+-- list in §6, because that was the last statement. Sections 1-5 never printed.)
+--
 -- What this script CANNOT check (dashboard/console, do them by hand):
 --   1c. All 7 edge functions deployed
 --   1d. PayMongo secrets hold sk_test_… and the webhook shows "enabled"
@@ -230,3 +240,130 @@ select id, title, status, created_at
 from projects
 order by created_at desc
 limit 20;
+
+
+-- ============================================================================
+-- 7. SUMMARY — every verdict above, as ONE statement.
+--
+-- This is deliberately the LAST statement in the file. The Supabase SQL editor
+-- shows only the final statement's result when several are pasted together,
+-- which on 2026-07-29 caused a whole pre-flight run to be read as nothing but
+-- the project list above. Making the roll-up last turns that behaviour from a
+-- trap into the default: paste the whole file, read this table.
+--
+-- Every row must read PASS. Anything else, scroll up and run that section on
+-- its own for the detail rows.
+-- ============================================================================
+
+with recon as (select count(*) as n from reconcile_financials()),
+     hooks as (
+       select count(*) as n from webhook_events
+        where error is not null and received_at > now() - interval '7 days'
+     ),
+     checks as (
+
+  select 1 as seq, '1. Books reconcile' as check_name,
+         case when (select n from recon) = 0 then 'PASS' else 'FAIL' end as status,
+         case when (select n from recon) = 0 then 'no discrepancy rows'
+              else (select n from recon)::text || ' discrepancy row(s) — STOP, do not invite anyone'
+         end as detail
+
+  union all select 2, '2. Webhook health',
+         case when (select n from hooks) = 0 then 'PASS' else 'FAIL' end,
+         case when (select n from hooks) = 0 then 'no errored events in 7 days'
+              else (select n from hooks)::text || ' errored event(s) — money may not have settled'
+         end
+
+  union all select 3, '3a. Migration 000600/000700',
+         case when not exists (
+           select 1 from information_schema.columns
+            where table_schema='public' and table_name='project_credits'
+              and column_name='available_credits'
+         ) then 'PASS' else 'ATTENTION' end,
+         'available_credits column should be gone'
+
+  union all select 4, '3b. Migration 000000',
+         case when (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                     where n.nspname='public' and p.proname='retire_credits_atomic') = 1
+              then 'PASS' else 'ATTENTION' end,
+         'exactly one 4-arg retire_credits_atomic'
+
+  union all select 5, '3c. Migration 001100',
+         case when (select count(*) from pg_constraint
+                     where conrelid='public.credit_transactions'::regclass and contype='f'
+                       and conname in ('credit_transactions_buyer_id_fkey',
+                                       'credit_transactions_seller_id_fkey')) = 2
+              then 'PASS' else 'ATTENTION' end,
+         'both credit_transactions→profiles FKs present (receipt embed)'
+
+  union all select 6, '4a. RLS enabled',
+         case when not exists (
+           select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname='public' and c.relrowsecurity = false
+              and c.relname in ('credit_ownership','wallet_accounts','wallet_transactions',
+                                'credit_transactions','project_credits','credit_listings',
+                                'credit_retirements')
+         ) then 'PASS' else 'FAIL' end,
+         'RLS on all 7 money tables'
+
+  union all select 7, '4b. No client writes',
+         case when not exists (
+           select 1 from pg_policies
+            where schemaname='public'
+              and tablename in ('credit_ownership','wallet_accounts',
+                                'wallet_transactions','credit_transactions')
+              and cmd in ('INSERT','UPDATE','DELETE','ALL')
+              and (roles && array['anon','authenticated','public']::name[])
+         ) then 'PASS' else 'FAIL' end,
+         'no client write policy on the four ledger tables'
+
+  union all select 8, '4c. No blanket writes',
+         case when not exists (
+           select 1 from pg_policies where schemaname='public'
+             and policyname in ('Allow all project credits operations',
+                                'Allow all credit listings operations')
+         ) then 'PASS' else 'FAIL' end,
+         'the 2026-07-11 holes stay closed'
+
+  union all select 9, '5a. Escrow applied',
+         case when exists (
+           select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+            where n.nspname='public' and p.proname='release_matured_escrow'
+         ) then 'PASS' else 'NOT APPLIED' end,
+         'release_matured_escrow() exists (20260725000200)'
+
+  union all select 10, '5b. Escrow in settlement RPC',
+         case when coalesce((
+           select position('escrow_holds' in pg_get_functiondef(p.oid)) > 0
+             from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+            where n.nspname='public' and p.proname='process_marketplace_purchase'
+            limit 1), false)
+         then 'PASS' else 'NOT APPLIED' end,
+         'process_marketplace_purchase actually writes escrow_holds'
+
+  -- The one this script cannot answer, and the one that silently strands money.
+  union all select 11, '5c. Release worker scheduled',
+         case when exists (select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                            where n.nspname='cron' and c.relname='job')
+              then 'CHECK BY HAND' else 'NOT SCHEDULED' end,
+         'Run supabase/cutover/schedule_payout_worker.sql. It is NOT just a '
+         'dashboard button: process-payouts 401s unless PAYOUT_WORKER_SECRET is '
+         'set AND sent as the x-worker-secret header. Without a working schedule, '
+         'release_matured_escrow() never runs and every card seller stays held FOREVER.'
+
+  union all select 12, '6. Feedstock record',
+         case when (
+           (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+             where n.nspname='public'
+               and p.proname in ('acknowledge_farmer_delivery_payment',
+                                 'resolve_farmer_delivery_payment',
+                                 'admin_feedstock_deliveries',
+                                 'admin_feedstock_summary'))
+           + (select count(*) from information_schema.columns
+               where table_schema='public' and table_name='farmer_deliveries'
+                 and column_name='farmer_payment_ack')
+         ) = 5 then 'PASS' else 'NOT APPLIED' end,
+         'two-sided farmer payment record + /admin/feedstock (20260729000100)'
+
+)
+select seq, check_name as "check", status, detail from checks order by seq;

@@ -106,6 +106,7 @@ const D = {
   adminAml: { path: '/admin/aml', label: 'AML screening', icon: 'gpp_maybe' },
   adminPrivacy: { path: '/admin/privacy', label: 'Privacy requests', icon: 'privacy_tip' },
   adminRefunds: { path: '/admin/refunds', label: 'Refunds & disputes', icon: 'currency_exchange' },
+  adminFeedstock: { path: '/admin/feedstock', label: 'Feedstock oversight', icon: 'agriculture' },
   adminRoles: { path: '/admin/role-applications', label: 'Role applications', icon: 'how_to_reg' },
 }
 
@@ -145,6 +146,7 @@ const HINTS = {
   '/admin/aml': 'Sanctions and watchlist screening',
   '/admin/privacy': 'Data export and erasure requests',
   '/admin/refunds': 'Refund and dispute resolution',
+  '/admin/feedstock': 'Farmer deliveries and payment disputes',
   '/admin/role-applications': 'Verifier and developer applicants',
 }
 
@@ -264,7 +266,15 @@ export function buildWorkspace(user, { cartCount = 0 } = {}) {
 
   if (user.isAdmin) {
     return [
-      group('Operations', [D.adminUsers, D.adminFinance, D.adminAudit, D.adminConfig]),
+      group('Operations', [
+        D.adminUsers,
+        D.adminFinance,
+        // Sits under Operations rather than Compliance: it is oversight of a
+        // trade Carbonify records but does not settle, not a regulatory queue.
+        D.adminFeedstock,
+        D.adminAudit,
+        D.adminConfig,
+      ]),
       group('Compliance', [
         D.adminKyc,
         D.adminKyb,

@@ -66,6 +66,12 @@ Come back to this list after the phases are implemented.
 > resolved: nothing says a feedstock supplier is meant to buy credits. Their `/kyc` entry is the loose
 > thread — no current flow uses it.
 >
+> **2026-07-29: #26's follow-ups and #29 are CLOSED.** The feedstock payment record is now two-sided
+> (buyer asserts, farmer confirms or disputes), the ToS §1.14 and the in-app modal §6 state the
+> records-layer position in lockstep, and `/admin/feedstock` gives the escalation point somewhere to
+> land. The credit-side dispute schema was **not** widened to get there — see #26. All of it is inert
+> until `20260729000100_feedstock_payment_record.sql` is applied.
+>
 > **2026-07-26: #19 (header contrast) is CLOSED.** The green ramp and `--text-muted` were darkened
 > app-wide and the sweep covered the 121 bare hex literals that ignore the token, not just
 > `tokens.css`. Guarded by a contrast test. Details in #19 below.
@@ -776,7 +782,55 @@ Same live-readiness pass, farmer role. Defects are fixed in `9d4e2ae`; the dorma
 selector is disabled honestly rather than left pretending. These two remain open, and #26 is the
 most consequential item to come out of any of the four role reviews so far.
 
-### 26. Farmers are not paid through the platform — payment is an honour-system flag 🟠 DECIDED 2026-07-28 · BUILD DEFERRED
+### 26. Farmers are not paid through the platform — payment is an honour-system flag ✅ DECIDED 2026-07-28 · FOLLOW-UPS BUILT 2026-07-29
+
+> **✅ All three follow-ups the decision made load-bearing are now closed**, in
+> `20260729000100_feedstock_payment_record.sql` and the code around it. The decision itself is
+> unchanged — Carbonify is an introduction-and-records layer for feedstock, not the payment rail.
+>
+> **1. The record is two-sided.** `farmer_deliveries` gains `farmer_payment_ack`
+> (`pending` / `confirmed` / `disputed`), written only by the farmer through
+> `acknowledge_farmer_delivery_payment`. The farmer portal no longer renders the buyer's assertion as
+> settled fact: the badge reads **"buyer says paid"** in amber until the farmer answers, and only a
+> farmer-confirmed payment gets the settled green. The "Paid to date" card is now **"Recorded as
+> paid"** and says how many of those the farmer has not yet agreed to.
+>
+> **The dispute path deliberately covers BOTH failure modes**, and the second is the one the product
+> could not express at all: "you said you paid me and you did not", *and* "you confirmed my delivery
+> and never claimed to have paid". The second is the more common real-world case.
+>
+> **2. The ToS and the modal moved in lockstep.** POLICY_AND_USER_AGREEMENT **§1.14** and **§6 of the
+> in-app modal** (`src/App.vue`) now state the position in the same words: Carbonify does not hold,
+> transfer or guarantee feedstock payment; a "Paid" marker is the buyer's statement; escrow/refund/
+> payout under §1.5–§1.6 are **credit-side only**. §1.5 carries a pointer so a farmer reading about
+> escrow is not left assuming it covers them. The §7 pairing register records it as closed.
+>
+> **3. #29 has an escalation point** — see that entry.
+>
+> **The structural-impossibility finding was resolved WITHOUT widening the credit dispute schema.**
+> `disputes.transaction_id` is still `not null references credit_transactions(id)`, untouched. Putting
+> a physical-goods disagreement into the same table as credit chargeback handling would have coupled
+> the feedstock path to the money path this decision exists to keep it out of. The disagreement is
+> recorded where it happens — on the delivery — and escalates through notifications and
+> `/admin/feedstock` instead.
+>
+> **One behaviour worth knowing:** `mark_farmer_delivery_paid` was re-created to reset
+> `farmer_payment_ack` to `pending`. It only ever fires when the delivery was unpaid, so in practice it
+> matters in exactly one case — staff reversed a false "Paid" and the buyer has now genuinely paid. The
+> farmer's earlier dispute must not silently carry over onto a new assertion.
+>
+> **Still true, and still the pilot briefing point:** Carbonify does not hold or transfer farmer money.
+> Farmer UAT (FARM-04) tests a record, not a payment. What changed is that the record is now honest
+> about whose statement it is, and a farmer who is not paid has somewhere to go.
+>
+> ✅ **Applied to live 2026-07-29**, alongside the escrow migration; `reconcile_financials()` = 0
+> afterwards, as it must be — nothing here is a ledger movement. **Click-through still pending.**
+
+*Original decision record below.*
+
+---
+
+### 26 (decision, 2026-07-28). Farmers are not paid through the platform 🟠
 
 > **Decision (2026-07-28): Carbonify is an introduction-and-records layer for feedstock, not the
 > payment rail.** Buyers and farmers settle directly — cash, GCash, bank transfer — and Carbonify
@@ -922,7 +976,43 @@ Last of the six role reviews. Admin feature gaps were already tracked and priori
 maker-checker, #12 moderation) and are not duplicated here. Defects fixed in `647d3b2`. These two
 are new.
 
-### 29. The feedstock side of the marketplace has no admin at all 🟠
+### 29. The feedstock side of the marketplace has no admin at all ✅ CLOSED 2026-07-29
+
+> **Closed to the scope the #26 decision set:** a **read-only** oversight console plus one write — a
+> way to record an off-platform resolution. No payments console was built, because Carbonify holds no
+> feedstock money to move.
+>
+> **[`/admin/feedstock`](../src/views/AdminFeedstockView.vue)** shows every delivery with both
+> parties' names, the delivered quantity and value, and the payment record as **one state read from
+> both sides** — `Disputed by farmer` · `Reopened after resolution` · `Buyer claims paid` ·
+> `Confirmed, unpaid` · `Both parties agree` · `Resolved by staff`. Open disputes sort to the top
+> regardless of the active filter, and the farmer's own words appear inline: an admin should not have
+> to open a modal to read the substance of a complaint.
+>
+> `resolve_farmer_delivery_payment` records what staff established. **`unpaid_confirmed` reverses a
+> buyer's false "Paid"** — clearing `paid_at` and returning the delivery to unpaid — which is the whole
+> reason the escalation point had to exist. A resolution **must** carry a note; without it the row says
+> a decision was taken and nothing about what was found. Both parties are notified, not just the one
+> who raised it.
+>
+> **Two implementation notes worth carrying:**
+>
+> - **Counterparty names come through a `SECURITY DEFINER` RPC, not a client-side `profiles` join.**
+>   RLS already lets an admin `SELECT` `farmer_deliveries` directly, but the names live in `profiles`,
+>   whose SELECT is deliberately hardened (`20260703000300` — see #3's warning). `admin_feedstock_deliveries`
+>   is shaped exactly like `admin_recent_transactions` for that reason. Getting a name onto a screen is
+>   never a reason to widen profile visibility.
+> - **The reads throw; they do not return `[]`.** An empty feedstock queue reads as "no farmer is owed
+>   anything", which is precisely the wrong thing to tell an administrator investigating whether one
+>   is. Same bug class as the 2026-07-26 role review.
+>
+> ✅ **Applied to live 2026-07-29** — the console's two RPCs are live. Click-through still pending.
+
+*Original entry below.*
+
+---
+
+### 29 (original). The feedstock side of the marketplace has no admin at all 🟠
 
 **Where:** nothing. No file under `src/components/admin/`, no `Admin*View.vue`, and neither
 `adminFinanceService` nor `adminExportService` reads `farmer_deliveries`, `biomass_rfqs` or

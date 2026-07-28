@@ -418,8 +418,48 @@ onMounted(async () => {
                   applicable to your earnings.
                 </p>
               </section>
+              <!-- MUST stay in lockstep with POLICY_AND_USER_AGREEMENT.md §1.14.
+                   Carbonify is an introduction-and-records layer for feedstock,
+                   not the payment rail (decided 2026-07-28). Saying so is not
+                   optional under that decision: the record IS the product on this
+                   path, and a farmer who reads "Paid" as a platform guarantee has
+                   been misled about who owes them and who can help. -->
               <section class="policy-section">
-                <h3>6. Refunds &amp; Disputes</h3>
+                <h3>6. Feedstock Deliveries &amp; Farmer Payments</h3>
+                <p>
+                  For biomass and other feedstock supplied by farmers and cooperatives,
+                  <strong>Carbonify does not hold, transfer, or guarantee payment.</strong> The buyer
+                  and the farmer agree a price and settle directly — cash, GCash, bank transfer or
+                  otherwise. Carbonify introduces the parties and
+                  <strong>keeps the record</strong>; it is not a party to that contract, not an
+                  escrow agent, and not a guarantor.
+                </p>
+                <ul>
+                  <li>
+                    A <strong>"Paid" marker is the buyer's statement</strong> that they settled
+                    off-platform, not confirmation by Carbonify that money moved.
+                  </li>
+                  <li>
+                    <strong>The record is two-sided.</strong> The farmer can confirm that they were
+                    paid, or record that they were not — including where a buyer confirmed a delivery
+                    and never claimed to have paid at all.
+                  </li>
+                  <li>
+                    A recorded non-payment is escalated to Carbonify staff, who investigate and
+                    <strong>record what they establish</strong>, including reversing a payment marker
+                    the evidence does not support. That is a record, not a settlement:
+                    <strong>Carbonify cannot recover funds it never held</strong> and does not
+                    indemnify either party.
+                  </li>
+                  <li>
+                    Escrow, refunds and the payout process described elsewhere in these Terms apply
+                    to <strong>carbon credit</strong> transactions only. They do not apply to
+                    feedstock.
+                  </li>
+                </ul>
+              </section>
+              <section class="policy-section">
+                <h3>7. Refunds &amp; Disputes</h3>
                 <p>
                   Refunds are issued only for <strong>verified technical errors</strong>, within any
                   stated window. Refunds and disputes are handled via compensating ledger entries —
@@ -430,7 +470,7 @@ onMounted(async () => {
                 </p>
               </section>
               <section class="policy-section">
-                <h3>7. Prohibited Conduct</h3>
+                <h3>8. Prohibited Conduct</h3>
                 <p>
                   No fraud, money laundering, double-counting or double-claiming of credits,
                   circumvention of KYC/KYB, scraping or abuse, reverse engineering of security
@@ -438,14 +478,14 @@ onMounted(async () => {
                 </p>
               </section>
               <section class="policy-section">
-                <h3>8. Suspension &amp; Termination</h3>
+                <h3>9. Suspension &amp; Termination</h3>
                 <p>
                   We may suspend or terminate accounts for breach, suspected fraud, or legal
                   requirement. Records are retained for audit and compliance.
                 </p>
               </section>
               <section class="policy-section">
-                <h3>9. Liability &amp; Warranty</h3>
+                <h3>10. Liability &amp; Warranty</h3>
                 <p>
                   Carbonify is provided
                   <strong>"as is" and "as available," without warranties</strong>. To the maximum
@@ -456,7 +496,7 @@ onMounted(async () => {
                 </p>
               </section>
               <section class="policy-section">
-                <h3>10. Changes</h3>
+                <h3>11. Changes</h3>
                 <p>
                   We may update these Terms; material changes will be notified in-app and/or by
                   email. Continued use after the effective date constitutes acceptance.

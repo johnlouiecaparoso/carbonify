@@ -24,13 +24,24 @@
 > the drift the 2026-07-26 reconciliation pass had to clean up. **If a row here disagrees with its
 > source doc, the source doc wins.**
 >
-> **Scope:** open items only. Closed work (#13c, #14 decided, #17, #19, #26 decided) is not repeated —
+> **Scope:** open items only. Closed work (#13c, #14 decided, #17, #19, #26, #29) is not repeated —
 > see the backlog.
 >
 > **Worked 2026-07-28:** #11 (slice half), #10 and #9 are closed — struck through below for one
 > revision, then to be removed. Suite **757 → 770**. The lesson from #11 is worth carrying: its
 > backlog entry described a cosmetic symptom, and the actual impact was a **wrong number on an
 > exported ESG report**. Severity in these entries is a starting point, not a finding.
+>
+> **Worked 2026-07-29:** **#26's two follow-ups and #29 are closed** — the whole "sharpest ethical
+> item" block at the bottom of this page. Suite **770 → 786**. One migration,
+> `20260729000100_feedstock_payment_record.sql`, and **everything built is inert until it is applied**
+> — so this moves an item from Lane 1 into the Lane 2 pre-flight rather than off the board.
+>
+> The finding worth carrying: **the structural blocker was avoidable.** #26 recorded that a feedstock
+> dispute needs a schema change to `disputes`, and that reading is what made it look like a phase of
+> work. It does not — recording the disagreement on the delivery, where it happens, closes it without
+> touching the credit-side dispute table at all. An entry that names a specific blocking change is
+> still only one proposed route to the outcome.
 
 ---
 
@@ -42,9 +53,9 @@
 |---|---|---|
 | ~~11~~ | ~~Retirements dropped from transaction history~~ — ✅ **fixed 2026-07-28.** It was under-reporting **ESG offset totals**, not just a short list. The *dual-source* half of #11 is still open | [#11](DEFERRED_BACKLOG.md) |
 | ~~10~~ | ~~Keyboard users cannot Escape a payment dialog~~ — ✅ **fixed 2026-07-28** via `v-modal-a11y` on all 15 dialogs (not by adopting `AccessibleModal`; see the entry for why) | [#10](DEFERRED_BACKLOG.md) |
-| 15 | **Error handling is three systems with none on** — `ErrorBoundary` commented out; `main.js` monkeypatches `window.fetch` globally and can eat unrelated errors | [#15](DEFERRED_BACKLOG.md) |
-| 26 | The farmer **"Paid" flag is a one-sided assertion rendered as fact** — the farmer can neither acknowledge nor contest it. Load-bearing since the 2026-07-28 decision | [#26](DEFERRED_BACKLOG.md) |
-| 26 | A **feedstock dispute is structurally impossible** — `disputes.transaction_id` is `not null references credit_transactions(id)`; a delivery has no such row. Schema change | [#26](DEFERRED_BACKLOG.md) |
+| 15 | **Error handling is three systems, one on** — re-checked 2026-07-29: `ErrorBoundary` **is** mounted in `App.vue` and the `main.js` `window.fetch` monkeypatch **is gone** (both were fixed without updating this row). What remains: `errorStore` is still commented out, and services swallow/throw inconsistently | [#15](DEFERRED_BACKLOG.md) |
+| ~~26~~ | ~~The farmer "Paid" flag is a one-sided assertion rendered as fact~~ — ✅ **fixed 2026-07-29.** The record is two-sided; the badge reads "buyer says paid" until the farmer answers | [#26](DEFERRED_BACKLOG.md) |
+| ~~26~~ | ~~A feedstock dispute is structurally impossible~~ — ✅ **fixed 2026-07-29**, and **without** widening `disputes`: the disagreement is recorded on the delivery and escalates to `/admin/feedstock` | [#26](DEFERRED_BACKLOG.md) |
 | 3 | A receipt **cannot show the counterparty's name**. Needs a `SECURITY DEFINER` name-only RPC — **do not loosen `profiles` SELECT RLS** (hardened by `20260703000300`) | [#3](DEFERRED_BACKLOG.md) |
 
 ### 1b. Cleanups and hardening
@@ -53,7 +64,7 @@
 |---|---|---|
 | 30 | ~61 dead exports remain (347 lines already removed) | **Exact-string edits only** — line arithmetic corrupted two files last pass |
 | ~~9~~ | ~~Consolidate duplicated formatters~~ | ✅ **Done 2026-07-28** — `src/utils/format.js`; three real divergences fixed, incl. money rendering at one decimal place |
-| 15 | The `const s = getSupabase(); if (!s) return` guard is copy-pasted **~233× across 49 files** | Fix at the root, then delete the guards |
+| 15 | The nullable-client guard is copy-pasted **~162×** (re-counted 2026-07-29; was ~233 — the 2026-07-26 pass converted many to `throw`, which is the dangerous half) | Fix at the root, then delete the guards |
 | 15 | **Fulfillment saga exists twice**, "kept in sync by hand" | The webhook copy is the one that settles money |
 | 15 | Runtime schema-probing (5-attempt insert loop, "retry without `updated_at`") | Delete once migrations are authoritative (#7) |
 | 12 | Grant hygiene on ~10 `SECURITY DEFINER` RPCs | I write the migration, owner applies |
@@ -87,15 +98,15 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | **Developer** | **MRV reminders are client-triggered — a developer who never signs in is never emailed** · persist + display financials & yield projection · boundary polygon + methodology selection · registry-readiness checklist / export pack · custom monitoring metrics · project templates & cloning · document re-upload & versioning |
 | **Admin** | Fraud / risk dashboard with anomaly alerts · report builder with date ranges · broadcast announcements · feature flags & maintenance mode · project moderation / takedowns · support impersonation + bulk ops |
 | **LGU** | Benchmarking against other LGUs (now feasible — `profiles.municipality` exists) · diversion → project origination |
-| **Farmer** | Dispute path (see 1a) · indicative feedstock pricing from `biomass_rfqs` · delivery-due reminders · offline field capture |
+| **Farmer** | ~~Dispute path~~ ✅ 2026-07-29 · indicative feedstock pricing from `biomass_rfqs` · delivery-due reminders · offline field capture |
 | **Cross-cutting** | ESG reporting is **credit-owner side only** · the public `/registry` is a certificate lookup, **not a national registry** |
 
 ### 1e. Blocked only on an owner decision — I build the moment it's made
 
 | # | Item | The decision |
 |---|---|---|
-| 29 | Read-only admin feedstock view | ✅ **Already scoped** by the #26 decision — actionable now |
-| 26 | ToS + in-app modal stating the records-layer position | They move in **lockstep**; one is `src/App.vue` |
+| ~~29~~ | ~~Read-only admin feedstock view~~ | ✅ **Built 2026-07-29** — `/admin/feedstock`, read-only plus a record-the-outcome action |
+| ~~26~~ | ~~ToS + in-app modal stating the records-layer position~~ | ✅ **Built 2026-07-29** — ToS §1.14 + modal §6, landed together |
 | 28 | Notify an LGU when a project appears in its jurisdiction | Must be jurisdiction-scoped and **fail closed** |
 | 24 | Verifier's own decision history | Convenience view (an afternoon) vs attestation record (schema) |
 | 31 | Farmers reach checkout by URL but aren't offered it | Is a farmer a buyer? |
@@ -115,13 +126,13 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 
 1. Run [`pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) → read the `verdict` column
 2. Dashboard checks **1c–1g by hand**: 7 edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed
-3. **Apply escrow `20260725000200` before inviting anyone** — the ToS already promises a hold window live does not provide
-4. Redeploy + **schedule `process-payouts`** (~15 min cron) so `release_matured_escrow()` fires
-5. Run the 4 escrow reconcile checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — each `reconcile_financials()` = 0
-6. Apply pending **`20260718001100`** (clears a console 400/406 on receipts)
-7. Confirm the **`20260718000000`–`000700`** batch status — one read-only query settles it
-8. Decide the **beta database** — reuse live (reconcile is clean) but purge or label leftover test data first
-9. **Run the closed beta** — 8–15 invited users, every role, `reconcile_financials()` = 0 daily
+3. ~~Apply escrow `20260725000200`~~ · ~~feedstock `20260729000100`~~ · ~~`20260718001100`~~ — ✅ **all applied 2026-07-29**, reconcile = 0 after each
+4. 🔴 **Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts` (~15 min)** — escrow is LIVE and `release_matured_escrow()` is the only releaser. **Not a one-click schedule:** the worker 401s without the `x-worker-secret` header, so a naive schedule fails silently. See [`schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql). **Not confirmed done.**
+5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
+6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
+7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
+9. Decide the **beta database** — reuse live (reconcile is clean) but purge or label leftover test data first
+10. **Run the closed beta** — 8–15 invited users, every role, `reconcile_financials()` = 0 daily
 
 ### 2b. Decisions I cannot make for you
 
@@ -168,7 +179,13 @@ decided + staged), and Lane 1 is quality and product work — none of it gates g
 What gates go-live is Lanes 2 and 3. **The single longest pole is the penetration test**: it is
 external, it costs money, and it is the one P0 that no amount of code closes.
 
-The sharpest *ethical* item is not on the gate at all: **#26 + #29**. A farmer delivers a physical good
+The sharpest *ethical* item was never on the gate: **#26 + #29** — a farmer delivers a physical good
 they cannot take back, the buyer alone asserts payment, no dispute can be represented in the schema,
-and no admin console can see the trade. The 2026-07-28 decision settled the positioning; the two
-follow-ups it made load-bearing are both still open, and both are in Lane 1.
+and no admin console can see the trade. **Closed 2026-07-29.** The record is two-sided, the terms say
+plainly that Carbonify does not hold the money, and a farmer who is not paid reaches staff who can see
+the trade and reverse a false "Paid".
+
+✅ **Live as of 2026-07-29** — applied alongside the escrow migration, `reconcile_financials()` = 0.
+The remaining work on this path is a click-through, and the honest limit stands: Carbonify still does
+not move the money, so a farmer's counterparty risk is reduced by transparency and escalation, not
+removed.

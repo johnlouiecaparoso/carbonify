@@ -77,7 +77,8 @@ The flow, end to end:
    quantity, unit, date, which parcel it came from, price per unit, and **proof documents**
    (weighbridge slip, receipt, photo).
 5. The buyer **confirms** the delivery — or rejects it with a reason.
-6. The buyer records payment.
+6. The buyer records that they paid you.
+7. **You confirm you received the money — or report that you did not.** See §4.
 
 > Deliveries can only be logged against an **accepted** quote, and only against a parcel you own. You
 > can log several deliveries against one quote — a large order delivered in truckloads is normal.
@@ -93,17 +94,30 @@ What that means for you:
 
 - The **"Owed by buyers"** figure is what buyers have confirmed but not yet marked paid. Carbonify is
   not holding that money for you and will not release it to you.
-- When a delivery shows **"Buyer recorded payment"**, that is *the buyer's statement*, not a receipt
-  from Carbonify. **Check that the money actually arrived.**
+- When a delivery shows **"The buyer says they paid you"**, that is *the buyer's statement*, not a
+  receipt from Carbonify. **Check that the money actually arrived.**
 - Keep your own record of what you were paid and when. The `payment reference` field is free text the
   buyer types; it is not verified.
 
+### You get the last word on your own payment
+
+The record is **two-sided**. Once a buyer says they paid you, your delivery shows two buttons:
+
+- **"Yes, I received it"** — the record now shows that you both agree. Until you press this, nobody
+  reading the record can mistake the buyer's claim for a confirmed payment.
+- **"No, I was not paid"** — describe what happened. This notifies the buyer **and** Carbonify staff,
+  who can see the delivery, look into it, and record what they establish. If they find the payment was
+  never made, they can **reverse the buyer's "Paid" marker** so it stops standing as fact.
+
+You can also report non-payment on a delivery the buyer **confirmed but never claimed to have paid at
+all** — use **"I have not been paid"**. That is the more common situation, and it counts.
+
+> **What Carbonify can and cannot do.** It can put your account on the record, tell the buyer, escalate
+> to staff, and correct a false claim. It **cannot recover money it never held**. Carbonify is not
+> holding your payment at any point, so there is nothing for it to release to you.
+
 > **Agree payment terms with the buyer before you deliver**, in writing if you can — when it is due,
 > how, and what happens if it is late. Carbonify records the trade; it does not guarantee it.
->
-> *This is a known limitation of the current beta and is tracked as #26 in the platform backlog. If a
-> buyer does not pay, contact a Carbonify administrator — but be aware they currently have no console
-> showing feedstock deliveries, so resolve it with the buyer directly where you can.*
 
 ---
 

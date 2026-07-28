@@ -10,7 +10,7 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **770 tests green** (757 before the 2026-07-28 defect pass below, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **786 tests green** (770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > ### ⚠️ LIVE BEHAVIOUR CHANGED 2026-07-26 — validating a project no longer issues credits
 >
@@ -34,7 +34,133 @@
 >
 > **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-28**, so the PR reflects everything below. `main` is **131 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
 >
-> ### 🆕 2026-07-28 (latest) — three backlog defects closed, and one of them was mis-scoped
+> > ### ✅ 2026-07-29 (evening) — THREE MIGRATIONS APPLIED TO LIVE. One follow-up is now urgent.
+>
+> The owner applied, in order, against the live project — each returning clean, with
+> `reconcile_financials()` = **0 rows** afterwards:
+>
+> | Migration | What it turns on |
+> |---|---|
+> | `20260725000200_restore_escrow_hold_window` | **Escrow (#14) is LIVE.** Card sellers' net now routes to `escrow_held`. |
+> | `20260729000100_feedstock_payment_record` | **#26/#29 are LIVE.** Two-sided farmer payment record + `/admin/feedstock`. |
+> | `20260718001100_credit_tx_profile_fk_reload` | Receipt embed resolves; the console 400/406 is gone. |
+>
+> **Also settled the same evening:** the §0.4 eleven-migration verify query returned **`true` on all
+> eleven rows**. The 2026-07-22 role-audit batch *is* applied — so the LGU jurisdiction guard and the
+> admin segregation-of-duties guard are live, not silently inert. §0.4's "NOT yet applied" heading is
+> stale; treat that batch as done.
+>
+> ### 🔴 URGENT — `process-payouts` must be scheduled, and it is not confirmed
+>
+> Applying escrow without scheduling the release worker is **worse than not applying it**.
+> `process_marketplace_purchase` now holds card sellers' net, and the only thing that ever releases it
+> is `release_matured_escrow()`, called from
+> [`process-payouts/index.ts:53`](../supabase/functions/process-payouts/index.ts). If that function is
+> not deployed and on a **~15-minute cron**, every card seller's money is held **permanently** — not
+> delayed. Nothing else calls it.
+>
+> **The four escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) are deferred by the
+> owner and remain UNRUN:** card→held, push→immediate, matured release, refund-while-held. Escrow is
+> applied but **not behaviourally verified**. Do not invite a pilot seller until it is.
+>
+> ### ✅ Pre-flight re-run and READ — 11 of 12 PASS, 1 outstanding
+>
+> The first run was misread: the editor shows only the last statement's result, so pasting the whole
+> file surfaced nothing but the §6 project list. `pilot_preflight.sql` now ends with a **§7 SUMMARY**
+> that rolls every verdict into one statement, so a whole-file paste shows the verdicts. Re-run
+> 2026-07-29:
+>
+> **PASS ×11** — books reconcile · webhook health · `000600/000700` · `000000` · `001100` · RLS on all
+> 7 money tables · no client writes · no blanket writes · escrow applied · escrow in the settlement RPC
+> · feedstock record. **Row 11 (release worker) is the only one outstanding**, and it is Step 0 of
+> [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md).
+>
+> `escrow_verification.sql` and `feedstock_verification.sql` were also run: no FAILs, and every `INFO`
+> is "you have not run that click-through yet" rather than a defect. `daily_beta_health.sql`: all OK.
+>
+> ### 🐛 A diagnostic reported a FALSE PASS, and the bug is worth carrying
+>
+> `escrow_verification.sql` row 3 — *"Release worker running"* — returned **PASS** with the detail
+> *"no matured hold is sitting unreleased"*, while row 4 on the same run said *"no holds yet"*.
+>
+> **It was reporting PASS across an empty table.** Zero holds means zero overdue holds, so the check
+> proved nothing and said everything was fine. That is the **same bug class the 2026-07-26 role review
+> found in five service reads**: an empty result rendered as a fact rather than as an absence of
+> evidence. It appeared here in a file written *to guard against* exactly that.
+>
+> Row 3 now returns **UNPROVEN** when `escrow_holds` is empty and can only reach PASS once a real hold
+> has existed. **A green diagnostic is not evidence unless it had the opportunity to be red.**
+>
+> ### 🐛 The scheduling instruction was wrong — `process-payouts` is not a one-click schedule
+>
+> This file, the runbook and the roadmap all said "Dashboard → Edge Functions → Schedule". Reading
+> [`process-payouts/index.ts:40`](../supabase/functions/process-payouts/index.ts) shows that is not
+> enough: the worker rejects any request that is not a `POST` **and** whose `x-worker-secret` header
+> does not match `PAYOUT_WORKER_SECRET` — and **if that env var is unset, the guard treats every call
+> as unauthorized.** A schedule that just "calls the function" therefore **401s every 15 minutes
+> forever, releasing nothing, with no error anywhere a human would look.**
+>
+> Corrected everywhere, and the full procedure is now a file:
+> [`supabase/cutover/schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql)
+> (`pg_cron` + `pg_net`, with the queries that prove the job is *succeeding* rather than merely
+> *running* — a job that 401s still reports `succeeded` in `cron.job_run_details`, so the truth is in
+> `net._http_response`).
+>
+> **Also worth knowing about that worker:** its payout disbursement is still the **mock provider** —
+> it marks a payout settled unless the destination account number is the literal string `FAIL`. Correct
+> for a test-key beta, but a "settled" payout is not money that moved.
+
+### 🆕 2026-07-29 — the feedstock record is two-sided, and the farmer finally has somewhere to go
+
+Closed **#26's two follow-ups** and **#29** — the block [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md)
+called the sharpest ethical item on the project. Tests **770 → 786**, lint and build green. One
+migration: [`20260729000100_feedstock_payment_record.sql`](../supabase/migrations/20260729000100_feedstock_payment_record.sql).
+
+**✅ Applied to live 2026-07-29** (see the box above), together with the escrow migration. The farmer's
+Confirm/Dispute buttons and `/admin/feedstock` are live. **Behaviour not yet clicked through** — the
+verification steps are in the migration header.
+
+**1. The payment record is two-sided.** `payment_status` stays what it always was — the *buyer's*
+assertion that they settled off-platform — and `farmer_payment_ack` is the farmer's answer to it. The
+portal no longer renders one party's word as the platform's finding: the badge reads **"buyer says
+paid"** in amber until the farmer responds, and only a farmer-confirmed payment gets the settled
+green. "Paid to date" became **"Recorded as paid"** and now says how much of that total the farmer has
+not agreed to.
+
+**The dispute path covers both failure modes, and the second is the one that had no expression at
+all:** "you said you paid me and you did not", *and* **"you confirmed my delivery and never claimed to
+have paid"**. The second is the more common real-world case — a confirmed delivery simply going quiet.
+
+**2. #29 — `/admin/feedstock`.** Read-only oversight plus one write: recording what staff established.
+`unpaid_confirmed` **reverses a buyer's false "Paid"**, which is the entire reason the escalation point
+had to exist. A resolution must carry a note, and both parties are notified — the outcome is a finding
+about both of them.
+
+**3. The ToS and the modal moved in lockstep** — POLICY_AND_USER_AGREEMENT **§1.14** and **§6 of the
+in-app modal**, stating that Carbonify does not hold, transfer or guarantee feedstock payment and that
+§1.5–§1.6 escrow/refund/payout are **credit-side only**. §1.5 now points at §1.14 so a farmer reading
+about escrow is not left assuming it covers them.
+
+> **The finding worth carrying: the structural blocker was avoidable.** #26 recorded that a feedstock
+> dispute is *structurally impossible* because `disputes.transaction_id` is
+> `not null references credit_transactions(id)` — and that reading is what made this look like a phase
+> of work rather than a day of it. It closed **without touching `disputes` at all**: the disagreement
+> is recorded on the delivery, where it happens, and escalates through notifications and an admin
+> screen. Coupling a physical-goods dispute to the credit chargeback table would have dragged the
+> feedstock path into the money path this decision exists to keep it out of. **A backlog entry that
+> names a specific blocking change is one proposed route, not the shape of the problem.**
+
+**Two things checked and found stale while working** (both corrected in the register): `ErrorBoundary`
+is **not** commented out — it is mounted in `App.vue`; and `main.js` no longer monkeypatches
+`window.fetch`, which its own comment explains. #15 still stands on `errorStore` and inconsistent
+service error handling, but two-thirds of what that entry describes was fixed without the entry being
+updated. The nullable-client guard is now **~162×**, not 233.
+
+**Not done, deliberately:** the farmer-side surfaces are English-only (#27), so a smallholder disputing
+a payment does it in a second language. That is the sharpest remaining instance of #27 and the reason
+the register puts farmer + LGU first.
+
+### 🆕 2026-07-28 — three backlog defects closed, and one of them was mis-scoped
 
 Worked the in-repo lane of the new [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md). Tests **757 → 770**,
 lint and build green throughout. **#26 was decided the same day** (see below) but deliberately not built.
@@ -618,14 +744,17 @@ frontend deploy). While writing it: the runbook's §1b snippet queried
 > pilot/ops/external. **All work through 2026-07-28 is committed and pushed** to
 > `feature-user-onboarding-ux` (PR #14).
 >
-> **Two in-repo items were added to this list on 2026-07-28 and are NOT pilot-blocking, but should
-> land before the beta is *reported on*:** the ESG-report fix (#11) means any offset report exported
-> before 2026-07-28 understated retired credits — pilot users who export one should re-run it; and
-> **#26's two follow-ups** (the ToS/modal pairing, and the two-sided payment record) are open by
-> decision, so a pilot farmer will still see a buyer-set "Paid" flag presented as settled fact. Brief
-> them accordingly — see [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md).
+> **Still worth knowing before the beta is *reported on*:** the ESG-report fix (#11) means any offset
+> report exported before 2026-07-28 understated retired credits — pilot users who export one should
+> re-run it.
+>
+> **#26's two follow-ups are now BUILT (2026-07-29)** — a pilot farmer no longer sees a buyer-set
+> "Paid" flag presented as settled fact, and can contest one. **But only once `20260729000100` is
+> applied**, which is why it is step 0 below. Farmers should still be briefed that Carbonify does not
+> hold or transfer their money; that part of the decision has not changed.
 
-1. **Run the pilot pre-flight** — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). **Plus, in this same window:**
+0. ~~Apply the escrow + feedstock + receipt-FK migrations~~ — ✅ **all three applied 2026-07-29**, `reconcile_financials()` = 0 after each. **What replaced this as step 0: schedule `process-payouts` on a ~15-minute cron.** Escrow is live, so card sellers are being held right now and `release_matured_escrow()` is the only thing that frees them.
+1. **Run the pilot pre-flight** — and read the new **§7 SUMMARY** at the end of the file, not the project list — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). **Plus, in this same window:**
    - **Apply the staged escrow migration** [`20260725000200`](../supabase/migrations/20260725000200_restore_escrow_hold_window.sql), **redeploy + schedule** `process-payouts` (cron ~15 min, so `release_matured_escrow()` fires), and run the 4 escrow reconcile checks in [ESCROW_DECISION.md](ESCROW_DECISION.md) §6 (card→held, push→immediate, matured release, refund-while-held — each `reconcile_financials()` = 0). **Apply this BEFORE inviting pilot users**, so the beta exercises escrow on test money.
    - **Run** [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) → expect **0 rows** (confirms #13c holds).
 2. **Decide the beta database** — [TESTING_PLAN.md](TESTING_PLAN.md) §3. Recommendation: reuse the current live project now that reconcile is clean, but purge or clearly label leftover test projects/listings first.

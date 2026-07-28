@@ -430,6 +430,17 @@ const router = createRouter({
       },
     },
     {
+      // The feedstock side of the marketplace had no admin surface at all
+      // (backlog #29), so a farmer's non-payment dispute escalated to nobody.
+      path: '/admin/feedstock',
+      name: 'admin-feedstock',
+      component: () => import('@/views/AdminFeedstockView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
       path: '/verifier',
       name: 'verifier',
       component: () => import('@/views/VerifierPanel.vue'),

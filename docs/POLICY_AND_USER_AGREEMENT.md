@@ -53,6 +53,8 @@ Carbonify supports **seven roles** — general user, buyer/investor, project dev
 - Released funds move to your withdrawable balance automatically once the hold matures **and no dispute is open.** Payouts then move through a tracked state machine (requested → processing → settled/failed).
 - **You are responsible for the taxes applicable to your earnings.**
 
+> **Applies to carbon credit sales only.** Feedstock supplied by farmers is settled directly between buyer and farmer and is never held by Carbonify — see **§1.14**.
+
 ### 1.6 Refunds & Disputes
 - **Buyers may open a dispute** on their own transaction; **administrators review and resolve** disputes, and may issue a refund.
 - Refunds are issued for **verified technical errors or upheld disputes**, and (where applicable) within the stated window after the transaction.
@@ -82,6 +84,33 @@ An LGU user's project endorsements are **scoped to the municipality/jurisdiction
 
 ### 1.13 Farmer Carbon Participation — estimate, not ownership
 Where a farmer supplies feedstock to a project, any "carbon participation" figure shown to the farmer is a **pro-rata estimate** (by delivered mass, per project, over confirmed deliveries and approved verifications) presented for transparency only. It is **an estimate, not a carbon credit**: a farmer **cannot sell, retire, or claim** it as an offset, and deliveries in non-mass units (sacks/bales/m³) are excluded from the calculation. See [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md).
+
+### 1.14 Feedstock Deliveries & Farmer Payments — Carbonify is not the payment rail
+
+> **Hard pairing.** This section and **§6 of the in-app policy modal** (`src/App.vue`) state the same
+> position and must be changed together. See §7.
+
+For biomass and other **feedstock** supplied by farmers and cooperatives, **Carbonify does not hold,
+transfer, or guarantee payment.** The buyer and the farmer agree a price and settle **directly** —
+cash, GCash, bank transfer or otherwise. Carbonify introduces the parties and **keeps the record**. It
+is not a party to that contract, not an escrow agent, and not a guarantor.
+
+- A **"Paid" marker is the buyer's statement** that they settled off-platform. It is **not**
+  confirmation by Carbonify that money moved.
+- **The record is two-sided.** The farmer can **confirm** that they were paid or **record that they
+  were not** — including the case where a buyer confirmed a delivery and never claimed to have paid at
+  all. A recorded non-payment must carry the farmer's account of what happened.
+- A recorded non-payment is **escalated to Carbonify staff**, who investigate and **record what they
+  establish** — including **reversing a payment marker** the evidence does not support. That is a
+  record, not a settlement: **Carbonify cannot recover funds it never held** and does not indemnify
+  either party.
+- The **escrow, refund and payout** provisions of §1.5 and §1.6 apply to **carbon credit** transactions
+  only. They do **not** apply to feedstock.
+- Farmer **carbon participation** figures are governed separately by §1.13 and are an estimate, not a
+  credit.
+
+*Decision record: [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #26 (decided 2026-07-28). The long-term
+ambition is left open — this states what Carbonify is today so the product stops implying otherwise.*
 
 ---
 
@@ -149,7 +178,7 @@ Developers must use the platform's approved project types and methodologies, sub
 ## 4. Feature availability — shipped vs planned
 
 ### ✅ Now available
-Auth/roles/2FA/KYC/KYB; project registration + documents + boundary map + edit/resubmit; MRV with server-side calculation and verifier scored rubric + comment threads; issuance + QR/serial/signature certificates + public verification; marketplace + cart + wallet + portfolio (P&L) + watchlist/price alerts + retirement; server-authoritative money path with signed webhook, double-entry ledger, refunds/disputes, seller payouts + KYB; **public registry** and market dashboard; **admin finance / KYB / refunds / system-config consoles**; **DPA self-service** (export + deletion) with an admin queue; **AML screening, velocity caps, account suspension** (admin tooling); **external PSP settlement reconciliation**; VAT invoices (provisional); LGU tools; the expansion features (registry fields, carbon asset ledger, biomass marketplace, MRV dashboard, investor portal + data room, farmer portal).
+Auth/roles/2FA/KYC/KYB; project registration + documents + boundary map + edit/resubmit; MRV with server-side calculation and verifier scored rubric + comment threads; issuance + QR/serial/signature certificates + public verification; marketplace + cart + wallet + portfolio (P&L) + watchlist/price alerts + retirement; server-authoritative money path with signed webhook, double-entry ledger, refunds/disputes, seller payouts + KYB; **public registry** and market dashboard; **admin finance / KYB / refunds / system-config consoles**; **DPA self-service** (export + deletion) with an admin queue; **AML screening, velocity caps, account suspension** (admin tooling); **external PSP settlement reconciliation**; VAT invoices (provisional); LGU tools; the expansion features (registry fields, carbon asset ledger, biomass marketplace, MRV dashboard, investor portal + data room, farmer portal); **two-sided feedstock payment records** (buyer asserts, farmer confirms or disputes) with an **admin feedstock oversight console** that records off-platform resolutions (§1.14).
 
 ### 🔜 Planned — not yet available (no obligation until announced live)
 - **Real credit-supplier / registry integration** (Carbonmark/Cloverly/Patch) so certificates carry a verifiable **external registry serial + retirement receipt** — the change that would retire the §3.2 disclaimer. A `local | supplier` source label will distinguish Carbonify-issued credits from registry-backed credits side by side.
@@ -184,8 +213,16 @@ Carbonify applies anti-money-laundering and know-your-customer controls proporti
 > This section is for the Carbonify team, not end users. Remove before publishing the public-facing version.
 
 - **These policies cannot be presented as final/binding** until: (a) the closed beta on test keys is complete; (b) a **DPO is appointed** and NPC registration is done; (c) a **licensed PSP/EMI custodies funds**; (d) the independent **penetration test** passes; and (e) **counsel + DPO sign off.** (Go-live gate in [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) §5.)
-- **In-app modal status (2026-07-25, commercial repositioning): consistent.** `src/App.vue` carries the beta status notice (credits not registry-backed, payments in test mode) and splits the footer into Terms / Privacy / Carbon Credits tabs. The prior "meets Verra/Gold Standard" misrepresentation and the "academic capstone / simulated credits" framing are both **gone.** Keep the modal and this document in lockstep on any change to §0, §1.5 (escrow), §3.2 (credit nature), or §3.5 (fees).
+- **In-app modal status (2026-07-25, commercial repositioning): consistent.** `src/App.vue` carries the beta status notice (credits not registry-backed, payments in test mode) and splits the footer into Terms / Privacy / Carbon Credits tabs. The prior "meets Verra/Gold Standard" misrepresentation and the "academic capstone / simulated credits" framing are both **gone.** Keep the modal and this document in lockstep on any change to §0, §1.5 (escrow), **§1.14 (feedstock payments)**, §3.2 (credit nature), or §3.5 (fees).
 - **⚠️ Escrow (§1.5) is a HARD PAIRING.** The policy — here *and in the in-app modal* — now describes the method-gated hold (Option B; [ESCROW_DECISION.md](ESCROW_DECISION.md), [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #14). Live behaviour is **still instant payout** until `20260725000200_restore_escrow_hold_window.sql` is applied. **Migration `20260725000200` must be applied BEFORE the first pilot seller is invited**, or the platform is describing a protection it does not yet provide. This is already step 1 of the pre-flight in [HANDOFF.md](HANDOFF.md) — do not reorder it.
+- **✅ §1.14 (feedstock payments) is a HARD PAIRING and it is CLOSED (2026-07-29).** The position
+  decided on 2026-07-28 — Carbonify is an introduction-and-records layer for feedstock, not the payment
+  rail — is now stated in **both** halves: §1.14 here and **§6 of the in-app modal** in `src/App.vue`.
+  Unlike the escrow pairing above, this one is **not waiting on a migration to become true**: the code
+  already behaved this way, and the pairing exists because the product was *implying otherwise*. The
+  supporting build (two-sided record, farmer dispute path, `/admin/feedstock`) shipped in migration
+  `20260729000100_feedstock_payment_record.sql`, **applied to live 2026-07-29** alongside the escrow
+  migration. §1.14 now describes behaviour the platform actually provides.
 - Keep §0, §3.2, and §3.5 in sync with the build as real-credit integration lands and the fee model is set.
 
 ---
