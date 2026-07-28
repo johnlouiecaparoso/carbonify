@@ -21,7 +21,8 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) | Per-role tick-box test scripts to hand to pilot users |
 | [TESTING_PLAN.md](TESTING_PLAN.md) | The layered what-to-test map: regression, integration, e2e, security, beta, load |
 | [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | **The real-money gate** — what blocks live payment keys, with a go/no-go checklist |
-| [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | One deduplicated Built / Partial / To-build checklist + owner responsibilities + third-party services |
+| [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) | **Every open item, routed by who can do it** — 🤖 in-repo / 👤 owner / 🏢 third party. A router: it links to the doc that owns each item's status rather than repeating it |
+| [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | One deduplicated Built / Partial / To-build checklist + owner responsibilities + third-party services — **scoped to the 2026-07-25 expansion workstream**; for whole-project scope use OPEN_WORK_REGISTER |
 | [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) | The plain-language system map — what it is, who uses it, tech stack |
 | [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Product, roles, credit lifecycle, money model in plain language |
 | [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c closed 2026-07-25, #19 (contrast) closed 2026-07-26; #14 (escrow) applies during the pilot; #18 (org accounts) is the open commercial one** |

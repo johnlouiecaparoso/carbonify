@@ -47,6 +47,12 @@
 
 ## 2. To-build backlog (this workstream)
 
+> 🧭 **Scope note (2026-07-28).** §2–§4 below cover the **2026-07-25 expansion workstream only** —
+> they do not carry the numbered backlog (#1–#31), the per-role gaps, or the testing gaps. For every
+> open item across the whole project, routed by who can do it, see
+> **[OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md)**. This page stays authoritative for the items it
+> does list.
+
 Ordered as agreed 2026-07-25. **Email (#0a) and AI Assistant (#0b) are paused** at
 the owner's request — email needs an owner decision on the provider/asset; the
 assistant needs an Anthropic API key.
