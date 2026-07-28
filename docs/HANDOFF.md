@@ -66,10 +66,19 @@ no sidebar.
 
 **Recorded, not built — decisions rather than defects:** #20 (cart charges per listing), #21 + `paymentService` (provider layer is test-only), #22 (sellers get no invoice), #23 (no developer forward view), #24 (verifiers cannot see their own decision history), #25 (reviews are not assigned), **#26 (farmers are not paid through the platform — a flag the buyer sets, no escrow, no dispute path)**, #27 (i18n absent; Filipino missing), #28 (LGUs are never told a project appeared in their jurisdiction), **#29 (the feedstock side has no admin surface at all — the escalation point for #26 does not exist)**, #30 (~100 unused exports).
 
-**The highest-value next decision is #26**, and it is not a coding task: is Carbonify the payment rail
-for feedstock, or an introduction-and-records layer? It gates #29, it decides what farmer testing
-should look for, and it is the one open item where a real user can be harmed by the product working
-exactly as designed.
+**#26 was the highest-value next decision, and it was answered on 2026-07-28: Carbonify is an
+introduction-and-records layer for feedstock, not the payment rail.** Buyers and farmers settle
+directly; Carbonify records it. That ratifies the current implementation, so nothing was built — but
+it converts two items from optional to load-bearing, and **neither is done**: (1) the ToS and the
+in-app policy modal must state it, and they move in lockstep so one of the pair is `src/App.vue`;
+(2) the "Paid" flag must stop rendering a buyer's one-sided assertion as settled fact — the farmer
+can currently neither acknowledge nor contest it. It also scopes **#29** down to a read-only admin
+feedstock view plus a way to record an off-platform resolution. Full record in
+[DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #26.
+
+*Established while taking the decision:* a farmer non-payment dispute is **structurally impossible**,
+not merely unrouted — `disputes.transaction_id` is `not null references credit_transactions(id)` and a
+delivery has no such row. Any dispute path for deliveries needs a schema change under either answer.
 
 Per-role feature gaps continue to live in [role-needs/](role-needs/) — now including
 [06-farmer.md](role-needs/06-farmer.md), which did not exist before this pass.

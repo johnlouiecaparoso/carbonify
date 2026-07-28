@@ -713,7 +713,47 @@ Same live-readiness pass, farmer role. Defects are fixed in `9d4e2ae`; the dorma
 selector is disabled honestly rather than left pretending. These two remain open, and #26 is the
 most consequential item to come out of any of the four role reviews so far.
 
-### 26. Farmers are not paid through the platform — payment is an honour-system flag 🟠
+### 26. Farmers are not paid through the platform — payment is an honour-system flag 🟠 DECIDED 2026-07-28 · BUILD DEFERRED
+
+> **Decision (2026-07-28): Carbonify is an introduction-and-records layer for feedstock, not the
+> payment rail.** Buyers and farmers settle directly — cash, GCash, bank transfer — and Carbonify
+> records that they say they did. This ratifies the current implementation rather than changing it;
+> the alternative (platform-held funds, farmer payouts, smallholder KYC/KYB, a feedstock dispute
+> mechanism) is a phase of work, not a ticket, and it would be the **third** concurrent rewrite of the
+> settlement area alongside the staged escrow migration and org-accounts Phase 2.
+>
+> **The long-term ambition is left open.** This settles what Carbonify *is* today so the product can
+> stop implying otherwise; it does not rule out becoming the payment rail later. If that changes, the
+> work below is what it costs.
+>
+> **No code changed with this decision** — deliberately. The three things the decision now *requires*
+> are listed below and are not done:
+>
+> 1. **The UI still presents a one-sided assertion as settled fact.** `mark_farmer_delivery_paid` is
+>    buyer-only and the farmer's notification reads *"The buyer marked your delivery as paid."* The
+>    farmer cannot acknowledge or contest it. Under this decision the record should be **two-sided** —
+>    the buyer asserts, the farmer confirms or disputes — because the record is now the *entire*
+>    product on this path.
+> 2. **The ToS + the in-app policy modal must say so plainly**, and they move in **lockstep**
+>    (`docs/README.md`, POLICY_AND_USER_AGREEMENT §7) — one of the pair is `src/App.vue`, i.e. code.
+>    Deferred here rather than done by halves; doing one without the other re-creates exactly the drift
+>    the doc set warns about. **This is the highest-priority follow-up**, because "Paid" rendering as a
+>    settled fact is the part that can mislead a real farmer during the pilot.
+> 3. **#29 still has no escalation point.** Under this decision the admin does not need a payments
+>    console, but does need a **read-only feedstock view** and a way to record an off-platform
+>    resolution — otherwise "contact support" resolves to nobody.
+>
+> **Newly established while taking this decision:** a farmer non-payment dispute is not merely absent
+> from the sidebar, it is **structurally impossible** — `disputes.transaction_id` is
+> `not null references credit_transactions(id)`, and a feedstock delivery has no `credit_transactions`
+> row. Any dispute path for deliveries needs a schema change, under either answer.
+>
+> **Pilot implication:** farmer UAT (FARM-04 "Track payment") tests a bookkeeping flag, not a payment.
+> Brief pilot farmers that Carbonify does not hold or transfer their money.
+
+*Original entry below.*
+
+---
 
 **Where:** `mark_farmer_delivery_paid` in
 [`20260711000000_farmer_portal.sql`](../supabase/migrations/20260711000000_farmer_portal.sql), and

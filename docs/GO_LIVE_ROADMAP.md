@@ -12,13 +12,18 @@
 >
 > **Two NEW items belong on this gate, and neither is a code task:**
 >
-> - **#26 — farmers are not paid through the platform.** `mark_farmer_delivery_paid` sets a boolean the
->   *buyer* controls and moves no money, while buyers get PayMongo and developers get escrow plus
->   KYB-gated payouts. The least powerful party carries all the counterparty risk. The UI is now honest
->   about it, but the prior question is unanswered: **is Carbonify the payment rail for feedstock, or an
->   introduction-and-records layer?** That answer decides whether this blocks a farmer-facing launch.
+> - **#26 — farmers are not paid through the platform. ✅ ANSWERED 2026-07-28: Carbonify is an
+>   introduction-and-records layer for feedstock, not the payment rail.** Buyers and farmers settle
+>   directly; Carbonify records it. This ratifies the existing implementation, so **it does not block a
+>   farmer-facing launch** — but it makes two follow-ups load-bearing rather than optional: the ToS +
+>   in-app modal must state it (they move in lockstep, and one is code), and the "Paid" flag must stop
+>   rendering a buyer's one-sided assertion as settled fact. Neither is done. See
+>   [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #26.
 > - **#29 — the feedstock side has no admin surface at all.** No console reads `farmer_deliveries` or
 >   `biomass_rfqs`, so #26 has no escalation point: a farmer owed money cannot be helped by staff either.
+>   **Scoped by the #26 decision:** no payments console is needed, but a **read-only feedstock view plus
+>   a way to record an off-platform resolution** is now the minimum, or "contact support" resolves to
+>   nobody.
 >
 > **Unchanged P0s:** independent penetration test, email confirmation (off by choice), runtime/pilot
 > verification. **#14** (escrow hold window) is decided and staged — apply during pilot pre-flight and
