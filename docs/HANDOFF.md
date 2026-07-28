@@ -32,7 +32,7 @@
 > differently from one validated today — worth saying to any pilot developer before they report it as
 > a bug.
 >
-> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review; `main` is **124 commits behind** `feature-user-onboarding-ux` (verified 2026-07-28 — the "85" here was accurate when written on 2026-07-26 and has since drifted). Not merged yet.
+> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-28**, so the PR reflects everything below. `main` is **131 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
 >
 > ### 🆕 2026-07-28 (latest) — three backlog defects closed, and one of them was mis-scoped
 
@@ -615,7 +615,15 @@ frontend deploy). While writing it: the runbook's §1b snippet queried
 > **The engineering track is clear.** Both pre-live-keys code blockers are resolved:
 > **#13c** (money-table RLS captured + applied + audited, 2026-07-25) and **#14** (escrow
 > decided — Option B — and implemented, staged for the pilot). Everything below is
-> pilot/ops/external. Committed + pushed as `e8efb4e` on `feature-user-onboarding-ux`.
+> pilot/ops/external. **All work through 2026-07-28 is committed and pushed** to
+> `feature-user-onboarding-ux` (PR #14).
+>
+> **Two in-repo items were added to this list on 2026-07-28 and are NOT pilot-blocking, but should
+> land before the beta is *reported on*:** the ESG-report fix (#11) means any offset report exported
+> before 2026-07-28 understated retired credits — pilot users who export one should re-run it; and
+> **#26's two follow-ups** (the ToS/modal pairing, and the two-sided payment record) are open by
+> decision, so a pilot farmer will still see a buyer-set "Paid" flag presented as settled fact. Brief
+> them accordingly — see [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md).
 
 1. **Run the pilot pre-flight** — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). **Plus, in this same window:**
    - **Apply the staged escrow migration** [`20260725000200`](../supabase/migrations/20260725000200_restore_escrow_hold_window.sql), **redeploy + schedule** `process-payouts` (cron ~15 min, so `release_matured_escrow()` fires), and run the 4 escrow reconcile checks in [ESCROW_DECISION.md](ESCROW_DECISION.md) §6 (card→held, push→immediate, matured release, refund-while-held — each `reconcile_financials()` = 0). **Apply this BEFORE inviting pilot users**, so the beta exercises escrow on test money.

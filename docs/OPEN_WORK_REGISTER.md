@@ -129,7 +129,10 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 
 ### 2c. Repo and infrastructure
 
-Push the 2 unpushed commits · decide on merging **PR #14** (124 commits ahead of `origin/main`) · buy + verify the **email-confirmation domain** · adopt CLI migration tracking (#7) so live stops drifting from `supabase/migrations/` · hold all keys and secrets.
+Decide on merging **PR #14** — **131 commits** ahead of `origin/main`, pushed and in sync as of
+2026-07-28 (the PR page's commit list is API-capped at 100 and understates it) · buy + verify the
+**email-confirmation domain** · adopt CLI migration tracking (#7) so live stops drifting from
+`supabase/migrations/` · hold all keys and secrets.
 
 ### 2d. Content, not code
 

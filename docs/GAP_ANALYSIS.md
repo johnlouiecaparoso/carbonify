@@ -82,8 +82,9 @@ These cannot be done in-repo by Claude:
 
 - **Secrets / keys**: Anthropic (Claude), PayMongo **production** keys, Resend domain verification
 - **Deploy** edge functions; **apply migrations** to the live Supabase DB (or explicitly authorize Claude to run them)
-- **Merge** decision: `feature-user-onboarding-ux` is **124 commits ahead of `origin/main`**, carried by
-  **[PR #14](https://github.com/johnlouiecaparoso/carbonify13/pull/14)** (open, not merged)
+- **Merge** decision: `feature-user-onboarding-ux` is **131 commits ahead of `origin/main`**, carried by
+  **[PR #14](https://github.com/johnlouiecaparoso/carbonify13/pull/14)** — pushed and in sync as of
+  2026-07-28, open, not merged
 - **Regulatory**: DENR/CCC accreditation, Carbon Pricing Framework alignment, DPA registration
 - **Security pentest** (external firm); email-confirmation domain verification
 - **Business decisions**: fee amounts, Business-tier pricing/features, blockchain/IoT go/no-go
@@ -116,7 +117,7 @@ Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,
 - **Email is the biggest hidden gap** — only approval email actually sends; purchase/rejection/reminders `console.log` only. (Also blocks org-account invites.)
 - **No company accounts** — the platform is positioned for institutional users but models a company as a free-text string on one person's profile. Credits belong to the employee, not the employer, and VAT invoices carry no buyer TIN so finance departments cannot claim input VAT. See [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
 - **Staged escrow migration (#14)** `20260725000200_restore_escrow_hold_window.sql` is written but **not applied** to live.
-- **`main` is 124 commits behind** — all recent work is on the feature branch only, awaiting PR #14.
+- **`main` is 131 commits behind** — all recent work is on the feature branch only, awaiting PR #14.
 - Anthropic SDK not yet in `package.json` (added when 0b is built).
 
 ---
