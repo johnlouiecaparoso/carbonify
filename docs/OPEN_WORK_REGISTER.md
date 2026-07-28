@@ -26,6 +26,11 @@
 >
 > **Scope:** open items only. Closed work (#13c, #14 decided, #17, #19, #26 decided) is not repeated —
 > see the backlog.
+>
+> **Worked 2026-07-28:** #11 (slice half), #10 and #9 are closed — struck through below for one
+> revision, then to be removed. Suite **757 → 770**. The lesson from #11 is worth carrying: its
+> backlog entry described a cosmetic symptom, and the actual impact was a **wrong number on an
+> exported ESG report**. Severity in these entries is a starting point, not a finding.
 
 ---
 
@@ -35,8 +40,8 @@
 
 | # | Issue | Source |
 |---|---|---|
-| 11 | A heavy trader's **retirements disappear** from combined transaction history — two tables back the feature and the merged list is sliced to `limit` | [#11](DEFERRED_BACKLOG.md) |
-| 10 | **Keyboard users cannot Escape a payment dialog** — 26 raw `.modal-overlay` divs bypass `AccessibleModal.vue` | [#10](DEFERRED_BACKLOG.md) |
+| ~~11~~ | ~~Retirements dropped from transaction history~~ — ✅ **fixed 2026-07-28.** It was under-reporting **ESG offset totals**, not just a short list. The *dual-source* half of #11 is still open | [#11](DEFERRED_BACKLOG.md) |
+| ~~10~~ | ~~Keyboard users cannot Escape a payment dialog~~ — ✅ **fixed 2026-07-28** via `v-modal-a11y` on all 15 dialogs (not by adopting `AccessibleModal`; see the entry for why) | [#10](DEFERRED_BACKLOG.md) |
 | 15 | **Error handling is three systems with none on** — `ErrorBoundary` commented out; `main.js` monkeypatches `window.fetch` globally and can eat unrelated errors | [#15](DEFERRED_BACKLOG.md) |
 | 26 | The farmer **"Paid" flag is a one-sided assertion rendered as fact** — the farmer can neither acknowledge nor contest it. Load-bearing since the 2026-07-28 decision | [#26](DEFERRED_BACKLOG.md) |
 | 26 | A **feedstock dispute is structurally impossible** — `disputes.transaction_id` is `not null references credit_transactions(id)`; a delivery has no such row. Schema change | [#26](DEFERRED_BACKLOG.md) |
@@ -47,7 +52,7 @@
 | # | Item | Note |
 |---|---|---|
 | 30 | ~61 dead exports remain (347 lines already removed) | **Exact-string edits only** — line arithmetic corrupted two files last pass |
-| 9 | Consolidate duplicated formatters — `peso()` ×11, `round2()` ×9, `shortDate()` ×8 | Two competing currency conventions |
+| ~~9~~ | ~~Consolidate duplicated formatters~~ | ✅ **Done 2026-07-28** — `src/utils/format.js`; three real divergences fixed, incl. money rendering at one decimal place |
 | 15 | The `const s = getSupabase(); if (!s) return` guard is copy-pasted **~233× across 49 files** | Fix at the root, then delete the guards |
 | 15 | **Fulfillment saga exists twice**, "kept in sync by hand" | The webhook copy is the one that settles money |
 | 15 | Runtime schema-probing (5-attempt insert loop, "retry without `updated_at`") | Delete once migrations are authoritative (#7) |

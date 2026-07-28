@@ -215,18 +215,81 @@ it had never been bundled. `AdvancedSearch.vue` from the line above went at the 
 with its `vite.config.js` manualChunks pin: that pin was the file's only reference anywhere, which is
 why an import-graph scan reports it as used and misses it.
 
-### 9. Consolidate duplicated formatters 🟢
-`peso()` × 11, `round2()` × 9, `shortDate()` × 8, `formatCurrency()` × 6. Two competing currency
-conventions mean inconsistent formatting across the app. One `src/utils/format.js` fixes it.
+### 9. Consolidate duplicated formatters ✅ CLOSED 2026-07-28
 
-### 10. Route hand-rolled modals through `AccessibleModal.vue` 🟠
-26 raw `.modal-overlay` divs bypass the existing accessible modal (focus trap, Escape, `role="dialog"`).
-Keyboard users cannot Escape a payment dialog.
+`src/utils/format.js` is now the single source: `peso`, `pesoCode`, `pesoWhole`, `num`, `round2`,
+`pct`, `shortDate`, `dateTime`. It replaced `peso()` ×15, `shortDate()` ×11, `round2()` ×10,
+`num()` ×10 and `formatCurrency()` ×5 across 13 files.
 
-### 11. Two tables back "transaction history" 🟠
-`creditOwnershipService` reads `credit_purchases`; `transactionHistoryService` reads
-`credit_transactions`. Same feature, different sources. `getUserTransactionHistory` also slices the
-merged list to `limit`, so a heavy trader's **retirements disappear** from the combined view.
+**Three of the divergences were real, not cosmetic** — the reason this was worth doing:
+
+- `BuyerDashboardView` omitted `minimumFractionDigits`, so a balance rendered **`₱1,234.5`** — one
+  decimal place, on money.
+- `FinanceConsoleView` and `MarketDashboardView` passed `undefined` as the locale, so digit grouping
+  followed the **viewer's browser locale** rather than en-PH.
+- `AdminRefundsView`'s `shortDate` was date **+ time** while every other view's `shortDate` was
+  date-only — one name, two outputs. Aliased to the new `dateTime` rather than silently changing what
+  renders.
+
+**Two variants are deliberate and are now named rather than duplicated:** `pesoCode()` for VAT
+invoices (a tax document carries the ISO code `PHP`, not the `₱` glyph) and `pesoWhole()` for
+CAPEX/OPEX (a trailing `.00` on eight digits is noise). If you need another, add it to `format.js`
+with a comment saying why — re-declaring a local one is exactly how the drift above happened.
+
+### 10. Hand-rolled modals bypass the accessible modal ✅ CLOSED 2026-07-28 (differently than proposed)
+
+**The defect was confirmed and worse than "bypass":** 15 `.modal-overlay` dialogs across 9 files, and
+**not one handled Escape** — including wallet top-up and withdraw, so a keyboard user could not
+dismiss a payment dialog. None trapped focus (Tab walked onto the page behind), and none announced
+itself as a dialog. `AccessibleModal.vue` had exactly **one** adopter.
+
+**Closed with a directive, not by adopting `AccessibleModal`.** These overlays wrap child components
+— `<TopUp>`, `<Withdraw>`, `<ListingManagerModal>` — that render their own header and actions, while
+`AccessibleModal` supplies its own title bar and close button. Adopting it would have given each a
+second, duplicate header and turned an accessibility fix into a visual rewrite of 15 dialogs.
+
+[`v-modal-a11y`](../src/directives/modalA11y.js) adds the missing behaviour as one attribute per
+dialog, no markup change: Escape (topmost dialog only, so stacks unwind one layer at a time), Tab /
+Shift+Tab wrapping with focus pulled back if it escapes, `role="dialog"` + `aria-modal="true"`
+without overriding a value already declared, focus restored to the trigger, and body-scroll lock.
+
+**Worth knowing:** it queries focusables **live on each Tab** rather than caching at open. The
+existing `focusManager.trapFocus` caches its list at setup, so a dialog whose content appears after
+mount would not trap correctly with it. Guarded by 9 tests in
+[`modalA11y.test.js`](../src/test/directives/modalA11y.test.js).
+
+`AccessibleModal.vue` is unchanged and remains the right choice for **new** dialogs that want standard
+chrome.
+
+### 11. Two tables back "transaction history" 🟠 — the slice bug is CLOSED, the dual source is NOT
+
+> **✅ The slice bug is fixed (2026-07-28), and it was more serious than this entry recorded.**
+>
+> `creditOwnershipService.getUserTransactionHistory` fetched `limit` purchases and `limit`
+> retirements, merged them, sorted newest-first, then sliced the **combined** list to `limit`. When a
+> user's purchases were all newer than their retirements, the purchases filled the slice and **every
+> retirement was dropped**.
+>
+> This entry called that "retirements disappear from the combined view", implying a cosmetic
+> list-length problem. In fact **the only caller is `esgReportService.buildEsgDataset`**, which
+> derives `retiredCredits`, `retiredTco2e` and the by-project / by-category groupings from exactly
+> those retirement rows. So **the ESG report a buyer exports as evidence of their offsetting silently
+> under-reported the one number it exists to state** — nothing errored, nothing looked missing.
+>
+> **The suite could not see it:** `esgReportService.test.js` injects a fake service, so the real
+> function was never executed. The new
+> [`creditOwnershipHistory.test.js`](../src/test/services/creditOwnershipHistory.test.js) drives it
+> through a mocked client; with the slice restored, 3 of its 4 cases fail and the ESG assertion
+> reports **0 credits retired for a user who retired 8**.
+>
+> `limit` now caps each type independently and says so in the JSDoc. **Do not re-add a cross-type
+> slice** — if a caller needs a true "most recent N overall", slice at the call site where the
+> semantics are visible.
+
+**Still open — the dual source itself.** `creditOwnershipService` reads `credit_purchases`;
+`transactionHistoryService` reads `credit_transactions`. Same feature, two sources, and the two
+functions even **share a name**, which is how the slice above stayed hidden. Consolidating them is a
+data-model question (which table is canonical for a purchase) and was not attempted with the bug fix.
 
 ### 12. Grant hygiene on ~10 SECURITY DEFINER RPCs 🟠
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
