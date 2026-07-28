@@ -11,6 +11,13 @@ happened.
 > - You'll need one account per role. The **Admin** creates/approves the special roles (Verifier and LGU
 >   are set by Admin; Farmer and Developer are applied for and approved).
 > - After every payment test, the Admin runs the health check **ADMIN-05** — the books must balance.
+>
+> ⚠️ **Credits are created at MRV approval, not at validation.** Validating a project (VER-02) marks it
+> legitimate and eligible for monitoring — it mints nothing and puts nothing on the marketplace. Credits
+> exist, and the project lists, only once a verifier approves a monitoring report's emission reductions
+> (VER-03). This changed on 2026-07-26, so **a project validated before that date behaves differently
+> from one validated today** — if you see an older project already listed, that is expected. Run VER-03
+> before the buyer tests (BUY-03 onward) if you need fresh credits to buy.
 
 ---
 
@@ -52,8 +59,8 @@ happened.
 | ID | Test name | Steps | Pass when |
 |---|---|---|---|
 | ☐ VER-01 | Review a project | Verifier panel → open a submitted project → run the scored rubric | Rubric score shows; checklist saves |
-| ☐ VER-02 | Validate & price | Set price per credit → Validate | Project auto-lists on the marketplace |
-| ☐ VER-03 | Approve emission reductions | Open the monitoring report → approve → pick **Removal** or **Avoidance** | Credits mint; MRV dashboard splits removed/avoided |
+| ☐ VER-02 | Validate & price | Set price per credit → Validate | Project becomes **Validated** and moves to MRV. **No credits are minted and it does NOT appear on the marketplace yet** — that is correct, not a bug (see the note above) |
+| ☐ VER-03 | Approve emission reductions | Open the monitoring report → approve → pick **Removal** or **Avoidance** | Credits mint **and the project now appears on the marketplace**; MRV dashboard splits removed/avoided |
 | ☐ VER-04 | Request changes | Reject / request revision with a comment | Developer is notified; project returns to them |
 
 ---

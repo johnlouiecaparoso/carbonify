@@ -32,7 +32,7 @@
 > differently from one validated today — worth saying to any pilot developer before they report it as
 > a bug.
 >
-> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch (85 commits) for review; `main` is otherwise ~85 commits behind. Not merged yet.
+> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review; `main` is **124 commits behind** `feature-user-onboarding-ux` (verified 2026-07-28 — the "85" here was accurate when written on 2026-07-26 and has since drifted). Not merged yet.
 >
 > ### 🆕 2026-07-26 (latest) — role-by-role live-readiness review, all six roles
 

@@ -99,9 +99,13 @@ the money steps** (3f, 3g).
 - [ ] **3a. Developer** submits a project (fill Registry Details + Financials), uploads the required
   compliance documents, confirms they attach and the project reaches "pending".
 - [ ] **3b. Verifier** opens the review queue, runs the scored rubric, **sets the price per credit**, and
-  validates → the project should **auto-list** on the marketplace and a credit pool appear.
+  validates → the project reaches **validated** and becomes eligible for MRV. **It mints no credits and
+  does NOT appear on the marketplace** — that is correct as of the 2026-07-26 mint-on-VER cutover
+  (backlog #17). A pool or listing appearing here is a regression, not a pass.
 - [ ] **3c. Developer** files a **monitoring report** (MRV); **verifier approves a VER**, picks
-  **Removal vs Avoidance** → credits mint. Check the **MRV dashboard** rolls it up.
+  **Removal vs Avoidance** → credits mint **and the project auto-lists on the marketplace** (the VER
+  trigger creates the listing, or tops up its quantity if one already exists). Check the **MRV
+  dashboard** rolls it up. **Steps 3d–3g depend on this** — before 3c there is nothing new to buy.
 - [ ] **3d. Buyer** completes **KYC** (buy gate), browses `/marketplace`, adds to cart.
 - [ ] **3e. Buyer** tops up the **wallet** (test card) → confirm balance updates.
 - [ ] **3f. Buyer** buys credits — run **all money paths** at least once across the pilot:
