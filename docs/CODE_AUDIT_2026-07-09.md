@@ -15,6 +15,11 @@
 > - **`services/credits|payments|payouts` are imported only by tests.** Still true, still deliberate;
 >   tracked as **#21** in [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) rather than deleted, because it is
 >   an architecture decision.
+> - **The hand-rolled modal overlays were real, and worse than recorded.** This audit's count of 26 was
+>   against the pre-sweep tree; 15 survived the dead-file deletions. Not one of them handled Escape,
+>   so wallet top-up and withdraw could be opened but not dismissed by keyboard. **Closed 2026-07-28**
+>   (backlog #10) — via a `v-modal-a11y` directive rather than by adopting `AccessibleModal.vue`, since
+>   these overlays wrap components that already render their own header.
 >
 > Names in the body that no longer exist (`adminService.js`, `authServiceSimple.js`,
 > `sampleDataService.js`, `verifierService.js`, `UserDashboard.vue`, `UserProfile.vue`) were removed

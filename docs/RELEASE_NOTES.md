@@ -1,6 +1,31 @@
 # Carbonify — Release Notes
 
-## 2026-07-26 (latest) — Clearer money figures, honest error messages, and a fix to how credits are issued
+## 2026-07-28 (latest) — A wrong number on ESG reports, fixed; and dialogs you can close with a key
+
+**Headline:** if you exported an ESG or offset report, it may have understated how many credits you
+retired. That is fixed. Separately, every pop-up dialog can now be closed with the Escape key.
+
+- **⚠️ ESG / offset reports could understate your retirements — re-export yours.** The report is built
+  from your purchase and retirement history, and the code that assembled that history kept only the
+  most recent entries **across both kinds combined**. If you had a lot of recent purchases, your older
+  retirements were pushed out of the list — and because retirements are what the report counts as your
+  offset, the total came out **too low**. Nothing was wrong with your actual credits: they were always
+  retired, the certificates were always valid, and nothing was lost. Only the exported report was
+  wrong. **If you filed a report generated before 28 July, export it again and compare the retired
+  total.** Buyers with few purchases were unaffected.
+- **Every dialog now closes with Escape.** Fifteen pop-ups — including **wallet top-up and
+  withdrawal** — could only be dismissed with the mouse. Anyone using a keyboard, or a screen reader,
+  could open a payment dialog and have no way to back out of it. All of them now close with Escape,
+  keep the Tab key inside the dialog instead of wandering onto the page behind, and announce
+  themselves properly to screen readers.
+- **Money reads consistently across the app.** Your dashboard balance could show as `₱1,234.5` — one
+  decimal place — while the same figure appeared correctly elsewhere. Amounts in a couple of places
+  were also grouped using your browser's country format rather than Philippine format. Both fixed, so
+  a peso amount now looks the same wherever you see it.
+
+---
+
+## 2026-07-26 — Clearer money figures, honest error messages, and a fix to how credits are issued
 
 **Headline:** sellers can now see what they actually earn after fees and export it; farmers are told
 plainly that Carbonify does not handle their payment; and a bug that could have issued the same credits

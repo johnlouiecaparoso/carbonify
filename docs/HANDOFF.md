@@ -10,7 +10,7 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **757 tests green** (703 before the 2026-07-26 role-by-role review below, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **770 tests green** (757 before the 2026-07-28 defect pass below, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > ### ⚠️ LIVE BEHAVIOUR CHANGED 2026-07-26 — validating a project no longer issues credits
 >
@@ -34,7 +34,51 @@
 >
 > **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review; `main` is **124 commits behind** `feature-user-onboarding-ux` (verified 2026-07-28 — the "85" here was accurate when written on 2026-07-26 and has since drifted). Not merged yet.
 >
-> ### 🆕 2026-07-26 (latest) — role-by-role live-readiness review, all six roles
+> ### 🆕 2026-07-28 (latest) — three backlog defects closed, and one of them was mis-scoped
+
+Worked the in-repo lane of the new [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md). Tests **757 → 770**,
+lint and build green throughout. **#26 was decided the same day** (see below) but deliberately not built.
+
+**#11 was not the bug its entry described, and that is the finding worth carrying.** The entry read
+"a heavy trader's retirements disappear from the combined view" — a list-length problem.
+`getUserTransactionHistory` fetched `limit` purchases and `limit` retirements, merged, sorted
+newest-first, then sliced the **combined** list, so purchases newer than the retirements pushed every
+retirement out. But its **only caller is `esgReportService.buildEsgDataset`**, which derives
+`retiredCredits`, `retiredTco2e` and the by-project groupings from exactly those rows. **The ESG
+report a corporate buyer exports as evidence of their offsetting was silently under-reporting the one
+number it exists to state.** Nothing errored, nothing looked missing.
+
+The suite could not see it — `esgReportService.test.js` injects a fake service, so the broken function
+never ran. The new test drives it through a mocked client; with the slice restored it reports
+**0 credits retired for a user who retired 8**. **The dual-source half of #11 is still open** —
+`creditOwnershipService` reads `credit_purchases`, `transactionHistoryService` reads
+`credit_transactions`, and both export a function of the *same name*, which is how this stayed hidden.
+
+**#10 — closed differently than proposed.** The defect was worse than "bypass the accessible modal":
+15 `.modal-overlay` dialogs across 9 files and **not one handled Escape**, including wallet top-up and
+withdraw, so a keyboard user could not dismiss a payment dialog. `AccessibleModal.vue` had exactly one
+adopter. Adopting it everywhere was the wrong fix — these overlays wrap `<TopUp>`, `<Withdraw>` and
+`<ListingManagerModal>`, which render their own headers, so it would have given each a duplicate
+header and turned an accessibility fix into a visual rewrite. Instead
+[`v-modal-a11y`](../src/directives/modalA11y.js) adds Escape (topmost dialog only), Tab wrapping with
+focus pulled back if it escapes, `role="dialog"`, focus restore and scroll lock — one attribute per
+dialog, no markup change. It queries focusables **live per Tab**; the existing
+`focusManager.trapFocus` caches at open and would miss content that appears after mount.
+
+**#9 — three real divergences, not just duplication.** `src/utils/format.js` replaced `peso()` ×15,
+`shortDate()` ×11, `round2()` ×10, `num()` ×10, `formatCurrency()` ×5. What it fixed:
+`BuyerDashboardView` rendered money at **one decimal place** (`₱1,234.5`); `FinanceConsoleView` and
+`MarketDashboardView` grouped digits by the **viewer's browser locale**, not en-PH; and
+`AdminRefundsView`'s `shortDate` was date **+ time** while every other view's was date-only — one
+name, two outputs. `pesoCode()` (VAT invoices carry the ISO code) and `pesoWhole()` (CAPEX) are
+deliberate variants, now named rather than duplicated.
+
+**Not done, deliberately:** **#30** (61 remaining dead exports) — lowest value in the lane and highest
+risk; the previous pass computed line ranges, corrupted two files and needed a restore from backup.
+Start it fresh, with exact-string edits. **#26's two follow-ups** (the ToS/modal pairing and the
+two-sided payment record) remain open by decision, not oversight.
+
+### 🆕 2026-07-26 — role-by-role live-readiness review, all six roles
 
 Buyer, project developer, verifier, farmer, LGU and admin, each asked the same three questions: is it
 deployable, are there errors/bugs/dead code, and would someone in that role be satisfied. **30 commits**

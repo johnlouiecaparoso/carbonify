@@ -16,7 +16,7 @@
 | Manual role click-through | 🟡 partially done live; formalized in the runbook §3. |
 | Security / penetration test | ❌ not done — the last P0 before live payment keys. |
 | Load / performance | ❌ not done. |
-| Accessibility | 🟡 partial (`for`/`id` pass started 2026-07-07). |
+| Accessibility | 🟡 partial (`for`/`id` pass started 2026-07-07; colour contrast closed 2026-07-26 with a token test; **modal keyboard access closed 2026-07-28** — Escape / focus trap / `role="dialog"` on all 15 dialogs, 9 tests). Remaining: the `for`/`id` pass on MRV/assessment/LGU forms, and focus states outside dialogs. |
 
 **The gap is not unit coverage — it's everything that unit tests can't prove:** RLS policies, RPC grants,
 real payment settlement, and real human usage. The plan below is ordered by that gap.
@@ -73,7 +73,12 @@ The invited pilot — its own section below (§2).
 - Establish a baseline before the stated 1,000-user / ₱2M-GMV milestone.
 
 ### 1.8 Accessibility 🟡
-- Finish the `for`/`id` pass on MRV/assessment/LGU forms; keyboard nav; focus states; color contrast.
+- ✅ **Colour contrast** — closed 2026-07-26; `tokenContrast.test.js` fails the suite on a regression.
+- ✅ **Dialog keyboard access** — closed 2026-07-28; `v-modal-a11y` on all 15 hand-rolled dialogs,
+  guarded by `src/test/directives/modalA11y.test.js`. Wallet top-up and withdraw were reachable but
+  **not dismissable** by keyboard before this.
+- ⬜ Finish the `for`/`id` pass on MRV/assessment/LGU forms; focus states outside dialogs; a screen
+  reader pass over the money path.
 
 ---
 
