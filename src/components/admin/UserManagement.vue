@@ -106,7 +106,7 @@
         </div>
 
         <!-- Edit User Modal -->
-        <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+        <div v-if="showEditModal" class="modal-overlay" v-modal-a11y="closeEditModal" @click="closeEditModal">
           <div class="modal-content" @click.stop>
             <h3>Edit User</h3>
             <p v-if="editingSelf" class="self-edit-note">
@@ -183,7 +183,7 @@
     />
 
     <!-- Suspend / reactivate -->
-    <div v-if="showSuspendModal" class="modal-overlay" @click.self="closeSuspendModal">
+    <div v-if="showSuspendModal" class="modal-overlay" v-modal-a11y="closeSuspendModal" @click.self="closeSuspendModal">
       <div class="modal">
         <h3>{{ suspendTarget && isSuspendedProfile(suspendTarget) ? 'Reactivate account' : 'Suspend account' }}</h3>
         <p class="modal-sub">{{ suspendTarget?.full_name || suspendTarget?.email }}</p>

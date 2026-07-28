@@ -649,7 +649,7 @@ onMounted(load)
     </template>
 
     <!-- Log-delivery modal -->
-    <div v-if="deliveryRfq" class="modal-overlay" @click.self="deliveryRfq = null">
+    <div v-if="deliveryRfq" class="modal-overlay" v-modal-a11y="() => (deliveryRfq = null)" @click.self="deliveryRfq = null">
       <div class="modal">
         <h2>Log a delivery</h2>
         <p class="muted small">

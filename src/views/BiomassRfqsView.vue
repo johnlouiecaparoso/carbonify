@@ -380,7 +380,7 @@ onMounted(load)
     </template>
 
     <!-- Confirm-receipt modal -->
-    <div v-if="confirmDeliveryRow" class="modal-overlay" @click.self="confirmDeliveryRow = null">
+    <div v-if="confirmDeliveryRow" class="modal-overlay" v-modal-a11y="() => (confirmDeliveryRow = null)" @click.self="confirmDeliveryRow = null">
       <div class="modal">
         <h2>Confirm receipt</h2>
         <p class="muted small">
@@ -418,7 +418,7 @@ onMounted(load)
     </div>
 
     <!-- Mark-paid modal -->
-    <div v-if="payDelivery" class="modal-overlay" @click.self="payDelivery = null">
+    <div v-if="payDelivery" class="modal-overlay" v-modal-a11y="() => (payDelivery = null)" @click.self="payDelivery = null">
       <div class="modal">
         <h2>Mark delivery as paid</h2>
         <p class="muted small">
@@ -443,7 +443,7 @@ onMounted(load)
     </div>
 
     <!-- Quote modal -->
-    <div v-if="quoteRfq" class="modal-overlay" @click.self="quoteRfq = null">
+    <div v-if="quoteRfq" class="modal-overlay" v-modal-a11y="() => (quoteRfq = null)" @click.self="quoteRfq = null">
       <div class="modal">
         <h2>Quote this request</h2>
         <p class="muted small">{{ label(quoteRfq) }} · {{ Number(quoteRfq.quantity).toLocaleString('en-PH') }} {{ quoteRfq.unit }}</p>

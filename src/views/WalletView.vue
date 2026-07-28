@@ -247,14 +247,14 @@ onMounted(() => {
     </main>
 
     <!-- Top Up Modal -->
-    <div v-if="showTopUp" class="modal-overlay" @click="onTopUpCancel">
+    <div v-if="showTopUp" class="modal-overlay" v-modal-a11y="onTopUpCancel" @click="onTopUpCancel">
       <div class="modal-content" @click.stop>
         <TopUp @success="onTopUpSuccess" @cancel="onTopUpCancel" />
       </div>
     </div>
 
     <!-- Withdraw Modal -->
-    <div v-if="showWithdraw" class="modal-overlay" @click="onWithdrawCancel">
+    <div v-if="showWithdraw" class="modal-overlay" v-modal-a11y="onWithdrawCancel" @click="onWithdrawCancel">
       <div class="modal-content" @click.stop>
         <Withdraw @success="onWithdrawSuccess" @cancel="onWithdrawCancel" />
       </div>

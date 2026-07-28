@@ -289,7 +289,7 @@ onMounted(load)
     </FeatureGate>
 
     <!-- Data room -->
-    <div v-if="dataRoom" class="modal-overlay" @click.self="dataRoom = null">
+    <div v-if="dataRoom" class="modal-overlay" v-modal-a11y="() => (dataRoom = null)" @click.self="dataRoom = null">
       <div class="modal">
         <h2>Data room</h2>
         <p class="muted small">{{ dataRoom.title }}</p>
@@ -327,7 +327,7 @@ onMounted(load)
     </div>
 
     <!-- Financial detail modal -->
-    <div v-if="detail" class="modal-overlay" @click.self="detail = null">
+    <div v-if="detail" class="modal-overlay" v-modal-a11y="() => (detail = null)" @click.self="detail = null">
       <div class="modal">
         <h2>{{ detail.title }}</h2>
         <p class="muted small">{{ detail.category }}<span v-if="detail.location"> · {{ detail.location }}</span></p>

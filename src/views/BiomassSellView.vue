@@ -254,7 +254,7 @@ onMounted(load)
     </template>
 
     <!-- KYB modal -->
-    <div v-if="showKyb" class="modal-overlay" @click.self="showKyb = false">
+    <div v-if="showKyb" class="modal-overlay" v-modal-a11y="() => (showKyb = false)" @click.self="showKyb = false">
       <div class="modal">
         <KybForm @success="onKybSuccess" @cancel="showKyb = false" />
       </div>

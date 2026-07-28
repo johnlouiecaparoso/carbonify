@@ -207,14 +207,14 @@ onMounted(load)
       </section>
 
       <!-- KYB submission modal -->
-      <div v-if="showKyb" class="modal-overlay" @click.self="showKyb = false">
+      <div v-if="showKyb" class="modal-overlay" v-modal-a11y="() => (showKyb = false)" @click.self="showKyb = false">
         <div class="modal">
           <KybForm @success="onKybSuccess" @cancel="showKyb = false" />
         </div>
       </div>
 
       <!-- Withdraw modal -->
-      <div v-if="showWithdraw" class="modal-overlay" @click.self="showWithdraw = false">
+      <div v-if="showWithdraw" class="modal-overlay" v-modal-a11y="() => (showWithdraw = false)" @click.self="showWithdraw = false">
         <div class="modal">
           <Withdraw @success="onWithdrawSuccess" @cancel="showWithdraw = false" />
         </div>

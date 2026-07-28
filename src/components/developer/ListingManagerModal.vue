@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" role="dialog" aria-modal="true" :aria-label="`Manage listing for ${listing.projectTitle}`" @click.self="close">
+  <div class="modal-overlay" role="dialog" aria-modal="true" :aria-label="`Manage listing for ${listing.projectTitle}`" v-modal-a11y="close" @click.self="close">
     <div class="modal">
       <header class="modal-head">
         <div>

@@ -14,12 +14,18 @@ import { optimizeImageLoading } from '@/utils/imageOptimization'
 import { setupServiceWorkerCache } from '@/utils/cache'
 import { initSupabase } from '@/services/supabaseClient'
 import { initSentry } from '@/utils/sentry'
+import { modalA11y } from '@/directives/modalA11y'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
 app.use(router)
+
+// Escape-to-close, focus trap and role="dialog" for the hand-rolled
+// `.modal-overlay` dialogs (DEFERRED_BACKLOG #10). See the directive's header
+// for why these are not routed through AccessibleModal.vue.
+app.directive('modal-a11y', modalA11y)
 
 // Optional error tracking — dormant unless VITE_SENTRY_DSN is set (the SDK is
 // only loaded when a DSN exists). Fire-and-forget so it never delays mount.

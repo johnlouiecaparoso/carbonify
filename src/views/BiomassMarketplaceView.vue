@@ -142,7 +142,7 @@ onMounted(load)
     </div>
 
     <!-- RFQ modal -->
-    <div v-if="rfqProduct" class="modal-overlay" @click.self="closeRfq">
+    <div v-if="rfqProduct" class="modal-overlay" v-modal-a11y="closeRfq" @click.self="closeRfq">
       <div class="modal">
         <template v-if="rfqSuccess">
           <div class="success">
