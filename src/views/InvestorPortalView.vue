@@ -4,6 +4,7 @@ import PageHeader from '@/components/layout/PageHeader.vue'
 import { getInvestmentPipeline, documentCount } from '@/services/investorService'
 import { getProjectDocuments, logAccess, formatSize } from '@/services/dataRoomService'
 import { FEATURES } from '@/constants/plans'
+import { peso, num, pct } from '@/utils/format'
 import FeatureGate from '@/components/ui/FeatureGate.vue'
 import CategoryChart from '@/components/charts/CategoryChart.vue'
 import {
@@ -52,15 +53,6 @@ function openDocument(doc) {
   window.open(doc.url, '_blank', 'noopener')
 }
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function num(n) {
-  return Number(n || 0).toLocaleString('en-PH')
-}
-function pct(v) {
-  return v == null ? '—' : `${(v * 100).toFixed(1)}%`
-}
 
 const categories = computed(() => summary.value?.byCategory.map((c) => c.category) || [])
 

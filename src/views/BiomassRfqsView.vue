@@ -15,6 +15,7 @@ import {
 } from '@/services/farmerService'
 import { getSupabase } from '@/services/supabaseClient'
 import { biomassTypeLabel } from '@/constants/biomass'
+import { peso, shortDate } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
@@ -42,12 +43,6 @@ const confirmDeliveryRow = ref(null)
 const confirmProjectId = ref('')
 const myProjects = ref([])
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-}
 function label(rfq) {
   return `${biomassTypeLabel(rfq.product_type)}${rfq.product_title ? ' · ' + rfq.product_title : ''}`
 }

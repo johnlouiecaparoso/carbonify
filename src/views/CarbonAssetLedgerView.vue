@@ -2,18 +2,13 @@
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyAssetLedger } from '@/services/assetLedgerService'
+import { peso, num } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
 const rows = ref([])
 const totals = ref(null)
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function num(n) {
-  return Number(n || 0).toLocaleString('en-PH')
-}
 function statusLabel(s) {
   return String(s || '').replace(/_/g, ' ')
 }

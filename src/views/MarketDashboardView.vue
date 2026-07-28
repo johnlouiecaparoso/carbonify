@@ -63,6 +63,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getMarketStats } from '@/services/registryService'
+import { peso } from '@/utils/format'
 
 const loading = ref(true)
 const stats = ref({
@@ -85,9 +86,6 @@ const retiredPct = computed(() => {
 
 function fmt(n) {
   return Number(n || 0).toLocaleString()
-}
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 onMounted(async () => {

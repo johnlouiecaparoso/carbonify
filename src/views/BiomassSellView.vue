@@ -10,6 +10,7 @@ import {
 import { getMyKyb } from '@/services/kybService'
 import { useUserStore } from '@/store/userStore'
 import { BIOMASS_PRODUCT_TYPES, BIOMASS_UNITS, biomassTypeLabel } from '@/constants/biomass'
+import { peso } from '@/utils/format'
 import KybForm from '@/components/wallet/KybForm.vue'
 
 const userStore = useUserStore()
@@ -44,9 +45,6 @@ const formErrors = ref([])
 const saving = ref(false)
 const saveError = ref('')
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 async function load() {
   loading.value = true

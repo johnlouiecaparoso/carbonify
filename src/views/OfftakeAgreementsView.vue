@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { getSupabase } from '@/services/supabaseClient'
+import { peso, num, shortDate } from '@/utils/format'
 import {
   getMyOfftakes,
   createOfftake,
@@ -49,15 +50,6 @@ function emptyForm() {
   }
 }
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function num(n) {
-  return Number(n || 0).toLocaleString('en-PH')
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-}
 function projectTitle(id) {
   return projects.value.find((p) => p.id === id)?.title || 'Unknown project'
 }

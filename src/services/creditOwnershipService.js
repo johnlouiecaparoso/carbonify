@@ -141,10 +141,26 @@ export class CreditOwnershipService {
   }
 
   /**
-   * Get user's transaction history
+   * Get user's transaction history (purchases + retirements, newest first).
+   *
+   * `limit` caps each transaction type SEPARATELY, not the combined result — so
+   * the return can hold up to 2 × limit rows. That is deliberate: this used to
+   * `.slice(0, limit)` the merged list, which silently dropped whichever type
+   * sorted later. A user with `limit` purchases newer than their oldest
+   * retirement lost EVERY retirement.
+   *
+   * That mattered because the only caller is `esgReportService.buildEsgDataset`,
+   * which derives `retiredCredits` / `retiredTco2e` and the by-project and
+   * by-category groupings from exactly these retirement rows. A dropped
+   * retirement understates the offset claim the ESG report exists to state —
+   * the report would under-report, with no error and nothing missing on screen.
+   *
+   * Do not re-add a cross-type slice. If a caller needs a true "most recent N
+   * overall", slice at the call site where the semantics are visible.
+   *
    * @param {string} userId - User ID
-   * @param {number} limit - Number of transactions to fetch
-   * @returns {Promise<Array>} Transaction history
+   * @param {number} limit - Max rows fetched PER TYPE (purchases, retirements)
+   * @returns {Promise<Array>} Combined history, newest first, up to 2 × limit
    */
   async getUserTransactionHistory(userId, limit = 50) {
     if (!this.supabase) {
@@ -226,7 +242,10 @@ export class CreditOwnershipService {
         })),
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
-      return transactions.slice(0, limit)
+      // No cross-type slice here — see the JSDoc. Each query is already capped
+      // at `limit`, so this is bounded; slicing the merged list is what dropped
+      // retirements out of the ESG report.
+      return transactions
     } catch (error) {
       console.error('❌ Error fetching transaction history:', error)
       return []

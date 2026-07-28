@@ -14,6 +14,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { useCartStore } from '@/store/cartStore'
 import { creditOwnershipService } from '@/services/creditOwnershipService'
+import { peso, num } from '@/utils/format'
 import { computePortfolioPnl } from '@/services/portfolioAnalytics'
 import { generateCarbonImpactReport } from '@/services/receiptService'
 import { getMarketStats } from '@/services/registryService'
@@ -51,12 +52,6 @@ const firstName = computed(() => {
 })
 
 // ── Money / number formatting (₱ everywhere; this platform is PHP-denominated) ──
-function peso(value) {
-  return `₱${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-}
-function num(value) {
-  return Number(value || 0).toLocaleString()
-}
 
 // ── Derived position ──
 const pnl = computed(() => computePortfolioPnl(holdings.value, marketPrice.value))

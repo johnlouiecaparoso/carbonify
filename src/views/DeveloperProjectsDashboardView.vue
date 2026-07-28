@@ -394,6 +394,7 @@ import ProjectProgressTracker from '@/components/ProjectProgressTracker.vue'
 import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 import ListingManagerModal from '@/components/developer/ListingManagerModal.vue'
 import { groupDeveloperProjects, ACTION_STATUSES } from '@/utils/groupDeveloperProjects'
+import { peso, num } from '@/utils/format'
 
 const router = useRouter()
 
@@ -433,9 +434,6 @@ const OWNER_EDITABLE_STATUSES = ['draft', 'pending', 'submitted', 'needs_revisio
 const canManage = (project) => OWNER_EDITABLE_STATUSES.includes(project.status)
 const isLive = (project) => has(project, 'approved', 'validated')
 
-const num = (n) => Number(n || 0).toLocaleString('en-PH')
-const peso = (n) =>
-  `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const ledgerByProject = computed(() =>
   Object.fromEntries(ledgerRows.value.map((row) => [row.projectId, row])),

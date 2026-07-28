@@ -119,6 +119,7 @@ import {
   getReconciliation,
 } from '@/services/adminFinanceService'
 import { exportTransactionsCsv } from '@/services/adminExportService'
+import { peso } from '@/utils/format'
 
 const loading = ref(false)
 const error = ref('')
@@ -134,9 +135,6 @@ const summary = ref({
 const transactions = ref([])
 const drift = ref([])
 
-function peso(value) {
-  return `₱${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 function formatDate(value) {
   if (!value) return '—'
   return new Date(value).toLocaleDateString(undefined, {

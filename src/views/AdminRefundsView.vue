@@ -8,6 +8,7 @@ import {
   adminRefundTransaction,
   resolveDispute,
 } from '@/services/disputeService'
+import { peso, dateTime } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
@@ -24,12 +25,9 @@ const refundReason = ref('')
 const openDisputes = computed(() => disputes.value.filter((d) => d.status === 'open'))
 const resolvedDisputes = computed(() => disputes.value.filter((d) => d.status !== 'open'))
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
-}
+// This view's date helper was `toLocaleString` (date + time), not the
+// date-only `shortDate` other views use — it is `dateTime` in @/utils/format.
+const shortDate = dateTime
 function disputeStatusLabel(s) {
   return { open: 'Open', resolved_refunded: 'Refunded', resolved_rejected: 'Rejected' }[s] || s
 }

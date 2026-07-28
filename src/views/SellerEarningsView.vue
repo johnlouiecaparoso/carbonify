@@ -11,6 +11,7 @@ import {
 } from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
 import { exportSalesCsv, exportSalesByProjectCsv } from '@/services/sellerExportService'
+import { peso, shortDate } from '@/utils/format'
 import Withdraw from '@/components/wallet/Withdraw.vue'
 import KybForm from '@/components/wallet/KybForm.vue'
 
@@ -46,12 +47,6 @@ const creditsSold = computed(() =>
   completedSales.value.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
 )
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-}
 
 async function load() {
   loading.value = true

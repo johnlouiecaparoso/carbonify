@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getBiomassProducts, submitRfq, estimateRfqTotal } from '@/services/biomassService'
 import { BIOMASS_PRODUCT_TYPES, BIOMASS_UNITS, biomassTypeLabel } from '@/constants/biomass'
+import { peso } from '@/utils/format'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -21,9 +22,6 @@ const rfqSubmitting = ref(false)
 const rfqError = ref('')
 const rfqSuccess = ref(false)
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()

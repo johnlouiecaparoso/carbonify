@@ -178,6 +178,7 @@ import ProjectForm from '@/components/ProjectForm.vue'
 import UiButton from '@/components/ui/Button.vue'
 import { projectService } from '@/services/projectService'
 import { getProjectFees } from '@/services/settingsService'
+import { pesoWhole } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()
@@ -188,9 +189,9 @@ const submittedProject = ref(null)
 // see docs/GAP_ANALYSIS.md for the collection follow-up.
 const fees = ref({ onboardingFee: 0, verificationFee: 0 })
 const hasFees = computed(() => fees.value.onboardingFee > 0 || fees.value.verificationFee > 0)
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH')}`
-}
+// `pesoWhole`, not `peso`: these are CAPEX/OPEX capital figures where a
+// trailing `.00` on eight digits is noise.
+const peso = pesoWhole
 
 // Edit mode: /submit-project?id=<projectId> loads the project for editing
 // (used by the developer "Edit details" action in the needs-revision loop).

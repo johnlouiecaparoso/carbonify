@@ -19,6 +19,7 @@ import {
 } from '@/services/farmerService'
 import { FARM_CROP_TYPES, PARCEL_STATUSES, cropTypeLabel } from '@/constants/farmer'
 import { biomassTypeLabel } from '@/constants/biomass'
+import { peso, shortDate } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
@@ -103,16 +104,8 @@ function performanceTone(perf) {
   return 'ok'
 }
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 function qty(n) {
   return Number(n || 0).toLocaleString('en-PH')
-}
-function shortDate(d) {
-  return d
-    ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-    : '—'
 }
 function rfqLabel(rfq) {
   return `${biomassTypeLabel(rfq.product_type)}${rfq.product_title ? ' · ' + rfq.product_title : ''}`
