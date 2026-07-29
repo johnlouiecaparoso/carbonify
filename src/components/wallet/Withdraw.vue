@@ -278,27 +278,27 @@ loadBalance()
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--carbonify-primary-700);
+  color: var(--primary-dark, #045c1a);
 }
 
 .form-description {
   margin: 0;
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
   font-size: 14px;
 }
 
 .balance-display {
   text-align: center;
   padding: 20px;
-  background: var(--carbonify-primary-50);
-  border: 1px solid var(--carbonify-primary-200);
+  background: var(--primary-lightest, #f8fdf8);
+  border: 1px solid var(--border-green-light, #d4edda);
   border-radius: 12px;
   margin-bottom: 24px;
 }
 
 .balance-label {
   font-size: 14px;
-  color: var(--carbonify-primary-600);
+  color: var(--primary-hover, #04701f);
   margin-bottom: 8px;
 }
 
@@ -319,7 +319,7 @@ loadBalance()
 .balance-amount {
   font-size: 32px;
   font-weight: 800;
-  color: var(--carbonify-primary-700);
+  color: var(--primary-dark, #045c1a);
 }
 
 .form-grid {
@@ -335,7 +335,7 @@ loadBalance()
 .input-label {
   font-weight: 600;
   font-size: 14px;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .amount-buttons {
@@ -346,29 +346,29 @@ loadBalance()
 
 .amount-btn {
   padding: 12px 8px;
-  border: 1px solid var(--carbonify-border);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
-  background: var(--carbonify-surface);
-  color: var(--carbonify-text);
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a1a);
   font-weight: 600;
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .amount-btn:hover {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-50);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-lightest, #f8fdf8);
 }
 
 .amount-btn.active {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-500);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .max-btn {
-  background: var(--carbonify-primary-100);
-  border-color: var(--carbonify-primary-300);
+  background: var(--primary-light, #e8f5e8);
+  border-color: var(--border-green-light, #d4edda);
 }
 
 .payment-methods {
@@ -382,20 +382,20 @@ loadBalance()
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--carbonify-border);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
-  background: var(--carbonify-surface);
+  background: var(--bg-primary, #ffffff);
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .payment-method:hover {
-  border-color: var(--carbonify-primary-500);
+  border-color: var(--primary-color, #058526);
 }
 
 .payment-method.active {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-50);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-lightest, #f8fdf8);
 }
 
 .payment-radio {

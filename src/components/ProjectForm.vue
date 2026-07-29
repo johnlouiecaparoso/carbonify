@@ -356,6 +356,19 @@ function clearFieldError(field) {
   success.value = ''
 }
 
+// The required-error text is built from the field KEY, which is a database
+// column name. Capitalizing it alone left the underscore in place, so the form
+// told a project developer "Host_entity is required" — six fields did this
+// (host_entity, geo_coordinates, expected_impact, start_date, end_date,
+// estimated_credits). Underscores become spaces before capitalizing, and a rule
+// may override with an explicit `label`.
+function fieldLabel(field) {
+  const rule = validationRules[field]
+  if (rule?.label) return rule.label
+  const words = field.replace(/_/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 function validateField(field) {
   const value = formData.value[field]
   const rule = validationRules[field]
@@ -363,17 +376,17 @@ function validateField(field) {
   // Handle required validation
   if (rule.required) {
     if (value === null || value === undefined || value === '') {
-      errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+      errors.value[field] = `${fieldLabel(field)} is required`
       return false
     }
     // For strings, also check if trimmed value is empty
     if (typeof value === 'string' && value.trim() === '') {
-      errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+      errors.value[field] = `${fieldLabel(field)} is required`
       return false
     }
     // For numbers, check if it's a valid number (not NaN)
     if (typeof value === 'number' && isNaN(value)) {
-      errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+      errors.value[field] = `${fieldLabel(field)} is required`
       return false
     }
   }
@@ -1205,14 +1218,11 @@ onMounted(() => {
         <UiInput
           id="location"
           v-model="formData.location"
-          :class="{ error: errors.location }"
+          :error="errors.location"
           placeholder="City, Province, Country"
           @blur="validateField('location')"
           @input="clearErrors"
         />
-        <div v-if="errors.location" class="field-error">
-          {{ errors.location }}
-        </div>
         <div class="field-help">{{ formData.location.length }}/100 characters</div>
       </div>
 
@@ -1282,12 +1292,11 @@ onMounted(() => {
             <UiInput
               id="geo_coordinates"
               v-model="formData.geo_coordinates"
-              :class="{ error: errors.geo_coordinates }"
+              :error="errors.geo_coordinates"
               placeholder="e.g., 14.5995,120.9842"
               @blur="validateField('geo_coordinates')"
               @input="clearErrors"
             />
-            <div v-if="errors.geo_coordinates" class="field-error">{{ errors.geo_coordinates }}</div>
             <div class="field-help">
               Click the map to set the location, or draw the project boundary.
             </div>
@@ -1302,33 +1311,28 @@ onMounted(() => {
 
           <div class="form-group">
             <label for="barangay" class="form-label"> Barangay * </label>
-            <UiInput id="barangay" v-model="formData.barangay" :class="{ error: errors.barangay }" @blur="validateField('barangay')" />
-            <div v-if="errors.barangay" class="field-error">{{ errors.barangay }}</div>
+            <UiInput id="barangay" v-model="formData.barangay" :error="errors.barangay" @blur="validateField('barangay')" />
           </div>
 
           <div class="form-group">
             <label for="municipality" class="form-label"> Municipality / City * </label>
-            <UiInput id="municipality" v-model="formData.municipality" :class="{ error: errors.municipality }" @blur="validateField('municipality')" />
-            <div v-if="errors.municipality" class="field-error">{{ errors.municipality }}</div>
+            <UiInput id="municipality" v-model="formData.municipality" :error="errors.municipality" @blur="validateField('municipality')" />
           </div>
 
           <div class="form-grid two-columns">
             <div class="form-group">
               <label for="start_date" class="form-label"> Start Date * </label>
-              <UiInput id="start_date" type="date" v-model="formData.start_date" :class="{ error: errors.start_date }" @blur="validateField('start_date')" />
-              <div v-if="errors.start_date" class="field-error">{{ errors.start_date }}</div>
+              <UiInput id="start_date" type="date" v-model="formData.start_date" :error="errors.start_date" @blur="validateField('start_date')" />
             </div>
             <div class="form-group">
               <label for="end_date" class="form-label"> End Date * </label>
-              <UiInput id="end_date" type="date" v-model="formData.end_date" :class="{ error: errors.end_date }" @blur="validateField('end_date')" />
-              <div v-if="errors.end_date" class="field-error">{{ errors.end_date }}</div>
+              <UiInput id="end_date" type="date" v-model="formData.end_date" :error="errors.end_date" @blur="validateField('end_date')" />
             </div>
           </div>
 
           <div class="form-group">
             <label for="host_entity" class="form-label"> Host Entity (LGU / Private / Coop) * </label>
-            <UiInput id="host_entity" v-model="formData.host_entity" :class="{ error: errors.host_entity }" @blur="validateField('host_entity')" />
-            <div v-if="errors.host_entity" class="field-error">{{ errors.host_entity }}</div>
+            <UiInput id="host_entity" v-model="formData.host_entity" :error="errors.host_entity" @blur="validateField('host_entity')" />
           </div>
         </div>
 
@@ -1893,7 +1897,7 @@ onMounted(() => {
 }
 
 .form-select.error {
-  border-color: var(--carbonify-error);
+  border-color: var(--error-color, #dc3545);
 }
 
 .form-textarea {
@@ -1917,12 +1921,12 @@ onMounted(() => {
 }
 
 .form-textarea.error {
-  border-color: var(--carbonify-error);
+  border-color: var(--error-color, #dc3545);
 }
 
 .field-error {
   margin-top: 4px;
-  color: var(--carbonify-error);
+  color: var(--error-color, #dc3545);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
@@ -1986,19 +1990,19 @@ onMounted(() => {
 }
 
 .error-message {
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
   padding: 12px 16px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md, 0.5rem);
   margin-bottom: 20px;
   font-size: 14px;
 }
 
 .success-message {
-  background: var(--carbonify-success-bg);
-  color: var(--carbonify-success);
+  background: var(--success-light, #d4edda);
+  color: var(--success-color, #058526);
   padding: 12px 16px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md, 0.5rem);
   margin-bottom: 20px;
   font-size: 14px;
 }
@@ -2101,8 +2105,8 @@ onMounted(() => {
 .file-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -2189,8 +2193,8 @@ onMounted(() => {
 }
 
 .remove-file-btn:hover {
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
 }
 
 .remove-file-btn:disabled {
@@ -2312,8 +2316,8 @@ onMounted(() => {
 .image-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -2749,8 +2753,8 @@ onMounted(() => {
 }
 
 .remove-file:hover {
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
 }
 
 .remove-file:disabled {

@@ -351,9 +351,9 @@ onMounted(() => {
 /* Error and Loading States */
 .error-card,
 .loading-card {
-  background: var(--carbonify-surface);
-  border: 1px solid var(--carbonify-border);
-  border-radius: var(--radius);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: var(--radius-xl, 0.75rem);
   padding: 40px;
   text-align: center;
   box-shadow: var(--shadow-md);
@@ -378,15 +378,15 @@ onMounted(() => {
 
 .error-message {
   font-size: 16px;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
   margin-bottom: 20px;
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid var(--carbonify-border);
-  border-top: 4px solid var(--carbonify-primary-500);
+  border: 4px solid var(--border-color, #d1e7dd);
+  border-top: 4px solid var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -402,15 +402,15 @@ onMounted(() => {
 }
 
 .loading-text {
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
   font-size: 16px;
 }
 
 /* Transactions Section */
 .transactions-section {
-  background: var(--carbonify-surface);
-  border: 1px solid var(--carbonify-border);
-  border-radius: var(--radius);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: var(--radius-xl, 0.75rem);
   padding: 24px;
   box-shadow: var(--shadow-md);
 }
@@ -427,7 +427,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .empty-transactions {
@@ -454,12 +454,12 @@ onMounted(() => {
 
 .empty-transactions h3 {
   margin: 0 0 8px 0;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .empty-transactions p {
   margin: 0 0 20px 0;
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
 }
 
 /* Transaction List */
@@ -494,15 +494,15 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: var(--carbonify-bg);
-  border: 1px solid var(--carbonify-border);
+  background: var(--bg-secondary, #f8fdf8);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 12px;
   transition: all 120ms ease;
 }
 
 .transaction-item:hover {
-  background: var(--carbonify-primary-50);
-  border-color: var(--carbonify-primary-200);
+  background: var(--primary-lightest, #f8fdf8);
+  border-color: var(--border-green-light, #d4edda);
 }
 
 .transaction-icon {
@@ -511,7 +511,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--carbonify-surface);
+  background: var(--bg-primary, #ffffff);
   border-radius: 50%;
 }
 
@@ -525,7 +525,7 @@ onMounted(() => {
 
 .transaction-description {
   font-weight: 600;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
   margin-bottom: 4px;
 }
 
@@ -533,7 +533,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
 }
 
 .transaction-status {
@@ -547,7 +547,7 @@ onMounted(() => {
 }
 
 .amount-topup {
-  color: var(--carbonify-primary-600);
+  color: var(--primary-hover, #04701f);
 }
 
 .amount-withdrawal {
