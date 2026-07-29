@@ -27,6 +27,7 @@ Every SQL check is a **file in the repo**. You never need to copy code out of a 
 | [`supabase/diagnostics/feedstock_verification.sql`](../supabase/diagnostics/feedstock_verification.sql) | After the farmer click-through |
 | [`supabase/diagnostics/daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql) | Every morning during the pilot |
 | [`supabase/diagnostics/money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) | Pre-flight, and after any RLS change |
+| [`supabase/diagnostics/rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) | 🆕 Pre-flight, and before the pentest — **tries the attacks** rather than reading the policies |
 
 ---
 
@@ -165,9 +166,46 @@ Two accounts, about five minutes:
 
 # Step 2 — Dashboard checks (no SQL can do these)
 
+> ## 🔴 2026-07-29 — TWO AUTH SETTINGS BLOCK THE BETA, and this page had both backwards
+>
+> Measured directly off the live project's public `GET /auth/v1/settings` (read-only, creates
+> nothing). Re-check any time with `npx playwright test src/test/e2e/pilot-readiness.spec.js`.
+>
+> | Setting | Live value | What this page said | Consequence |
+> |---|---|---|---|
+> | `disable_signup` | **`true`** | assumed signups work | 🔴 **Nobody can register.** Every Step 4 invite is rejected with *"Signups not allowed for this instance"* |
+> | `mailer_autoconfirm` | **`false`** → confirmation **REQUIRED** | "email confirmation is still off" | 🔴 New users must click an emailed link — **with no verified sender domain** (Step 6b) |
+>
+> **These two interact badly.** Turning signups on while confirmation is required, and before the
+> Resend domain is verified, means every invited user hits a confirmation email sent by Supabase's
+> shared default SMTP — heavily rate-limited (a handful per hour) and likely to be spam-filed. Inviting
+> 8–15 people into that produces a wave of "I never got the email" with no way to tell a rate-limit
+> from a typo.
+>
+> **Do these in order:**
+>
+> 1. **Either** finish Step 6b (buy + verify the domain, set the sender) — the clean route — **or**
+>    accept the default SMTP and invite in batches of 2–3, deliberately.
+> 2. **Then** Dashboard → Authentication → Sign In / Providers → **allow new users to sign up**.
+> 3. Re-run `pilot-readiness.spec.js` — *"the backend accepts new signups"* must go green.
+>
+> **One correction in your favour:** the go/no-go gate lists *"email confirmation re-enabled"* as an
+> open P0. It is already **on**. Only the verified sender domain half is outstanding.
+>
+> ### 🟠 Two providers are advertised in the UI and disabled on the backend
+>
+> `external.google` and `external.phone` are both **`false`**, but the sign-in and sign-up forms render
+> a **"Sign in / Sign up with Google"** button unconditionally, and the login form offers a phone/OTP
+> mode. A pilot user who picks either gets an error on the very first screen. Not beta-blocking — both
+> paths surface a message rather than failing silently — but it is the first thing a new user sees.
+> Either enable the providers or hide the buttons; that is a product call, so it is recorded rather
+> than changed. See [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) Lane 1e.
+
 - [ ] **8 edge functions deployed**: `account-deletion` · `paymongo-checkout` · `paymongo-reconcile` ·
       `paymongo-resettle` · `paymongo-webhook` · `process-payouts` · `public-registry` ·
       `send-approval-email`
+- [ ] 🔴 **Signups enabled** (`disable_signup` = `false`) — see the box above
+- [ ] 🔴 **Sender domain verified** before signups are enabled, or invite in small batches knowingly
 - [ ] **PayMongo in TEST mode** — the deployed secrets hold `sk_test_…`
 - [ ] **PayMongo webhook shows ENABLED**, pointing at your Supabase functions URL, event
       `checkout_session.payment.paid`. *(It auto-disables after repeated failures — confirm, don't
@@ -196,7 +234,8 @@ Full procedure: [SOFT_LAUNCH_RUNBOOK.md §3](SOFT_LAUNCH_RUNBOOK.md). Scripts to
 [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md).
 
 - Invite **8–15 people covering all seven roles**, including at least one real farmer and one LGU
-- Invite only people you trust — **email confirmation is still off**, so signups are unverified
+- ⚠️ **Signups are disabled and email confirmation is ON** — resolve Step 2's red box first, or not one
+  of these invites can create an account
 
 ### Brief every pilot user on these four things
 
@@ -206,7 +245,9 @@ Full procedure: [SOFT_LAUNCH_RUNBOOK.md §3](SOFT_LAUNCH_RUNBOOK.md). Scripts to
    Verra / Gold Standard registry receipt. Not usable for compliance or statutory ESG reporting.
 3. **VAT invoices are provisional** — not BIR-accredited, and they carry **no buyer TIN**, so a company
    cannot claim input VAT on them.
-4. **Email confirmation is off.** Use an address you control.
+4. **Email confirmation is ON** (corrected 2026-07-29 — this page previously said "off"). They must
+   click a link before signing in, and until the sender domain is verified that mail comes from
+   Supabase's shared default SMTP, so **tell them to check spam**.
 
 ### Two role briefings that will otherwise be reported as bugs
 
@@ -258,7 +299,9 @@ emails are `console.log` stubs — only the approval email really sends.
 1. Buy a domain (~₱600–900/yr)
 2. Add it in **Resend** → add the DNS records it gives you (SPF, DKIM, return-path CNAME)
 3. Wait for verification, then set the sender in your Supabase edge-function secrets
-4. **Turn email confirmation ON** in Supabase Auth
+4. ~~**Turn email confirmation ON** in Supabase Auth~~ — ✅ **already on** (`mailer_autoconfirm=false`,
+   measured 2026-07-29). This step is what makes it *usable*: right now confirmation is enforced
+   against Supabase's shared default SMTP.
 5. Tell me it's done — I'll wire the remaining 8 emails through the Resend function
 
 ### 6c. The commercial / legal track

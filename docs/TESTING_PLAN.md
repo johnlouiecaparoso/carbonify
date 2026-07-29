@@ -9,10 +9,10 @@
 
 | Layer | State |
 |---|---|
-| Unit tests | ✅ **543 passing** (Vitest) — pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
+| Unit tests | ✅ **786 passing** across 65 files (Vitest) — re-run 2026-07-29. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
 | Live-DB security verification | ✅ done 2026-07-20 — RLS lockdown + money-table policies verified; `reconcile_financials()` = 0. |
-| Integration tests (RPC/RLS on a real DB) | ❌ none automated — RLS/grants are checked by hand (as we did today). |
-| End-to-end (Playwright) | 🟡 present but **not required in CI**, not run on a seeded backend. |
+| Integration tests (RPC/RLS on a real DB) | 🟡 **the negative half is now written** — [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) impersonates a real authenticated user and *attempts* 8 attacks. Owner-run (needs the live DB); not yet executed. The positive RPC half is still unautomated. |
+| End-to-end (Playwright) | 🟡 **46/47 passing** (2026-07-29) and still not required in CI. Was **38/44 with 6 silent failures** — see the box below. |
 | Manual role click-through | 🟡 partially done live; formalized in the runbook §3. |
 | Security / penetration test | ❌ not done — the last P0 before live payment keys. |
 | Load / performance | ❌ not done. |
@@ -20,6 +20,31 @@
 
 **The gap is not unit coverage — it's everything that unit tests can't prove:** RLS policies, RPC grants,
 real payment settlement, and real human usage. The plan below is ordered by that gap.
+
+> ### 🆕 2026-07-29 — the e2e suite had been red for an unknown length of time
+>
+> First full Playwright run in this doc's history: **6 of 44 failing**. Nothing surfaced them, because
+> the `e2e` job in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) is
+> `continue-on-error: true` — it reports green whatever happens. "Present but not required in CI" was
+> understating it: the suite was **present, not required, and failing**.
+>
+> **Five were stale tests, not product bugs** — and the staleness is the interesting part, because each
+> one asserted against markup that never existed:
+>
+> - Three auth tests waited on a `.error` element. Field errors render as `.enhanced-input__error`
+>   (via `UiInput`'s `error` prop) and form errors as `.error-message`. There has never been a bare
+>   `.error`.
+> - One asserted `/projects` redirects to `/login` when signed out. It is not a protected route at all —
+>   it is a **public alias that redirects to `/marketplace`** (`src/router/index.js`). The suite was
+>   reporting an auth-guard failure in a place the guard is never consulted.
+> - One drove `.sort-select`; the control is `select[aria-label="Sort listings"]`.
+>
+> One of the three auth tests was worse than stale — *"should show validation errors for short
+> password"* asserted a **deliberately removed** rule. Sign-in used to demand 6 characters, which can
+> only ever reject a *correct* password on an older account. It is now rewritten to assert the absence
+> of that error, so the fix cannot be silently undone.
+>
+> **The sixth failure was real, and it was not a frontend bug at all** — see §1.9.
 
 ---
 
@@ -33,6 +58,26 @@ The non-negotiable check after any code or DB change:
 
 ### 1.2 Integration tests — RPC + RLS on a real Postgres 🔴
 The highest-value thing to *add*, because it's where drift and privilege bugs hide.
+
+> 🆕 **The negative half is now written: [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql).**
+> It `set role authenticated` with a real user's JWT claims and then **performs the attacks** below —
+> minting into `project_credits`, repricing another seller's listing, forging a `credit_retirements`
+> row, topping up its own wallet, self-promoting to admin, and reading three tables belonging to
+> another user. Every probe runs in a subtransaction that is rolled back unconditionally, so it writes
+> nothing even when it finds a hole, and is safe against live.
+>
+> This is deliberately **not** what `money_table_rls_audit.sql` does. That file reads `pg_policies` and
+> proves the posture is *declared* correctly; a policy can be declared and still not bite (USING vs
+> WITH CHECK, a permissive legacy policy OR-ing the lockdown open, a GRANT that outranks it). Only an
+> attempted write settles it.
+>
+> **Every probe that could pass vacuously reports `UNPROVEN` instead of `PASS`** — if no credit pools
+> exist, "the mint was blocked" proves nothing. That is the `escrow_verification.sql` row-3 bug from
+> 2026-07-29 designed out from the start rather than patched later.
+>
+> **Owner-run, and not yet run** — it needs the live DB. It is now a pre-flight step in
+> [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md).
+
 - Stand up a disposable Supabase/Postgres (branch DB or local `supabase start`).
 - Test each SECURITY DEFINER RPC end to end: `process_marketplace_purchase`, `process_wallet_purchase`,
   `retire_credits_atomic`, `record_farmer_delivery`, `confirm_farmer_delivery`, `offtake_summary`,
@@ -79,6 +124,25 @@ The invited pilot — its own section below (§2).
   **not dismissable** by keyboard before this.
 - ⬜ Finish the `for`/`id` pass on MRV/assessment/LGU forms; focus states outside dialogs; a screen
   reader pass over the money path.
+
+### 1.9 Backend-configuration tests 🆕 🔴
+A layer this plan did not previously have. Every other test asks *does the code behave?*; this one asks
+*is the deployment configured such that the beta can happen at all?* — a question no unit, e2e or SQL
+check was covering.
+
+[`pilot-readiness.spec.js`](../src/test/e2e/pilot-readiness.spec.js) reads GoTrue's public
+`/auth/v1/settings` (read-only, needs only the anon key, **creates no account**) and asserts the
+backend accepts signups.
+
+**It found both auth settings set against the pilot, and both documented backwards** — `disable_signup`
+is `true` and `mailer_autoconfirm` is `false`. Detail and the fix order:
+[YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) Step 2.
+
+> **Why it reads a settings endpoint instead of registering.** The old `auth.spec.js` registration test
+> proved signups work by *signing up*, against whatever backend the build pointed at — which is the
+> live project. Every run left a junk account on live: exactly the "leftover test data" §3 below says
+> to purge before inviting anyone. It also buried the backend's answer in `console.log` noise, which is
+> why *"Signups not allowed for this instance"* sat unread in a failing test.
 
 ---
 

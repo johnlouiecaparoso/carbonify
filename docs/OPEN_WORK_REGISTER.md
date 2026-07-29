@@ -78,8 +78,10 @@
 
 | Item | State | Source |
 |---|---|---|
-| **Integration tests (RPC/RLS on a real DB)** | ❌ none automated — RLS/grants checked by hand | [TESTING_PLAN §1](TESTING_PLAN.md) |
-| Playwright **required in CI on a seeded backend** | 🟡 present, not required, not seeded | needs a backend from the owner |
+| **Negative RLS suite** | 🟡 **written 2026-07-29** — `rls_negative_suite.sql` performs 8 attacks as a real user. **Owner must run it** | [TESTING_PLAN §1.2](TESTING_PLAN.md) |
+| **Integration tests (positive RPC path)** | ❌ still none automated | [TESTING_PLAN §1.2](TESTING_PLAN.md) |
+| Playwright **required in CI on a seeded backend** | 🟡 **46/47 green** (was 38/44 with 6 failures nobody saw — the CI job is `continue-on-error`). Still not required, still not seeded | [TESTING_PLAN](TESTING_PLAN.md) intro box |
+| **Backend-configuration checks** | ✅ **new layer 2026-07-29** — `pilot-readiness.spec.js`. Found two beta-blocking auth settings | [TESTING_PLAN §1.9](TESTING_PLAN.md) |
 | **Load / performance** | ❌ not done | before scaling, not before soft launch |
 | **Accessibility** | 🟡 partial | contrast closed (#19); full pass outstanding |
 
@@ -110,6 +112,7 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | 28 | Notify an LGU when a project appears in its jurisdiction | Must be jurisdiction-scoped and **fail closed** |
 | 24 | Verifier's own decision history | Convenience view (an afternoon) vs attestation record (schema) |
 | 31 | Farmers reach checkout by URL but aren't offered it | Is a farmer a buyer? |
+| 32 | 🆕 **Google and phone sign-in are advertised in the UI and disabled on the backend** (`external.google`/`external.phone` = `false`). First screen a pilot user sees | Enable the providers, or hide the buttons |
 | 21 | Provider layer imported only by tests | Route through the seam, or delete 11 files + port the signature test |
 | 25 | Reviews aren't assigned; concurrent reviewers invisible | Claimed vs merely advertised |
 | 23 | Developer forward/projection view | An IRR in front of a project owner invites it into a funding conversation |
@@ -124,7 +127,13 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 
 Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 
+0. 🔴 **Enable signups, and settle the sender domain first.** `disable_signup=true` and
+   `mailer_autoconfirm=false` on live — nobody can register, and confirmation is enforced with no
+   verified sender. Both were documented the other way round. [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md)
+   Step 2.
 1. Run [`pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) → read the `verdict` column
+   · then [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) → every row must
+   read PASS (**`UNPROVEN` is not a pass** — it means nothing existed to attack)
 2. Dashboard checks **1c–1g by hand**: 7 edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed
 3. ~~Apply escrow `20260725000200`~~ · ~~feedstock `20260729000100`~~ · ~~`20260718001100`~~ — ✅ **all applied 2026-07-29**, reconcile = 0 after each
 4. 🔴 **Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts` (~15 min)** — escrow is LIVE and `release_matured_escrow()` is the only releaser. **Not a one-click schedule:** the worker 401s without the `x-worker-secret` header, so a naive schedule fails silently. See [`schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql). **Not confirmed done.**

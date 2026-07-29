@@ -10,7 +10,11 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **786 tests green** (770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **786 unit tests green** (re-verified 2026-07-29,
+> 65 files), and **Playwright 46/47** — the one red is `pilot-readiness.spec.js` correctly reporting
+> that signups are disabled on live (see the box below). The e2e suite was **38/44 with 6 failures
+> nobody had seen**, because CI runs that job `continue-on-error: true`; five were stale selectors and
+> are fixed. Unit-test history: (770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > ### ⚠️ LIVE BEHAVIOUR CHANGED 2026-07-26 — validating a project no longer issues credits
 >
@@ -62,6 +66,30 @@
 > **The four escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) are deferred by the
 > owner and remain UNRUN:** card→held, push→immediate, matured release, refund-while-held. Escrow is
 > applied but **not behaviourally verified**. Do not invite a pilot seller until it is.
+>
+> ### 🔴 URGENT — nobody can sign up, and this doc set said the opposite
+>
+> Found 2026-07-29 by running the Playwright suite, which had never been run to completion in this
+> project's history. Measured off the live project's public `GET /auth/v1/settings`:
+>
+> | Setting | Live | Every doc said | Consequence |
+> |---|---|---|---|
+> | `disable_signup` | **`true`** | assumed signups work | **Every closed-beta invite is rejected** — *"Signups not allowed for this instance"* |
+> | `mailer_autoconfirm` | **`false`** (confirmation REQUIRED) | "email confirmation is off by choice" ×4 places | Confirmation enforced **with no verified sender domain** |
+>
+> The whole of Step 4 — "invite 8–15 people covering all seven roles" — was unrunnable, and no
+> document, diagnostic or test knew it. Fix order and the interaction between the two settings:
+> [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) Step 2. Guarded from now on by
+> [`pilot-readiness.spec.js`](../src/test/e2e/pilot-readiness.spec.js), a read-only check that creates
+> no account.
+>
+> **This is the same bug class as everything else on this page, one layer further out.** Not a service
+> read returning `[]` and rendering as a fact about the user — a *document* asserting a fact about live
+> that nothing ever re-measured. The pre-flight checks migrations, RLS and books; it never asked
+> whether the front door opens. `1c–1g` are "check by hand", and by hand nobody checked.
+>
+> **One correction in your favour:** the go/no-go gate lists *"email confirmation re-enabled"* as an
+> open P0. It is already on — only the verified sender domain is outstanding.
 >
 > ### ✅ Pre-flight re-run and READ — 11 of 12 PASS, 1 outstanding
 >
