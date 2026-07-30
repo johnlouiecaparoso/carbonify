@@ -11,6 +11,7 @@ import {
   verifyPhoneOtp,
 } from '@/services/authService'
 import { isMfaRequired, challengeAndVerify } from '@/services/mfaService'
+import { useAuthProviders } from '@/composables/useAuthProviders'
 import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 import { getTestAccountByEmail } from '@/utils/testAccounts'
 import UiInput from '@/components/ui/Input.vue'
@@ -33,7 +34,10 @@ const mfaCode = ref('')
 const mfaError = ref('')
 const mfaLoading = ref(false)
 
-// Social / phone auth state
+// Social / phone auth state. #32 — only offer a provider the backend actually
+// accepts; both were advertised here while disabled on the live project, so the
+// first screen a pilot user saw handed them two broken buttons.
+const { googleEnabled, phoneEnabled } = useAuthProviders()
 const googleLoading = ref(false)
 const phoneMode = ref(false)
 const phone = ref('')
@@ -345,10 +349,16 @@ async function handleSubmit() {
     </form>
 
     <!-- Alternative sign-in methods (hidden during MFA step) -->
-    <template v-if="!mfaRequired">
+    <template v-if="!mfaRequired && (googleEnabled || phoneEnabled)">
       <div class="auth-divider"><span>or</span></div>
 
-      <button type="button" class="social-button" :disabled="googleLoading" @click="loginGoogle">
+      <button
+        v-if="googleEnabled"
+        type="button"
+        class="social-button"
+        :disabled="googleLoading"
+        @click="loginGoogle"
+      >
         <img
           src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
           alt=""
@@ -357,14 +367,14 @@ async function handleSubmit() {
         <span>{{ googleLoading ? 'Redirecting…' : 'Continue with Google' }}</span>
       </button>
 
-      <button type="button" class="social-button" @click="togglePhoneMode">
+      <button v-if="phoneEnabled" type="button" class="social-button" @click="togglePhoneMode">
         <span class="material-symbols-outlined" aria-hidden="true">smartphone</span>
         <span>{{ phoneMode ? 'Use email instead' : 'Sign in with phone' }}</span>
       </button>
 
       <!-- Phone OTP flow -->
       <form
-        v-if="phoneMode"
+        v-if="phoneEnabled && phoneMode"
         class="form-grid phone-form"
         @submit.prevent="otpSent ? verifyOtp() : sendOtp()"
       >

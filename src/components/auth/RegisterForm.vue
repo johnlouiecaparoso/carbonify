@@ -2,10 +2,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { registerWithEmail, signInWithGoogle } from '@/services/authService'
+import { useAuthProviders } from '@/composables/useAuthProviders'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 
 const router = useRouter()
+// #32 — only offer Google if the backend has the provider enabled.
+const { googleEnabled } = useAuthProviders()
 const googleLoading = ref(false)
 const name = ref('')
 const email = ref('')
@@ -180,16 +183,18 @@ async function handleSubmit() {
       </UiButton>
     </form>
 
-    <div class="auth-divider"><span>or</span></div>
+    <template v-if="googleEnabled">
+      <div class="auth-divider"><span>or</span></div>
 
-    <button type="button" class="social-button" :disabled="googleLoading" @click="signUpGoogle">
-      <img
-        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-        alt=""
-        class="social-icon"
-      />
-      <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
-    </button>
+      <button type="button" class="social-button" :disabled="googleLoading" @click="signUpGoogle">
+        <img
+          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+          alt=""
+          class="social-icon"
+        />
+        <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
+      </button>
+    </template>
 
     <div class="role-apply-box">
       <p class="role-apply-title">Farming or developing carbon projects?</p>

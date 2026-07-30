@@ -471,8 +471,30 @@ serve(async (req) => {
       }
 
       if (intentRow?.purpose === 'subscription') {
-        if (intentRow.status === 'paid') {
-          // Idempotent: already activated by a prior delivery of this event.
+        // Idempotency claim — the same pattern as the wallet top-up above, and
+        // for the same reason. activate_subscription() is ADDITIVE: it extends
+        // from greatest(now(), plan_expires_at), so running it twice for one
+        // payment grants two periods. Reading intentRow.status and then acting
+        // is not a guard — PayMongo delivers both checkout_session.payment.paid
+        // AND payment.paid with distinct event ids, so both clear event-level
+        // dedup and can race, each seeing the intent as still unpaid. Claim by
+        // atomically flipping to 'paid' only if it isn't already; the loser
+        // matches 0 rows and short-circuits.
+        const { data: claimed, error: claimErr } = await supabase
+          .from('payment_intents')
+          .update({
+            status: 'paid',
+            provider_payment_id: paymentId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', paymentIntentId)
+          .neq('status', 'paid')
+          .select('id')
+        if (claimErr) {
+          // Leave the event unprocessed so PayMongo retries.
+          throw new Error(`subscription claim failed: ${claimErr.message}`)
+        }
+        if (!claimed || claimed.length === 0) {
           await markEventProcessed(supabase, eventId)
           return new Response(
             JSON.stringify({ success: true, message: 'Subscription already active' }),
@@ -486,14 +508,14 @@ serve(async (req) => {
           p_plan: planKey,
         })
         if (subErr) {
-          // Leave the event unprocessed so PayMongo retries.
+          // Activation failed after we claimed: release the claim so PayMongo's
+          // retry can grant it, otherwise a paid plan would never activate.
+          await supabase
+            .from('payment_intents')
+            .update({ status: intentRow.status, updated_at: new Date().toISOString() })
+            .eq('id', paymentIntentId)
           throw new Error(`activate_subscription failed: ${subErr.message}`)
         }
-
-        await supabase
-          .from('payment_intents')
-          .update({ status: 'paid', provider_payment_id: paymentId, updated_at: new Date().toISOString() })
-          .eq('id', paymentIntentId)
 
         await markEventProcessed(supabase, eventId)
         return new Response(

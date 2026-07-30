@@ -31,7 +31,35 @@ Every SQL check is a **file in the repo**. You never need to copy code out of a 
 
 ---
 
-# 🔴 Step 0 — Do this before anything else
+# ✅ Step 0 — DONE 2026-07-30. The payout worker is live.
+
+> **`process-payouts` is deployed, secret-gated and on a 15-minute cron.** Verified three ways, not
+> one: correct secret → **200**, wrong secret → **401**, `GET` → **405**. A check that cannot go red
+> proves nothing, so the negative cases were run deliberately.
+>
+> | Item | State |
+> |---|---|
+> | `PAYOUT_WORKER_SECRET` set on the function | ✅ confirmed in `secrets list` |
+> | `process-payouts` deployed | ✅ |
+> | Hand-tested before scheduling | ✅ 200 / 401 / 405 |
+> | `pg_cron` job `carbonify-process-payouts` | ✅ jobid 1, `*/15 * * * *`, active |
+> | Response body shows `200` in `net._http_response` | ⬜ **check after the next :00/:15/:30/:45** |
+>
+> **The first real run settled an 18-day-old payout.** `d63ce676…` — ₱3,123 to a GCash destination —
+> was created **2026-07-12** and sat in `requested` until the worker's first run on **2026-07-30**.
+> It belongs to the owner's own test account, so nobody was harmed, but it is the documented failure
+> mode having already happened to a real row: no error, no alert, the seller simply never gets paid.
+> Treat it as the evidence for why this step was Step 0.
+>
+> ⚠️ It settled through the **MOCK** provider — the row reads `settled` and **no money moved**.
+> Run `select * from reconcile_financials();` (expect 0 rows) and include this row in the Step 3
+> test-data purge.
+>
+> **Still unproven:** `escrow_verification.sql` row 3 reads `UNPROVEN` until a real hold has existed.
+> That is Step 1b's card purchase, and it is why that test is not optional.
+
+<details>
+<summary>Reference — what the worker is and why it needed a shared secret (kept for troubleshooting)</summary>
 
 **Deploy and schedule the `process-payouts` edge function.**
 
@@ -113,6 +141,8 @@ Row 3 must not say `UNPROVEN`.
 > has never been anything to release, so "nothing is overdue" proves nothing. That is why the card test
 > purchase in Step 1b is not optional.
 
+</details>
+
 ---
 
 # Step 1 — Verify what you already applied
@@ -192,20 +222,73 @@ Two accounts, about five minutes:
 > **One correction in your favour:** the go/no-go gate lists *"email confirmation re-enabled"* as an
 > open P0. It is already **on**. Only the verified sender domain half is outstanding.
 >
-> ### 🟠 Two providers are advertised in the UI and disabled on the backend
+> ### ✅ Two providers were advertised in the UI and disabled on the backend — fixed 2026-07-30
 >
-> `external.google` and `external.phone` are both **`false`**, but the sign-in and sign-up forms render
-> a **"Sign in / Sign up with Google"** button unconditionally, and the login form offers a phone/OTP
-> mode. A pilot user who picks either gets an error on the very first screen. Not beta-blocking — both
-> paths surface a message rather than failing silently — but it is the first thing a new user sees.
-> Either enable the providers or hide the buttons; that is a product call, so it is recorded rather
-> than changed. See [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) Lane 1e.
+> `external.google` and `external.phone` are both **`false`** on live, but the sign-in and sign-up
+> forms rendered a **"Sign in / Sign up with Google"** button unconditionally and the login form
+> offered a phone/OTP mode. A pilot user who picked either got an error on the very first screen.
+>
+> **You no longer have to decide this before the beta.** The forms now ask the backend which
+> providers are enabled (`/auth/v1/settings`, the same endpoint `pilot-readiness.spec.js` reads) and
+> render only those. So:
+>
+> - **Do nothing** → the buttons stay hidden, and email + password (which works) is the only path
+>   offered. Nothing is advertised that the backend rejects.
+> - **Enable Google** in Dashboard → Authentication → Providers → the button appears on the next page
+>   load, **no redeploy needed**.
+>
+> It fails closed: if the settings probe fails, the buttons stay hidden. Email + password always
+> works, so a hidden provider never blocks a sign-in, whereas a dead one always breaks one.
+>
+> ⚠️ This ships with the **frontend deploy** below — until you redeploy, live still shows the
+> dead buttons.
 
+- [ ] 🔴 🆕 **Redeploy the three functions changed on 2026-07-30** — they carry security fixes and are
+      **inert until deployed**:
+      ```
+      supabase functions deploy paymongo-webhook
+      supabase functions deploy paymongo-checkout
+      supabase functions deploy account-deletion
+      ```
+      `paymongo-webhook` fixes **one payment activating two subscription periods**;
+      `paymongo-checkout` closes an **unauthenticated read of any payer's billing details**.
+
+      *No deploy-order constraint:* `supabase.functions.invoke` already forwards the signed-in
+      user's token, so the currently-deployed frontend works against the new function unchanged.
+      The one behaviour change to know about: a buyer whose **session expired during checkout** now
+      gets "Authentication required" on the callback page instead of a silent verify. Their payment
+      is unaffected — the webhook settles it server-side regardless — so they see the credits after
+      signing back in. Worth a line in the pilot brief.
 - [ ] **8 edge functions deployed**: `account-deletion` · `paymongo-checkout` · `paymongo-reconcile` ·
       `paymongo-resettle` · `paymongo-webhook` · `process-payouts` · `public-registry` ·
       `send-approval-email`
+- [ ] ⏸️ **BLOCKED 2026-07-30 — owner has not bought the domain yet.** Signups + sender domain are
+      deferred together, deliberately. Do **not** enable signups before deciding which route below;
+      turning them on with confirmation required and no verified sender is the worst of the three
+      states. Everything else in this runbook (Steps 0, 1, 4, 5) can proceed meanwhile — none of it
+      needs a second user.
 - [ ] 🔴 **Signups enabled** (`disable_signup` = `false`) — see the box above
 - [ ] 🔴 **Sender domain verified** before signups are enabled, or invite in small batches knowingly
+> ### 🐛 2026-07-30 — `account-deletion` had never been able to run. Found by reading `secrets list`.
+>
+> The function reads **`ACCOUNT_DELETION_SECRET`**. The project had a secret named **`account-deletion`**
+> — a name nothing in the codebase reads. Because the worker treats an unset secret as "reject
+> everything" (the same fail-closed rule as the payout worker), **every call returned 401** and every
+> DPA erasure request queued in `data_subject_requests` forever.
+>
+> ✅ **Fixed 2026-07-30** — `ACCOUNT_DELETION_SECRET` set; delete the stray `account-deletion` secret.
+>
+> **Why this matters beyond the bug:** the doc set lists export/deletion as *shipping*, with only NPC
+> registration outstanding. It was shipping in the repo and inert in production — the third instance
+> today of "built ≠ live", after the unscheduled payout worker and the undeployed function fixes. A
+> secret that exists under the wrong name reads as configured at a glance, which is exactly why this
+> survived.
+
+- [ ] ✅ **`ALLOW_UNSIGNED_WEBHOOKS` is unset** — confirmed by inspection 2026-07-30. Absent from
+      `secrets list` entirely, which is the required state (unset, not `false`)
+- [ ] ✅ **`PAYMONGO_WEBHOOK_SECRET` is set** — confirmed 2026-07-30
+- [ ] ✅ **`RECONCILE_WORKER_SECRET` is set** — confirmed 2026-07-30, so `paymongo-reconcile` and
+      `paymongo-resettle` are gated rather than open
 - [ ] **PayMongo in TEST mode** — the deployed secrets hold `sk_test_…`
 - [ ] **PayMongo webhook shows ENABLED**, pointing at your Supabase functions URL, event
       `checkout_session.payment.paid`. *(It auto-disables after repeated failures — confirm, don't

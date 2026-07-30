@@ -10,11 +10,126 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **786 unit tests green** (re-verified 2026-07-29,
-> 65 files), and **Playwright 46/47** — the one red is `pilot-readiness.spec.js` correctly reporting
+> **Current build state:** build green, lint green, **801 unit tests green** (re-verified 2026-07-30,
+> 69 files), and **Playwright 46/47** — the one red is `pilot-readiness.spec.js` correctly reporting
 > that signups are disabled on live (see the box below). The e2e suite was **38/44 with 6 failures
 > nobody had seen**, because CI runs that job `continue-on-error: true`; five were stale selectors and
 > are fixed. Unit-test history: (770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🔒 2026-07-30 — pre-pilot security + defect pass. FOUR FIXES, THREE FUNCTIONS TO REDEPLOY
+>
+> A senior-engineer / security read of the money path, the auth surface and the service reads.
+> Suite **786 → 797** (68 files). Build green, lint 0.
+>
+> **The two that would have mattered with real users:**
+>
+> 1. **One payment could activate two subscription periods.** `paymongo-webhook`'s subscription
+>    branch guarded with a read-then-act `intentRow.status === 'paid'` check, while
+>    `activate_subscription()` is deliberately **additive** (`greatest(now(), plan_expires_at) +
+>    period_days`). PayMongo delivers both `checkout_session.payment.paid` **and** `payment.paid`
+>    with distinct event ids, so both clear event-level dedup and can race — each reading the intent
+>    as unpaid. The wallet top-up branch **80 lines above it** already had the correct atomic claim;
+>    the subscription branch never got it. Now claims the same way.
+>
+> 2. **`paymongo-checkout`'s `verify` action was unauthenticated.** It ran before any auth check,
+>    with no rate limit, and returned the raw PayMongo session — payer **billing name, email, phone**,
+>    amounts, line items — for **any** `cs_…` id supplied. Checkout session ids are not secrets; they
+>    travel in redirect URLs, browser history and referrer headers. It was also an unmetered proxy
+>    onto PayMongo's API on our secret key. Now: JWT required, caller must own the matching
+>    `payment_intents` row (fails closed, 404 for both "missing" and "someone else's" so it is not an
+>    oracle), rate-limited, and the raw session blob is no longer returned.
+>
+> **The other two:**
+>
+> 3. **A completed erasure could be recorded as pending forever.** `account-deletion` claimed rows
+>    with an unconditional UPDATE, so two overlapping runs both reached `deleteUser()`; the loser's
+>    "User not found" hit the failure path and reset the row to `pending`. A DPA erasure that *did*
+>    happen would report as outstanding — a compliance-record bug, not a data bug. Now an atomic
+>    claim, matching `mark_payout_processing()`.
+>
+> 4. **The `[]`-on-error bug class, in the two financially load-bearing reads.**
+>    `getUserCreditPortfolio` and `getUserTransactionHistory` swallowed errors and returned `[]`.
+>    The sharp end is the ESG export: a failed retirements query produced a **downloaded report
+>    stating zero offsets**, worded "you have no credits to disclose yet". That is #11's outcome —
+>    a wrong number on a document someone discloses — reached through the error path rather than the
+>    slice #11 fixed. All three callers already handled rejection; `BuyerDashboardView`'s
+>    `holdingsRes.status === 'rejected'` branch was **dead code that could never run**.
+>
+> **Also closed: #32**, without needing the owner decision it was waiting on. Instead of choosing
+> between "enable the providers" and "hide the buttons", the forms now read GoTrue
+> `/auth/v1/settings` and render only what the backend actually accepts (`useAuthProviders`, fails
+> closed). Enable Google in the dashboard and the button appears with no redeploy.
+>
+> **And one row was the doc drifting, not the code: `P3` is already done.** All four
+> `paymongo-checkout` actions derive identity from the verified JWT and throw when it is null. Only
+> a stale comment said otherwise.
+>
+> > 🔴 **These fixes are INERT until three functions are redeployed** — the same lesson as the
+> > migrations: `supabase functions deploy paymongo-webhook · paymongo-checkout · account-deletion`.
+> > No deploy-order constraint (`functions.invoke` already forwards the session token, so the current
+> > frontend works against the new function). One behaviour change: a buyer whose session **expired
+> > during checkout** now sees "Authentication required" on the callback instead of a silent verify —
+> > their payment still settles via the webhook, so the credits appear once they sign back in.
+>
+> **The through-line for this pass:** three of the four bugs were a correct pattern that existed in
+> the same file — or the same function — and was not applied to the neighbouring branch. The guard
+> was never missing from the codebase, only from one path.
+>
+> ### ✅ 2026-07-30 (evening) — THE PAYOUT WORKER IS LIVE. Step 0 is closed.
+>
+> `process-payouts` is deployed, secret-gated and on a `*/15` `pg_cron` schedule (jobid 1, active).
+> Verified **three** ways because one is not enough: correct secret → **200**, wrong secret → **401**,
+> `GET` → **405**. The negative cases were run deliberately — this project's own lesson is that a
+> check which never had the opportunity to be red proves nothing.
+>
+> **The first real run settled an 18-day-old payout**, and that is the finding worth carrying.
+> `d63ce676…` (₱3,123, GCash) was created **2026-07-12** and sat in `requested` until the worker's
+> first run on **2026-07-30**. It is the owner's own test account, so nobody was harmed — but the
+> documented failure mode ("no error, no alert, the seller simply never gets paid") had **already
+> happened to a real row** before anyone scheduled the worker. It settled through the MOCK provider,
+> so the row reads `settled` and no money moved; it belongs in the test-data purge.
+>
+> **🐛 `account-deletion` had never been able to run either.** The function reads
+> `ACCOUNT_DELETION_SECRET`; the project had a secret named **`account-deletion`**, which nothing
+> reads. Fail-closed logic meant every call was a 401, so every DPA erasure request queued forever —
+> while the doc set listed export/deletion as shipping with only NPC registration outstanding. Fixed.
+>
+> **Three "built ≠ live" defects in one day** — the unscheduled payout worker, the undeployed code
+> fixes, and a secret under the wrong name. The repo was right about all three; production was not.
+> Nothing in the test suite could have caught any of them, because none of them are code.
+>
+> ✅ Also confirmed by inspecting `secrets list`: **`ALLOW_UNSIGNED_WEBHOOKS` is unset** (the required
+> state, not `false`), `PAYMONGO_WEBHOOK_SECRET` is set, and `RECONCILE_WORKER_SECRET` is set — three
+> pre-flight checklist items closed without a click-through.
+>
+> ### ✅ 2026-07-30 (later) — #31 decided and built · negative RLS suite RUN
+>
+> **A farmer is a SELLER, not a buyer** (owner decision). They supply feedstock and do not trade
+> credits — the same position as a project developer. `ROLES.FARMER` added to
+> `FINANCE_RESTRICTED_ROLES` in `src/router/index.js`.
+>
+> **Zero navigation regression, and that is the point.** `isBuyerRole()` already excluded farmers,
+> their sidebar is Feedstock + Insights with none of the 10 buying routes, and the account menu gave
+> them no wallet. **Only the router guard disagreed** — so a farmer could reach checkout by typing
+> the URL while nothing anywhere offered it. That contradiction, not a missing feature, is what #31
+> was about. Pinned by `farmerIsNotABuyer.test.js`, which asserts *both* layers so they cannot drift
+> apart again.
+>
+> **`rls_negative_suite.sql` was run against live — 5 PASS, 3 UNPROVEN, 0 FAIL.** Every write attack
+> was blocked: minting into `project_credits`, repricing another seller's listing, forging a
+> `credit_retirements` row, crediting its own wallet ₱1,000,000, and self-promoting to admin (the
+> last two blocked outright by RLS, `42501`).
+>
+> The three UNPROVEN are the **read**-isolation probes, and they are honest rather than reassuring:
+> the victim account the script picked has no wallet row, no holdings and no third-party trades, so
+> "you could not read it" proves nothing. This is the file's own design working as intended — the
+> `escrow_verification.sql` row-3 lesson built in from the start. **Re-run mid-pilot**, once a real
+> user has data worth hiding, to convert those three.
+>
+> ⏸️ **Signups + sender domain are deferred** — the owner has not bought the domain yet. Deliberately
+> held together: enabling signups while confirmation is required and no sender is verified is the
+> worst of the three states. Steps 0, 1, 4 and 5 of [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) all
+> proceed without a second user.
 >
 > ### ⚠️ LIVE BEHAVIOUR CHANGED 2026-07-26 — validating a project no longer issues credits
 >

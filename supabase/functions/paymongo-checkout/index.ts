@@ -118,12 +118,40 @@ async function verifyCheckoutSession(sessionId: string) {
     payment_method: actualPaymentMethod,
   }
 
+  // Deliberately NOT returning the raw `sessionData.data` blob. It carries the
+  // payer's billing name / email / phone and the full line items, and nothing
+  // in the app ever read it (PaymentCallbackView uses `payment`, PayMongoProvider
+  // uses `payment` + `paymentMethod`). Returning it only widened what a
+  // successful call discloses.
   return {
     success: payment.status === 'paid',
     payment,
-    session: sessionData.data,
+    session: { id: sessionData.data?.id },
     paymentMethod: actualPaymentMethod,
   }
+}
+
+/**
+ * Does `userId` own the checkout session `sessionId`?
+ *
+ * Every checkout this function creates records a payment_intent and then writes
+ * the provider session id onto it, so the intent is the authoritative link
+ * between a session and the account that started it.
+ */
+async function callerOwnsSession(sessionId: string, userId: string): Promise<boolean> {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const { data, error } = await supabase
+    .from('payment_intents')
+    .select('id')
+    .eq('provider_session_id', sessionId)
+    .eq('user_id', userId)
+    .limit(1)
+  // Fail CLOSED: a lookup error must not read as "authorized".
+  if (error) {
+    console.warn('session ownership lookup failed (denying):', error.message)
+    return false
+  }
+  return (data?.length ?? 0) > 0
 }
 
 /**
@@ -505,11 +533,40 @@ serve(async (req) => {
   try {
     const body = await req.json()
 
-    // Action: verify session (callback page – no secret in frontend)
+    // Action: verify session (callback page – no secret in frontend).
+    //
+    // This branch used to run with NO authentication and NO rate limit: any
+    // caller could POST an arbitrary `cs_...` id and get back the payment
+    // amount, status and the whole session object. Checkout session ids are not
+    // secrets — they travel in redirect URLs, browser history and referrers — so
+    // it was an unauthenticated read of another payer's data, and an unmetered
+    // proxy onto PayMongo's API using our secret key. It is now authenticated,
+    // rate-limited, and scoped to sessions the caller actually started.
     if (body.action === 'verify' && body.sessionId) {
       if (!PAYMONGO_SECRET_KEY) {
         return new Response(JSON.stringify({ error: 'PAYMONGO_SECRET_KEY not set in Edge Function' }), {
           status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const verifiedUserId = await getVerifiedUserId(req)
+      if (!verifiedUserId) {
+        return new Response(JSON.stringify({ error: 'Authentication required' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      if (!(await underRateLimit(`verify:${verifiedUserId}`, CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_SECONDS))) {
+        return new Response(
+          JSON.stringify({ error: 'Too many verification attempts. Please wait a minute and try again.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+      if (!(await callerOwnsSession(String(body.sessionId), verifiedUserId))) {
+        // Same response for "no such session" and "someone else's session" — a
+        // distinguishable 404 would turn this into a session-id oracle.
+        return new Response(JSON.stringify({ error: 'Payment session not found' }), {
+          status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }

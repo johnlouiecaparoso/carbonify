@@ -57,6 +57,10 @@
 | ~~26~~ | ~~The farmer "Paid" flag is a one-sided assertion rendered as fact~~ — ✅ **fixed 2026-07-29.** The record is two-sided; the badge reads "buyer says paid" until the farmer answers | [#26](DEFERRED_BACKLOG.md) |
 | ~~26~~ | ~~A feedstock dispute is structurally impossible~~ — ✅ **fixed 2026-07-29**, and **without** widening `disputes`: the disagreement is recorded on the delivery and escalates to `/admin/feedstock` | [#26](DEFERRED_BACKLOG.md) |
 | 3 | A receipt **cannot show the counterparty's name**. Needs a `SECURITY DEFINER` name-only RPC — **do not loosen `profiles` SELECT RLS** (hardened by `20260703000300`) | [#3](DEFERRED_BACKLOG.md) |
+| 🆕 | ~~**One payment could activate two subscription periods**~~ — ✅ **fixed 2026-07-30.** The webhook's subscription branch guarded with a read-then-act `status === 'paid'` check while `activate_subscription()` is *additive*. PayMongo delivers both `checkout_session.payment.paid` and `payment.paid` (distinct event ids → both clear event-level dedup), so two deliveries granted two periods. Now uses the same atomic claim the wallet branch already had | code |
+| 🆕 | ~~**`verify` accepted any checkout session id, unauthenticated**~~ — ✅ **fixed 2026-07-30.** `paymongo-checkout`'s `action:'verify'` ran before any auth check and returned the raw PayMongo session — payer billing name/email/phone, amounts, line items. Session ids travel in redirect URLs and history, so they are not secrets. Now requires a JWT, checks the caller owns the intent, is rate-limited, and no longer returns the raw session blob | code |
+| 🆕 | ~~**A completed erasure could be recorded as still pending, forever**~~ — ✅ **fixed 2026-07-30.** `account-deletion` claimed rows with an unconditional UPDATE, so two overlapping runs both called `deleteUser()`; the loser's "User not found" reset the row to `pending`. Now an atomic claim, matching `mark_payout_processing()` | code |
+| 🆕 | ~~**A failed portfolio read rendered as "you own nothing"**~~ — ✅ **fixed 2026-07-30.** `getUserCreditPortfolio` / `getUserTransactionHistory` swallowed errors and returned `[]`. Worst case was the ESG export: a failed retirements query produced a downloaded report stating **zero offsets**. All three callers already handled rejection — `BuyerDashboardView`'s `holdingsRes.status === 'rejected'` branch was dead code | [#15](DEFERRED_BACKLOG.md) |
 
 ### 1b. Cleanups and hardening
 
@@ -71,14 +75,14 @@
 | 4 | `VALIDATE CONSTRAINT` the two `NOT VALID` FKs | Integrity cleanup only |
 | 5 | Prettier **breaks the build** on multi-statement inline Vue handlers | Refactor those to named methods first |
 | 27 | **i18n: no library installed, and Filipino was never on the list** of seven offered | Farmer + LGU surfaces first — they're the users for whom English is the obstacle |
-| P3 | Derive `payment_intents.user_id` from the verified JWT, not the request body | |
+| ~~P3~~ | ~~Derive `payment_intents.user_id` from the verified JWT, not the request body~~ | ✅ **Already done** — verified 2026-07-30. All four `paymongo-checkout` actions call `getVerifiedUserId(req)` and `throw` when it is null; the body's `user_id` is never read. Only a stale *comment* said otherwise. This row was the doc drifting, not the code |
 | P5 | Migrate wallet top-ups onto `payment_intents` | Consistent reconciliation |
 
 ### 1c. Test coverage — the gap is not unit tests
 
 | Item | State | Source |
 |---|---|---|
-| **Negative RLS suite** | 🟡 **written 2026-07-29** — `rls_negative_suite.sql` performs 8 attacks as a real user. **Owner must run it** | [TESTING_PLAN §1.2](TESTING_PLAN.md) |
+| **Negative RLS suite** | ✅ **RUN 2026-07-30 — 5 PASS, 3 UNPROVEN, 0 FAIL.** Every write attack was blocked: mint credits, reprice another seller's listing, forge a retirement, mint wallet money, self-promote to admin. The 3 UNPROVEN are the **read**-isolation probes — the chosen victim had no wallet, no holdings and no third-party trades, so there was nothing to hide. **Re-run against a victim with data during the pilot** | [TESTING_PLAN §1.2](TESTING_PLAN.md) |
 | **Integration tests (positive RPC path)** | ❌ still none automated | [TESTING_PLAN §1.2](TESTING_PLAN.md) |
 | Playwright **required in CI on a seeded backend** | 🟡 **46/47 green** (was 38/44 with 6 failures nobody saw — the CI job is `continue-on-error`). Still not required, still not seeded | [TESTING_PLAN](TESTING_PLAN.md) intro box |
 | **Backend-configuration checks** | ✅ **new layer 2026-07-29** — `pilot-readiness.spec.js`. Found two beta-blocking auth settings | [TESTING_PLAN §1.9](TESTING_PLAN.md) |
@@ -111,8 +115,8 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | ~~26~~ | ~~ToS + in-app modal stating the records-layer position~~ | ✅ **Built 2026-07-29** — ToS §1.14 + modal §6, landed together |
 | 28 | Notify an LGU when a project appears in its jurisdiction | Must be jurisdiction-scoped and **fail closed** |
 | 24 | Verifier's own decision history | Convenience view (an afternoon) vs attestation record (schema) |
-| 31 | Farmers reach checkout by URL but aren't offered it | Is a farmer a buyer? |
-| 32 | 🆕 **Google and phone sign-in are advertised in the UI and disabled on the backend** (`external.google`/`external.phone` = `false`). First screen a pilot user sees | Enable the providers, or hide the buttons |
+| ~~31~~ | ~~Farmers reach checkout by URL but aren't offered it~~ | ✅ **Decided + built 2026-07-30. A farmer is a SELLER, not a buyer** — they supply feedstock and do not trade credits, same as a project developer. `ROLES.FARMER` added to `FINANCE_RESTRICTED_ROLES`. Zero nav regression: `isBuyerRole()` already excluded farmers and their sidebar never offered those 10 routes — **only the router guard disagreed**, which is the contradiction #31 was actually about |
+| ~~32~~ | ~~**Google and phone sign-in are advertised in the UI and disabled on the backend**~~ | ✅ **fixed 2026-07-30 — and the decision no longer blocks anything.** Rather than pick one of the two answers, the forms now ask GoTrue `/auth/v1/settings` which providers are enabled and render accordingly (`useAuthProviders`). Enable Google in the dashboard and the button appears with **no redeploy**; leave it off and nobody is offered a dead path. Fails closed |
 | 21 | Provider layer imported only by tests | Route through the seam, or delete 11 files + port the signature test |
 | 25 | Reviews aren't assigned; concurrent reviewers invisible | Claimed vs merely advertised |
 | 23 | Developer forward/projection view | An IRR in front of a project owner invites it into a funding conversation |
@@ -137,6 +141,17 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 2. Dashboard checks **1c–1g by hand**: 7 edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed
 3. ~~Apply escrow `20260725000200`~~ · ~~feedstock `20260729000100`~~ · ~~`20260718001100`~~ — ✅ **all applied 2026-07-29**, reconcile = 0 after each
 4. 🔴 **Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts` (~15 min)** — escrow is LIVE and `release_matured_escrow()` is the only releaser. **Not a one-click schedule:** the worker 401s without the `x-worker-secret` header, so a naive schedule fails silently. See [`schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql). **Not confirmed done.**
+4b. 🔴 🆕 **Redeploy three edge functions (2026-07-30 fixes) — they are inert until you do.**
+   Same shape as the migration lesson: built ≠ live.
+   ```
+   supabase functions deploy paymongo-webhook
+   supabase functions deploy paymongo-checkout
+   supabase functions deploy account-deletion
+   ```
+   `paymongo-webhook` carries the **double-subscription** fix and `paymongo-checkout` the
+   **unauthenticated `verify`** fix. Until deployed, both defects are live. Deploy
+   `paymongo-checkout` **and** the frontend together — the callback page now sends its auth token
+   to that action.
 5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary

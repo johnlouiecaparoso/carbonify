@@ -84,8 +84,14 @@ export class CreditOwnershipService {
 
       return portfolio
     } catch (error) {
+      // Rethrow — do NOT return []. An empty portfolio is a claim about the
+      // user ("you own nothing"), and returning it on a failed read renders a
+      // database error as that claim. Every caller already handles a rejection:
+      // CreditPortfolioView and RetireView catch and show an error banner, and
+      // BuyerDashboardView explicitly tests `holdingsRes.status === 'rejected'`
+      // — code that could never run while this swallowed.
       console.error('❌ Error in getUserCreditPortfolio:', error)
-      return []
+      throw error
     }
   }
 
@@ -186,8 +192,15 @@ export class CreditOwnershipService {
         .order('created_at', { ascending: false })
         .limit(limit)
 
+      // Throw, don't log-and-continue. A failed purchases query used to fall
+      // through with `purchases` undefined, and the caller
+      // (esgReportService.buildEsgDataset) would report the resulting 0 as the
+      // user's actual purchased total on an exported ESG report. That is #11's
+      // failure mode — a wrong number on a document someone discloses — arriving
+      // by a different route than the slice that fix addressed.
       if (purchasesError) {
         console.error('❌ Error fetching purchases:', purchasesError)
+        throw purchasesError
       }
 
       // Get credit retirements
@@ -208,8 +221,11 @@ export class CreditOwnershipService {
         .order('retired_at', { ascending: false })
         .limit(limit)
 
+      // Same reasoning as purchases above, and worse here: retirements are the
+      // OFFSET side of the report, so swallowing this reports zero offsets.
       if (retirementsError) {
         console.error('❌ Error fetching retirements:', retirementsError)
+        throw retirementsError
       }
 
       // Combine and sort transactions
@@ -247,8 +263,12 @@ export class CreditOwnershipService {
       // retirements out of the ESG report.
       return transactions
     } catch (error) {
+      // Rethrow for the same reason as getUserCreditPortfolio: "no transactions"
+      // is an assertion, and the ESG export caller (CreditPortfolioView
+      // .downloadEsg) already catches and surfaces the failure instead of
+      // handing the user a report that reads "no credits to disclose yet".
       console.error('❌ Error fetching transaction history:', error)
-      return []
+      throw error
     }
   }
 }

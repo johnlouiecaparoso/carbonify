@@ -27,8 +27,22 @@ const UserPreferencesView = () =>
  *
  * Project developers sell credits rather than buy them, so they sit here too;
  * their money pages are /sales and /developer/ledger.
+ *
+ * Farmers sit here for the same reason (backlog #31, decided 2026-07-30: a
+ * farmer is a seller, not a buyer — they supply feedstock, they do not trade
+ * credits). Every other layer already said so: `isBuyerRole()` in
+ * constants/navigation.js excludes farmers, their sidebar is Feedstock +
+ * Insights with none of these routes in it, and they get no wallet entry in the
+ * account menu. Only this guard disagreed, so a farmer could still reach
+ * checkout by typing the URL while nothing ever offered it — the contradiction
+ * #31 was actually about. Their money pages are /farmer and /sales.
  */
-const FINANCE_RESTRICTED_ROLES = [ROLES.ADMIN, ROLES.VERIFIER, ROLES.PROJECT_DEVELOPER]
+const FINANCE_RESTRICTED_ROLES = [
+  ROLES.ADMIN,
+  ROLES.VERIFIER,
+  ROLES.PROJECT_DEVELOPER,
+  ROLES.FARMER,
+]
 
 /**
  * Roles with no identity-verification path of their own. Everyone else — buyers,
