@@ -292,7 +292,11 @@ Two accounts, about five minutes:
 > |---|---|
 > | No `Authorization` header | `401` `UNAUTHORIZED_NO_AUTH_HEADER` — **platform**, before the code runs |
 > | Valid JWT + wrong `x-worker-secret` | `401` `{"error":"Unauthorized"}` — the function's own gate |
-> | Valid JWT + correct `x-worker-secret` | processes the queue |
+> | Valid JWT + correct `x-worker-secret` | ✅ `200 {"processed":0,"results":[]}` — proven 2026-07-30 |
+>
+> All three were exercised, including the **positive** case. That was safe to run only because the
+> pending queue was empty (`data_subject_requests` returned no rows) — with a queued request it would
+> have erased a real account. Check the queue before running it, every time.
 >
 > ```
 > curl -i -X POST \
