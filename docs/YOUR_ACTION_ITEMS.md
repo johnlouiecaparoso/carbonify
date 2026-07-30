@@ -350,8 +350,18 @@ find out it was test data.
 
 # Step 4 — Run the closed beta
 
-Full procedure: [SOFT_LAUNCH_RUNBOOK.md §3](SOFT_LAUNCH_RUNBOOK.md). Scripts to hand out:
-[UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md).
+Full procedure: [SOFT_LAUNCH_RUNBOOK.md §3](SOFT_LAUNCH_RUNBOOK.md). **Hand out two documents:**
+[UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (what they do) and
+[TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) (what they send back).
+
+> **Before you invite anyone, run `OWN-01…10` yourself** — Part 1 of the test script. It is the same
+> pre-flight as Step 2 above, in tick-box form, and **`OWN-08` is the gate**: while signups are
+> disabled, not one invited person can create an account. **Then run `ESC-01…06`** (Part 2) — escrow is
+> live and promising sellers a hold window that nobody has yet watched behave on a real purchase. A
+> pilot seller whose money is stuck permanently is the worst outcome this beta could produce.
+>
+> `TEST_REPORT_FORM.md` §F is yours, not the testers' — it records which diagnostics you ran, and
+> **whether the `escrow_hold_days_card` value you lower for `ESC-03` was put back**.
 
 - Invite **8–15 people covering all seven roles**, including at least one real farmer and one LGU
 - ⚠️ **Signups are disabled and email confirmation is ON** — resolve Step 2's red box first, or not one

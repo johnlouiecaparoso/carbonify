@@ -110,7 +110,15 @@ Automate the runbook §3 click-throughs so they run in CI:
   only (`ALLOW_UNSIGNED_WEBHOOKS` unset).
 
 ### 1.6 User Acceptance / Beta testing 🟠
-The invited pilot — its own section below (§2).
+The invited pilot — its own section below (§2). The two artefacts it runs on:
+[UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (the tests, per role) and
+[TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) (what comes back).
+
+> **This layer is not a weaker version of the ones above it — it is the only one that can see a whole
+> bug class.** Every `[]`-on-error defect found on this project rendered as a friendly empty state:
+> an ESG report stating zero offsets, a verified seller told they were unverified, a farmer told no
+> buyer had accepted anything. Each is a *correct-looking* screen, so no assertion above catches it.
+> Only a human who knows what they actually own does. That is why the form leads with it (`§C1`).
 
 ### 1.7 Load / performance testing 🟡 (before scaling, not before soft launch)
 - Marketplace list, registry, and `public_market_stats` under concurrent reads.
@@ -167,7 +175,8 @@ run at least a few times with different people.
 - Bugs, confusions, and drop-off points — captured in a simple shared sheet or issue tracker.
 
 **Entry criteria (all true before inviting anyone):** runbook §1 pre-flight all green — reconcile 0,
-security verified (done), webhook healthy, 7 edge functions deployed, PayMongo in test mode.
+security verified (done), webhook healthy, **8** edge functions deployed, PayMongo in test mode.
+Tick-box equivalent: `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1.
 
 **Exit criteria (ready to move toward real money):**
 - Every money flow ran multiple times, reconcile 0 each time.
@@ -175,8 +184,10 @@ security verified (done), webhook healthy, 7 edge functions deployed, PayMongo i
 - The role click-throughs pass clean on the latest build.
 - Feedback triaged; launch-blocking bugs fixed.
 
-**Feedback loop:** a short per-role feedback form + a bug channel; triage weekly; fix and redeploy;
-re-run the affected click-through.
+**Feedback loop:** [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) + a bug channel; triage weekly; fix and
+redeploy; re-run the affected click-through. Treat **"couldn't try"** rows as a separate queue from
+failures — they usually mean something is *blocked* (a missing role, an undeployed piece) rather than
+broken, and are the fastest thing to clear.
 
 ---
 

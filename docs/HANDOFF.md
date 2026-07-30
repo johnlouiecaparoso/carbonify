@@ -6,7 +6,9 @@
 >
 > *(Repositioned 2026-07-25 — this is no longer an academic capstone. The two disclosed beta limits — credits not yet registry-backed, payments in test mode — are unchanged and remain disclosed in-app.)*
 >
-> **The next step is the closed beta on PayMongo test keys** — see [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) (execution), [TESTING_PLAN.md](TESTING_PLAN.md) (what to test), and [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (per-role scripts to hand to pilot users).
+> **The next step is the closed beta on PayMongo test keys** — see [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) (execution), [TESTING_PLAN.md](TESTING_PLAN.md) (what to test), [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (per-role scripts to hand to pilot users), and [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) (what they fill in and send back).
+>
+> **The two test docs were rewritten 2026-07-30.** The script previously had no coverage at all for the escrow hold window, the two-sided farmer payment record built 2026-07-29, the admin feedstock console, privacy/data rights, keyboard access, or the public no-login pages — six surfaces that are live and were going to be handed to pilot users untested. The escrow block (`ESC-01…06`) is the one to run first: escrow is switched on and the Terms already promise sellers a hold window, but nothing has yet checked what it does to a real purchase.
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
@@ -935,12 +937,12 @@ frontend deploy). While writing it: the runbook's §1b snippet queried
 > hold or transfer their money; that part of the decision has not changed.
 
 0. ~~Apply the escrow + feedstock + receipt-FK migrations~~ — ✅ **all three applied 2026-07-29**, `reconcile_financials()` = 0 after each. **What replaced this as step 0: schedule `process-payouts` on a ~15-minute cron.** Escrow is live, so card sellers are being held right now and `release_matured_escrow()` is the only thing that frees them.
-1. **Run the pilot pre-flight** — and read the new **§7 SUMMARY** at the end of the file, not the project list — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). **Plus, in this same window:**
-   - **Apply the staged escrow migration** [`20260725000200`](../supabase/migrations/20260725000200_restore_escrow_hold_window.sql), **redeploy + schedule** `process-payouts` (cron ~15 min, so `release_matured_escrow()` fires), and run the 4 escrow reconcile checks in [ESCROW_DECISION.md](ESCROW_DECISION.md) §6 (card→held, push→immediate, matured release, refund-while-held — each `reconcile_financials()` = 0). **Apply this BEFORE inviting pilot users**, so the beta exercises escrow on test money.
+1. **Run the pilot pre-flight** — and read the new **§7 SUMMARY** at the end of the file, not the project list — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · **8** edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). This is also `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1, if you prefer a tick-box form of it. **Plus, in this same window:**
+   - **Redeploy + schedule** `process-payouts` (cron ~15 min, so `release_matured_escrow()` fires), then run the escrow checks — now **`ESC-01…06`** in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 2, which supersede the 4 informal ones in [ESCROW_DECISION.md](ESCROW_DECISION.md) §6 (card→held, push→immediate, matured release, refund-while-held, each `reconcile_financials()` = 0, plus a withdrawal). **Run these BEFORE inviting pilot users**, so the beta exercises escrow on test money. *(The escrow migration itself is no longer pending — see step 0.)*
    - **Run** [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) → expect **0 rows** (confirms #13c holds).
 2. **Decide the beta database** — [TESTING_PLAN.md](TESTING_PLAN.md) §3. Recommendation: reuse the current live project now that reconcile is clean, but purge or clearly label leftover test projects/listings first.
 3. **Confirm the `20260718000000`–`000700` batch is fully applied on live** — see the apply-status note below. One query settles it.
-4. **Run the closed beta** — invite ~8–15 users covering every role, disclose the runbook §2 limitations, hand out [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md), and check `reconcile_financials()` = 0 daily.
+4. **Run the closed beta** — invite ~8–15 users covering every role, disclose the runbook §2 limitations, hand out **[UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) *and* [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md)** (the script is what they do, the form is what comes back), and check `reconcile_financials()` = 0 daily.
 5. **Then start the real-money gate** — email confirmation on (needs an owned domain), independent penetration test, legal/PSP track. This is the only remaining P0 tier and it's all external.
 
 ### ⚠️ Apply-status note (2026-07-21) — `20260718000000`–`000700`
@@ -971,7 +973,8 @@ Status of the later migrations is not ambiguous: **`000800` verified applied on 
 
 - [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) — the active next step: pre-flight, pilot click-through, daily monitoring, abort criteria.
 - [TESTING_PLAN.md](TESTING_PLAN.md) — the layered what-to-test map and the beta plan.
-- [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) — per-role, tick-box test scripts for pilot users.
+- [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) — per-role, tick-box test scripts for pilot users. Rewritten 2026-07-30: owner pre-flight (`OWN`), escrow (`ESC`), two-sided farmer payment (`FARM-04…07`), admin feedstock (`FEED`), privacy (`PRIV`), keyboard (`KEY`) and public pages (`PUB`).
+- [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) — what a tester fills in and sends back. §C's seven questions each target a bug class the automated suite cannot see; §G says how each answer is read.
 - [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) — the real-money gate and priority tiers.
 - [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) — everything knowingly postponed, with the reasoning.
 - [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) — company/team accounts: the gap, why it matters commercially, and the 5-phase build. Scoped, not started.

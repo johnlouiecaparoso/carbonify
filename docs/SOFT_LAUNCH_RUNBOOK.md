@@ -119,6 +119,18 @@ This walks the full product spine — **register → validate → MRV → issue 
 expansion surfaces. Use separate accounts per role. Confirm `reconcile_financials()` = 0 rows **after
 the money steps** (3f, 3g).
 
+> **This section is yours, not the testers'.** §3 is the one operator proving the spine still connects
+> end to end. What pilot users get is [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) — the same ground broken
+> into per-role tick-boxes with no technical knowledge assumed — and
+> [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) to send back. Run §3 first: if the spine is broken, you
+> will learn it faster than eight people filing eight reports about it.
+>
+> **§3 does not cover** escrow (`ESC-01…06`), the two-sided farmer payment record (`FARM-04…07`), the
+> admin feedstock console (`FEED`), privacy/data rights (`PRIV`), keyboard access (`KEY`) or the
+> public no-login pages (`PUB`). Those live only in the test script. **Escrow is the gap that matters
+> before you invite a seller** — it is switched on, the Terms promise a hold window, and no purchase
+> has yet been watched through it.
+
 **Setup roles** (admin sets roles in User Management, or approves role applications):
 - [ ] **3a. Developer** submits a project (fill Registry Details + Financials), uploads the required
   compliance documents, confirms they attach and the project reaches "pending".

@@ -138,7 +138,7 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 1. Run [`pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) → read the `verdict` column
    · then [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) → every row must
    read PASS (**`UNPROVEN` is not a pass** — it means nothing existed to attack)
-2. Dashboard checks **1c–1g by hand**: 7 edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed
+2. Dashboard checks **1c–1g by hand**: **8** edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed — all of it is `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1 if you want it as tick-boxes
 3. ~~Apply escrow `20260725000200`~~ · ~~feedstock `20260729000100`~~ · ~~`20260718001100`~~ — ✅ **all applied 2026-07-29**, reconcile = 0 after each
 4. 🔴 **Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts` (~15 min)** — escrow is LIVE and `release_matured_escrow()` is the only releaser. **Not a one-click schedule:** the worker 401s without the `x-worker-secret` header, so a naive schedule fails silently. See [`schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql). **Not confirmed done.**
 4b. 🔴 🆕 **Redeploy three edge functions (2026-07-30 fixes) — they are inert until you do.**
