@@ -182,7 +182,13 @@
 > differently from one validated today — worth saying to any pilot developer before they report it as
 > a bug.
 >
-> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-28**, so the PR reflects everything below. `main` is **131 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
+> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-30**, so the PR reflects everything below. `main` is **138 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
+>
+> ⚠️ **"Pushed and in sync as of 2026-07-28" was wrong when written.** The 2026-07-30 push moved the
+> remote `b8cdab8 → ee9fd6d`, i.e. **five** commits — three from that day's audit *plus* `344b9de`
+> and `3958760`, which had been sitting local-only since 07-28. The a11y fix and the e2e-suite work
+> were not on the remote, and no one knew. Same class as everything else this doc records: a written
+> claim about a system state that nothing re-measured. `git status -sb` settles it in one second.
 >
 > > ### ✅ 2026-07-29 (evening) — THREE MIGRATIONS APPLIED TO LIVE. One follow-up is now urgent.
 >
@@ -200,18 +206,19 @@
 > admin segregation-of-duties guard are live, not silently inert. §0.4's "NOT yet applied" heading is
 > stale; treat that batch as done.
 >
-> ### 🔴 URGENT — `process-payouts` must be scheduled, and it is not confirmed
+> ### ✅ RESOLVED 2026-07-30 — `process-payouts` is deployed, scheduled and PROVEN
 >
-> Applying escrow without scheduling the release worker is **worse than not applying it**.
-> `process_marketplace_purchase` now holds card sellers' net, and the only thing that ever releases it
-> is `release_matured_escrow()`, called from
-> [`process-payouts/index.ts:53`](../supabase/functions/process-payouts/index.ts). If that function is
-> not deployed and on a **~15-minute cron**, every card seller's money is held **permanently** — not
-> delayed. Nothing else calls it.
+> This section was the project's top red item for two days. It is closed. `release_matured_escrow()`
+> is called every 15 minutes by `pg_cron` job `carbonify-process-payouts` (jobid 1, active), and the
+> HTTP response was verified — **`net._http_response` row 1: `status_code 200`**, body
+> `{"escrowReleased":0,"processed":0,"results":[]}`, fired `07:30:00`. Not "scheduled", *succeeding*.
 >
-> **The four escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) are deferred by the
-> owner and remain UNRUN:** card→held, push→immediate, matured release, refund-while-held. Escrow is
-> applied but **not behaviourally verified**. Do not invite a pilot seller until it is.
+> Full procedure and troubleshooting: [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) Step 0.
+>
+> **The four escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) remain UNRUN:**
+> card→held, push→immediate, matured release, refund-while-held. The *releaser* is now proven; what
+> escrow does to a real purchase is not. **Do not invite a pilot seller until it is.** This is now
+> the single largest untested surface in the money path.
 >
 > ### 🔴 URGENT — nobody can sign up, and this doc set said the opposite
 >

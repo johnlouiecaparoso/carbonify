@@ -35,7 +35,7 @@ coverage
 .env.*.local
 
 # Supabase CLI local link state (per-developer)
-supabase/.temp/linked-project.json
+supabase/.temp/
 
 .vercel
 .env*

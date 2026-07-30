@@ -43,7 +43,9 @@ Every SQL check is a **file in the repo**. You never need to copy code out of a 
 > | `process-payouts` deployed | ✅ |
 > | Hand-tested before scheduling | ✅ 200 / 401 / 405 |
 > | `pg_cron` job `carbonify-process-payouts` | ✅ jobid 1, `*/15 * * * *`, active |
-> | Response body shows `200` in `net._http_response` | ⬜ **check after the next :00/:15/:30/:45** |
+> | Response body shows `200` in `net._http_response` | ✅ **PROVEN** — row 1, `200`, fired `07:30:00` |
+>
+> ✅ **`reconcile_financials()` = 0 rows** after the mock settlement below. The books survived it.
 >
 > **The first real run settled an 18-day-old payout.** `d63ce676…` — ₱3,123 to a GCash destination —
 > was created **2026-07-12** and sat in `requested` until the worker's first run on **2026-07-30**.
@@ -451,7 +453,7 @@ None of these block the beta. Each one unblocks work that is otherwise held.
 | Decision | Why it's yours |
 |---|---|
 | **Is a farmer a buyer?** | They can reach checkout by URL today but aren't offered it in the sidebar (#31). Either give them the buying nav or block the routes — the contradiction is the problem. |
-| **Merge PR #14?** | 131 commits. Everything ships from a feature branch right now. |
+| **Merge PR #14?** | 138 commits. Everything ships from a feature branch right now. |
 | **Provider layer: route through it, or delete it?** | ~40 tests currently overstate money-path coverage (#21). |
 | **Organization accounts: go/no-go?** | Phase 1 is safe to build now. Phase 2 must wait until after the beta — it rewrites the same RPC as escrow. |
 | **Public API: expose it, and to whom?** | Key-gating and rate limits — the edge function has neither. |
