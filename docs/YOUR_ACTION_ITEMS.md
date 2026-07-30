@@ -243,13 +243,12 @@ Two accounts, about five minutes:
 > ⚠️ This ships with the **frontend deploy** below — until you redeploy, live still shows the
 > dead buttons.
 
-- [ ] 🔴 🆕 **Redeploy the three functions changed on 2026-07-30** — they carry security fixes and are
-      **inert until deployed**:
-      ```
-      supabase functions deploy paymongo-webhook
-      supabase functions deploy paymongo-checkout
-      supabase functions deploy account-deletion
-      ```
+- [x] ✅ **The three functions changed on 2026-07-30 are DEPLOYED** — `paymongo-webhook`,
+      `paymongo-checkout`, `account-deletion`. **The `verify` fix was confirmed live against the
+      running function**, using the public anon key exactly as an attacker would:
+      `POST {"action":"verify","sessionId":"cs_someoneElsesSessionId123"}` → **`401 Authentication
+      required`**. Before the fix that same request returned the payer's billing name, email, phone
+      and amount. This is the whole point of testing the deployed thing rather than the source.
       `paymongo-webhook` fixes **one payment activating two subscription periods**;
       `paymongo-checkout` closes an **unauthenticated read of any payer's billing details**.
 
@@ -276,7 +275,39 @@ Two accounts, about five minutes:
 > everything" (the same fail-closed rule as the payout worker), **every call returned 401** and every
 > DPA erasure request queued in `data_subject_requests` forever.
 >
-> ✅ **Fixed 2026-07-30** — `ACCOUNT_DELETION_SECRET` set; delete the stray `account-deletion` secret.
+> ✅ **Fixed 2026-07-30** — `ACCOUNT_DELETION_SECRET` set, stray `account-deletion` secret removed.
+>
+> ⚠️ **The first attempt at this fix silently failed, and the failure looked like success.** The
+> value was updated on the *existing* `account-deletion` secret rather than created under the correct
+> name, so `secrets list` showed a fresh `updated_at` on a name nothing reads — configured at a
+> glance, still 401 in reality. **When fixing a misnamed secret, confirm the NEW name appears in the
+> list; a recent timestamp on the old one proves nothing.**
+>
+> ### 🔑 Invoking `account-deletion` needs TWO headers, not one
+>
+> Unlike `process-payouts` (deployed `--no-verify-jwt`), this function has platform JWT verification
+> **on**, so there are two gates in front of it. Verified 2026-07-30:
+>
+> | Request | Result |
+> |---|---|
+> | No `Authorization` header | `401` `UNAUTHORIZED_NO_AUTH_HEADER` — **platform**, before the code runs |
+> | Valid JWT + wrong `x-worker-secret` | `401` `{"error":"Unauthorized"}` — the function's own gate |
+> | Valid JWT + correct `x-worker-secret` | processes the queue |
+>
+> ```
+> curl -i -X POST \
+>   -H "Content-Type: application/json" \
+>   -H "Authorization: Bearer <ANON_KEY>" \
+>   -H "x-worker-secret: <ACCOUNT_DELETION_SECRET>" \
+>   https://fmngptolarydbgrtltnd.supabase.co/functions/v1/account-deletion
+> ```
+>
+> ⚠️ **This function permanently deletes auth users.** It drains every `pending` deletion row in
+> `data_subject_requests`. Check what is queued **before** calling it:
+> ```sql
+> select id, user_id, status, created_at from data_subject_requests
+> where request_type = 'deletion' and status = 'pending';
+> ```
 >
 > **Why this matters beyond the bug:** the doc set lists export/deletion as *shipping*, with only NPC
 > registration outstanding. It was shipping in the repo and inert in production — the third instance

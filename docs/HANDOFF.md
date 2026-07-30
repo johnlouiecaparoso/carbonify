@@ -75,6 +75,37 @@
 > the same file — or the same function — and was not applied to the neighbouring branch. The guard
 > was never missing from the codebase, only from one path.
 >
+> ### ✅ 2026-07-30 (evening, later) — ALL THREE FIXES ARE DEPLOYED AND CONFIRMED LIVE
+>
+> `paymongo-webhook`, `paymongo-checkout` and `account-deletion` are deployed. **The security fix was
+> verified against the running function, not the source** — the `verify` action was attacked exactly
+> as an outsider would, with the *public* anon key and a session id belonging to nobody:
+>
+> ```
+> POST /paymongo-checkout {"action":"verify","sessionId":"cs_someoneElsesSessionId123"}
+> → 401 {"error":"Authentication required"}
+> ```
+>
+> Before the fix that same request returned the payer's billing name, email, phone and amount. Note
+> the anon key is in the frontend bundle, so "authenticated" was never a barrier — the exposure was
+> open to anyone who loaded the site.
+>
+> **Also settled: the payout worker cron is PROVEN, not merely scheduled.** `net._http_response` row 1
+> — `status_code 200`, body `{"escrowReleased":0,"processed":0,"results":[]}`, fired `07:30:00`. And
+> `reconcile_financials()` returns **0 rows** after the mock settlement of the 18-day-old payout, so
+> the books survived it.
+>
+> **`account-deletion` has two gates, which the runbook did not say.** Platform JWT verification is on
+> (unlike `process-payouts`, deployed `--no-verify-jwt`), so it needs `Authorization: Bearer <anon>`
+> **and** `x-worker-secret`. Confirmed: no auth header → platform `401 UNAUTHORIZED_NO_AUTH_HEADER`;
+> valid JWT + wrong secret → the function's own `401 Unauthorized`.
+>
+> **The `ACCOUNT_DELETION_SECRET` fix failed on the first attempt, and the failure looked like
+> success.** The value was set on the existing, wrongly-named `account-deletion` secret instead of
+> under the correct name — so `secrets list` showed a fresh timestamp on a key nothing reads. It read
+> as fixed and was not. **A recent `updated_at` on the wrong name is not evidence.** Same shape as
+> everything else found today, one layer further out again.
+>
 > ### ✅ 2026-07-30 (evening) — THE PAYOUT WORKER IS LIVE. Step 0 is closed.
 >
 > `process-payouts` is deployed, secret-gated and on a `*/15` `pg_cron` schedule (jobid 1, active).
