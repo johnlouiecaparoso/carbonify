@@ -40,15 +40,19 @@
                 <span>· {{ formatDate(app.submitted_at) }}</span>
               </div>
               <div v-if="app.organization" class="app-org">Org: {{ app.organization }}</div>
-              <a
+              <!-- Was an <a href target="_blank">. `id_document_url` holds a
+                   `data:` URI (KycView uploads via readAsDataURL), and browsers
+                   BLOCK top-level navigation to data: URIs — hence the blank
+                   tab. Rendered in-place instead, where data: URIs work fine. -->
+              <button
                 v-if="app.id_document_url"
-                :href="app.id_document_url"
-                target="_blank"
-                rel="noopener"
+                type="button"
                 class="doc-link"
+                @click="viewing = app"
               >
+                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
                 View ID document
-              </a>
+              </button>
               <span v-else class="muted">No document uploaded</span>
               <div v-if="app.review_notes" class="review-notes">Notes: {{ app.review_notes }}</div>
             </div>
@@ -93,12 +97,26 @@
         <p v-if="message" class="message" :class="{ error: isError }">{{ message }}</p>
       </div>
     </div>
+
+    <!-- In-tab document viewer. Closing it returns to the queue with scroll
+         position and filters intact, which a new tab never did. -->
+    <DocumentViewerModal
+      v-if="viewing"
+      :src="viewing.id_document_url"
+      :applicant="viewing.full_name || viewing.applicant_name || ''"
+      :doc-type="viewing.id_document_type || ''"
+      @close="viewing = null"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { getKycApplications, reviewKycApplication } from '@/services/kycService'
+import DocumentViewerModal from '@/components/admin/DocumentViewerModal.vue'
+
+/** The application whose ID document is open in the viewer, or null. */
+const viewing = ref(null)
 
 const filters = [
   { value: 'pending', label: 'Pending' },
@@ -311,12 +329,30 @@ load()
   margin-top: 0.25rem;
 }
 
+/* Now a <button>, so it needs the browser's button chrome stripped and the
+   affordances an <a> gave it for free. */
 .doc-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-top: 0.5rem;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid var(--primary-color, #058526);
+  border-radius: 8px;
   color: var(--primary-color, #058526);
   font-weight: 600;
   font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 36px;
+}
+.doc-link:hover {
+  background: var(--primary-color, #058526);
+  color: #fff;
+}
+.doc-link .material-symbols-outlined {
+  font-size: 18px;
 }
 
 .muted {
