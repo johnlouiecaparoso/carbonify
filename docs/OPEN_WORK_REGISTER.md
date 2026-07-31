@@ -181,10 +181,14 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
    `POST {"action":"verify","sessionId":"cs_someoneElsesSessionId123"}` → `401 Authentication
    required`. `ACCOUNT_DELETION_SECRET` was also set under the correct name the same day.
    ⚠️ **The frontend half of this is still owed** — see step 4c.
-4c. 🔴 🆕 **Deploy the frontend.** Live runs `main`, ~151 commits stale, so every fix since 2026-07-11
-   is inert in production — including the router guard bypass (a farmer can still reach `/admin` by
-   URL on live), the consent gate, the onboarding guides, the KYC document viewer, the PWA fixes and
-   the provider-button fix. This is the last "built ≠ live" gap on the board.
+4c. ~~Deploy the frontend~~ — ✅ **done 2026-08-01.** PR #14 merged (`c640f9c`); `main` went from 153
+   commits behind to 0. **Verified by fetching production rather than by reading a green check:**
+   `carbonify13.vercel.app` serves `sw.js` at `CACHE_VERSION = 'v4'` and a bundle containing
+   `policy_acceptances` — neither of which existed on the old `main`. The router-guard fix, the
+   consent gate, the onboarding guides, the KYC viewer and the PWA fixes are live.
+   ⚠️ The deploy came from the **Vercel GitHub integration**. The `deploy` job in `ci.yml` failed
+   with `Input required and not supplied: vercel-token` — that secret has never been set. Set the
+   three `VERCEL_*` secrets or delete the job; do not read its red X as a failed deploy.
 5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
@@ -204,8 +208,10 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 
 ### 2c. Repo and infrastructure
 
-Decide on merging **PR #14** — **151 commits** ahead of `origin/main`, pushed and in sync as of
-2026-07-31 (the PR page's commit list is API-capped at 100 and understates it) · buy + verify the
+~~Decide on merging **PR #14**~~ — ✅ **merged 2026-08-01**, 153 commits; `main` is current and
+production is running it · **set the three `VERCEL_*` secrets or delete `ci.yml`'s `deploy` job**,
+which fails on a missing `vercel-token` while the Vercel Git integration does the real deploying ·
+buy + verify the
 **email-confirmation domain** · adopt CLI migration tracking (#7) so live stops drifting from
 `supabase/migrations/` · hold all keys and secrets.
 

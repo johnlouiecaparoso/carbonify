@@ -575,7 +575,30 @@
 > differently from one validated today — worth saying to any pilot developer before they report it as
 > a bug.
 >
-> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-31**, so the PR reflects everything below. `main` is **151 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
+> ### ✅ MERGED AND DEPLOYED 2026-08-01 — `main` is current and production is running it
+>
+> [PR #14](https://github.com/johnlouiecaparoso/carbonify13/pull/14) is **merged** (`c640f9c`).
+> `main` was 153 commits behind; it is now **0 behind** the feature branch. The three-week
+> "built ≠ live" gap that headed this doc set is closed.
+>
+> **Production verified by fetching it, not by trusting a green check.** `carbonify13.vercel.app`
+> serves `sw.js` with `CACHE_VERSION = 'v4'` (a 2026-07-31 change that could not exist on the old
+> `main`), and its main bundle contains `policy_acceptances` and `consent gate` — code that has never
+> been on `main` before today. The router-guard fix, the consent gate, the onboarding guides, the KYC
+> document viewer and the PWA fixes are live.
+>
+> ⚠️ **The deploy you get is the Vercel GitHub integration, NOT the `deploy` job in
+> [`ci.yml`](../.github/workflows/ci.yml).** That job failed in 7 seconds with
+> `Input required and not supplied: vercel-token` — `VERCEL_TOKEN` has never been set. It was dead
+> twice over: gated behind a Lighthouse job that could never pass (fixed today), and missing its
+> credentials. **Expect a red X on `main` from that one job while production deploys correctly
+> anyway.** Either set the three `VERCEL_*` secrets or delete the job — do not read its red as a
+> failed deploy. Two deploy paths where one is undeclared and the other has never run is the same
+> shape as everything else on this page.
+>
+> **First fully-green CI run on `main` in this repo's history**, incidentally: `test (20)`,
+> `test (22)`, `e2e`, `build` and `lighthouse` all passed. Every previous run on `main` — all 20,
+> back to 2026-02-12 — had failed.
 >
 > ⚠️ **"Pushed and in sync as of 2026-07-28" was wrong when written.** The 2026-07-30 push moved the
 > remote `b8cdab8 → ee9fd6d`, i.e. **five** commits — three from that day's audit *plus* `344b9de`
