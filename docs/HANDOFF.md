@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -12,13 +12,78 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **916 unit tests green** (re-verified 2026-08-01,
+> **Current build state:** build green, lint green, **920 unit tests green** (re-verified 2026-08-01,
 > 79 files), plus a new **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
-> five were stale selectors and are fixed. Unit-test history: (908 on 2026-07-31, 820 and 801 earlier that day, 786
+> five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🆕 2026-08-01 (late) — 🐛 the consent gate asked forever, because it asked as nobody
+>
+> Suite **916 → 920** (79 files). Build green, lint 0. **No migration** — the table and both its RLS
+> policies have been correct since 2026-07-31. This was entirely frontend.
+>
+> **The report:** the policy box appeared at every sign-in, in every role, on localhost. The
+> obvious readings were all wrong. It was not the migration (the table exists — `200 []` where a
+> missing table gives `404`). It was not RLS (`pg_policies` shows both the SELECT and INSERT policy,
+> exactly as the migration writes them). It was not the deploy (production runs `main`, three weeks
+> stale, which does not contain the gate at all).
+>
+> **What it was:** in development `LoginForm.handleSubmit` assigns `testAccount.mockSession` straight
+> into the store for the four `*@carbonify.test` accounts — objects fabricated in
+> [`testAccounts.js`](../src/utils/testAccounts.js) carrying an `access_token` of, literally,
+> `'admin-test-token'`, for users **that do not exist in Supabase auth**. The Supabase client never
+> receives that session, so every PostgREST request still went out as `anon` with `auth.uid()` null,
+> while the app believed a hard-coded uuid was signed in.
+>
+> - The **read** matched nothing under RLS and returned `200 []` with `error: null` → indistinguishable
+>   from "has not accepted" → box shown again, every time.
+> - The **write** was rejected `42501` → accepting could never succeed → the table stayed empty, which
+>   is what made it look like a migration fault in the first place.
+>
+> The gate was **unsatisfiable**. That is worse than no gate: it teaches people to dismiss the one
+> thing they are meant to read. `authenticatedUserId()` now asks Supabase who it actually holds and
+> **skips** the gate when that disagrees with the store — consent that cannot be recorded is not worth
+> collecting — and the write refuses with a sentence instead of a bare `42501`.
+>
+> > **The lesson, and it is a new one for this repo: a fail-open read can fail closed.** The service
+> > carried a comment saying it failed open "if the table is missing, **RLS blocks the read**, or the
+> > network is down". RLS does not error. PostgREST *filters rows*. So the one case the comment named
+> > as safe was the one case that failed closed — and did so **silently**, because the console warning
+> > written to catch exactly this only fires on an `error`, which never came. Corrected in place and
+> > verified against the live project. Sibling of the recurring
+> > "a read that swallows its error and returns `[]` reads as a fact about the user" defect, one layer
+> > down: here nothing was swallowed, because nothing was thrown.
+>
+> **Four more defects found scanning that path**, none of them reported, all fixed here:
+>
+> | | Was | Now |
+> |---|---|---|
+> | [`supabaseClient.js`](../src/services/supabaseClient.js) | `initSupabase` returned **`null`** to any caller arriving mid-startup ("already in progress"). Affects every service, not just this one | Concurrent callers await the in-flight promise |
+> | [`policyService.js`](../src/services/policyService.js) | Sampled `getSupabase()` in the same tick as the first call. The router guard hydrates the session **before** `App.vue` mounts, so an unlucky load gave indeterminate → let through → **never retried**, since the watcher only re-fires when the user id changes | Awaits the client. Whether a consent form shows must not depend on a startup race |
+> | [`PolicyConsentGate.vue`](../src/components/legal/PolicyConsentGate.vue) | "Cannot be dismissed" stopped the **mouse only**. Tab reached the header and sidebar behind it; the mobile menu is `z-index: 9999 !important` against the gate's 1900, so it opens **on top** | Focus trap + body scroll lock. The z-index is deliberately left alone — the documents open at 2000 and must stay above the gate, or "Read" opens behind the thing telling you to read |
+> | [`App.vue`](../src/App.vue) | No race guard (sign out, back in as someone else, slower answer wins) and a throw rejected into the watcher as an unhandled rejection | Guarded by user id; catches and fails open like the service |
+>
+> **And one about the tests themselves.** The global double in [`setup.js`](../src/test/setup.js)
+> exposed only `getSupabase`. The moment a service used any other export of that module, **all 67
+> suites failed at once** with "is not a function" — not one informative failure, sixty-seven
+> uninformative ones. It now mirrors the real module's four exports. *(This is also the one flake
+> worth not chasing: a first run straight after editing a file can still report `0 tests` from
+> `setup.js` — the Windows parallel-worker issue already noted at the top of this file. It clears on
+> re-run.)*
+>
+> ⚠️ **Still open, and it needs you:** the fix is verified for the four mock accounts. `policy_acceptances`
+> has **never** held a row, so for real accounts "the write was broken too" and "nobody ever ticked the
+> box" are still indistinguishable from the outside. Accept once on a real account and run the join in
+> [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md). [`verify-policy-gate.js`](../scripts/test/verify-policy-gate.js)
+> does the same round-trip from the terminal for one account.
+>
+> **Left alone deliberately:** [`userStore.js`](../src/store/userStore.js) hard-codes the four mock
+> uuids in a literal array. Correct today; a hand-maintained list that has to be updated whenever a
+> test account is added — the same shape as the bug above. And the mock-session login itself, which is
+> load-bearing for role testing.
 >
 > ### 🆕 2026-08-01 — the consent gate, verified rather than asserted; and the doc set caught up with the backend
 >

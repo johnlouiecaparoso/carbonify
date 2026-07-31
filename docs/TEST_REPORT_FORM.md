@@ -192,6 +192,11 @@ production is the same class of defect as everything else this project has been 
 - [x] ✅ Email confirmation OFF (`mailer_autoconfirm` = `true`) — **2026-07-31**, taken instead of
       buying the domain first
 - [x] ✅ `20260731000100_policy_acceptances.sql` applied — **2026-07-31**, confirmed by REST probe
+- [ ] **Consent box accepted once on a REAL account, and the row is there** — date: ______
+      *(the gate was asking forever and recording nothing until 2026-08-01; fixed and verified for the
+      four DEV mock accounts, but `policy_acceptances` has never held a row, so real accounts are still
+      unproven. Accept once, then run the join in YOUR_ACTION_ITEMS. A null `accepted_at` after you
+      accepted is a second, different bug)*
 - [ ] Sender domain verified in Resend — date: ______ *(no longer blocks the beta; still blocks the
       8 stub emails, the MRV reminders, and turning confirmation back on)*
 - [ ] `pilot-readiness.spec.js` green

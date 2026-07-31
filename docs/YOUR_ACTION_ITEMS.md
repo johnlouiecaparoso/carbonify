@@ -12,13 +12,32 @@
 
 > ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **916 green** across 79 files
-> (908 on 2026-07-31, 801 the morning before), plus a 37-test responsive spec. Lint 0, build green. One
-> migration, **already applied**; everything else is frontend and ships with the deploy you owe.
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **920 green** across 79 files
+> (916 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
+> spec. Lint 0, build green. One migration, **already applied**; everything else is frontend and ships
+> with the deploy you owe.
 >
-> **2026-08-01 added no work for you.** One frontend fix (the register page had no link to the Terms —
-> people were agreeing by signing up to documents the page gave them no way to open), one new test file
-> proving the consent box appears **once**, one new read-only diagnostic
+> **2026-08-01 added no work for you, but it did add one thing worth five minutes.** The consent gate
+> was reappearing at every sign-in and recording nothing — fixed, see HANDOFF. The fix is verified for
+> the four DEV mock accounts. It is **not yet confirmed against your real accounts**, because
+> `policy_acceptances` has never held a single row, and the only way to tell "the write was broken" from
+> "nobody ever ticked the box" is to tick it once. Sign in with a real account, accept, then run:
+>
+> ```sql
+> select p.role, p.email, a.accepted_at
+> from public.profiles p
+> left join public.policy_acceptances a
+>   on a.user_id = p.id and a.policy_version = '2026-07-31'
+> order by p.role;
+> ```
+>
+> A row with `accepted_at` still null after you accepted means the write is broken for real accounts
+> too, and that is a different bug from the one fixed. Every other null is simply an account that has
+> not been asked yet.
+>
+> Also on 2026-08-01: the register page had no link to the Terms (people were agreeing by signing up to
+> documents the page gave them no way to open), a test file proving the consent box appears **once**, a
+> read-only diagnostic
 > ([`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql)), and a
 > correction pass over four docs that still told you signups were disabled. Your three items below are
 > unchanged.
@@ -38,12 +57,18 @@
 > therefore live: new users must accept the Terms, Privacy Policy and Carbon Credits Policy before
 > they can use the platform, and the acceptance is recorded with the policy version.
 >
-> > 🔎 **Worth knowing about that gate:** its read **fails open**. If the table were dropped or the
-> > read errored, users would be let through rather than locked out — deliberate, because an
-> > owner-applied migration must never brick the platform, including for the admin who would fix it.
-> > The only signal would be a console error beginning `[policy] Could not read policy_acceptances`.
-> > Now that it is applied, run the `VERIFY` block at the bottom of the migration if you want the
-> > four PASS rows on record.
+> > 🔎 **Worth knowing about that gate:** its read **fails open** — but only for the cases it can
+> > see. If the table were dropped or the read errored, users are let through rather than locked out,
+> > deliberately, because an owner-applied migration must never brick the platform, including for the
+> > admin who would fix it. The signal is a console error beginning `[policy] Could not read
+> > policy_acceptances`.
+> >
+> > ⚠️ **RLS is NOT one of those cases, and the code claimed it was until 2026-08-01.** PostgREST
+> > filters rows; it does not error. An RLS-blocked read returns `200 []` with `error: null` — which
+> > is byte-identical to "this user has not accepted". So an identity problem makes the gate fail
+> > **closed** and ask forever, silently, with nothing in the console. That is exactly what happened
+> > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
+> > migration if you want the four PASS rows on record.
 >
 > **You have three things left:**
 >

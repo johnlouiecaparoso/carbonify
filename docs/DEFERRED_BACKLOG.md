@@ -1104,3 +1104,44 @@ So there is currently no flow in which a farmer's KYC does anything.
 branch now does. If no, add `ROLES.FARMER` to `FINANCE_RESTRICTED_ROLES` and drop their `/kyc` entry —
 and note that the same question then applies to whether the Buying tab in `/analytics` should be
 role-gated, since it is currently ungated for every role that can see the page.
+
+---
+
+## From the 2026-08-01 consent-gate fix
+
+### 32. The DEV mock-session login is a hand-maintained list that silently breaks RLS features 🟡
+
+**What it is.** [`LoginForm.handleSubmit`](../src/components/auth/LoginForm.vue) assigns
+`testAccount.mockSession` straight into the Pinia store when `import.meta.env.DEV` and the email
+matches one of the four `*@carbonify.test` accounts. Those users **do not exist in Supabase auth** —
+the session is fabricated, `access_token: 'admin-test-token'`. The Supabase client never receives it,
+so every PostgREST request still goes out as `anon` with `auth.uid()` null while the app behaves as
+though a specific user is signed in.
+
+**Why it is here and not fixed.** It is load-bearing: it is how roles get exercised on localhost
+without maintaining six real accounts, and removing it is a workflow decision, not a defect fix.
+
+**What it costs.** Any feature gated on RLS misbehaves under it, and misbehaves *quietly*, because a
+filtered `SELECT` returns `200 []` with `error: null` — indistinguishable from "no such row". This
+cost a full diagnostic session on the policy consent gate: the gate asked at every sign-in and
+recorded nothing, and the evidence pointed at the migration, then at RLS, then at the deploy, before
+it pointed at the login. The symptom is **localhost-only**, which reads as "works in production".
+
+**The narrower sub-item, and the one that will bite next.**
+[`userStore.js`](../src/store/userStore.js) hard-codes the four mock uuids in a literal array to
+decide `isTestAccount`. [`profileService.js`](../src/services/profileService.js) and
+[`notificationService.js`](../src/services/notificationService.js) each derive the same set a third
+way, from `TEST_ACCOUNTS` itself. Add a fifth test account and the literal array is the one that goes
+stale — and it fails by treating a mock account as real, which is the direction that produces
+confusing bugs rather than obvious ones.
+
+**How to close.** Either (a) seed the six roles as **real** Supabase users (`setup-test-accounts.js`
+already exists for this and has never been run against the live project — its emails do not
+authenticate) and delete the mock path entirely, which makes localhost behave like production; or
+(b) keep it, but derive every "is this a mock?" check from one exported predicate in
+`testAccounts.js`, and have services that depend on `auth.uid()` verify identity against
+`supabase.auth.getSession()` rather than trusting the store — as
+[`policyService.authenticatedUserId()`](../src/services/policyService.js) now does.
+
+**(a) is the better answer.** Every workaround the mock path needs is a place where localhost and
+production diverge, and each one hides a class of bug until it reaches a real user.

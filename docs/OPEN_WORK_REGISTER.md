@@ -172,6 +172,13 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
+8b. 🆕 **Accept the consent box once on a REAL account, and confirm the row landed (~5 min).** The gate
+   was asking at every sign-in and recording nothing until 2026-08-01; fixed and verified for the four
+   DEV mock accounts, but `policy_acceptances` has **never held a row**, so "the write was broken for
+   real accounts too" and "nobody ever ticked the box" are still indistinguishable. Sign in, accept,
+   then run the join in [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md) — or
+   [`verify-policy-gate.js`](../scripts/test/verify-policy-gate.js) for one account from the terminal.
+   A null `accepted_at` after accepting is a **different, unfixed bug**.
 9. Decide the **beta database** — reuse live (reconcile is clean) but purge or label leftover test data first
 10. **Run the closed beta** — 8–15 invited users, every role, `reconcile_financials()` = 0 daily
 

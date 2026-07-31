@@ -16,7 +16,7 @@
 | # | Type | Status | What it covers |
 |---|---|---|---|
 | 1 | **Regression gate** ([§1.1](#11-regression-gate-run-on-every-change-)) | 🔴 mandatory | build green · eslint 0 · vitest green · `reconcile_financials()` = 0 after any money change |
-| 2 | **Unit (Vitest)** | ✅ **916 / 79 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
+| 2 | **Unit (Vitest)** | ✅ **920 / 79 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
 | 3 | **Component** | ✅ | Vue components in isolation, incl. `modalA11y` (15 dialogs) and `tokenContrast` (fails the suite on a contrast regression) |
 | 4 | **End-to-end (Playwright)** ([§1.3](#13-end-to-end-playwright-on-a-seeded-backend-)) | 🟡 **46/47** | 8 specs. **Not required in CI, not seeded** — the job is `continue-on-error`, which is how 6 failures sat unseen |
 | 5 | **Responsive / layout** | ✅ **37/37** | Real element geometry at 320/390/768/1024/1440 + tap targets + the 16px input floor. ⚠️ **public routes only** |
@@ -82,7 +82,7 @@ and not seeded · ③ authenticated pages unmeasured for layout · ④ load test
 
 | Layer | State |
 |---|---|
-| Unit tests | ✅ **916 passing** across 79 files (Vitest) — re-run 2026-08-01. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
+| Unit tests | ✅ **920 passing** across 79 files (Vitest) — re-run 2026-08-01. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
 | Live-DB security verification | ✅ done 2026-07-20 — RLS lockdown + money-table policies verified; `reconcile_financials()` = 0. |
 | Integration tests (RPC/RLS on a real DB) | 🟡 **the negative half is now written** — [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) impersonates a real authenticated user and *attempts* 8 attacks. Owner-run (needs the live DB); not yet executed. The positive RPC half is still unautomated. |
 | End-to-end (Playwright) | 🟡 **46/47 passing** (2026-07-29) and still not required in CI. Was **38/44 with 6 silent failures** — see the box below. The one red (`pilot-readiness`) was correct and is **resolved on the backend 2026-07-31**. |
