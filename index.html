@@ -54,9 +54,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+    <!-- display=block matters for an ICON font specifically. Material Symbols
+         renders by ligature, so while the font is still loading the browser
+         shows the ligature NAME as plain text — a page full of the literal
+         words "check_circle", "menu_book", "visibility". `block` keeps the
+         glyph invisible until the font arrives instead of flashing its name. -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=block"
     />
 
     <title>Carbonify - Carbon Credit Marketplace</title>

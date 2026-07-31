@@ -14,7 +14,7 @@
 // Bumped to v2 with the icon rework. Until now these caches were deleted a
 // second after every page load by a stray block in main.js, so no user has ever
 // held a populated v1 cache.
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v4'
 const SHELL_CACHE = `carbonify-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `carbonify-assets-${CACHE_VERSION}`
 const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/carbonify-logo.png', '/icon-192.png']
@@ -81,6 +81,51 @@ async function safePut(cache, key, response) {
   }
 }
 
+/**
+ * Google Fonts — the ONE cross-origin exception, and it earns it.
+ *
+ * The whole UI is iconography from Material Symbols, which renders by
+ * ligature. If that font is unavailable the icons do not degrade to blank —
+ * they degrade to the literal words "check_circle", "menu_book", "visibility"
+ * scattered through the interface. Offline, with no font cached, that is what
+ * an installed PWA showed.
+ *
+ * Cache-first with a network fallback: fonts are immutable and versioned by
+ * URL, so a stale hit is not a risk worth a round trip.
+ */
+const FONT_ORIGINS = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com']
+
+function isFontRequest(url) {
+  return FONT_ORIGINS.includes(url.origin)
+}
+
+async function cacheFirstFont(request) {
+  const cache = await caches.open(ASSET_CACHE)
+  const cached = await cache.match(request)
+  if (cached) return cached
+
+  try {
+    const response = await fetch(request)
+    // Font responses are frequently OPAQUE (the stylesheet <link> carries no
+    // crossorigin attribute), so `response.ok` is false and status is 0.
+    // `isCacheable` correctly rejects those everywhere else — an opaque body
+    // cannot be validated — but for fonts an opaque hit is still a working
+    // font, and refusing it is what left the icons broken offline.
+    if (response && (response.ok || response.type === 'opaque')) {
+      try {
+        await cache.put(request, response.clone())
+      } catch {
+        /* quota or an unexpected Vary — serve the response anyway */
+      }
+    }
+    return response
+  } catch {
+    // Offline with nothing cached. Returning an error here is honest: the
+    // browser falls back to the next font in the stack.
+    return Response.error()
+  }
+}
+
 function isHashedAsset(url) {
   return (
     url.pathname.startsWith('/js/') ||
@@ -120,6 +165,14 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
 
   const url = new URL(request.url)
+
+  // The single cross-origin exception: the icon font the whole UI depends on.
+  // Checked BEFORE the same-origin gate below, which would otherwise return.
+  if (isFontRequest(url)) {
+    event.respondWith(cacheFirstFont(request))
+    return
+  }
+
   // Only handle our own origin; never intercept Supabase, PayMongo, OSM tiles, etc.
   if (url.origin !== self.location.origin) return
 

@@ -69,14 +69,41 @@ pre,
 
 /* 5) PWA standalone: respect the notch / status-bar safe areas so sticky
  *    chrome isn't tucked under the system UI on installed devices. Paired with
- *    viewport-fit=cover in index.html. Progressive — no effect where unsupported. */
+ *    viewport-fit=cover in index.html. Progressive — no effect where unsupported.
+ *
+ *    ⚠️ This block targeted `.app-header`, `header.app-header` and
+ *    `.app-shell-header`. NONE OF THOSE CLASSES EXIST anywhere in the app — the
+ *    header's root class is `.header` and the sidebar's is `.sidebar`. So the
+ *    whole rule had never matched a single element, while `viewport-fit=cover`
+ *    in index.html WAS extending content under the notch. An installed PWA on a
+ *    notched iPhone therefore drew its header beneath the status bar, which is
+ *    precisely the thing this block was written to prevent.
+ *
+ *    The same shape as the router guard and the KYC card: a correct rule
+ *    pointed at something that isn't there. */
 @supports (padding: max(0px)) {
   @media (display-mode: standalone) {
-    .app-header,
-    header.app-header,
-    .app-shell-header {
+    /* Top inset: the header is `position: sticky; top: 0`, so it sits directly
+       under the status bar / notch. */
+    .header {
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .header-container {
       padding-left: max(var(--spacing-md, 1rem), env(safe-area-inset-left));
       padding-right: max(var(--spacing-md, 1rem), env(safe-area-inset-right));
+    }
+
+    /* The sidebar is pinned below the header; in landscape on a notched device
+       the left inset is what keeps it off the sensor housing. */
+    .sidebar {
+      padding-left: env(safe-area-inset-left);
+    }
+
+    /* Bottom inset: the iOS home indicator overlaps anything flush to the
+       bottom edge, which on this app is the sticky action bars under forms. */
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
     }
   }
 }
