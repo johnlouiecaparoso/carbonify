@@ -12,15 +12,71 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **924 unit tests green** (re-verified 2026-08-01,
-> 80 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **932 unit tests green** (re-verified 2026-08-01,
+> 81 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-01 (latest) — 🐛 the portfolio fix named RetireView as covered. RetireView imported the other copy.
+> ### 🆕 2026-08-01 (latest) — 🐛 #11 CLOSED. The ESG report was reading a table nothing writes.
+>
+> Suite **924 → 932** (81 files). Build green, lint 0. **No migration, no function deploy.**
+>
+> **The open half of #11 said consolidating the two purchase sources was "a data-model question —
+> which table is canonical". It was not a question.** Nothing in this project writes
+> `credit_purchases`: not one migration, edge function or client path. Every settled purchase goes
+> into `credit_transactions` via `process_marketplace_purchase`. The table is legacy — and
+> `creditOwnershipService.getUserTransactionHistory`, the ESG report's **only** source, had been
+> reading it.
+>
+> So `buildEsgDataset().totals.purchasedCredits` was **structurally zero**, and the exported PDF
+> printed **"Credits purchased (lifetime): 0"** for every buyer who had ever bought anything.
+>
+> > **This is #11's failure mode for the third time, by a third route.** The cross-type slice
+> > (2026-07-28) and the swallowed error (2026-07-30) were both fixed **in this same function**, and
+> > neither pass asked whether the table under it had rows. Two fixes, one function, and the thing
+> > actually wrong was one line above where both of them were looking.
+>
+> **Scoped honestly:** `Credits owned`, `Credits retired` and the `By Project` breakdown were always
+> correct — they read `credit_ownership` and `credit_retirements`. Only the purchased figure was wrong.
+>
+> **The name collision is closed by renaming, and that is the real close-out of #11.**
+> `transactionHistoryService`'s copy is now `getPurchaseAndRetirementHistory`: it returns
+> `{purchases, retirements, all}` from different tables and was never interchangeable with the flat
+> array the other returns. One name over two shapes is what let a fix land on one copy and be believed
+> to cover both — twice this week.
+>
+> **Two more `[]`-on-error reads went with it,** both live on RetireView through
+> `getUserRetirementHistory`: a failed retirements query was logged and stepped over, and the outer
+> catch returned `{purchases: [], retirements: [], all: []}`. **A user who had retired credits was
+> told, on the retirement screen, that they had retired none.** Both now throw.
+>
+> **Also deleted:** a `credit_purchases` "fallback" that queried the table, logged
+> *"✅ Found purchases in credit_purchases table"*, then discarded the rows behind a
+> `// TODO: Implement proper fallback` — a success line printed for data it never used, against a
+> table nothing writes. *A log line saying a thing worked is not evidence the thing worked.*
+>
+> **🆕 The guard I wrote yesterday would have missed this, and that is worth carrying.**
+> `duplicateServiceReads.test.js` matched only `export function`, and #11's collision is a bare export
+> on one side and a **class method** on the other. A guard written against one of two syntaxes catches
+> half the class — the same partial-coverage mistake it exists to prevent. Extended to both, it
+> immediately found **nine more collisions** across `projectService`, `projectWorkflowService` and
+> `projectApprovalService`, and one of them is live: `ProjectForm.vue`'s submit handler **cascades**
+> `projectWorkflowService.submitProject` → `projectService.createProject` →
+> `projectApprovalService.submitProject`, taking whichever does not throw. Three write paths into one
+> table, chosen by failure. Recorded as **[#33](DEFERRED_BACKLOG.md)** rather than fixed — it needs a
+> decision about which service owns project writes. The nine are an explicit **ratchet baseline**: a
+> new collision fails the suite, and the count can only go down.
+>
+> **Mutation-checked, three ways** — reverting the table turns the guard red; re-swallowing the
+> retirements error turns exactly the two retirement assertions red; the pinned-to-`credit_purchases`
+> assertion in `creditOwnershipErrors.test.js` went red on the table change, which is how we know it
+> was really exercising that path. *That test had agreed with the code and both were wrong about the
+> database.*
+>
+> ### 🆕 2026-08-01 — 🐛 the portfolio fix named RetireView as covered. RetireView imported the other copy.
 >
 > Suite **920 → 924** (80 files). Build green, lint 0. **No migration, no function deploy** — one
 > import, one deletion, one new test.

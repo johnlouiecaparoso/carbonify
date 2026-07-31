@@ -46,6 +46,36 @@ const ALLOWED_DUPLICATES = new Set([
   'exportFilename',
 ])
 
+/**
+ * Collisions that EXIST TODAY and are recorded as debt, not blessed.
+ *
+ * This is a ratchet, asserted exactly: a new collision fails the suite, and
+ * removing one of these fails it too until the entry is deleted here. That is
+ * deliberate — an allowlist silently absorbs progress, and this list is meant
+ * to shrink.
+ *
+ * All nine come from three project services that overlap heavily
+ * (`projectService`, `projectWorkflowService`, `projectApprovalService`), and
+ * `ProjectForm.vue` imports all three. The sharp end is its submit handler,
+ * which cascades `projectWorkflowService.submitProject` ->
+ * `projectService.createProject` -> `projectApprovalService.submitProject`,
+ * taking whichever does not throw. Three write paths into one table, chosen by
+ * failure — so which one ran is not knowable from the code, and a fix to one is
+ * invisible to the other two. Untangling that needs a decision about which
+ * service owns project writes; see DEFERRED_BACKLOG #33.
+ */
+const KNOWN_COLLISIONS = [
+  'approveProject exported by projectApprovalService.js and projectWorkflowService.js',
+  'calculateBasePrice exported by projectApprovalService.js and projectWorkflowService.js',
+  'calculateCreditsAmount exported by projectApprovalService.js and projectWorkflowService.js',
+  'getAllProjects exported by projectApprovalService.js and projectService.js',
+  'getPendingProjects exported by projectApprovalService.js and projectWorkflowService.js',
+  'getProjectStats exported by projectService.js and projectWorkflowService.js',
+  'getUserProjects exported by projectService.js and projectWorkflowService.js',
+  'submitProject exported by projectApprovalService.js and projectWorkflowService.js',
+  'updateProjectStatus exported by projectApprovalService.js and projectService.js',
+]
+
 function serviceFiles() {
   return readdirSync(SERVICES_DIR, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith('.js'))
@@ -61,13 +91,41 @@ function exportedFunctionNames(source) {
   return names
 }
 
+/**
+ * Class methods on an exported service singleton, e.g. `creditOwnershipService`.
+ *
+ * The first version of this file matched only `export function`, so it would
+ * have passed clean over #11's own collision — `getUserTransactionHistory` is a
+ * bare export in `transactionHistoryService` and a CLASS METHOD in
+ * `creditOwnershipService`. A guard written against one of the two syntaxes
+ * catches half the class, which is the same partial-coverage mistake it exists
+ * to prevent. Matched at two-space indentation to stay inside the class body
+ * and off nested object literals.
+ */
+function serviceMethodNames(source) {
+  const names = new Set()
+  const re = /^ {2}(?:async\s+)?([A-Za-z0-9_$]+)\s*\([^)]*\)\s*\{/gm
+  let match
+  while ((match = re.exec(source)) !== null) {
+    if (match[1] !== 'constructor' && match[1] !== 'if' && match[1] !== 'for') {
+      names.add(match[1])
+    }
+  }
+  return names
+}
+
+/** Every callable this service module offers under a name, by either syntax. */
+function publicNames(source) {
+  return new Set([...exportedFunctionNames(source), ...serviceMethodNames(source)])
+}
+
 describe('no two services export the same read under one name', () => {
   it('every duplicated export name is on the allowlist, with a reason', () => {
     const byName = new Map()
 
     for (const file of serviceFiles()) {
       const source = readFileSync(join(SERVICES_DIR, file), 'utf8')
-      for (const name of exportedFunctionNames(source)) {
+      for (const name of publicNames(source)) {
         if (!byName.has(name)) byName.set(name, [])
         byName.get(name).push(file)
       }
@@ -76,10 +134,34 @@ describe('no two services export the same read under one name', () => {
     const collisions = [...byName.entries()]
       .filter(([name, files]) => files.length > 1 && !ALLOWED_DUPLICATES.has(name))
       .map(([name, files]) => `${name} exported by ${files.join(' and ')}`)
+      .sort()
 
     // A collision is not automatically a bug — but it is always a place where a
-    // fix can land on one copy and be believed to cover both.
-    expect(collisions).toEqual([])
+    // fix can land on one copy and be believed to cover both. Asserted against
+    // the recorded baseline so the count can only go down.
+    expect(collisions).toEqual(KNOWN_COLLISIONS)
+  })
+
+  it('the two credit-history reads no longer share a name (#11 dual-source)', () => {
+    const ownership = readFileSync(resolve(SERVICES_DIR, 'creditOwnershipService.js'), 'utf8')
+    const history = readFileSync(resolve(SERVICES_DIR, 'transactionHistoryService.js'), 'utf8')
+
+    // creditOwnershipService keeps the name; transactionHistoryService's copy —
+    // a different shape, from different tables — is now
+    // getPurchaseAndRetirementHistory.
+    expect(publicNames(ownership).has('getUserTransactionHistory')).toBe(true)
+    expect(publicNames(history).has('getUserTransactionHistory')).toBe(false)
+    expect(publicNames(history).has('getPurchaseAndRetirementHistory')).toBe(true)
+  })
+
+  it('the ESG history reads credit_transactions, not the table nothing writes', () => {
+    const source = readFileSync(resolve(SERVICES_DIR, 'creditOwnershipService.js'), 'utf8')
+
+    // `credit_purchases` is written by no migration, edge function or client
+    // path in this repo. Reading it made the ESG report print
+    // "Credits purchased (lifetime): 0" for every buyer.
+    expect(source).not.toMatch(/\.from\(\s*'credit_purchases'\s*\)/)
+    expect(source).toMatch(/\.from\(\s*'credit_transactions'\s*\)/)
   })
 })
 

@@ -174,22 +174,46 @@ export class CreditOwnershipService {
     }
 
     try {
-      // Get credit purchases
+      // Purchases come from `credit_transactions`, NOT `credit_purchases`.
+      //
+      // This read used to target `credit_purchases`, and **nothing writes that
+      // table** — not one migration, edge function or client path. Every
+      // settled purchase is inserted into `credit_transactions` by
+      // `process_marketplace_purchase` (20260606000400). So the purchases half
+      // of this history was structurally empty, and the ESG report it feeds
+      // printed "Credits purchased (lifetime): 0" for every user who has ever
+      // bought anything.
+      //
+      // That is #11's original failure mode a third time — a wrong number on a
+      // document someone discloses — but reached through the TABLE CHOICE
+      // rather than through the cross-type slice (fixed 2026-07-28) or the
+      // swallowed error (fixed 2026-07-30). Both earlier fixes edited this very
+      // function without anyone asking whether the table under it had rows.
+      //
+      // `status = 'completed'` is deliberate: a pending or failed checkout is
+      // not a purchase, and an ESG disclosure must not count one.
+      // The project embed is two levels deep here — credit_transactions links
+      // to projects THROUGH project_credits — which is the other reason the
+      // shapes were never interchangeable.
       const { data: purchases, error: purchasesError } = await this.supabase
-        .from('credit_purchases')
+        .from('credit_transactions')
         .select(
           `
-          *,
-          projects!inner(
+          id, quantity, total_amount, currency, status, created_at, completed_at,
+          project_credits!inner(
             id,
-            title,
-            category,
-            location
+            projects!inner(
+              id,
+              title,
+              category,
+              location
+            )
           )
         `,
         )
         .eq('buyer_id', userId)
-        .order('created_at', { ascending: false })
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false, nullsFirst: false })
         .limit(limit)
 
       // Throw, don't log-and-continue. A failed purchases query used to fall
@@ -230,19 +254,27 @@ export class CreditOwnershipService {
 
       // Combine and sort transactions
       const transactions = [
-        ...(purchases || []).map((p) => ({
-          id: p.id,
-          type: 'purchase',
-          project_title: p.projects?.title || 'Unknown Project',
-          project_category: p.projects?.category || 'Unknown',
-          project_location: p.projects?.location || 'Unknown',
-          quantity: p.credits_amount,
-          amount: p.total_amount,
-          currency: p.currency,
-          status: p.status,
-          created_at: p.created_at,
-          description: `Purchased ${p.credits_amount} credits from ${p.projects?.title}`,
-        })),
+        ...(purchases || []).map((p) => {
+          // credit_transactions -> project_credits -> projects. The old
+          // credit_purchases shape had `projects` directly and a
+          // `credits_amount` column; both are gone, and reading them off this
+          // row would yield `undefined` quantities that sum to 0 — the same
+          // zero, arrived at a second way.
+          const project = p.project_credits?.projects
+          return {
+            id: p.id,
+            type: 'purchase',
+            project_title: project?.title || 'Unknown Project',
+            project_category: project?.category || 'Unknown',
+            project_location: project?.location || 'Unknown',
+            quantity: p.quantity,
+            amount: p.total_amount,
+            currency: p.currency,
+            status: p.status,
+            created_at: p.completed_at || p.created_at,
+            description: `Purchased ${p.quantity} credits from ${project?.title}`,
+          }
+        }),
         ...(retirements || []).map((r) => ({
           id: r.id,
           type: 'retirement',
