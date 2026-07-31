@@ -12,15 +12,47 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **932 unit tests green** (re-verified 2026-08-01,
-> 81 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **935 unit tests green** (re-verified 2026-08-01,
+> 82 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-01 (latest) — 🐛 #11 CLOSED. The ESG report was reading a table nothing writes.
+> ### 🆕 2026-08-01 (latest) — post-merge sweep: the wallet, and the deploy topology
+>
+> Suite **932 → 935** (82 files). Build green, lint 0.
+>
+> **1. 🐛 A failed wallet read rendered as "no transactions".** `walletService.getTransactions`
+> looked up `wallet_accounts` with `.single()`, which returns an **error** (PGRST116) when there are
+> simply no rows — so the two cases had to be collapsed into
+> `if (walletError || !walletAccount) return []`. That swallowed real failures (network, RLS,
+> timeout) onto the money screen, and made `WalletView`'s `Promise.allSettled` rejected branch dead
+> code for that path — the fourth view this week whose error handling had been written and could
+> never run. `.maybeSingle()` separates them: no row is `data: null, error: null`.
+>
+> **The other ~12 `error || !row` sites were checked and are fine** — they all `throw`. The wording
+> is imprecise (a database outage reports as *"Listing not found"*), but the user gets an error and
+> the operation stops. That is materially different from rendering a failure as a fact.
+>
+> **2. ⚠️ Two Vercel projects build from this repo, and one is not Carbonify.** `carbonify13` is
+> production. **`ecolink` is wired to the same repo, builds on every push, and serves a
+> *"Vite + React + TS"* app** — a different codebase entirely. Not a data risk, but it burns a build
+> per push, and **`.vercel/repo.json` links this checkout to `ecolink`**, so a CLI `vercel --prod`
+> from this directory would target the wrong project.
+>
+> **3. ⚠️ `ci.yml`'s `deploy` job fails on every push to `main`** — `VERCEL_TOKEN` was never set, and
+> it has never run in this repo's history. The **Vercel Git integration** is what actually deploys.
+> **A red X on `main` does not mean the deploy failed.** Set the three `VERCEL_*` secrets or delete
+> the job.
+>
+> ✅ **Measured on live production, not assumed:** all six security headers are served (CSP, HSTS,
+> X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy) · `console.log` really is
+> stripped from the production bundle (`vite.config.js` `esbuild.pure`) while `console.error`
+> survives · no secrets, `.env` files or live keys are tracked in git.
+>
+> ### 🆕 2026-08-01 — 🐛 #11 CLOSED. The ESG report was reading a table nothing writes.
 >
 > Suite **924 → 932** (81 files). Build green, lint 0. **No migration, no function deploy.**
 >

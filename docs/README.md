@@ -1,7 +1,19 @@
 # Carbonify — Documentation Index
 
-> **Updated 2026-07-26.** This folder mixes **current** docs with **historical** planning notes kept for
+> **Updated 2026-08-01.** This folder mixes **current** docs with **historical** planning notes kept for
 > traceability. Use the current set below; anything under "Historical" carries a superseded banner.
+>
+> ### 🧭 State in three lines (2026-08-01)
+>
+> **PR #14 is merged and production is running it** — `main` went from 153 commits behind to 0, and
+> `carbonify13.vercel.app` was verified by fetching it. Suite **935 green** across 82 files, lint 0,
+> build green. ⚠️ `main` shows a red X on `ci.yml`'s `deploy` job (`VERCEL_TOKEN` never set); the
+> Vercel **Git integration** is what deploys, so that red is not a failed deploy.
+>
+> **The one thing gating a pilot seller invite is `ESC-01…06`** — the four escrow behaviour checks.
+> Escrow is applied and holding balances; nobody has watched it behave on a real purchase.
+>
+> **Real money is still gated on the independent penetration test.** Test keys only until then.
 >
 > 🧭 **Positioning (2026-07-25):** Carbonify is a **commercial** Philippine carbon-credit registry and
 > marketplace for institutional users — project developers, corporate buyers, verifiers, LGUs, and
@@ -35,7 +47,10 @@ Read them in this order — the first two answer "where are we" and "what do I d
 
 | Doc | What it answers |
 |---|---|
-| [CODE_AUDIT_2026-07-11.md](CODE_AUDIT_2026-07-11.md) | Latest whole-codebase audit — 17 fixes (5 HIGH), all applied |
+| [CODE_AUDIT_2026-07-11.md](CODE_AUDIT_2026-07-11.md) | Whole-codebase audit — 17 fixes (5 HIGH), all applied. *Superseded as "latest" by the 07-26 → 08-01 passes recorded in [HANDOFF.md](HANDOFF.md)* |
+| [ANALYTICS.md](ANALYTICS.md) | Analytics events and the GA measurement-ID setup |
+| [GO_LIVE_DEPLOYMENT.md](GO_LIVE_DEPLOYMENT.md) | Deployment mechanics (hosting, env vars, edge functions) |
+| [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md) | Earlier audit — its dead-code list was right two and a half weeks early; carries a resolution banner |
 | [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md) | Earlier pass, kept for traceability |
 | [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md) | The seven expansion features, scored bullet-by-bullet **against the code** |
 | [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md) | Why a farmer's tCO₂e is calculated the way it is |

@@ -16,13 +16,15 @@
 | # | Type | Status | What it covers |
 |---|---|---|---|
 | 1 | **Regression gate** ([§1.1](#11-regression-gate-run-on-every-change-)) | 🔴 mandatory | build green · eslint 0 · vitest green · `reconcile_financials()` = 0 after any money change |
-| 2 | **Unit (Vitest)** | ✅ **920 / 79 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
+| 2 | **Unit (Vitest)** | ✅ **935 / 82 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
 | 3 | **Component** | ✅ | Vue components in isolation, incl. `modalA11y` (15 dialogs) and `tokenContrast` (fails the suite on a contrast regression) |
 | 4 | **End-to-end (Playwright)** ([§1.3](#13-end-to-end-playwright-on-a-seeded-backend-)) | 🟡 **46/47** | 8 specs. **Not required in CI, not seeded** — the job is `continue-on-error`, which is how 6 failures sat unseen |
 | 5 | **Responsive / layout** | ✅ **37/37** | Real element geometry at 320/390/768/1024/1440 + tap targets + the 16px input floor. ⚠️ **public routes only** |
 | 6 | **Guard behaviour** | ✅ | `routerGuardBypass.test.js` drives the real router with a cold store. **Configuration is not enforcement** — see the note below |
 | 7 | **Backend configuration** ([§1.9](#19-backend-configuration-tests--)) | ✅ | *Is the deployment configured so the beta can happen at all?* Found two auth settings set against the pilot |
 | 8 | **Consent lifecycle** | ✅ **8 tests** | `policyShownOnce.test.js` — the box appears once, on first sign-in, for every role, and what does/does not bring it back |
+| 8b | **Service wiring / duplicate reads** 🆕 | ✅ **6 tests** | [`duplicateServiceReads.test.js`](../src/test/services/duplicateServiceReads.test.js) — asserts **which service a view imports**, not what the service does. Added after a fix landed on one of two same-named copies of `getUserCreditPortfolio` while its own comment claimed it covered the view that imported the other. Carries a **ratchet baseline** of 9 known collisions (see [DEFERRED_BACKLOG #33](DEFERRED_BACKLOG.md)) that may shrink but never grow |
+| 8c | **Empty-vs-error reads** 🆕 | ✅ **21 tests** | [`emptyOnErrorReads.test.js`](../src/test/services/emptyOnErrorReads.test.js) (14), [`retirementHistoryErrors.test.js`](../src/test/services/retirementHistoryErrors.test.js) (4), [`walletTransactionErrors.test.js`](../src/test/services/walletTransactionErrors.test.js) (3). The repo's most persistent bug class: a failed read returning `[]` and rendering as a **fact about the user**. Each file also asserts the genuinely-empty case still resolves, so none can degrade into a blanket throw |
 
 ### Tier 2 — Database & money (owner-run)
 

@@ -72,7 +72,10 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 - [ ] **1f. Sentry is receiving events** (if a `VITE_SENTRY_DSN` is configured) — trigger any handled
   error and confirm it lands, so you have eyes on the pilot.
 
-- [ ] **1g. Frontend deployed** from the current `feature-user-onboarding-ux` build; the header/login
+- [x] **1g. Frontend deployed** — ✅ **done 2026-08-01.** PR #14 merged to `main`; production
+      (`carbonify13.vercel.app`) verified by fetching it, not by reading a CI badge. ⚠️ `main` shows a
+      red X on `ci.yml`'s `deploy` job (`VERCEL_TOKEN` never set) — the Vercel **Git integration** is
+      what deploys, so that red is not a failed deploy. Originally: deployed from the current build; the header/login
   logo renders (the green-leaf badge), and `/` hero stats load real numbers, not `—`.
 
 - [ ] 🔴 **1h. `process-payouts` is deployed, its secret is set, AND it is scheduled.** Added

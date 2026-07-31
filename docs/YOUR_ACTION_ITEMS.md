@@ -12,10 +12,26 @@
 
 > ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **920 green** across 79 files
-> (916 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
-> spec. Lint 0, build green. One migration, **already applied**; everything else is frontend and ships
-> with the deploy you owe.
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **935 green** across 82 files
+> (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
+> spec. Lint 0, build green. One migration, **already applied**.
+>
+> ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
+>
+> `main` went from 153 commits behind to **0**. Production was verified by **fetching it**, not by
+> reading a green check: `carbonify13.vercel.app` serves `sw.js` at `CACHE_VERSION = 'v4'` and a
+> `RetireView` chunk containing `getPurchaseAndRetirementHistory` — code that has never been on `main`
+> before today. **The router-guard fix is live: a farmer can no longer reach `/admin` by URL.**
+>
+> ⚠️ **Do not misread `main`'s red X.** The `deploy` job in `ci.yml` fails with
+> `Input required and not supplied: vercel-token` — that secret has never been set, and the job has
+> never run in this repo's history. **Your real deploy is the Vercel GitHub integration, and it
+> succeeded.** Set the three `VERCEL_*` secrets or delete the job. Everything else on `main` is green
+> for the first time ever.
+>
+> ⚠️ **A second Vercel project, `ecolink`, builds from this repo on every push and serves an unrelated
+> React app.** `carbonify13` is production. Your local `.vercel/repo.json` points at `ecolink`, so a
+> CLI `vercel --prod` from the project folder would deploy the wrong thing. Worth unlinking.
 >
 > **2026-08-01 added no work for you, but it did add one thing worth five minutes.** The consent gate
 > was reappearing at every sign-in and recording nothing — fixed, see HANDOFF. The fix is verified for

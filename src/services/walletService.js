@@ -107,14 +107,31 @@ export async function getTransactions(userId = null, limit = 50) {
     userId = user.id
   }
 
-  // First get the wallet account for this user
+  // First get the wallet account for this user.
+  //
+  // `.maybeSingle()`, not `.single()`. With `.single()` a user who simply has no
+  // wallet row yet comes back as an ERROR (PGRST116), so the two cases had to be
+  // collapsed into one `if (walletError || !walletAccount) return []` — which
+  // also swallowed real failures (network, RLS, timeout) and rendered them on
+  // WalletView as "no transactions". That view's `Promise.allSettled` rejected
+  // branch was therefore dead code for this failure, the same shape as
+  // BuyerDashboardView's and RetireView's before them.
+  //
+  // maybeSingle() separates them: no row is `data: null, error: null`; anything
+  // else is a genuine error and must reach the caller.
   const { data: walletAccount, error: walletError } = await supabase
     .from('wallet_accounts')
     .select('id')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
-  if (walletError || !walletAccount) {
+  if (walletError) {
+    throw new Error(walletError.message || 'Failed to load your wallet')
+  }
+
+  // No wallet account yet is an ANSWER, not a failure: nothing has been topped
+  // up, so there are no transactions to show.
+  if (!walletAccount) {
     return []
   }
 
