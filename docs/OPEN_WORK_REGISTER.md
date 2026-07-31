@@ -65,6 +65,7 @@
 | ~~11~~ | ~~Retirements dropped from transaction history~~ — ✅ **fixed 2026-07-28.** It was under-reporting **ESG offset totals**, not just a short list | [#11](DEFERRED_BACKLOG.md) |
 | ~~11~~ | ~~**The ESG report read a table nothing writes**~~ — ✅ **CLOSED 2026-08-01**, the dual-source half. The entry called this "a data-model question — which table is canonical". It was not: **nothing writes `credit_purchases`**, and that was the ESG report's only purchase source, so the exported PDF printed **"Credits purchased (lifetime): 0"** for every buyer. #11's failure mode a *third* time — and the two earlier fixes were both made **in this same function** without either asking whether the table had rows. Owned/retired/by-project were always correct. Name collision closed by renaming the other copy to `getPurchaseAndRetirementHistory` | [#11](DEFERRED_BACKLOG.md) |
 | 🆕 | ~~**A failed retirements read told RetireView "you have retired nothing"**~~ — ✅ **fixed 2026-08-01.** `getUserRetirementHistory` sits on a function that logged the retirements error and stepped over it, then re-swallowed everything in an outer catch returning `{purchases: [], retirements: [], all: []}`. On the retirement screen, to a user who had retired credits. Also deleted a `credit_purchases` "fallback" that logged *"✅ Found purchases"* and discarded the rows behind a `// TODO` | [#15](DEFERRED_BACKLOG.md) |
+| 🆕 | ~~**A failed wallet read rendered as "no transactions"**~~ — ✅ **fixed 2026-08-01.** `walletService.getTransactions` looked up `wallet_accounts` with `.single()`, which returns an **error** for zero rows — so `if (walletError || !walletAccount) return []` had to collapse "no wallet yet" with "the read failed", swallowing real failures onto the money screen. `WalletView`'s `allSettled` rejected branch was dead code for it, the fourth view this week. Now `.maybeSingle()`. The other ~12 `error || !row` sites were checked and **all throw** — imprecise wording, not silent | [#15](DEFERRED_BACKLOG.md) |
 | 33 | **Three services own project writes, and `ProjectForm.vue` tries all three in a cascade** — `projectWorkflowService.submitProject` → `projectService.createProject` → `projectApprovalService.submitProject`, taking whichever does not throw. Found by the #11 collision guard, which flagged **nine** name collisions across those three services. Needs a decision on which service owns project writes | [#33](DEFERRED_BACKLOG.md) |
 | ~~10~~ | ~~Keyboard users cannot Escape a payment dialog~~ — ✅ **fixed 2026-07-28** via `v-modal-a11y` on all 15 dialogs (not by adopting `AccessibleModal`; see the entry for why) | [#10](DEFERRED_BACKLOG.md) |
 | 15 | **Error handling is three systems, one on** — re-checked 2026-07-29: `ErrorBoundary` **is** mounted in `App.vue` and the `main.js` `window.fetch` monkeypatch **is gone** (both were fixed without updating this row). What remains: `errorStore` is still commented out, and services swallow/throw inconsistently | [#15](DEFERRED_BACKLOG.md) |
@@ -210,6 +211,17 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 Org accounts go/no-go · public API exposure + key-gating · fee amounts · Business-tier value · blockchain / IoT · **is a farmer a buyer** · seller-of-record (then a tax advisor confirms) · DR/backup policy · every 1e row above.
 
 ### 2c. Repo and infrastructure
+
+> 🆕 **Two Vercel items found 2026-08-01, both small and both yours:**
+>
+> 1. **`ci.yml`'s `deploy` job fails on every push to `main`** — `Input required and not supplied:
+>    vercel-token`. That secret has never been set and the job has never run. The Vercel **Git
+>    integration** is what actually deploys. **Set the three `VERCEL_*` secrets or delete the job** —
+>    leaving it red trains everyone to ignore `main`'s CI status.
+> 2. **A second Vercel project, `ecolink`, builds from this repo on every push** and serves an
+>    unrelated *"Vite + React + TS"* app. `carbonify13` is production. Not a data risk, but it burns a
+>    build per push and **`.vercel/repo.json` links this checkout to `ecolink`**, so a CLI
+>    `vercel --prod` from the project folder would target the wrong project.
 
 ~~Decide on merging **PR #14**~~ — ✅ **merged 2026-08-01**, 153 commits; `main` is current and
 production is running it · **set the three `VERCEL_*` secrets or delete `ci.yml`'s `deploy` job**,

@@ -82,9 +82,9 @@ These cannot be done in-repo by Claude:
 
 - **Secrets / keys**: Anthropic (Claude), PayMongo **production** keys, Resend domain verification
 - **Deploy** edge functions; **apply migrations** to the live Supabase DB (or explicitly authorize Claude to run them)
-- **Merge** decision: `feature-user-onboarding-ux` is **151 commits ahead of `origin/main`**, carried by
-  **[PR #14](https://github.com/johnlouiecaparoso/carbonify13/pull/14)** — pushed and in sync as of
-  2026-07-28, open, not merged
+- ~~**Merge** decision~~ — ✅ **done 2026-08-01.**
+  **[PR #14](https://github.com/johnlouiecaparoso/carbonify13/pull/14)** is merged; `main` went from
+  153 commits behind to 0, and production is running it
 - **Regulatory**: DENR/CCC accreditation, Carbon Pricing Framework alignment, DPA registration
 - **Security pentest** (external firm); email-confirmation domain verification
 - **Business decisions**: fee amounts, Business-tier pricing/features, blockchain/IoT go/no-go
@@ -103,7 +103,7 @@ These cannot be done in-repo by Claude:
 | Anthropic Claude API | AI Assistant | ❌ Not connected |
 | Sentry | Error monitoring | ✅ Present |
 | Leaflet / OpenStreetMap | Maps | ✅ (no key) |
-| Vercel (assumed) | Hosting | ✅ |
+| Vercel | Hosting | ✅ **`carbonify13`** is production (`carbonify13.vercel.app`), deployed by the Vercel **Git integration** on push to `main`. ⚠️ A second project, `ecolink`, is wired to this same repo, builds on every push, and serves an unrelated React app — see §5 |
 | Blockchain (e.g. Polygon) | Tokenization | ⏭️ Future — owner decision |
 
 Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,
@@ -116,10 +116,21 @@ Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,
 
 - **Email is the biggest hidden gap** — only approval email actually sends; purchase/rejection/reminders `console.log` only. (Also blocks org-account invites.)
 - **No company accounts** — the platform is positioned for institutional users but models a company as a free-text string on one person's profile. Credits belong to the employee, not the employer, and VAT invoices carry no buyer TIN so finance departments cannot claim input VAT. See [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md).
-- **Staged escrow migration (#14)** `20260725000200_restore_escrow_hold_window.sql` is written but **not applied** to live.
-- **`main` is 151 commits behind** — all recent work is on the feature branch only, awaiting PR #14.
+- ~~**Staged escrow migration (#14)**~~ — ✅ **applied to live 2026-07-29**, `reconcile_financials()` = 0
+  after. Still **behaviourally unverified**: `ESC-01…06` are unrun, and that is the one item gating a
+  pilot seller invite.
+- ~~**`main` is 151 commits behind**~~ — ✅ **merged 2026-08-01**; `main` and the feature branch are level.
+- ⚠️ **Two Vercel projects build from this repo.** `carbonify13` is production. `ecolink` is wired to
+  the same repo, posts a deployment check on every push, and serves a *"Vite + React + TS"* app that
+  is not Carbonify. It is not a data risk — it does not serve this codebase — but it consumes a build
+  on every push, and `.vercel/repo.json` links the local checkout to **`ecolink`**, so a CLI
+  `vercel --prod` from this directory would target the wrong project. Unlink it or delete the project.
+- ⚠️ **`ci.yml`'s `deploy` job fails on every push to `main`** — `VERCEL_TOKEN` was never set. It has
+  never run in this repo's history. The Git integration is what actually deploys, so **a red X on
+  `main` does not mean the deploy failed.** Set the three `VERCEL_*` secrets or delete the job.
 - Anthropic SDK not yet in `package.json` (added when 0b is built).
 
 ---
 
-_Last updated: 2026-07-25 — created during the fees/LGU/tour implementation workstream._
+_Last updated: **2026-08-01** — merge/deploy status reconciled after PR #14 landed, and the Vercel
+topology recorded. Created 2026-07-25 during the fees/LGU/tour implementation workstream._

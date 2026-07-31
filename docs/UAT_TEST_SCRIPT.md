@@ -61,7 +61,7 @@ SQL Editor, run it, and **read the LAST table it prints**.
 | ☐ OWN-06 | The PayMongo webhook is **enabled** | PayMongo dashboard | Shows enabled, points at the Supabase functions URL, event `checkout_session.payment.paid`. *It auto-disables after repeated failures — confirm, don't assume* |
 | ☐ OWN-07 | The payout worker is alive | `select * from net._http_response order by id desc limit 5;` | Recent rows show `status_code 200` |
 | ☐ OWN-08 | Signups actually work | `npx playwright test src/test/e2e/pilot-readiness.spec.js` | *"the backend accepts new signups"* is **green**. ✅ Went green 2026-07-31 — re-run it anyway, a setting can be changed back |
-| ☐ OWN-09 | The frontend is the current build | Load the site | You are testing this branch, not last month's deploy |
+| ☐ OWN-09 | The frontend is the current build | Load the site | ✅ **Merged + deployed 2026-08-01** — `main` now carries everything and production was verified by fetch. Re-check anyway: you are testing today's build, not last month's. ⚠️ `main`'s red X on the `deploy` job is a missing `VERCEL_TOKEN`, **not** a failed deploy |
 | ☐ OWN-10 | Errors are being recorded | Trigger one handled error | It lands in Sentry |
 
 > **OWN-08 used to be the gate** — while it was red, no invited person could create an account. It

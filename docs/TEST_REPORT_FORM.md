@@ -184,7 +184,7 @@ production is the same class of defect as everything else this project has been 
 
 ### F3. Deploys and config done during this round
 
-- [ ] Frontend deployed from `feature-user-onboarding-ux` — date: ______
+- [x] Frontend deployed — ✅ **2026-08-01**, PR #14 merged to `main`, production verified by fetch
       *(carries the router access-control fix, the consent gate, the onboarding guides, the KYC
       document viewer and the PWA fixes — until it ships, none of those are live)*
 - [ ] All 8 edge functions confirmed deployed

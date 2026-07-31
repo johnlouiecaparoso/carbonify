@@ -180,7 +180,8 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 
 ## 5. The go / no-go gate (print this)
 
-**Do NOT accept real money until ALL of these are true.** *(Status reconciled 2026-07-21.)*
+**Do NOT accept real money until ALL of these are true.** *(Status reconciled **2026-08-01** — three
+boxes below had been done for days and were still showing unticked; see the note under the list.)*
 - [x] `profiles` role/KYC lock applied + verified (no self-escalation) — applied 2026-07-04
 - [x] Retirement identity migration applied + retested — `auth.uid()`-bound, no client-supplied fallback
 - [x] `send-approval-email` requires auth (relay closed) — 2026-07-11
@@ -188,11 +189,11 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 - [x] **Retirement made atomic** (credits + retirement row commit together) — `20260718000000`
 - [x] **RLS confirmed on `credit_ownership` / `credit_transactions` / wallet tables** — client-SELECT-only; three write holes closed by `20260718000800`, **verified on live 2026-07-20**
 - [x] All 6 money flows reconcile to 0 — `reconcile_financials()` = **0 rows** on live 2026-07-20
-- [ ] `ALLOW_UNSIGNED_WEBHOOKS` unset; all edge secrets present — re-confirm at pre-flight
+- [x] `ALLOW_UNSIGNED_WEBHOOKS` unset; all edge secrets present — **confirmed by inspecting `secrets list` 2026-07-30**: absent entirely (the required state, not `false`), `PAYMONGO_WEBHOOK_SECRET` and `RECONCILE_WORKER_SECRET` both set. Re-confirm at pre-flight
 - [ ] Legacy/demo code paths removed — 🟡 partial ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #8)
 - [x] **Money-table RLS posture captured into a versioned migration** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #13c) — captured + applied to live 2026-07-25 (`20260725000100`); `supabase/diagnostics/money_table_rls_audit.sql` returns **0 findings**
 - [x] **Escrow decision made + APPLIED** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14) — Option B (method-gated hold) decided 2026-07-25, `20260725000200` **applied to live 2026-07-29**, reconcile = 0. See [ESCROW_DECISION.md](ESCROW_DECISION.md).
-- [ ] 🔴 **`process-payouts` deployed + scheduled (~15 min)** — escrow now HOLDS card sellers' funds and `release_matured_escrow()` is the only releaser. Unscheduled = permanently stranded seller money.
+- [x] **`process-payouts` deployed + scheduled** — ✅ **done and PROVEN 2026-07-30.** `pg_cron` job `carbonify-process-payouts` (jobid 1, `*/15`, active); `net._http_response` row 1 shows `status_code 200`. Verified three ways — correct secret → 200, wrong secret → 401, `GET` → 405. Its first run settled an 18-day-old payout that had been stranded since 2026-07-12.
 - [ ] **The 4 escrow behaviour checks run** ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — applied is not the same as verified
 - [ ] **Email confirmation re-enabled** with a verified sender domain
 - [ ] **Closed beta completed** against its exit criteria ([SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §6)
@@ -200,3 +201,20 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 - [ ] Sentry + reconciliation/webhook monitoring live
 
 Until every box is checked, run in **sandbox/test mode only.**
+
+> ### 🧭 What this gate does and does not say (2026-08-01)
+>
+> **This is the REAL-MONEY gate, not the pilot gate.** Six boxes remain, and they are the reason
+> Carbonify must stay on PayMongo **test keys**. The long pole is the **independent penetration
+> test** — external, and no amount of code closes it.
+>
+> **The closed beta on test keys is a different, lower bar, and it is nearly met.** The frontend is
+> merged and deployed (PR #14, 2026-08-01), signups are on, escrow is applied and the payout worker is
+> proven. **One thing gates inviting a seller: the four escrow behaviour checks (`ESC-01…06`).**
+> Escrow is holding real sellers' balances today and the Terms already promise them a hold window
+> that nobody has watched behave on an actual purchase.
+>
+> **Three boxes above had been done for days while still showing unticked** — the payout worker
+> (07-30), the webhook secrets (07-30), and escrow being applied (07-29). A go/no-go checklist that
+> under-reports its own progress is the same defect class as one that over-reports it: in both cases
+> the document has stopped tracking the system. Re-measure this list before trusting it.
