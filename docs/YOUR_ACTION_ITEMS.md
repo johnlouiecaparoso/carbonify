@@ -75,13 +75,20 @@
 > | # | Do this | Blocks |
 > |---|---|---|
 > | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
-> | 2 | **Deploy the frontend + purge test data** — Step 2 / Step 3 | The pilot |
+> | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 >
-> **#2 now carries real security value.** Until you deploy, the router fix is not live — a farmer or
-> general user can still reach `/admin` and `/verifier` by typing the URL. RLS means they see no admin
-> *data*, but they see admin *screens*. The same deploy carries the consent gate, the onboarding
-> guides, the KYC document viewer and the PWA fixes.
+> **#2's deploy half is closed.** PR #14 is merged and `carbonify13.vercel.app` was **verified by
+> fetching it** — it serves `sw.js` at `CACHE_VERSION = 'v4'` and a bundle containing
+> `policy_acceptances`, neither of which existed on the old `main`. So the router fix is live: a
+> farmer can no longer reach `/admin` by typing the URL. The consent gate, onboarding guides, KYC
+> document viewer and PWA fixes shipped with it. **What remains under #2 is purging or labelling the
+> leftover test data** before a pilot user can buy a fake credit.
+>
+> ⚠️ **One thing to not misread:** `main`'s CI now shows a red X on the `deploy` job —
+> `Input required and not supplied: vercel-token`. That secret has never been set, and that job has
+> never run in this repo's history. **Your actual deploy is the Vercel GitHub integration, and it
+> succeeded.** Either set the three `VERCEL_*` secrets or delete the job.
 >
 > **#1 is the one people skip, and it is the one that can strand a pilot seller's money.** Escrow is
 > live and the Terms already promise sellers a hold window. The *releaser* is proven; what escrow does
@@ -566,7 +573,7 @@ None of these block the beta. Each one unblocks work that is otherwise held.
 | Decision | Why it's yours |
 |---|---|
 | **Is a farmer a buyer?** | They can reach checkout by URL today but aren't offered it in the sidebar (#31). Either give them the buying nav or block the routes — the contradiction is the problem. |
-| **Merge PR #14?** | 151 commits. Everything ships from a feature branch right now. |
+| ~~**Merge PR #14?**~~ | ✅ **Merged 2026-08-01** — 153 commits. `main` is current and production runs it. |
 | **Provider layer: route through it, or delete it?** | ~40 tests currently overstate money-path coverage (#21). |
 | **Organization accounts: go/no-go?** | Phase 1 is safe to build now. Phase 2 must wait until after the beta — it rewrites the same RPC as escrow. |
 | **Public API: expose it, and to whom?** | Key-gating and rate limits — the edge function has neither. |
