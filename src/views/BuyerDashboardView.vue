@@ -888,7 +888,12 @@ onMounted(load)
 /* Panel grid */
 .dash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* `min(320px, 100%)`, not a bare 320px. `minmax(320px, 1fr)` cannot shrink
+     below its minimum, so on a 320px phone — where page padding leaves ~288px —
+     each track stayed 320px wide and pushed the dashboard sideways. Measured at
+     right: 336px on a 320px viewport by responsive-authenticated.spec.js, which
+     is the first test ever to look at an authenticated page. */
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }

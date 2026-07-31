@@ -1,4 +1,10 @@
 import { test, expect } from '@playwright/test'
+import { VIEWPORTS, findOverflowing } from './helpers/layout.js'
+
+// VIEWPORTS and findOverflowing moved to ./helpers/layout.js on 2026-08-01 when
+// responsive-authenticated.spec.js was added. ONE copy on purpose — a second
+// detector that only one spec's fixes reach is precisely the duplicate-source
+// defect this session spent its time removing from the services.
 
 /**
  * Responsive audit — MEASURED, not read off the stylesheets.
@@ -16,62 +22,8 @@ import { test, expect } from '@playwright/test'
  * (overflow-x auto/scroll) as the correct way to hold wide content.
  */
 
-/** Real device widths, smallest first. 320 is an iPhone SE / small Android. */
-const VIEWPORTS = [
-  { name: '320 (small phone)', width: 320, height: 640 },
-  { name: '390 (iPhone 14)', width: 390, height: 844 },
-  { name: '768 (tablet portrait)', width: 768, height: 1024 },
-  { name: '1024 (tablet landscape)', width: 1024, height: 768 },
-  { name: '1440 (laptop)', width: 1440, height: 900 },
-]
-
 /** Public routes — no auth needed, so this runs anywhere. */
 const ROUTES = ['/home', '/about', '/marketplace', '/registry', '/market', '/login', '/register']
-
-/**
- * Elements sticking out past the viewport, excluding anything inside a proper
- * scroll container (that is the intended pattern for wide tables).
- */
-async function findOverflowing(page, viewportWidth) {
-  return page.evaluate((vw) => {
-    const offenders = []
-    const scrollable = (el) => {
-      const s = getComputedStyle(el)
-      return s.overflowX === 'auto' || s.overflowX === 'scroll'
-    }
-
-    for (const el of document.body.querySelectorAll('*')) {
-      const rect = el.getBoundingClientRect()
-      if (rect.width === 0 || rect.height === 0) continue
-      // 1px of tolerance for sub-pixel rounding.
-      if (rect.right <= vw + 1) continue
-
-      // Inside a scroll container? Then overflowing it is correct.
-      let inScroller = false
-      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
-        if (scrollable(p)) {
-          inScroller = true
-          break
-        }
-      }
-      if (inScroller) continue
-
-      // Deliberately clipped or pinned off-screen (drawers, scrims).
-      const style = getComputedStyle(el)
-      if (style.position === 'fixed' && parseFloat(style.left) >= vw) continue
-      if (style.visibility === 'hidden' || style.display === 'none') continue
-
-      offenders.push({
-        tag: el.tagName.toLowerCase(),
-        cls: (el.className || '').toString().slice(0, 60),
-        right: Math.round(rect.right),
-        width: Math.round(rect.width),
-      })
-    }
-    // Report the worst few; a parent and its child both overflow together.
-    return offenders.sort((a, b) => b.right - a.right).slice(0, 6)
-  }, viewportWidth)
-}
 
 for (const vp of VIEWPORTS) {
   test.describe(`at ${vp.name}`, () => {
