@@ -58,9 +58,23 @@ export async function logUserAction(action, entityType, userId, entityId, metada
     return null
   }
 
-  // Skip audit logging if no user ID
+  // Skip audit logging if no user ID.
+  //
+  // Not a warning: pre-auth events (LOGIN_FAILED, REGISTRATION_FAILED) have no
+  // user by definition, and the `audit_logs` INSERT policy is granted `to
+  // authenticated`, so an anonymous caller could not write the row even if we
+  // tried. Logging this as a warning made a normal failed-registration flow
+  // look like a defect in the console.
+  //
+  // The real gap it points at is worth naming: **client-side audit logging
+  // cannot capture pre-auth security events at all.** Failed sign-ins and
+  // blocked registrations are exactly what an auditor asks for, and they are
+  // dropped here. Capturing them needs a server-side path (an edge function or
+  // GoTrue's own auth logs), not a change on this line.
   if (!userId) {
-    console.warn('Skipping audit log - no user ID provided')
+    if (import.meta.env.DEV) {
+      console.debug(`[audit] "${action}" has no user id (pre-auth event) — not recorded`)
+    }
     return null
   }
 

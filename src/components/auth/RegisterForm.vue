@@ -3,10 +3,13 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { registerWithEmail, signInWithGoogle } from '@/services/authService'
 import { useAuthProviders } from '@/composables/useAuthProviders'
+import { useUserStore } from '@/store/userStore'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 
 const router = useRouter()
+const store = useUserStore()
 // #32 — only offer Google if the backend has the provider enabled.
 const { googleEnabled } = useAuthProviders()
 const googleLoading = ref(false)
@@ -79,6 +82,20 @@ async function handleSubmit() {
     if (result?.alreadyRegistered) {
       emailError.value =
         'That email already has an account. Sign in instead, or reset your password.'
+      return
+    }
+
+    // When email confirmation is OFF, signUp returns a SESSION — the account is
+    // created and already signed in. Sending that user to /login showed a sign-in
+    // form to someone who was, at that moment, signed in: they would enter the
+    // credentials they had just chosen and wonder why it took two goes.
+    //
+    // Only bounce to /login when there is genuinely no session to use, which is
+    // the confirmation-required case.
+    if (result?.session) {
+      await store.fetchSession()
+      await store.fetchUserProfile()
+      router.replace(getRoleDefaultRoute(store.role || store.profile?.role))
       return
     }
 

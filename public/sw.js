@@ -14,7 +14,7 @@
 // Bumped to v2 with the icon rework. Until now these caches were deleted a
 // second after every page load by a stray block in main.js, so no user has ever
 // held a populated v1 cache.
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3'
 const SHELL_CACHE = `carbonify-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `carbonify-assets-${CACHE_VERSION}`
 const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/carbonify-logo.png', '/icon-192.png']
@@ -24,7 +24,14 @@ self.addEventListener('install', (event) => {
     (async () => {
       const cache = await caches.open(SHELL_CACHE)
       // Best-effort: a missing asset must not abort the whole install.
-      await Promise.allSettled(SHELL_URLS.map((url) => cache.add(url)))
+      // Fetch first, then vet the response — `cache.add()` would throw on a
+      // `Vary: *` reply, which the dev server sends.
+      await Promise.allSettled(
+        SHELL_URLS.map(async (url) => {
+          const response = await fetch(url, { cache: 'reload' })
+          await safePut(cache, url, response)
+        }),
+      )
       await self.skipWaiting()
     })(),
   )
@@ -46,6 +53,34 @@ self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting()
 })
 
+/**
+ * The Cache API REFUSES any response whose `Vary` header contains `*`, and it
+ * refuses it by throwing — `TypeError: Failed to execute 'put' on 'Cache':
+ * Vary header contains *`. Vite's dev server sends exactly that header on some
+ * responses, so every navigation logged an uncaught rejection in development.
+ *
+ * Checking first is better than catching after: `cache.add()` fetches the URL
+ * itself, so a rejection there has already spent the request, and the thrown
+ * TypeError is indistinguishable from a real bug in the log.
+ */
+function isCacheable(response) {
+  if (!response || !response.ok) return false
+  // Opaque responses (no-cors) report status 0 and cannot be validated.
+  if (response.type === 'opaque' || response.type === 'error') return false
+  const vary = response.headers.get('Vary')
+  return !(vary && vary.includes('*'))
+}
+
+/** Never throws. A cache write is an optimisation, never a reason to fail. */
+async function safePut(cache, key, response) {
+  if (!isCacheable(response)) return
+  try {
+    await cache.put(key, response)
+  } catch {
+    /* quota, opaque response, or a Vary we did not anticipate — ignore */
+  }
+}
+
 function isHashedAsset(url) {
   return (
     url.pathname.startsWith('/js/') ||
@@ -61,7 +96,7 @@ async function networkFirstShell(request) {
   try {
     const fresh = await fetch(request)
     // Keep the latest shell for offline navigations.
-    cache.put('/index.html', fresh.clone()).catch(() => {})
+    await safePut(cache, '/index.html', fresh.clone())
     return fresh
   } catch {
     return (await cache.match(request)) || (await cache.match('/index.html')) || (await cache.match('/')) || Response.error()
@@ -72,8 +107,8 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(ASSET_CACHE)
   const cached = await cache.match(request)
   const network = fetch(request)
-    .then((response) => {
-      if (response && response.ok) cache.put(request, response.clone()).catch(() => {})
+    .then(async (response) => {
+      await safePut(cache, request, response.clone())
       return response
     })
     .catch(() => null)

@@ -7,13 +7,52 @@ import {
   getRoleApplicationStatusLabel,
 } from '@/services/roleApplicationService'
 
+/**
+ * Turn a GoTrue error into something a human can act on.
+ *
+ * GoTrue's strings are written for the developer holding the dashboard, not
+ * for the person staring at the form. "Signups not allowed for this instance"
+ * is a *server configuration* state — the user did nothing wrong and there is
+ * nothing they can do about it, but as raw text it reads like a rejection of
+ * them. Anyone who has not read the runbook cannot tell the difference between
+ * that and a bad password.
+ *
+ * Unmapped messages fall through unchanged: inventing friendlier text for an
+ * error we have not seen would hide the one detail that identifies it.
+ */
+export function friendlyAuthError(message) {
+  const raw = String(message || '')
+  const lower = raw.toLowerCase()
+
+  if (lower.includes('signups not allowed') || lower.includes('signup is disabled')) {
+    return 'New account registration is currently turned off for this site. This is a server setting, not a problem with your details — please contact the Carbonify team.'
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'Please confirm your email address first. Check your inbox — and your spam folder — for the confirmation link.'
+  }
+  if (lower.includes('invalid login credentials')) {
+    return 'That email and password do not match an account. Check both, or reset your password.'
+  }
+  if (lower.includes('email rate limit') || lower.includes('over_email_send_rate_limit')) {
+    return 'Too many emails have been sent from this site in the last hour. Please wait a little while and try again.'
+  }
+  if (lower.includes('password should be at least')) {
+    return 'Please choose a longer password — at least 8 characters.'
+  }
+  // Deliberately NOT mapped: "User already registered". `registerWithEmail`
+  // detects that case from the empty `identities` array and words it itself,
+  // and adding a second disclosure path here would widen the account
+  // enumeration surface the decoy-user check exists to keep narrow.
+  return raw
+}
+
 export async function loginWithEmail({ email, password }) {
   const supabase = getSupabase()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {
     // Log failed login attempt
     await logUserAction('LOGIN_FAILED', 'user', null, null, { email, error: error.message })
-    throw new Error(error.message || 'Invalid credentials or account not registered.')
+    throw new Error(friendlyAuthError(error.message) || 'Invalid credentials or account not registered.')
   }
 
   // Specialist accounts (verifier / project developer) may not sign in until an
@@ -83,7 +122,11 @@ export async function registerWithEmail({ name, email, password }) {
       email,
       error: error.message,
     })
-    throw new Error(error.message || 'Unable to register. Please try again.')
+    const friendly = new Error(friendlyAuthError(error.message) || 'Unable to register. Please try again.')
+    // Keep the raw text reachable for the console and for support, without
+    // putting GoTrue's wording in front of the person filling in the form.
+    friendly.cause = error
+    throw friendly
   }
 
   // Supabase deliberately does NOT error when the email is already registered —
