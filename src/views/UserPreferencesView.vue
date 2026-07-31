@@ -9,31 +9,34 @@ const preferencesStore = usePreferencesStore()
 // Active tab
 const activeTab = ref('theme')
 
+// Material Symbols names, not emoji: emoji render differently on every
+// platform, are read aloud by screen readers as their unicode name, and cannot
+// inherit the active-tab colour.
 const tabs = [
-  { id: 'theme', label: 'Theme & Display', icon: '🎨' },
-  { id: 'notifications', label: 'Notifications', icon: '🔔' },
-  { id: 'privacy', label: 'Privacy & Security', icon: '🔒' },
-  { id: 'accessibility', label: 'Accessibility', icon: '♿' },
-  { id: 'language', label: 'Language & Region', icon: '🌍' },
+  { id: 'theme', label: 'Display', icon: 'palette' },
+  { id: 'notifications', label: 'Notifications', icon: 'notifications' },
+  { id: 'privacy', label: 'Privacy & Security', icon: 'lock' },
+  { id: 'accessibility', label: 'Accessibility', icon: 'accessibility_new' },
+  { id: 'language', label: 'Language & Region', icon: 'language' },
 ]
 
 // Form data
+// Only settings that actually take effect. `theme`, `currency`, `dateFormat`,
+// `timeFormat`, `itemsPerPage`, `screenReader` and `keyboardNavigation` were
+// removed from this form — see the comments at each removal site for why.
 const formData = ref({
-  theme: preferencesStore.theme,
   language: preferencesStore.language,
-  currency: preferencesStore.display.currency,
-  dateFormat: preferencesStore.display.dateFormat,
-  timeFormat: preferencesStore.display.timeFormat,
-  itemsPerPage: preferencesStore.display.itemsPerPage,
   compactMode: preferencesStore.display.compactMode,
   animations: preferencesStore.display.animations,
   highContrast: preferencesStore.accessibility.highContrast,
   largeText: preferencesStore.accessibility.largeText,
-  screenReader: preferencesStore.accessibility.screenReader,
-  keyboardNavigation: preferencesStore.accessibility.keyboardNavigation,
   focusIndicators: preferencesStore.accessibility.focusIndicators,
   colorBlindSupport: preferencesStore.accessibility.colorBlindSupport,
 })
+
+/** Inline save confirmation — `alert()` blocks the page and cannot be styled. */
+const saveMessage = ref('')
+let saveTimer = null
 
 // Notification settings
 const notificationSettings = ref({
@@ -57,18 +60,8 @@ onMounted(() => {
 })
 
 function savePreferences() {
-  // Update theme
-  preferencesStore.setTheme(formData.value.theme)
-
-  // Update language
-  preferencesStore.setLanguage(formData.value.language)
-
   // Update display settings
   preferencesStore.updateDisplaySettings({
-    currency: formData.value.currency,
-    dateFormat: formData.value.dateFormat,
-    timeFormat: formData.value.timeFormat,
-    itemsPerPage: formData.value.itemsPerPage,
     compactMode: formData.value.compactMode,
     animations: formData.value.animations,
   })
@@ -85,14 +78,17 @@ function savePreferences() {
   preferencesStore.updateAccessibilitySettings({
     highContrast: formData.value.highContrast,
     largeText: formData.value.largeText,
-    screenReader: formData.value.screenReader,
-    keyboardNavigation: formData.value.keyboardNavigation,
     focusIndicators: formData.value.focusIndicators,
     colorBlindSupport: formData.value.colorBlindSupport,
   })
 
-  // Show success message
-  alert('Preferences saved successfully!')
+  // The effect is visible immediately (the classes are already on <html>), so
+  // this only confirms it was persisted.
+  saveMessage.value = 'Preferences saved.'
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveMessage.value = ''
+  }, 4000)
 }
 
 function resetToDefaults() {
@@ -173,7 +169,7 @@ function importPreferences(event) {
           :class="['nav-tab', { active: activeTab === tab.id }]"
           @click="activeTab = tab.id"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
+          <span class="material-symbols-outlined tab-icon" aria-hidden="true">{{ tab.icon }}</span>
           <span class="tab-label">{{ tab.label }}</span>
         </button>
       </div>
@@ -185,67 +181,50 @@ function importPreferences(event) {
           <h2 class="panel-title">Theme & Display</h2>
 
           <div class="settings-grid">
-            <div class="setting-group">
-              <label class="setting-label">Theme</label>
-              <select v-model="formData.theme" class="setting-select">
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
-              </select>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-label">Currency</label>
-              <select v-model="formData.currency" class="setting-select">
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="JPY">JPY (¥)</option>
-              </select>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-label">Date Format</label>
-              <select v-model="formData.dateFormat" class="setting-select">
-                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-              </select>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-label">Time Format</label>
-              <select v-model="formData.timeFormat" class="setting-select">
-                <option value="12h">12-hour (AM/PM)</option>
-                <option value="24h">24-hour</option>
-              </select>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-label">Items per Page</label>
-              <input
-                v-model.number="formData.itemsPerPage"
-                type="number"
-                min="6"
-                max="50"
-                class="setting-input"
-              />
-            </div>
-
-            <div class="setting-group">
+            <div class="setting-group setting-wide">
               <label class="setting-checkbox">
                 <input v-model="formData.compactMode" type="checkbox" />
-                <span>Compact Mode</span>
+                <span>
+                  <strong>Compact mode</strong>
+                  <small>Tighter spacing, so more rows fit on screen.</small>
+                </span>
               </label>
             </div>
 
-            <div class="setting-group">
+            <div class="setting-group setting-wide">
               <label class="setting-checkbox">
                 <input v-model="formData.animations" type="checkbox" />
-                <span>Enable Animations</span>
+                <span>
+                  <strong>Animations</strong>
+                  <small>Turn off to remove motion and transitions across the app.</small>
+                </span>
               </label>
             </div>
           </div>
+
+          <!--
+            Theme, Currency, Date format, Time format and Items per page were
+            removed rather than left on screen doing nothing.
+
+            Theme offered Light / Dark / System. `tokens.css` states plainly
+            that the app is "NOT dark-mode aware, deliberately" — every view
+            hard-codes its own white surfaces — so selecting Dark added a class
+            no stylesheet answered.
+
+            Currency is the one that could have caused real harm: it offered
+            USD/EUR/GBP/JPY, and NOTHING CONVERTS. Carbonify is
+            PHP-denominated end to end. Picking USD would not have changed a
+            single figure, and if it ever had, it would have relabelled ₱1,000
+            as $1,000 — a false statement about money.
+          -->
+          <p class="settings-note">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            <span>
+              Carbonify displays all amounts in Philippine pesos (₱) and dates in Philippine
+              format. These are fixed — the platform settles in PHP, so a currency selector would
+              only relabel figures without converting them.
+            </span>
+          </p>
         </div>
 
         <!-- Notifications -->
@@ -397,45 +376,68 @@ function importPreferences(event) {
             <div class="setting-group">
               <label class="setting-checkbox">
                 <input v-model="formData.highContrast" type="checkbox" />
-                <span>High contrast mode</span>
+                <span>
+                  <strong>High contrast</strong>
+                  <small>
+                    Near-black text, solid borders, no soft shadows — for bright sunlight or a
+                    low-quality screen.
+                  </small>
+                </span>
               </label>
             </div>
 
-            <div class="setting-group">
+            <div class="setting-group setting-wide">
               <label class="setting-checkbox">
                 <input v-model="formData.largeText" type="checkbox" />
-                <span>Large text</span>
+                <span>
+                  <strong>Larger text</strong>
+                  <small>Scales text about 19% across the whole app.</small>
+                </span>
               </label>
             </div>
 
-            <div class="setting-group">
-              <label class="setting-checkbox">
-                <input v-model="formData.screenReader" type="checkbox" />
-                <span>Screen reader support</span>
-              </label>
-            </div>
-
-            <div class="setting-group">
-              <label class="setting-checkbox">
-                <input v-model="formData.keyboardNavigation" type="checkbox" />
-                <span>Enhanced keyboard navigation</span>
-              </label>
-            </div>
-
-            <div class="setting-group">
+            <div class="setting-group setting-wide">
               <label class="setting-checkbox">
                 <input v-model="formData.focusIndicators" type="checkbox" />
-                <span>Focus indicators</span>
+                <span>
+                  <strong>Strong focus outline</strong>
+                  <small>A thick blue ring on whatever you have tabbed to.</small>
+                </span>
               </label>
             </div>
 
-            <div class="setting-group">
+            <div class="setting-group setting-wide">
               <label class="setting-checkbox">
                 <input v-model="formData.colorBlindSupport" type="checkbox" />
-                <span>Color blind support</span>
+                <span>
+                  <strong>Don't rely on colour alone</strong>
+                  <small>
+                    Adds a symbol to every status badge, so approved / pending / rejected stay
+                    distinguishable without red and green.
+                  </small>
+                </span>
               </label>
             </div>
           </div>
+
+          <!--
+            "Screen reader support" and "Enhanced keyboard navigation" were
+            removed. Neither is a setting the app can meaningfully hold.
+
+            Screen reader support is not a mode you switch on — it comes from
+            semantic markup and ARIA, which is either present or is not, and no
+            checkbox changes that. "Enhanced keyboard navigation" was worse:
+            offered as a toggle, it implies keyboard access can be switched
+            OFF, which would be an accessibility defect presented as a
+            preference. Keyboard navigation is unconditional.
+          -->
+          <p class="settings-note">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            <span>
+              Keyboard navigation and screen-reader markup are always on — they are not
+              preferences. Every dialog closes with <kbd>Esc</kbd> and traps focus while open.
+            </span>
+          </p>
         </div>
 
         <!-- Language & Region -->
@@ -468,7 +470,7 @@ function importPreferences(event) {
                   :key="lang.code"
                   :value="lang.code"
                 >
-                  {{ lang.flag }} {{ lang.name }}
+                  {{ lang.name }}
                 </option>
               </select>
               <p id="pref-language-note" class="setting-hint">
@@ -480,6 +482,11 @@ function importPreferences(event) {
         </div>
       </div>
     </div>
+
+    <p v-if="saveMessage" class="save-message" role="status">
+      <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+      {{ saveMessage }}
+    </p>
 
     <!-- Actions -->
     <div class="preferences-actions">
@@ -633,13 +640,80 @@ function importPreferences(event) {
 
 .setting-checkbox {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.6rem;
   cursor: pointer;
 }
 
 .setting-checkbox input {
   margin: 0;
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--primary-color, #058526);
+  cursor: pointer;
+}
+
+/* Each toggle now carries a one-line explanation of what it does. A setting
+   whose effect you cannot predict is barely more useful than one that does
+   nothing. */
+.setting-checkbox > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.setting-checkbox small {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.79rem;
+  line-height: 1.45;
+}
+
+/* A checkbox with a description needs the full row. */
+.setting-wide {
+  grid-column: 1 / -1;
+}
+
+.settings-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.6rem;
+  background: var(--bg-secondary, #f8fdf8);
+  border: 1px solid var(--border-color, #d1e7dd);
+  color: #4b5563;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.settings-note .material-symbols-outlined {
+  font-size: 19px;
+  color: var(--primary-color, #058526);
+  flex: 0 0 auto;
+}
+.settings-note kbd {
+  font-family: inherit;
+  font-size: 0.78rem;
+  border: 1px solid #d1d5db;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 4px;
+  background: #fff;
+}
+
+.save-message {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1rem 0 0;
+  color: var(--primary-dark, #045c1a);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.save-message .material-symbols-outlined {
+  font-size: 20px;
 }
 
 .notification-sections {

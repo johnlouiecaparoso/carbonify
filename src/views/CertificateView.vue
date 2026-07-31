@@ -145,7 +145,7 @@
                     "
                     class="detail-row verification-row"
                   >
-                    <span class="detail-label">✓ Onchain Verification:</span>
+                    <span class="detail-label"><span class="material-symbols-outlined inline-ico" aria-hidden="true">verified</span> Onchain Verification:</span>
                     <span class="detail-value verification-value">
                       {{ selectedCertificate.wallet_address || selectedCertificate.certificate_data?.wallet_address ? 'Verified via wallet' : 'Verified via payment reference' }}
                     </span>
@@ -332,7 +332,7 @@
                     "
                     class="detail-row verification-row"
                   >
-                    <span class="detail-label">✓ Onchain Verification:</span>
+                    <span class="detail-label"><span class="material-symbols-outlined inline-ico" aria-hidden="true">verified</span> Onchain Verification:</span>
                     <span class="detail-value verification-value">
                       {{ selectedCertificate.wallet_address || selectedCertificate.certificate_data?.wallet_address ? 'Verified via wallet' : 'Verified via payment reference' }}
                     </span>
@@ -1345,5 +1345,11 @@ onUnmounted(() => {
 
 .mobile-certificate-card {
   margin-bottom: 0.5rem;
+}
+
+.inline-ico {
+  font-size: 1em;
+  vertical-align: -2px;
+  color: var(--primary-color, #058526);
 }
 </style>

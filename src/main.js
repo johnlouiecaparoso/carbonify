@@ -5,6 +5,8 @@ import { createPinia } from 'pinia'
 import '@/styles/tokens.css'
 import '@/styles/responsive.css'
 import '@/styles/responsive-table.css'
+// Last, so the preference overrides beat component defaults.
+import '@/styles/preferences.css'
 
 import App from './App.vue'
 import router from './router'

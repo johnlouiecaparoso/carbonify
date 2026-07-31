@@ -112,7 +112,7 @@
                     {{ doc.name || 'Document ' + (i + 1) }}
                   </a>
                   <span v-else class="muted" title="Sign in to view project documents">
-                    🔒 {{ doc.name || 'Document ' + (i + 1) }} (sign in to view)
+                    <span class="material-symbols-outlined lock-ico" aria-hidden="true">lock</span> {{ doc.name || 'Document ' + (i + 1) }} (sign in to view)
                   </span>
                   <span v-if="doc.type" class="muted"> · {{ doc.type }}</span>
                 </li>
@@ -835,5 +835,10 @@ onBeforeUnmount(() => {
   .grid {
     grid-template-columns: 1fr;
   }
+}
+
+.lock-ico {
+  font-size: 1em;
+  vertical-align: -2px;
 }
 </style>

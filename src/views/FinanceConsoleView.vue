@@ -55,10 +55,10 @@
           </button>
         </div>
         <div v-if="drift.length === 0" class="recon-ok">
-          ✓ Books balanced — no drift detected.
+          <span class="material-symbols-outlined inline-ico" aria-hidden="true">check_circle</span> Books balanced — no drift detected.
         </div>
         <div v-else class="recon-bad">
-          <p>⚠️ {{ drift.length }} issue{{ drift.length === 1 ? '' : 's' }} detected:</p>
+          <p><span class="material-symbols-outlined inline-ico" aria-hidden="true">warning</span> {{ drift.length }} issue{{ drift.length === 1 ? '' : 's' }} detected:</p>
           <CollapsibleList :count="drift.length" row-selector="li">
             <ul>
               <li v-for="(d, i) in drift" :key="i">
@@ -356,5 +356,10 @@ onMounted(refresh)
     font-size: 0.82rem;
     white-space: nowrap;
   }
+}
+
+.inline-ico {
+  font-size: 1.05em;
+  vertical-align: -3px;
 }
 </style>

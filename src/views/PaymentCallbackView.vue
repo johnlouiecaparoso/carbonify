@@ -243,7 +243,7 @@ onMounted(async () => {
       </div>
 
       <div v-else-if="success" class="success-container">
-        <div class="success-icon">✅</div>
+        <div class="success-icon"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></div>
         <h2>Payment Successful!</h2>
         <p>Your payment has been confirmed</p>
         <div v-if="paymentDetails" class="payment-summary">
@@ -254,7 +254,7 @@ onMounted(async () => {
       </div>
 
       <div v-else class="error-container">
-        <div class="error-icon">❌</div>
+        <div class="error-icon"><span class="material-symbols-outlined" aria-hidden="true">cancel</span></div>
         <h2>Payment Verification Failed</h2>
         <p>{{ error }}</p>
         <button @click="router.push('/marketplace')" class="btn-primary">

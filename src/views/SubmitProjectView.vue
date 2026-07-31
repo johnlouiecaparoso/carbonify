@@ -19,7 +19,7 @@
         <div v-if="showSuccessCard" class="success-card-overlay">
           <div class="success-card">
             <div class="success-card-header">
-              <div class="success-icon">✅</div>
+              <div class="success-icon"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></div>
               <h2 class="success-title">Project Submitted Successfully!</h2>
               <p class="success-subtitle">
                 Your project <strong>"{{ submittedProject?.title }}"</strong> has been submitted for verification.
@@ -31,21 +31,21 @@
                 <h3 class="section-title">What happens next?</h3>
                 <div class="steps-list">
                   <div class="step-item">
-                    <div class="step-icon">1️⃣</div>
+                    <div class="step-icon" aria-hidden="true">1</div>
                     <div class="step-text">
                       <strong>Initial Screening</strong>
                       <span>Admin checks project completeness and MRV readiness</span>
                     </div>
                   </div>
                   <div class="step-item">
-                    <div class="step-icon">2️⃣</div>
+                    <div class="step-icon" aria-hidden="true">2</div>
                     <div class="step-text">
                       <strong>MRV Review</strong>
                       <span>Verifier reviews monitoring data, baseline, and methodology</span>
                     </div>
                   </div>
                   <div class="step-item">
-                    <div class="step-icon">3️⃣</div>
+                    <div class="step-icon" aria-hidden="true">3</div>
                     <div class="step-text">
                       <strong>Validation & Issuance</strong>
                       <span>Validated projects move to the active pool and can issue credits</span>
@@ -611,10 +611,22 @@ onMounted(async () => {
   transform: translateX(4px);
 }
 
+/* Was 1️⃣ 2️⃣ 3️⃣ — keycap emoji, which render as a different glyph on every
+   platform and are announced by screen readers as "keycap digit one". A styled
+   numeral is the same information without either problem. */
 .step-icon {
-  font-size: 1.25rem;
   flex-shrink: 0;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .step-text {
