@@ -126,14 +126,17 @@ export function screenName(name, entries = [], threshold = MATCH_THRESHOLD) {
 /** The active watchlist. Admin-only by RLS; degrades to [] rather than throwing. */
 export async function getWatchlist() {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
   const { data, error } = await supabase
     .from('aml_watchlist_entries')
     .select('*')
     .eq('is_active', true)
   if (error) {
+    // An empty watchlist and an unreadable one are opposite facts: the first
+    // says nobody is listed, the second says we cannot tell. Screening against
+    // a silently-empty list matches nobody, forever.
     console.warn('[aml] watchlist unavailable:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load the AML watchlist')
   }
   return data || []
 }
@@ -187,7 +190,7 @@ export async function screenAndRecord({ userId, name, kycApplicationId = null })
  */
 export async function listScreenings({ status = 'open' } = {}) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   let query = supabase.from('aml_screenings').select('*').order('screened_at', { ascending: false })
   if (status === 'open') query = query.in('status', AML_OPEN_STATUSES)
@@ -195,8 +198,12 @@ export async function listScreenings({ status = 'open' } = {}) {
 
   const { data, error } = await query
   if (error) {
+    // Not []: with `status: 'open'` an empty result reads as "no subject is
+    // awaiting a compliance decision". A screening queue that reports itself
+    // clear because the query failed is the exact failure an AML programme
+    // exists to prevent.
     console.warn('[aml] screenings unavailable:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load AML screenings')
   }
 
   const rows = data || []

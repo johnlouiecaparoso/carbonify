@@ -184,7 +184,7 @@ export async function requestAccountDeletion(reason = null) {
 /** List the signed-in user's data-subject requests, newest first. */
 export async function getMyDataRequests() {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   const user = await getCurrentUser()
   const { data, error } = await supabase
@@ -194,8 +194,10 @@ export async function getMyDataRequests() {
     .order('created_at', { ascending: false })
 
   if (error) {
+    // Not []: a user who asked to be deleted, and is shown no pending request,
+    // reasonably concludes the request never registered and asks again.
     console.warn('[dataPrivacy] could not load requests:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load your data requests')
   }
   return data || []
 }
@@ -241,7 +243,7 @@ export const DSR_OPEN_STATUSES = ['pending', 'in_progress']
  */
 export async function listDataSubjectRequests({ status = 'open' } = {}) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   let query = supabase.from(REQUESTS_TABLE).select('*').order('created_at', { ascending: false })
   if (status === 'open') query = query.in('status', DSR_OPEN_STATUSES)
@@ -249,8 +251,13 @@ export async function listDataSubjectRequests({ status = 'open' } = {}) {
 
   const { data, error } = await query
   if (error) {
+    // Not []: this is the DPA erasure queue, and every row on it has a
+    // statutory clock running. "No outstanding requests" is precisely the
+    // wrong thing to show when the query failed — the same shape as the
+    // account-deletion secret that made every request queue forever while
+    // the docs recorded erasure as shipping.
     console.warn('[dataPrivacy] could not load requests:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load data-subject requests')
   }
 
   const rows = data || []

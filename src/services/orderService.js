@@ -48,8 +48,10 @@ export function isUnfinished(order) {
  */
 export async function getMyOrders(limit = 50) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
   const uid = await getCurrentUserId()
+  // No signed-in user genuinely means no orders — that is an answer, not a
+  // failure. A failed QUERY is the case that must not render as one.
   if (!uid) return []
 
   const { data, error } = await supabase
@@ -62,8 +64,10 @@ export async function getMyOrders(limit = 50) {
     .limit(limit)
 
   if (error) {
+    // Not []: an unfinished order is money the buyer has started to spend.
+    // "You have no orders" must never be the way a failed read presents itself.
     console.warn('Failed to load orders:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load your orders')
   }
   return data || []
 }

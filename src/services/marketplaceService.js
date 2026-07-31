@@ -332,8 +332,14 @@ export async function getMarketplaceListings(filters = {}) {
     .eq('status', 'active')
 
   if (error) {
+    // Not []: this renders as "no credits available" on the marketplace — the
+    // buyer's primary surface, and the worst false statement a marketplace can
+    // make about itself. MarketplaceViewEnhanced, ProjectsMapView and
+    // WatchlistView all already render an error state for this; every one of
+    // those branches was dead code. OrdersView opts out explicitly with
+    // `.catch(() => [])` because there it is only enrichment for listing titles.
     console.error('Error fetching marketplace listings:', error)
-    return []
+    throw new Error(error.message || 'Failed to load marketplace listings')
   }
 
   let sellerMap = new Map()

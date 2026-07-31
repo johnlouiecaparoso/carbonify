@@ -12,11 +12,99 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **801 unit tests green** (re-verified 2026-07-30,
-> 69 files), and **Playwright 46/47** — the one red is `pilot-readiness.spec.js` correctly reporting
+> **Current build state:** build green, lint green, **820 unit tests green** (re-verified 2026-07-31,
+> 71 files), and **Playwright 46/47** — the one red is `pilot-readiness.spec.js` correctly reporting
 > that signups are disabled on live (see the box below). The e2e suite was **38/44 with 6 failures
 > nobody had seen**, because CI runs that job `continue-on-error: true`; five were stale selectors and
 > are fixed. Unit-test history: (770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🔒 2026-07-31 — the role guards were skipped on one of two paths into the app
+>
+> A pre-pilot read of the router and the remaining service reads. Suite **801 → 820** (71 files).
+> Build green, lint 0. **No migration, no function deploy — this is frontend only**, so it ships
+> with the next frontend deploy and nothing is inert in the meantime.
+>
+> **1. 🔴 Any signed-in account could open `/admin` by typing the URL.** `router.beforeEach` has two
+> ways to reach a signed-in navigation. Path 1 — `userStore.isAuthenticated` already true — ran the
+> MFA check, the five role guards, the `disallowedRoles` block list and the plan gate. Path 2 — the
+> store is cold, so the guard asks Supabase directly, finds the session in localStorage and restores
+> it — called a bare **`next()`**. It treated a restored session as proof of *authorisation* rather
+> than *authentication*, checking nothing at all.
+>
+> Path 2 is not exotic: it is a hard refresh onto a deep link, or `fetchSession()` throwing, which
+> the guard catches and ignores three lines earlier. **Reproduced before fixing** — a `farmer`
+> account lands on `/admin`, `/verifier` and `/cart`, all three of which its metadata forbids.
+>
+> `routeAccess.test.js` could never have caught it: it asserts route **metadata**, and the metadata
+> was correct the whole time. Nothing asserted that the guard *reads* it. Both paths now call one
+> `enforceAuthenticatedAccess()`, and [`routerGuardBypass.test.js`](../src/test/services/routerGuardBypass.test.js)
+> drives the real router with a cold store. Its fourth test admits an **admin** to `/admin` — a guard
+> that rejected everyone would pass the other three and be useless.
+>
+> ⚠️ **Scope, stated honestly:** this is the client-side gate. RLS still stood behind it, so an
+> attacker reached admin *screens*, not admin *data* — the reads on those screens are separately
+> policy-enforced, and `rls_negative_suite.sql` showed every write attack blocked. It is a broken
+> access-control finding a pentest would file, not a data breach.
+>
+> **2. The `[]`-on-error class, in six more reads — and every caller was already waiting to catch.**
+> The 2026-07-30 pass fixed `getUserCreditPortfolio` and `getUserTransactionHistory`. The same shape
+> was still live in `listAllDisputes`, `listRecentTransactions`, `listKybApplications`,
+> `getMyDisputes`, `getMyOrders` and `getUserCertificates`. What each said when it failed:
+>
+> | Read | Rendered as | Whose problem |
+> |---|---|---|
+> | `listKybApplications` | *"No pending applications."* | a **seller's withdrawals stay locked** while the queue that unlocks them reports itself cleared |
+> | `listAllDisputes` | *"No open disputes."* | a buyer's dispute is invisible to the admin resolving it |
+> | `listRecentTransactions` | an empty refund console | — |
+> | `getUserCertificates` | *"you have retired nothing"* | **and it made `CertificateView` call `generateMissingCertificates()`** for a user who already had them |
+> | `getMyOrders` | *"you have no orders"* | an unfinished order is money the buyer already started to spend |
+> | `getMyDisputes` | *"you have reported nothing"* | — |
+>
+> **The through-line is the same as 2026-07-30's:** `AdminRefundsView`'s `Promise.allSettled` +
+> `loadError`, `MyDisputesView`'s catch, `OrdersView`'s catch and `CertificateView`'s catch were all
+> **dead code that could never run** — precisely what `BuyerDashboardView`'s rejected branch was
+> before it was fixed. The error handling had been written; the services never gave it anything to
+> catch. Only `AdminKybReviewView` genuinely lacked a catch, and now has one plus a retry.
+>
+> **3. Then the same sweep across the compliance and developer surfaces — seven more reads.**
+> The two sharpest are queues where an empty result is itself the finding:
+>
+> - **`listScreenings` (AML).** With `status: 'open'`, `[]` means *"no subject is awaiting a
+>   compliance decision"*. A screening queue that reports itself clear because the query failed is
+>   the precise failure an AML programme exists to prevent. `getWatchlist` is the other half:
+>   screening against a silently-empty watchlist **matches nobody, forever**.
+> - **`listDataSubjectRequests` (DPA erasure queue).** Every row on it has a statutory clock running,
+>   and `[]` reads as "no outstanding requests". This is the same shape as the misnamed
+>   `ACCOUNT_DELETION_SECRET` — erasure requests queuing invisibly while the record said otherwise —
+>   reached from the frontend instead of from a secret name.
+>
+> Plus `getMyDataRequests` (a user shown no pending deletion asks again), `getMyOfftakes`,
+> `getMyDataRoomActivity` (an access log reading "nobody viewed your documents") and
+> `listProjectComments` — an empty revision thread reads as *"the verifier has asked you nothing"*,
+> on the screen where revisions are requested and answered.
+>
+> **And the biggest surface of all: `getMarketplaceListings`.** A failed read rendered as
+> **"no credits available"** — the buyer's primary screen, and the worst false statement a
+> marketplace can make about itself. `MarketplaceViewEnhanced`, `ProjectsMapView` and
+> `WatchlistView` all already rendered an error state for it; all three were dead code.
+> `OrdersView` is the instructive counter-example — it opts out **explicitly** with
+> `.catch(() => [])`, because there the listings are only enrichment for order titles. That is the
+> right shape: the caller decides an absence is tolerable, rather than the service deciding it for
+> everyone.
+>
+> `ProjectCommentThread.load` carried **two** bugs in one line: no `catch`, so a throw would have
+> pinned it on "Loading conversation…" forever, and the `[]` beneath it. `AdminAmlView` used
+> `allSettled` but surfaced nothing on rejection — its own comment said an unreadable watchlist
+> "must not hide the queue", which was the right instinct applied to only one of the two halves.
+> `PrivacyDataPanel` had no error path at all.
+>
+> Pinned by [`emptyOnErrorReads.test.js`](../src/test/services/emptyOnErrorReads.test.js) — 14 tests,
+> including happy-path cases so none of this can degrade into a blanket throw.
+>
+> **Still returning `[]` on purpose, and correctly:** `assetLedgerService` and `mrvDashboardService`
+> skip tables that may not exist yet (deliberate schema tolerance), and `getMyOrders` still returns
+> `[]` when there is genuinely no signed-in user — that is an answer, not a failure. The distinction
+> this pass is drawing is between *no rows* and *no answer*, not between empty and non-empty.
 >
 > ### 🔒 2026-07-30 — pre-pilot security + defect pass. FOUR FIXES, THREE FUNCTIONS TO REDEPLOY
 >

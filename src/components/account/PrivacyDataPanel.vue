@@ -77,6 +77,8 @@
       </p>
     </div>
 
+    <p v-if="requestsError" class="privacy-message error">{{ requestsError }}</p>
+
     <!-- Request history -->
     <div v-if="requests.length" class="privacy-history">
       <h4 class="history-title">Request history</h4>
@@ -115,6 +117,7 @@ const deleteError = ref(false)
 const cancelling = ref(false)
 
 const requests = ref([])
+const requestsError = ref('')
 
 const pendingDeletion = computed(() =>
   requests.value.find(
@@ -140,7 +143,22 @@ function typeLabel(type) {
 }
 
 async function loadRequests() {
-  requests.value = await getMyDataRequests()
+  // Handled here rather than thrown on: this runs from onMounted and from
+  // inside three action handlers, whose catch blocks would otherwise report a
+  // failed refresh as a failed export/deletion.
+  //
+  // The stake is `pendingDeletion` below. If a failed read left `requests`
+  // empty, the panel showed no pending request and offered account deletion
+  // again to someone who had already asked for it.
+  try {
+    requestsError.value = ''
+    requests.value = await getMyDataRequests()
+  } catch (err) {
+    console.error('Failed to load data requests:', err)
+    requests.value = []
+    requestsError.value =
+      'We could not load your existing requests. If you have already asked for an export or deletion, do not submit it again — reload the page first.'
+  }
 }
 
 async function onExport() {

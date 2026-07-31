@@ -224,6 +224,20 @@ async function load() {
     ])
     if (screenRes.status === 'fulfilled') screenings.value = screenRes.value
     if (watchRes.status === 'fulfilled') watchlist.value = watchRes.value
+
+    // Say which half failed. Without this the screening queue renders empty on
+    // a failed read and reads as "nobody is awaiting a decision" — the one
+    // conclusion a compliance console must never draw from a broken query.
+    const failed = [
+      screenRes.status === 'rejected' && 'screenings',
+      watchRes.status === 'rejected' && 'the watchlist',
+    ].filter(Boolean)
+    if (failed.length) {
+      if (screenRes.status === 'rejected') screenings.value = []
+      if (watchRes.status === 'rejected') watchlist.value = []
+      message.value = `Could not load ${failed.join(' or ')}. This is a loading error — do not read it as an empty queue.`
+      isError.value = true
+    }
   } finally {
     loading.value = false
   }

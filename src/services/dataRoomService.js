@@ -165,8 +165,11 @@ export async function getMyDataRoomActivity(limit = 500) {
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) {
+    // Not []: this is an access log. "Nobody viewed your documents" is the
+    // opposite conclusion from "we could not read the log", and a developer
+    // uses this screen to decide who is actually interested in their project.
     console.warn('[dataRoom] activity unavailable:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load data room activity')
   }
   return data || []
 }

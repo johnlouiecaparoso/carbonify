@@ -10,6 +10,34 @@
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) owns the real-money gate,
 > [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) owns who-can-do-what.
 
+> ## 🧭 2026-07-31 — where this stands, in one box
+>
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **820 green** (was 801),
+> lint 0, build green. Today's pass was frontend-only: **no migration to apply, no edge function to
+> redeploy**, so nothing is sitting inert this time. It ships with the frontend deploy you already
+> owe from the 2026-07-30 provider-buttons change.
+>
+> **You have exactly four things to do, and one of them unblocks the other three:**
+>
+> | # | Do this | Blocks |
+> |---|---|---|
+> | 1 | **Buy + verify the email domain** (~₱600–900/yr) — Step 6b | *Everything.* Signups, all 8 stub emails, MRV reminders |
+> | 2 | **Then** enable signups — Step 2, in that order | Every pilot invite |
+> | 3 | **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
+> | 4 | **Deploy the frontend + purge test data** — Step 2 / Step 3 | The pilot |
+>
+> **Order matters on 1 and 2.** Enabling signups while confirmation is required and no sender is
+> verified is the worst of the three states — see the red box in Step 2.
+>
+> **#3 is the one people skip.** Escrow is live and the Terms already promise sellers a hold window.
+> The *releaser* is proven; what escrow does to a real purchase is not. A pilot seller whose money is
+> stuck permanently is the worst outcome this beta can produce.
+>
+> Anything still open on the build side is quality and product work, routed in
+> [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) Lane 1 — **none of it gates go-live.** The long pole
+> remains the **independent penetration test** (Step 6a), which is external and is not needed for a
+> test-mode pilot but *is* needed before live payment keys.
+
 ## How to run any SQL on this page
 
 Every SQL check is a **file in the repo**. You never need to copy code out of a document.

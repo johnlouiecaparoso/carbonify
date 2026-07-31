@@ -538,6 +538,100 @@ const router = createRouter({
   ],
 })
 
+/**
+ * Every access check that applies to a signed-in user: MFA step-up, the
+ * role-specific guards, the `disallowedRoles` block list and the plan gate.
+ * Returns a redirect location, or `undefined` to allow the navigation.
+ *
+ * This lives in a function because it has to run on BOTH paths into an
+ * authenticated navigation. It used to be inline in the `isAuthenticated`
+ * branch only — so the second path, which restores a session straight from
+ * Supabase when the store has not hydrated, called `next()` having checked
+ * nothing. Any signed-in account could open /admin, /verifier or the whole
+ * buying path by hitting the URL while the store was cold (a hard refresh, or
+ * `fetchSession()` throwing, which is caught and ignored above). The route
+ * metadata was right the whole time; only one of the two branches consulted it.
+ */
+async function enforceAuthenticatedAccess(to, from, userStore) {
+  // Strict 2FA enforcement: if the user has MFA enrolled but their session is
+  // still at aal1, force them to the step-up page before any protected route.
+  if (to.name !== 'mfa-challenge') {
+    try {
+      const { isMfaRequired } = await import('@/services/mfaService')
+      const { required } = await isMfaRequired()
+      if (required) {
+        console.log('🔐 MFA step-up required, redirecting to challenge')
+        return { name: 'mfa-challenge', query: { returnTo: to.fullPath } }
+      }
+    } catch (mfaErr) {
+      // Fail open on transient errors so users are never locked out.
+      console.warn('MFA enforcement check failed (allowing):', mfaErr?.message)
+    }
+  }
+
+  // IMPORTANT: Ensure profile is loaded before checking role-specific routes
+  // This prevents navigation issues where role isn't loaded yet
+  if (
+    to.meta.requiresProjectDeveloper ||
+    to.meta.requiresAdmin ||
+    to.meta.requiresVerifier ||
+    to.meta.requiresLgu ||
+    to.meta.requiresFarmer ||
+    to.meta.requiresFeature
+  ) {
+    if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
+      console.log('⏳ Profile/role not loaded yet, fetching before route check...')
+      try {
+        await userStore.fetchUserProfile()
+      } catch (error) {
+        console.error('Error fetching profile in router guard:', error)
+      }
+    }
+  }
+
+  // Role-specific route requirements. Each guard returns a redirect or undefined.
+  const ROLE_GATES = [
+    { meta: 'requiresProjectDeveloper', guard: createProjectDeveloperGuard, label: 'Project Developer' },
+    { meta: 'requiresLgu', guard: createLguGuard, label: 'LGU' },
+    { meta: 'requiresFarmer', guard: createFarmerGuard, label: 'Farmer' },
+    { meta: 'requiresAdmin', guard: createAdminGuard, label: 'Admin' },
+    { meta: 'requiresVerifier', guard: createVerifierGuard, label: 'Verifier' },
+  ]
+
+  for (const { meta, guard, label } of ROLE_GATES) {
+    if (!to.meta[meta]) continue
+    const guardResult = await guard(userStore)(to, from)
+    if (guardResult) {
+      console.log(`❌ ${label} access required, redirecting...`)
+      return guardResult
+    }
+  }
+
+  const disallowedRoles = Array.isArray(to.meta.disallowedRoles) ? to.meta.disallowedRoles : []
+  if (disallowedRoles.length > 0) {
+    // canonicalizeRole, not a local lowercase/trim: an alias like 'super_admin'
+    // has to resolve to 'admin' here or it slips past every block list.
+    const normalizedRole = canonicalizeRole(userStore.role || userStore.profile?.role)
+    if (disallowedRoles.includes(normalizedRole)) {
+      console.warn('❌ Route blocked for role:', {
+        route: to.path,
+        role: normalizedRole,
+        disallowedRoles,
+      })
+      return getRoleDefaultRoute(normalizedRole || ROLES.GENERAL_USER)
+    }
+  }
+
+  // Subscription / premium gating (orthogonal to roles). Client-side UX gate
+  // only — premium actions are also enforced server-side.
+  if (to.meta.requiresFeature && !userStore.hasFeature(to.meta.requiresFeature)) {
+    console.log('🔒 Feature not in plan, redirecting to upgrade:', to.meta.requiresFeature)
+    return { name: 'upgrade', query: { feature: to.meta.requiresFeature } }
+  }
+
+  return undefined
+}
+
 // Router guard for authentication
 router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
@@ -632,127 +726,10 @@ router.beforeEach(async (to, from, next) => {
 
   // Check if user is authenticated
   if (userStore.isAuthenticated) {
-    console.log('✅ User authenticated, allowing access')
-
-    // Strict 2FA enforcement: if the user has MFA enrolled but their session is
-    // still at aal1, force them to the step-up page before any protected route.
-    if (to.name !== 'mfa-challenge') {
-      try {
-        const { isMfaRequired } = await import('@/services/mfaService')
-        const { required } = await isMfaRequired()
-        if (required) {
-          console.log('🔐 MFA step-up required, redirecting to challenge')
-          next({ name: 'mfa-challenge', query: { returnTo: to.fullPath } })
-          return
-        }
-      } catch (mfaErr) {
-        // Fail open on transient errors so users are never locked out.
-        console.warn('MFA enforcement check failed (allowing):', mfaErr?.message)
-      }
-    }
+    console.log('✅ User authenticated, running access checks')
 
     // Allow homepage access for authenticated users (no redirect)
-
-    // IMPORTANT: Ensure profile is loaded before checking role-specific routes
-    // This prevents navigation issues where role isn't loaded yet
-    if (
-      to.meta.requiresProjectDeveloper ||
-      to.meta.requiresAdmin ||
-      to.meta.requiresVerifier ||
-      to.meta.requiresLgu ||
-      to.meta.requiresFarmer ||
-      to.meta.requiresFeature
-    ) {
-      if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
-        console.log('⏳ Profile/role not loaded yet, fetching before route check...')
-        try {
-          await userStore.fetchUserProfile()
-        } catch (error) {
-          console.error('Error fetching profile in router guard:', error)
-        }
-      }
-    }
-
-    // Check for role-specific route requirements
-    if (to.meta.requiresProjectDeveloper) {
-      const projectDeveloperGuard = createProjectDeveloperGuard(userStore)
-      const guardResult = await projectDeveloperGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Project Developer access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for LGU-only routes
-    if (to.meta.requiresLgu) {
-      const lguGuard = createLguGuard(userStore)
-      const guardResult = await lguGuard(to, from)
-      if (guardResult) {
-        console.log('❌ LGU access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for farmer-only routes
-    if (to.meta.requiresFarmer) {
-      const farmerGuard = createFarmerGuard(userStore)
-      const guardResult = await farmerGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Farmer access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for admin-only routes
-    if (to.meta.requiresAdmin) {
-      const adminGuard = createAdminGuard(userStore)
-      const guardResult = await adminGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Admin access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for verifier-only routes
-    if (to.meta.requiresVerifier) {
-      const verifierGuard = createVerifierGuard(userStore)
-      const guardResult = await verifierGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Verifier access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    const disallowedRoles = Array.isArray(to.meta.disallowedRoles) ? to.meta.disallowedRoles : []
-    if (disallowedRoles.length > 0) {
-      // canonicalizeRole, not a local lowercase/trim: an alias like 'super_admin'
-      // has to resolve to 'admin' here or it slips past every block list.
-      const normalizedRole = canonicalizeRole(userStore.role || userStore.profile?.role)
-      if (disallowedRoles.includes(normalizedRole)) {
-        console.warn('❌ Route blocked for role:', {
-          route: to.path,
-          role: normalizedRole,
-          disallowedRoles,
-        })
-        next(getRoleDefaultRoute(normalizedRole || ROLES.GENERAL_USER))
-        return
-      }
-    }
-
-    // Subscription / premium gating (orthogonal to roles). Client-side UX gate
-    // only — premium actions are also enforced server-side.
-    if (to.meta.requiresFeature && !userStore.hasFeature(to.meta.requiresFeature)) {
-      console.log('🔒 Feature not in plan, redirecting to upgrade:', to.meta.requiresFeature)
-      next({ name: 'upgrade', query: { feature: to.meta.requiresFeature } })
-      return
-    }
-
-    next()
+    next(await enforceAuthenticatedAccess(to, from, userStore))
   } else {
     // Final check: Try Supabase directly before redirecting to login
     // This handles cases where store hasn't loaded yet but session exists in localStorage
@@ -770,14 +747,17 @@ router.beforeEach(async (to, from, next) => {
           userStore.session = session
           await userStore.fetchUserProfile()
 
-          // Allow access to the requested route.
+          // Run the SAME access checks as the branch above. This used to be a
+          // bare `next()`: a restored session was treated as proof of
+          // authorisation, not just authentication, so every role gate and
+          // block list was skipped on this path.
           //
           // A `to.name === 'homepage'` branch used to sit here, sending a
           // restored session to its role's default route. No route has ever
           // been named 'homepage' (the marketing page is 'home'), so it never
           // ran — and 'home' is public, so it returns long before reaching
           // this block anyway.
-          next()
+          next(await enforceAuthenticatedAccess(to, from, userStore))
           return
         }
       }

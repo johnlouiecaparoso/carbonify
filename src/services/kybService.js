@@ -95,7 +95,7 @@ export async function getMyKyb() {
  */
 export async function listKybApplications(status = null) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   let query = supabase
     .from('kyb_applications')
@@ -109,8 +109,10 @@ export async function listKybApplications(status = null) {
 
   const { data, error } = await query
   if (error) {
+    // Not []: "No pending applications" is a review queue reading as empty.
+    // A seller waiting on verification is indistinguishable from a failed read.
     console.error('listKybApplications failed:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load KYB applications')
   }
   return data || []
 }

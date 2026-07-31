@@ -27,8 +27,11 @@ export async function listProjectComments(projectId) {
     .order('created_at', { ascending: true })
 
   if (error) {
+    // Not []: this thread is where a verifier asks for a revision and a
+    // developer answers. An empty thread reads as "nothing has been asked of
+    // you" — which is how a requested revision goes unanswered.
     console.warn('Failed to load project comments:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load project comments')
   }
   return (data || []).map((c) => ({
     ...c,
