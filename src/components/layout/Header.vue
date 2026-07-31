@@ -249,6 +249,15 @@
                   <span>Take a tour</span>
                 </button>
 
+                <!-- Directly below the tour on purpose: the tour is a one-shot
+                     modal, and this is the page you come back to. -->
+                <router-link to="/guide" class="dropdown-item" @click="showUserMenu = false">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                    >menu_book</span
+                  >
+                  <span>User guide</span>
+                </router-link>
+
                 <router-link to="/about" class="dropdown-item" @click="showUserMenu = false">
                   <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
                     >info</span

@@ -250,6 +250,21 @@ onMounted(load)
 
     <div class="container">
 
+      <!-- A permanent one-line pointer to the guide. Deliberately shown to
+           EVERYONE, not just new accounts: the first-run panel below is
+           dismissed once and never returns, and "how does this work again?"
+           is a question people ask in week three, not week one. -->
+      <router-link to="/guide" class="guide-notice">
+        <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+        <span class="guide-notice-text">
+          <strong>New to Carbonify?</strong> Read the user guide — how credits work, what your
+          role can do, and what the other roles are for.
+        </span>
+        <span class="material-symbols-outlined guide-notice-arrow" aria-hidden="true"
+          >arrow_forward</span
+        >
+      </router-link>
+
       <!-- First-run guide. Sits ABOVE the KYC banner deliberately: to someone
            who has never used the platform, "verify your identity" out of
            context reads as an obstacle rather than as step one of something. -->
@@ -605,6 +620,47 @@ onMounted(load)
 }
 .btn-info:hover {
   background: #1e40af;
+}
+
+/* One-line pointer to the user guide (permanent, every role) */
+.guide-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #d7e8da;
+  border-radius: 10px;
+  background: #f4fbf5;
+  margin-bottom: 1rem;
+  text-decoration: none;
+  color: #374151;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.guide-notice:hover {
+  border-color: var(--primary-color, #058526);
+  background: #ecf8ee;
+}
+.guide-notice > .material-symbols-outlined {
+  font-size: 20px;
+  color: var(--primary-color, #058526);
+  flex: 0 0 auto;
+}
+.guide-notice-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.guide-notice-text strong {
+  color: var(--primary-dark, #045c1a);
+}
+.guide-notice-arrow {
+  color: var(--primary-color, #058526);
+}
+@media (max-width: 640px) {
+  .guide-notice-arrow {
+    display: none;
+  }
 }
 
 /* Banners */

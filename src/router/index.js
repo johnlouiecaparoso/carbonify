@@ -76,6 +76,14 @@ const router = createRouter({
       meta: { public: true },
       component: () => import('@/views/AboutView.vue'),
     },
+    {
+      // The in-app user guide. Auth-gated because every link in it goes to a
+      // signed-in surface; the public explanation of Carbonify is /about.
+      path: '/guide',
+      name: 'user-guide',
+      meta: { requiresAuth: true },
+      component: () => import('@/views/UserGuideView.vue'),
+    },
     { path: '/login', name: 'login', meta: { public: true }, component: LoginView },
     { path: '/register', name: 'register', meta: { public: true }, component: RegisterView },
     {

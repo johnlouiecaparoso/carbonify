@@ -197,6 +197,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
             </button>
           </li>
           <li>
+            <!-- Below the tour on purpose: the tour is a one-shot modal, this
+                 is the page you come back to. -->
+            <router-link to="/guide" class="nav-item" :class="{ current: isCurrent('/guide') }">
+              <span class="material-symbols-outlined nav-icon" aria-hidden="true">menu_book</span>
+              <span class="nav-label">User guide</span>
+            </router-link>
+          </li>
+          <li>
             <button class="nav-item nav-item--logout" type="button" @click="handleLogout">
               <span class="material-symbols-outlined nav-icon" aria-hidden="true">logout</span>
               <span class="nav-label">Logout</span>
