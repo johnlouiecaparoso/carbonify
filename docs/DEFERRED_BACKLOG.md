@@ -267,7 +267,7 @@ mount would not trap correctly with it. Guarded by 9 tests in
 `AccessibleModal.vue` is unchanged and remains the right choice for **new** dialogs that want standard
 chrome.
 
-### 11. Two tables back "transaction history" 🟠 — the slice bug is CLOSED, the dual source is NOT
+### 11. Two tables back "transaction history" ✅ CLOSED 2026-08-01 (slice 07-28 · dual source 08-01)
 
 > **✅ The slice bug is fixed (2026-07-28), and it was more serious than this entry recorded.**
 >
@@ -292,10 +292,75 @@ chrome.
 > slice** — if a caller needs a true "most recent N overall", slice at the call site where the
 > semantics are visible.
 
-**Still open — the dual source itself.** `creditOwnershipService` reads `credit_purchases`;
-`transactionHistoryService` reads `credit_transactions`. Same feature, two sources, and the two
-functions even **share a name**, which is how the slice above stayed hidden. Consolidating them is a
-data-model question (which table is canonical for a purchase) and was not attempted with the bug fix.
+> **✅ CLOSED 2026-08-01 — and the dual source was hiding a third defect, worse than the first two.**
+>
+> The open half read: *"`creditOwnershipService` reads `credit_purchases`; `transactionHistoryService`
+> reads `credit_transactions`. Same feature, two sources… consolidating them is a data-model question
+> (which table is canonical for a purchase)."*
+>
+> **It was not a question. Nothing in this project writes `credit_purchases`** — not one migration,
+> edge function or client path. Every settled purchase is inserted into `credit_transactions` by
+> `process_marketplace_purchase` (`20260606000400`). The table was legacy, and
+> `creditOwnershipService.getUserTransactionHistory` — the ESG report's only source — had been reading
+> it.
+>
+> So `buildEsgDataset().totals.purchasedCredits` was **structurally zero**, and the exported PDF
+> printed **"Credits purchased (lifetime): 0"** for every buyer who had ever bought anything.
+>
+> **That is #11's failure mode for the third time, by a third route.** The cross-type slice
+> (2026-07-28) and the swallowed error (2026-07-30) were both fixed *in this same function*, and
+> neither pass asked whether the table under it had rows. Scoped honestly: `Credits owned`,
+> `Credits retired` and the `By Project` breakdown were always correct — they come from
+> `credit_ownership` and `credit_retirements`. Only the purchased figure was wrong.
+>
+> **Fixed:** the purchases half now reads `credit_transactions` with `status = 'completed'`, through
+> the two-level `project_credits -> projects` embed the shapes never shared.
+>
+> **The name collision is fixed by renaming, which is the actual close-out of this entry.**
+> `transactionHistoryService`'s copy is now `getPurchaseAndRetirementHistory` — it returns
+> `{purchases, retirements, all}` from different tables and was never interchangeable with the flat
+> array `creditOwnershipService` returns. One name over two shapes is what let a fix land on one copy
+> and be believed to cover both, twice.
+>
+> **Two more `[]`-on-error reads went with it,** both live on RetireView via
+> `getUserRetirementHistory`: a failed retirements query was logged and stepped over, and the outer
+> catch returned `{purchases: [], retirements: [], all: []}`. A user who had retired credits was told,
+> on the retirement screen, that they had retired none. Both now throw; pinned by
+> [`retirementHistoryErrors.test.js`](../src/test/services/retirementHistoryErrors.test.js),
+> mutation-checked.
+>
+> **Also deleted:** a `credit_purchases` "fallback" that queried the table, logged
+> *"✅ Found purchases in credit_purchases table"*, and discarded the rows behind a
+> `// TODO: Implement proper fallback`. It printed a success line for data it never used, against a
+> table nothing writes. **A log line saying a thing worked is not evidence the thing worked.**
+
+### 33. Three services own project writes, and the submit form tries all three 🟠
+
+Surfaced by the collision guard written for #11
+([`duplicateServiceReads.test.js`](../src/test/services/duplicateServiceReads.test.js)), which found
+**nine** name collisions across `projectService`, `projectWorkflowService` and
+`projectApprovalService`. `ProjectForm.vue` imports all three.
+
+The sharp end is its submit handler, which **cascades**:
+
+```
+projectWorkflowService.submitProject(...)
+  └─ catch → projectService.createProject(...)
+       └─ catch → projectApprovalService.submitProject(...)
+```
+
+Three write paths into the same table, chosen by whichever does not throw. Consequences: which path
+actually created a project is not knowable from the code, the three may write different column sets,
+and a fix to one is invisible to the other two — the same shape as #11, at the scale of project
+creation rather than a report figure.
+
+**Not fixed here, deliberately.** Collapsing them needs a decision about which service owns project
+writes, and that is an architecture call rather than a defect fix. The nine collisions are recorded
+as an explicit **ratchet baseline** in the guard test: a new collision fails the suite, and removing
+one fails it until the entry is deleted from the list. The count can only go down.
+
+**Evidence to gather before deciding:** whether the fallbacks have ever actually fired in production.
+If path 1 always succeeds, paths 2 and 3 are dead code and this is a deletion, not a refactor.
 
 ### 12. Grant hygiene on ~10 SECURITY DEFINER RPCs 🟠
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not

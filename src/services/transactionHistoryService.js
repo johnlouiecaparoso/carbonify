@@ -1,10 +1,22 @@
 import { getSupabase } from '@/services/supabaseClient'
 
 /**
- * Get user's complete transaction history (purchases and retirements)
- * This serves as proof of purchase and retirement history
+ * Get a user's purchases and retirements, grouped.
+ *
+ * ── RENAMED 2026-08-01, and the rename IS the fix for DEFERRED_BACKLOG #11's
+ * "dual-source" half ──
+ * This was `getUserTransactionHistory`, the same name
+ * `creditOwnershipService` exports for a function that returns a completely
+ * different thing: a FLAT array, from different tables, for the ESG report.
+ * One name over two shapes is what let a fix land on one copy while the other
+ * kept the defect — twice now (the `getUserCreditPortfolio` duplicate on
+ * 2026-08-01, and this pair). The name now says which of the two it is.
+ *
+ * @returns {Promise<{purchases: Array, retirements: Array, all: Array}>}
+ * @throws if either read fails — an empty history is a claim about the user
+ *   ("you have bought nothing"), not a safe default.
  */
-export async function getUserTransactionHistory(userId) {
+export async function getPurchaseAndRetirementHistory(userId) {
   const supabase = getSupabase()
 
   if (!supabase) {
@@ -13,11 +25,10 @@ export async function getUserTransactionHistory(userId) {
   }
 
   try {
-    // Fetch purchase transactions (from credit_transactions where buyer_id = userId)
-    // Also check credit_purchases as fallback if credit_transactions doesn't have data
+    // Purchases live in `credit_transactions` — the table
+    // `process_marketplace_purchase` actually writes.
     let purchases = []
-    let purchaseError = null
-    
+
     try {
       const { data: transactions, error: transError } = await supabase
         .from('credit_transactions')
@@ -42,39 +53,22 @@ export async function getUserTransactionHistory(userId) {
         .eq('status', 'completed')
         .order('completed_at', { ascending: false })
 
-      if (!transError && transactions) {
-        purchases = transactions
-        console.log('✅ Fetched purchase history from credit_transactions:', purchases.length)
-      } else {
-        console.warn('⚠️ Error fetching from credit_transactions:', transError)
-        purchaseError = transError
-      }
+      if (transError) throw transError
+      purchases = transactions || []
     } catch (err) {
+      // Was: log a warning, set `purchaseError`, and carry on with `purchases`
+      // still []. A failed read then rendered as "you have bought nothing".
       console.error('❌ Error in credit_transactions query:', err)
-      purchaseError = err
+      throw new Error(err?.message || 'Could not load your purchase history')
     }
-    
-    // Fallback: If no transactions found, try credit_purchases table
-    if ((!purchases || purchases.length === 0) && purchaseError) {
-      console.log('🔄 Attempting fallback to credit_purchases table...')
-      try {
-        const { data: creditPurchases, error: purchaseTableError } = await supabase
-          .from('credit_purchases')
-          .select('*')
-          .eq('buyer_id', userId)
-          .eq('status', 'completed')
-          .order('completed_at', { ascending: false })
-        
-        if (!purchaseTableError && creditPurchases && creditPurchases.length > 0) {
-          console.log('✅ Found purchases in credit_purchases table:', creditPurchases.length)
-          // Note: credit_purchases doesn't have project_credits relation, so we'll need to fetch separately
-          // For now, we'll log this but continue with empty array
-          // TODO: Implement proper fallback with project data fetching
-        }
-      } catch (fallbackErr) {
-        console.error('❌ Error in fallback query:', fallbackErr)
-      }
-    }
+
+    // The `credit_purchases` fallback that used to sit here has been REMOVED.
+    // It queried the table, logged "✅ Found purchases in credit_purchases
+    // table", and then discarded the rows behind a `// TODO: Implement proper
+    // fallback` — so it printed a success line for data it never used. Worse,
+    // nothing writes `credit_purchases` anywhere in this project, so the
+    // fallback could not have helped even fully implemented. A log line that
+    // says a thing worked is not evidence the thing worked.
 
     // Fetch certificates separately for purchases (linked via transaction_id)
     let purchaseCertificates = {}
@@ -135,8 +129,15 @@ export async function getUserTransactionHistory(userId) {
       .eq('user_id', userId)
       .order('retired_at', { ascending: false })
 
+    // Throw rather than log-and-continue. `getUserRetirementHistory` is built on
+    // this function and is what RetireView renders, so a swallowed error here
+    // left `retirements` undefined, mapped to [], and told a user who has
+    // retired credits that they have retired nothing — on the screen that
+    // exists to show them. The same `[]`-as-a-fact-about-the-user class the
+    // 2026-07-30 and 2026-07-31 passes swept out of the other reads.
     if (retirementError) {
       console.error('Error fetching retirement history:', retirementError)
+      throw new Error(retirementError.message || 'Could not load your retirement history')
     }
 
     // Transform purchase data
@@ -221,8 +222,12 @@ export async function getUserTransactionHistory(userId) {
       ),
     }
   } catch (error) {
-    console.error('Error in getUserTransactionHistory:', error)
-    return { purchases: [], retirements: [], all: [] }
+    // Rethrow. Returning empty here re-swallowed the two throws added above and
+    // put the whole function back where it started: a database failure
+    // rendering as "you have bought nothing and retired nothing". RetireView
+    // already has the catch that surfaces this — it was simply never reachable.
+    console.error('Error in getPurchaseAndRetirementHistory:', error)
+    throw error
   }
 }
 
@@ -230,14 +235,14 @@ export async function getUserTransactionHistory(userId) {
  * Get purchase history only
  */
 export async function getUserPurchaseHistory(userId) {
-  const history = await getUserTransactionHistory(userId)
+  const history = await getPurchaseAndRetirementHistory(userId)
   return history.purchases
 }
 
 /**
  * Server-side paginated purchase history (Phase 3 — scale).
  *
- * Unlike getUserTransactionHistory (which loads everything and sorts in the
+ * Unlike getPurchaseAndRetirementHistory (which loads everything and sorts in the
  * client), this pages at the database with `.range()` and returns the total row
  * count so callers can render pagination without fetching every row. Ordering
  * and filtering happen in SQL, served by the composite index
@@ -281,7 +286,7 @@ export async function getUserPurchaseHistoryPage({ userId, limit = 20, offset = 
   }
 
   // Attach purchase certificates for just this page of rows (linked via
-  // transaction_id), mirroring getUserTransactionHistory so the paginated list
+  // transaction_id), mirroring getPurchaseAndRetirementHistory so the paginated list
   // can show the same "View Certificate" affordance. Non-critical: on failure
   // rows still render, just without a certificate.
   let certsByTransaction = {}
@@ -337,7 +342,7 @@ export async function getUserPurchaseHistoryPage({ userId, limit = 20, offset = 
  * Get retirement history only
  */
 export async function getUserRetirementHistory(userId) {
-  const history = await getUserTransactionHistory(userId)
+  const history = await getPurchaseAndRetirementHistory(userId)
   return history.retirements
 }
 

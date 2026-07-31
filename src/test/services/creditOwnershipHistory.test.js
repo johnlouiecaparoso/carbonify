@@ -26,7 +26,11 @@ import { getSupabase } from '@/services/supabaseClient'
  * so the real function under test here was never executed.
  */
 
-const PURCHASE_SELECT = `credit_purchases`
+// Purchases moved to `credit_transactions` on 2026-08-01: nothing in this
+// project writes `credit_purchases`, so the ESG report's purchase total was
+// structurally zero. The embed is a level deeper here — credit_transactions
+// reaches projects THROUGH project_credits.
+const PURCHASE_SELECT = `credit_transactions`
 const RETIREMENT_SELECT = `credit_retirements`
 
 /** Minimal thenable matching the real chain: .select().eq().order().limit() */
@@ -54,12 +58,16 @@ function clientWith({ purchases, retirements }) {
 function purchasesNewerThanRetirements(count) {
   return Array.from({ length: count }, (_, i) => ({
     id: `p${i}`,
-    credits_amount: 1,
+    quantity: 1,
     total_amount: 100,
     currency: 'PHP',
     status: 'completed',
+    completed_at: `2026-07-${String((i % 28) + 1).padStart(2, '0')}T00:00:00Z`,
     created_at: `2026-07-${String((i % 28) + 1).padStart(2, '0')}T00:00:00Z`,
-    projects: { id: 'proj', title: 'Solar B', category: 'Renewable', location: 'PH' },
+    project_credits: {
+      id: 'pc',
+      projects: { id: 'proj', title: 'Solar B', category: 'Renewable', location: 'PH' },
+    },
   }))
 }
 
@@ -123,9 +131,12 @@ describe('creditOwnershipService.getUserTransactionHistory', () => {
         purchases: [
           {
             id: 'p-old',
-            credits_amount: 1,
+            quantity: 1,
+            completed_at: '2026-05-01T00:00:00Z',
             created_at: '2026-05-01T00:00:00Z',
-            projects: { title: 'Solar B', category: 'Renewable', location: 'PH' },
+            project_credits: {
+              projects: { title: 'Solar B', category: 'Renewable', location: 'PH' },
+            },
           },
         ],
         retirements: OLDER_RETIREMENTS,
@@ -153,5 +164,54 @@ describe('creditOwnershipService.getUserTransactionHistory', () => {
     expect(history.filter((t) => t.type === 'purchase')).toHaveLength(50)
     expect(history.filter((t) => t.type === 'retirement')).toHaveLength(2)
     expect(history).toHaveLength(52)
+  })
+})
+
+describe('the purchases half reads the table the money path actually writes', () => {
+  beforeEach(() => {
+    vi.mocked(getSupabase).mockReset()
+  })
+
+  /**
+   * The defect this pins is #11's third appearance, and the one with the widest
+   * blast radius: the read targeted `credit_purchases`, which NOTHING in this
+   * project writes — not a migration, not an edge function, not a client path.
+   * Every settled purchase goes into `credit_transactions` via
+   * `process_marketplace_purchase`.
+   *
+   * So `buildEsgDataset().totals.purchasedCredits` was structurally 0, and the
+   * exported PDF printed "Credits purchased (lifetime): 0" for every buyer who
+   * had ever bought anything. The two earlier #11 fixes both edited this exact
+   * function without anyone asking whether the table under it had rows.
+   */
+  it('queries credit_transactions and never credit_purchases', async () => {
+    const asked = []
+    vi.mocked(getSupabase).mockReturnValue({
+      from: (table) => {
+        asked.push(table)
+        return tableReturning([])
+      },
+    })
+
+    await creditOwnershipService.getUserTransactionHistory('user-1', 50)
+
+    expect(asked).toContain('credit_transactions')
+    expect(asked).not.toContain('credit_purchases')
+  })
+
+  it('counts purchased credits from quantity through the project_credits embed', async () => {
+    vi.mocked(getSupabase).mockReturnValue(
+      clientWith({ purchases: purchasesNewerThanRetirements(4), retirements: [] }),
+    )
+
+    const history = await creditOwnershipService.getUserTransactionHistory('user-1', 50)
+    const purchases = history.filter((t) => t.type === 'purchase')
+    const purchasedCredits = purchases.reduce((n, t) => n + t.quantity, 0)
+
+    // With the old `credits_amount` / flat `projects` shape read off a
+    // credit_transactions row, every quantity would be undefined and this sum
+    // would be NaN — a second route to the same wrong number.
+    expect(purchasedCredits).toBe(4)
+    expect(purchases[0].project_title).toBe('Solar B')
   })
 })

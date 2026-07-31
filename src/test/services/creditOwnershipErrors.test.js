@@ -82,10 +82,14 @@ describe('creditOwnershipService — a failed read must not read as an empty acc
     await expect(creditOwnershipService.getUserTransactionHistory('user-1')).rejects.toThrow()
   })
 
+  // `credit_transactions`, not `credit_purchases`. This assertion was pinned to
+  // the latter until 2026-08-01 and passed the whole time — the service really
+  // did read that table, and the table is one nothing writes. A test can agree
+  // with the code and both be wrong about the database.
   it('getUserTransactionHistory rejects when the PURCHASES query fails', async () => {
     vi.mocked(getSupabase).mockReturnValue({
       from: (table) =>
-        table === 'credit_purchases'
+        table === 'credit_transactions'
           ? historyTable({ data: null, error: DB_DOWN })
           : historyTable(OK_ROWS),
     })
