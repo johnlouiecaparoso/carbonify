@@ -1,5 +1,21 @@
 <script setup>
 import RegisterForm from '@/components/auth/RegisterForm.vue'
+import { POLICY_DOCUMENTS, OPEN_POLICY_EVENT } from '@/constants/policy'
+
+/**
+ * Open a policy document in the ONE modal that renders the legal text, which
+ * lives in App.vue. This page dispatches an event rather than linking, because
+ * the footer that normally carries these links is hidden on the auth pages
+ * (`showHeader` excludes `register`) — so without this there is no way at all
+ * to read the Terms before agreeing to them by signing up.
+ *
+ * Deliberately NOT a checkbox. The blocking consent gate on first sign-in is
+ * what records agreement, against a policy version, in `policy_acceptances`.
+ * A tick here would record nothing and only imply it had.
+ */
+function openPolicy(id) {
+  window.dispatchEvent(new CustomEvent(OPEN_POLICY_EVENT, { detail: { doc: id } }))
+}
 
 /**
  * Signup paths. The buyer/user path is the default and instant — it just uses
@@ -106,6 +122,17 @@ function scrollToSignup() {
             approval — you'll create an account first either way.
           </p>
         </div>
+
+        <p class="panel-legal">
+          By creating an account you agree to our<template
+            v-for="(doc, i) in POLICY_DOCUMENTS"
+            :key="doc.id"
+            ><span v-if="i > 0">{{ i === POLICY_DOCUMENTS.length - 1 ? ' and' : ',' }}</span>
+            <button type="button" class="legal-link" @click="openPolicy(doc.id)">
+              {{ doc.label }}</button
+            ></template
+          >. You will be asked to confirm this once, the first time you sign in.
+        </p>
 
         <div class="panel-footer">
           <span class="panel-desc">Already have an account?</span>
@@ -353,6 +380,31 @@ function scrollToSignup() {
 }
 
 /* Enhanced Footer */
+.panel-legal {
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.legal-link {
+  background: none;
+  border: 0;
+  padding: 0 0 0 0.25rem;
+  font: inherit;
+  color: var(--primary-color, #058526);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.legal-link:hover {
+  color: var(--primary-hover, #04701f);
+}
+
 .panel-footer {
   padding: 1rem 0 0 0;
   text-align: center;
