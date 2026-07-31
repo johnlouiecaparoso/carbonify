@@ -491,7 +491,7 @@ None of these block the beta. Each one unblocks work that is otherwise held.
 | Decision | Why it's yours |
 |---|---|
 | **Is a farmer a buyer?** | They can reach checkout by URL today but aren't offered it in the sidebar (#31). Either give them the buying nav or block the routes — the contradiction is the problem. |
-| **Merge PR #14?** | 138 commits. Everything ships from a feature branch right now. |
+| **Merge PR #14?** | 141 commits. Everything ships from a feature branch right now. |
 | **Provider layer: route through it, or delete it?** | ~40 tests currently overstate money-path coverage (#21). |
 | **Organization accounts: go/no-go?** | Phase 1 is safe to build now. Phase 2 must wait until after the beta — it rewrites the same RPC as escrow. |
 | **Public API: expose it, and to whom?** | Key-gating and rate limits — the edge function has neither. |

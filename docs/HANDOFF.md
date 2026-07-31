@@ -272,7 +272,7 @@
 > differently from one validated today — worth saying to any pilot developer before they report it as
 > a bug.
 >
-> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-30**, so the PR reflects everything below. `main` is **138 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
+> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-31**, so the PR reflects everything below. `main` is **141 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
 >
 > ⚠️ **"Pushed and in sync as of 2026-07-28" was wrong when written.** The 2026-07-30 push moved the
 > remote `b8cdab8 → ee9fd6d`, i.e. **five** commits — three from that day's audit *plus* `344b9de`
