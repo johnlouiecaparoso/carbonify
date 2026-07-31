@@ -56,13 +56,28 @@ const needsPolicyConsent = ref(false)
 const consentUserId = computed(() => userStore.session?.user?.id || '')
 const consentEmail = computed(() => userStore.session?.user?.email || '')
 
+// Which user the in-flight check belongs to. Sign out and straight back in as
+// somebody else and two checks are running; without this the slower one wins
+// and answers for the wrong account.
+let consentCheckFor = null
+
 async function checkPolicyConsent(userId) {
+  consentCheckFor = userId
   if (!userId) {
     needsPolicyConsent.value = false
     return
   }
-  const { accepted } = await hasAcceptedCurrentPolicy(userId)
-  needsPolicyConsent.value = !accepted
+  try {
+    const { accepted } = await hasAcceptedCurrentPolicy(userId)
+    if (consentCheckFor !== userId) return
+    needsPolicyConsent.value = !accepted
+  } catch (err) {
+    // Same fail-open rule as the service: an unreadable answer must not block
+    // the platform. Previously this rejected into the watcher and surfaced as
+    // an unhandled promise rejection.
+    console.error('[policy] Consent check failed; letting the user through:', err)
+    if (consentCheckFor === userId) needsPolicyConsent.value = false
+  }
 }
 
 watch(

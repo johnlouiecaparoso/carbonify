@@ -3,6 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 // Singleton pattern to prevent multiple instances
 let supabase = null
 let isInitializing = false
+// The in-flight initialization. Concurrent callers await THIS rather than being
+// handed `null`: init is async, so the old "already in progress → return null"
+// branch meant whoever asked during that window got no client and had to treat
+// it as "Supabase unavailable". For anything that fails open on a missing
+// client — the policy consent gate especially — that turned a startup race into
+// a feature silently not running.
+let initPromise = null
 
 export async function initSupabase() {
   // Return existing instance if already initialized
@@ -10,12 +17,20 @@ export async function initSupabase() {
     return supabase
   }
 
-  // Prevent multiple simultaneous initializations
-  if (isInitializing) {
-    console.warn('Supabase client initialization already in progress')
-    return null
+  // Already starting up: wait for that attempt instead of starting a second one.
+  if (initPromise) {
+    return initPromise
   }
 
+  initPromise = doInitSupabase()
+  try {
+    return await initPromise
+  } finally {
+    initPromise = null
+  }
+}
+
+async function doInitSupabase() {
   try {
     isInitializing = true
     // Use direct env access instead of requireEnv to prevent build-time failures

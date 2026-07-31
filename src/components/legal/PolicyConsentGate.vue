@@ -21,7 +21,7 @@
  * the Carbon Credits Policy". Three separate ticks would imply they can be
  * accepted independently, which is not on offer and would be a false choice.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { POLICY_DOCUMENTS, POLICY_VERSION, OPEN_POLICY_EVENT } from '@/constants/policy'
 import { acceptCurrentPolicy } from '@/services/policyService'
 
@@ -32,6 +32,66 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['accepted', 'declined'])
+
+/**
+ * ── Why the overlay alone was not "blocking" ──
+ * A fixed overlay stops the mouse, not the keyboard. Tab moved focus straight
+ * through to the header and sidebar behind it, and Enter then navigated — or
+ * opened the mobile menu, whose overlay is `z-index: 9999 !important`
+ * (Header.vue) and so renders ON TOP of this card at 1900. Raising this above
+ * it is not the fix: the legal documents open at 2000 and must stay above this,
+ * or the "Read" buttons open behind the thing asking you to read them.
+ *
+ * So focus is kept inside the card instead, and the page behind is frozen.
+ */
+const card = ref(null)
+let previouslyFocused = null
+
+const FOCUSABLE =
+  'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+
+function focusables() {
+  return Array.from(card.value?.querySelectorAll(FOCUSABLE) || [])
+}
+
+function onKeydown(event) {
+  if (event.key !== 'Tab') return
+  const items = focusables()
+  if (!items.length) return
+
+  const first = items[0]
+  const last = items[items.length - 1]
+  const active = document.activeElement
+
+  // Wrap at both ends, and pull focus back if it has already escaped — which it
+  // has whenever the legal-document modal above us closes and returns focus to
+  // the body.
+  if (!card.value?.contains(active)) {
+    event.preventDefault()
+    first.focus()
+  } else if (event.shiftKey && active === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+onMounted(() => {
+  previouslyFocused = document.activeElement
+  document.addEventListener('keydown', onKeydown, true)
+  // Without this the page behind scrolls under the overlay on mobile, which
+  // reads as the gate being dismissible.
+  document.body.style.overflow = 'hidden'
+  focusables()[0]?.focus()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown, true)
+  document.body.style.overflow = ''
+  previouslyFocused?.focus?.()
+})
 
 const agreed = ref(false)
 const submitting = ref(false)
@@ -68,7 +128,7 @@ async function accept() {
 
 <template>
   <div class="consent-overlay" role="dialog" aria-modal="true" aria-labelledby="consent-title">
-    <div class="consent-card">
+    <div ref="card" class="consent-card">
       <header class="consent-head">
         <span class="material-symbols-outlined consent-ico" aria-hidden="true">gavel</span>
         <div>

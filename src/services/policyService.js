@@ -1,4 +1,4 @@
-import { getSupabase } from '@/services/supabaseClient'
+import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { POLICY_VERSION, POLICY_DOCUMENTS } from '@/constants/policy'
 
 /**
@@ -6,8 +6,14 @@ import { POLICY_VERSION, POLICY_DOCUMENTS } from '@/constants/policy'
  * Policy.
  *
  * ── The one design decision worth knowing ──
- * `hasAcceptedCurrentPolicy()` FAILS OPEN. If the table is missing, RLS blocks
- * the read, or the network is down, it resolves `true` — the user is let in.
+ * `hasAcceptedCurrentPolicy()` FAILS OPEN. If the table is missing, the read
+ * errors, or the network is down, it resolves `true` — the user is let in.
+ *
+ * Note what is NOT in that list: RLS. An RLS-filtered read is not an error —
+ * PostgREST returns `200 []` with `error: null`, which is byte-identical to
+ * "this user has not accepted". So RLS failures fail CLOSED here, not open,
+ * and the only defence is to be sure we are asking as the right user. That is
+ * what `authenticatedUserId()` below exists for.
  *
  * That is deliberate, and it is the opposite of what this codebase does almost
  * everywhere else. The reasoning:
@@ -35,6 +41,43 @@ import { POLICY_VERSION, POLICY_DOCUMENTS } from '@/constants/policy'
 const TABLE = 'policy_acceptances'
 
 /**
+ * The user id Supabase itself considers signed in — which is not always the one
+ * the app thinks is signed in.
+ *
+ * In development `LoginForm.handleSubmit` assigns `testAccount.mockSession` to
+ * the store for the four test accounts (admin, verifier, general user, project
+ * developer), an object fabricated in `src/utils/testAccounts.js` carrying an
+ * `access_token` of, literally, 'admin-test-token'. Those accounts do not exist
+ * in Supabase auth at all. The Supabase client never sees that session, so
+ * every PostgREST request still goes out as `anon` and `auth.uid()` is null.
+ *
+ * What that does to this gate, before this check existed:
+ *   - the read matched no rows under RLS and returned `[]` with no error, so
+ *     the user read as "has not accepted" — at every sign-in;
+ *   - the write was rejected outright (42501), so accepting could never
+ *     succeed and `policy_acceptances` stayed empty forever.
+ *
+ * An unsatisfiable consent prompt is worse than no prompt: it trains people to
+ * dismiss it. So when the session is not one Supabase will honour, the gate is
+ * skipped — consent that cannot be recorded is not worth collecting.
+ *
+ * @returns {Promise<string|null|undefined>} the authenticated id, `null` when
+ *   nobody is signed in, or `undefined` when the client cannot be asked (only
+ *   unit-test fakes) — which callers treat as "carry on", not as a mock.
+ */
+async function authenticatedUserId(supabase) {
+  if (typeof supabase.auth?.getSession !== 'function') return undefined
+  try {
+    // Local read of the stored session; it awaits the client's own hydration,
+    // so this is not racing page load. No network call.
+    const { data } = await supabase.auth.getSession()
+    return data?.session?.user?.id ?? null
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Has the signed-in user accepted the CURRENT policy version?
  *
  * @returns {Promise<{accepted: boolean, indeterminate: boolean}>}
@@ -42,8 +85,27 @@ const TABLE = 'policy_acceptances'
  *   as accepted (see above) but must not record it as consent.
  */
 export async function hasAcceptedCurrentPolicy(userId) {
-  const supabase = getSupabase()
+  // WAIT for the client rather than sampling it. The router guard hydrates the
+  // session before App.vue mounts, so this check can fire in the same tick as
+  // the very first `getSupabase()` call — which returns null while the client
+  // initializes. Sampling it there produced an indeterminate result that was
+  // never retried (the watcher only re-fires when the user id changes), so on
+  // an unlucky page load the gate simply never appeared. Whether a consent
+  // form shows must not depend on a startup race.
+  const supabase = (await getSupabaseAsync()) || getSupabase()
   if (!supabase || !userId) {
+    return { accepted: true, indeterminate: true }
+  }
+
+  // Asking as the wrong user reads as "never accepted" rather than failing, so
+  // this has to be checked before the query, not after it.
+  const authUserId = await authenticatedUserId(supabase)
+  if (authUserId !== undefined && authUserId !== userId) {
+    console.warn(
+      `[policy] Skipping the consent gate: the app thinks ${userId} is signed in, but ` +
+        `Supabase reports ${authUserId ?? 'nobody'}. Acceptance cannot be recorded for a ` +
+        'session Supabase does not hold — this is normally a DEV test-account login.',
+    )
     return { accepted: true, indeterminate: true }
   }
 
@@ -77,6 +139,18 @@ export async function acceptCurrentPolicy(userId) {
   const supabase = getSupabase()
   if (!supabase) throw new Error('Supabase client not available')
   if (!userId) throw new Error('A signed-in user is required to record acceptance')
+
+  // The gate should never reach here with a mock session — but if it does, say
+  // so plainly. The raw failure is a bare '42501 new row violates row-level
+  // security policy', which sends you looking at the migration instead of at
+  // the session.
+  const authUserId = await authenticatedUserId(supabase)
+  if (authUserId !== undefined && authUserId !== userId) {
+    throw new Error(
+      'Your session is not one Supabase recognises, so your acceptance cannot be recorded. ' +
+        'Please sign out and sign in again with a real account.',
+    )
+  }
 
   const { error } = await supabase.from(TABLE).insert({
     user_id: userId,

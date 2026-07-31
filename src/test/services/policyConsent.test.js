@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/services/supabaseClient', () => ({
-  getSupabase: vi.fn(),
-}))
+// `getSupabaseAsync` resolves to whatever `getSupabase` is set to, so a test
+// configures one client and both entry points agree — the service waits for the
+// async one and falls back to the sync one.
+vi.mock('@/services/supabaseClient', () => {
+  const getSupabase = vi.fn()
+  return { getSupabase, getSupabaseAsync: vi.fn(async () => getSupabase()) }
+})
 
 import { getSupabase } from '@/services/supabaseClient'
 import {
@@ -39,6 +43,77 @@ function readChain(result) {
   }
   return chain
 }
+
+/**
+ * A client whose `auth.getSession()` answers with `sessionUserId` — `null` for
+ * "Supabase holds no session", which is what a DEV mock login looks like.
+ */
+function clientWithSession(sessionUserId, result) {
+  return {
+    auth: { getSession: async () => ({ data: { session: sessionUserId ? { user: { id: sessionUserId } } : null } }) },
+    from: () => readChain(result),
+  }
+}
+
+describe('a session Supabase does not hold — the DEV mock-login case', () => {
+  /**
+   * The bug this pins cost a day of looking at RLS. `LoginForm` assigns
+   * `testAccount.mockSession` in development, so the store believes
+   * '11111111-…' is signed in while Supabase holds nothing and every request
+   * goes out as `anon`. RLS then filters the read to `[]` *with no error* —
+   * indistinguishable from "has not accepted" — so the gate reappeared at every
+   * sign-in for all four mock accounts, and the write it wanted was rejected
+   * 42501, so it could never be satisfied. `policy_acceptances` stayed empty.
+   *
+   * An unsatisfiable consent prompt is worse than none: skip it instead.
+   */
+  const MOCK_ADMIN = '11111111-1111-1111-1111-111111111111'
+
+  beforeEach(() => vi.mocked(getSupabase).mockReset())
+
+  it('does not show the gate when Supabase holds no session', async () => {
+    vi.mocked(getSupabase).mockReturnValue(clientWithSession(null, { data: [], error: null }))
+
+    const result = await hasAcceptedCurrentPolicy(MOCK_ADMIN)
+    expect(result.accepted).toBe(true)
+    // Let through, but never recorded as consent — the same honesty the
+    // fail-open read owes.
+    expect(result.indeterminate).toBe(true)
+  })
+
+  it('does not show the gate when Supabase holds a DIFFERENT user', async () => {
+    vi.mocked(getSupabase).mockReturnValue(
+      clientWithSession('a-real-user', { data: [], error: null }),
+    )
+
+    expect(await hasAcceptedCurrentPolicy(MOCK_ADMIN)).toEqual({
+      accepted: true,
+      indeterminate: true,
+    })
+  })
+
+  it('refuses to record an acceptance it cannot attribute', async () => {
+    vi.mocked(getSupabase).mockReturnValue({
+      auth: { getSession: async () => ({ data: { session: null } }) },
+      from: () => ({ insert: async () => ({ error: null }) }),
+    })
+
+    // Rejected before the insert, so the raw 42501 never reaches the user.
+    await expect(acceptCurrentPolicy(MOCK_ADMIN)).rejects.toThrow(/not one Supabase recognises/)
+  })
+
+  it('still asks the database when the session IS the user', async () => {
+    // The check must not swallow the real case it was added to protect.
+    vi.mocked(getSupabase).mockReturnValue(
+      clientWithSession('real-user', { data: [], error: null }),
+    )
+
+    expect(await hasAcceptedCurrentPolicy('real-user')).toEqual({
+      accepted: false,
+      indeterminate: false,
+    })
+  })
+})
 
 describe('hasAcceptedCurrentPolicy — fails open, on purpose', () => {
   beforeEach(() => vi.mocked(getSupabase).mockReset())

@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/services/supabaseClient', () => ({
-  getSupabase: vi.fn(),
-}))
+// `getSupabaseAsync` resolves to whatever `getSupabase` is set to, so a test
+// configures one client and both entry points agree — the service waits for the
+// async one and falls back to the sync one.
+vi.mock('@/services/supabaseClient', () => {
+  const getSupabase = vi.fn()
+  return { getSupabase, getSupabaseAsync: vi.fn(async () => getSupabase()) }
+})
 
 import { getSupabase } from '@/services/supabaseClient'
 import { hasAcceptedCurrentPolicy, acceptCurrentPolicy } from '@/services/policyService'

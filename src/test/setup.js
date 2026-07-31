@@ -1,9 +1,11 @@
 import { vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-// Mock Supabase client
-vi.mock('@/services/supabaseClient', () => ({
-  getSupabase: vi.fn(() => ({
+// Mock Supabase client.
+// Every export the real module has, or a service that switches to one of them
+// fails with "is not a function" across every suite at once.
+vi.mock('@/services/supabaseClient', () => {
+  const client = () => ({
     auth: {
       getUser: vi.fn(),
       signInWithPassword: vi.fn(),
@@ -24,8 +26,14 @@ vi.mock('@/services/supabaseClient', () => ({
     functions: {
       invoke: vi.fn(),
     },
-  })),
-}))
+  })
+  return {
+    getSupabase: vi.fn(client),
+    getSupabaseAsync: vi.fn(async () => client()),
+    initSupabase: vi.fn(async () => client()),
+    resetSupabase: vi.fn(),
+  }
+})
 
 // Mock environment variables
 vi.mock('@/utils/env', () => ({
