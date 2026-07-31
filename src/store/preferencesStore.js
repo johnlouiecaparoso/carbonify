@@ -2,9 +2,19 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const usePreferencesStore = defineStore('preferences', () => {
-  // Theme preferences
-  const theme = ref(localStorage.getItem('theme') || 'light')
-  const systemTheme = ref('light')
+  // NO THEME. Removed 2026-08-01.
+  //
+  // `applyTheme()` added a `.dark` class to <html>. `tokens.css` states the app
+  // is "NOT dark-mode aware, deliberately" — every view hard-codes its own white
+  // surfaces — and **no stylesheet contains a single `.dark` rule.** So the whole
+  // mechanism (a ref, two computeds, a matchMedia listener registered for the
+  // life of the session, and a call from App.vue on every load) toggled a class
+  // that styled nothing.
+  //
+  // The 2026-07-31 pass removed Theme from the preferences FORM but left all of
+  // this running behind it — the residue that made the control fake in the first
+  // place, still executing with no control attached. Same class as the
+  // accessibility toggles that pass fixed.
 
   // Language preferences
   const language = ref(localStorage.getItem('language') || 'en')
@@ -82,38 +92,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   })
 
   // Computed properties
-  const isDarkMode = computed(() => theme.value === 'dark')
-  const isSystemTheme = computed(() => theme.value === 'system')
   const currentLanguage = computed(
     () =>
       availableLanguages.value.find((lang) => lang.code === language.value) ||
       availableLanguages.value[0],
   )
-
-  // Theme management
-  function setTheme(newTheme) {
-    theme.value = newTheme
-    localStorage.setItem('theme', newTheme)
-    applyTheme()
-  }
-
-  function applyTheme() {
-    const root = document.documentElement
-    const actualTheme = isSystemTheme.value ? systemTheme.value : theme.value
-
-    if (actualTheme === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
-  }
-
-  function detectSystemTheme() {
-    systemTheme.value = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    if (isSystemTheme.value) {
-      applyTheme()
-    }
-  }
 
   // Language management
   function setLanguage(newLanguage) {
@@ -199,7 +182,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   // Save preferences to localStorage
   function savePreferences() {
     const preferences = {
-      theme: theme.value,
       language: language.value,
       notifications: notifications.value,
       display: display.value,
@@ -215,7 +197,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     if (saved) {
       try {
         const preferences = JSON.parse(saved)
-        if (preferences.theme) theme.value = preferences.theme
         if (preferences.language) language.value = preferences.language
         if (preferences.notifications) notifications.value = preferences.notifications
         if (preferences.display) display.value = preferences.display
@@ -229,7 +210,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   // Reset to defaults
   function resetToDefaults() {
-    theme.value = 'light'
     language.value = 'en'
     notifications.value = {
       email: {
@@ -280,18 +260,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   // Initialize
   function initialize() {
     loadPreferences()
-    detectSystemTheme()
-    applyTheme()
     applyAccessibilitySettings()
-
-    // Listen for system theme changes
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', detectSystemTheme)
   }
 
   return {
     // State
-    theme,
-    systemTheme,
     language,
     availableLanguages,
     notifications,
@@ -300,14 +273,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     accessibility,
 
     // Computed
-    isDarkMode,
-    isSystemTheme,
     currentLanguage,
 
     // Actions
-    setTheme,
-    applyTheme,
-    detectSystemTheme,
     setLanguage,
     loadLanguagePack,
     updateNotificationSettings,

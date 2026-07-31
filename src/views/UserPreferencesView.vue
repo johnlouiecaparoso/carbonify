@@ -103,7 +103,6 @@ function resetToDefaults() {
 
 function exportPreferences() {
   const preferences = {
-    theme: preferencesStore.theme,
     language: preferencesStore.language,
     notifications: preferencesStore.notifications,
     display: preferencesStore.display,
@@ -128,7 +127,9 @@ function importPreferences(event) {
       try {
         const preferences = JSON.parse(e.target.result)
         // Apply imported preferences
-        if (preferences.theme) preferencesStore.setTheme(preferences.theme)
+        // `theme` is deliberately not imported: the app is not dark-mode aware
+        // and the setting styled nothing. An older export file carrying one is
+        // simply ignored rather than restoring dead state.
         if (preferences.language) preferencesStore.setLanguage(preferences.language)
         if (preferences.notifications) {
           preferencesStore.updateNotificationSettings('email', preferences.notifications.email)

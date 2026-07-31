@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/store/userStore'
 import { projectService } from '@/services/projectService'
 import { projectWorkflowService } from '@/services/projectWorkflowService'
-import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
@@ -889,7 +888,6 @@ async function handleSubmit({ asDraft = false } = {}) {
       success.value = 'Project updated successfully!'
     } else {
       // Submit new project - try multiple methods for reliability
-      let submittedProject = null
 
       // Get user ID from Supabase (most reliable source)
       let userId = null
@@ -968,38 +966,28 @@ async function handleSubmit({ asDraft = false } = {}) {
         console.warn('[WARN] Could not verify profile, but continuing with submission:', profileCheckError)
       }
 
-      try {
-        // Try the workflow service first
-        submittedProject = await projectWorkflowService.submitProject(projectData, userId)
-        console.log('[OK] Project submitted via workflow service:', submittedProject)
-      } catch (workflowError) {
-        console.error('[ERROR] Workflow service failed:', workflowError)
-        console.log('Trying direct submission as fallback...')
-
-        // Fallback to direct project service
-        try {
-          submittedProject = await projectService.createProject(projectData, userId)
-          console.log('[OK] Project submitted via direct service:', submittedProject)
-        } catch (directError) {
-          console.error('[ERROR] Direct service failed:', directError)
-          console.log('Trying approval service as final fallback...')
-
-          // Final fallback to approval service
-          try {
-            submittedProject = await projectApprovalService.submitProject(projectData, userId)
-            console.log('[OK] Project submitted via approval service:', submittedProject)
-          } catch (approvalError) {
-            console.error('[ERROR] All submission methods failed:', {
-              workflow: workflowError.message,
-              direct: directError.message,
-              approval: approvalError.message,
-            })
-            throw new Error(
-              `Failed to submit project: ${approvalError.message || 'All submission methods failed. Please try again or contact support.'}`
-            )
-          }
-        }
-      }
+      // ONE submission path. There used to be a three-deep cascade here —
+      // projectWorkflowService.submitProject -> projectService.createProject ->
+      // projectApprovalService.submitProject — taking whichever did not throw.
+      // Removed 2026-08-01 (DEFERRED_BACKLOG #33), because the fallbacks were
+      // not redundancy, they were an escape hatch around this path's safety:
+      //
+      //   · Path 2 was a near-verbatim copy of path 1, validating identically.
+      //     When path 1 rejected something, path 2 rejected it the same way, so
+      //     it could only ever mask a transient blip — while tripling the ways
+      //     a submit could half-happen.
+      //   · Path 3 had NO numeric validation at all, so `estimated_credits: -5`
+      //     — refused by both paths above — was accepted on the third try.
+      //   · Path 3 spread the raw form object into the insert instead of
+      //     picking known columns, and hardcoded `status: 'pending'`. So a
+      //     DRAFT reaching it was silently promoted into the review queue and
+      //     fired notify_project_submitted_trigger. A private draft became a
+      //     submission, and reviewers were notified, because two other code
+      //     paths had failed.
+      //
+      // This path is also the most robust of the three: it is the one with the
+      // schema-drift retry that drops optional columns a given database lacks.
+      await projectWorkflowService.submitProject(projectData, userId)
 
       // Don't set success message here - let the parent component handle it
       // success.value = 'Project submitted successfully! It will be reviewed by our verification team.'

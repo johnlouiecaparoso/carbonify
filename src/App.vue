@@ -19,7 +19,6 @@ import { hasAcceptedCurrentPolicy } from '@/services/policyService'
 import { OPEN_POLICY_EVENT } from '@/constants/policy'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useUserStore } from '@/store/userStore'
-// import { useErrorStore } from '@/store/errorStore' // Temporarily disabled
 import { getSupabase } from '@/services/supabaseClient'
 
 const route = useRoute()
@@ -138,10 +137,9 @@ onMounted(async () => {
     // Initialize stores after component is mounted
     const preferencesStore = usePreferencesStore()
     const userStore = useUserStore()
-    // const errorStore = useErrorStore() // Temporarily disabled
 
-    // Apply initial theme
-    preferencesStore.applyTheme()
+    // No applyTheme() call — the app is deliberately not dark-mode aware and
+    // the class it set was styled by nothing. See preferencesStore.
     preferencesStore.applyAccessibilitySettings()
 
     // Initialize auth after stores are ready with timeout

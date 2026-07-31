@@ -463,17 +463,14 @@ if (import.meta.env.PROD && typeof window !== 'undefined') {
   analytics.initialize()
 }
 
-// Export individual tracking functions for convenience
-export const trackPageView = (pageName, pagePath) => analytics.trackPageView(pageName, pagePath)
-export const trackEvent = (eventName, parameters) => analytics.trackEvent(eventName, parameters)
-export const trackUserAction = (action, element, value) =>
-  analytics.trackUserAction(action, element, value)
-export const trackPerformance = (metricName, value, unit) =>
-  analytics.trackPerformance(metricName, value, unit)
-export const trackPurchase = (transactionId, value, currency, items) =>
-  analytics.trackPurchase(transactionId, value, currency, items)
-export const trackSearch = (searchTerm, resultsCount, filters) =>
-  analytics.trackSearch(searchTerm, resultsCount, filters)
-export const trackError = (error, context) => analytics.trackError(error, context)
-export const setUserId = (userId) => analytics.setUserId(userId)
-export const setUserProperties = (properties) => analytics.setUserProperties(properties)
+// Nine convenience re-exports (trackPageView, trackEvent, trackUserAction,
+// trackPerformance, trackPurchase, trackSearch, trackError, setUserId,
+// setUserProperties) were REMOVED 2026-08-01 as part of DEFERRED_BACKLOG #30.
+//
+// Each was a one-line wrapper delegating to the singleton below, and NOT ONE of
+// them was imported anywhere: `main.js` imports `analytics` itself and calls the
+// methods directly. Their existence made the module look like the app was
+// instrumented in nine places when it is instrumented in one.
+//
+// The methods are still on `analytics` — nothing lost a capability. Call
+// `analytics.trackEvent(...)` if instrumentation is ever wanted at a call site.

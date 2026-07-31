@@ -1,5 +1,53 @@
 import { getSupabase } from '@/services/supabaseClient'
 
+/**
+ * The other party's display name for a transaction the caller is party to.
+ *
+ * DEFERRED_BACKLOG #3. The `buyer:`/`seller:` embeds below resolve structurally
+ * but return NOTHING under `profiles` RLS, which is hardened against role /
+ * kyc_level escalation (20260703000300) and must stay that way. And RLS does not
+ * error — PostgREST filters rows — so the receipt simply rendered a blank
+ * counterparty, silently. Migration `20260801000100` adds a SECURITY DEFINER
+ * function returning a NAME ONLY, and only to a party of that exact transaction.
+ *
+ * DEGRADES TO null, deliberately. Until the owner applies that migration the RPC
+ * does not exist and the call 404s; a receipt that refuses to render because it
+ * cannot name the counterparty would be a worse outcome than one that omits it.
+ * This is the same fail-open reasoning as the policy gate — with the difference
+ * that lesson taught: the failure here is a genuine ERROR from PostgREST, not an
+ * empty result, so it is distinguishable and is logged.
+ *
+ * @returns {Promise<{id: string, name: string, role: 'buyer'|'seller'}|null>}
+ */
+export async function getCounterpartyName(transactionId) {
+  const supabase = getSupabase()
+  if (!supabase || !transactionId) return null
+
+  const { data, error } = await supabase.rpc('get_transaction_counterparty_name', {
+    p_transaction_id: transactionId,
+  })
+
+  if (error) {
+    console.warn(
+      '[receipt] Could not resolve the counterparty name; the receipt will omit it. ' +
+        'Has migration 20260801000100 been applied?',
+      error.message,
+    )
+    return null
+  }
+
+  // Zero rows is the authorisation answer, not a failure: the caller is not a
+  // party to this transaction. Treated the same as "not available".
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) return null
+
+  return {
+    id: row.counterparty_id,
+    name: row.counterparty_name,
+    role: row.counterparty_role,
+  }
+}
+
 async function loadTransactionForReceipt(supabase, transactionId) {
   let transaction = null
   let transactionError = null
