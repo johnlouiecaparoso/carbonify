@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 // Footer legal modal — one of: 'terms' | 'privacy' | 'carbon' | null.
 // Content mirrors docs/POLICY_AND_USER_AGREEMENT.md, the build-accurate source
 // of truth. Keep them in sync (see that doc's §5 internal note).
@@ -14,6 +14,9 @@ import Header from '@/components/layout/Header.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import WelcomeTour from '@/components/onboarding/WelcomeTour.vue'
+import PolicyConsentGate from '@/components/legal/PolicyConsentGate.vue'
+import { hasAcceptedCurrentPolicy } from '@/services/policyService'
+import { OPEN_POLICY_EVENT } from '@/constants/policy'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useUserStore } from '@/store/userStore'
 // import { useErrorStore } from '@/store/errorStore' // Temporarily disabled
@@ -44,6 +47,58 @@ const suspensionReason = computed(() => userStore.profile?.suspension_reason || 
 const profileUnavailable = computed(
   () => userStore.isAuthenticated && userStore.profileFetchFailed,
 )
+
+// ── Policy consent gate ─────────────────────────────────────────────────────
+// A signed-in user who has not accepted the current POLICY_VERSION is blocked
+// until they do. The check FAILS OPEN (see policyService for why), so an
+// unapplied migration lets everyone through rather than locking them out.
+const needsPolicyConsent = ref(false)
+const consentUserId = computed(() => userStore.session?.user?.id || '')
+const consentEmail = computed(() => userStore.session?.user?.email || '')
+
+async function checkPolicyConsent(userId) {
+  if (!userId) {
+    needsPolicyConsent.value = false
+    return
+  }
+  const { accepted } = await hasAcceptedCurrentPolicy(userId)
+  needsPolicyConsent.value = !accepted
+}
+
+watch(
+  () => userStore.session?.user?.id,
+  (userId) => {
+    checkPolicyConsent(userId)
+  },
+  { immediate: true },
+)
+
+function onConsentAccepted() {
+  needsPolicyConsent.value = false
+}
+
+async function onConsentDeclined() {
+  // Declining is fully enforced: there is no version of "used the platform
+  // without agreeing to the terms" that we want to exist.
+  needsPolicyConsent.value = false
+  try {
+    const supabase = getSupabase()
+    await supabase?.auth?.signOut({ scope: 'global' })
+  } catch (err) {
+    console.error('Sign-out after declining policies failed:', err)
+  } finally {
+    window.location.assign('/login')
+  }
+}
+
+// The consent gate asks App.vue to open a document rather than rendering the
+// legal text itself — one copy of the Terms, not two that can drift.
+function onOpenPolicy(event) {
+  const doc = event?.detail?.doc
+  if (policyTabs.some((t) => t.id === doc)) activePolicy.value = doc
+}
+onMounted(() => window.addEventListener(OPEN_POLICY_EVENT, onOpenPolicy))
+onBeforeUnmount(() => window.removeEventListener(OPEN_POLICY_EVENT, onOpenPolicy))
 
 const showHeader = computed(() => {
   // Don't show header on auth pages
@@ -255,6 +310,16 @@ onMounted(async () => {
 
       <!-- First-run guided walkthrough; self-gates on auth + first visit. -->
       <WelcomeTour v-if="isAppReady" />
+
+      <!-- Blocking until accepted. Rendered before the policy modal below so
+           that modal's higher z-index puts the documents ON TOP of this. -->
+      <PolicyConsentGate
+        v-if="isAppReady && needsPolicyConsent && consentUserId"
+        :user-id="consentUserId"
+        :email="consentEmail"
+        @accepted="onConsentAccepted"
+        @declined="onConsentDeclined"
+      />
 
       <!-- Footer -->
       <footer v-if="showHeader" class="app-footer">

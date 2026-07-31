@@ -17,14 +17,37 @@
 > redeploy**, so nothing is sitting inert this time. It ships with the frontend deploy you already
 > owe from the 2026-07-30 provider-buttons change.
 >
-> **You have exactly four things to do, and one of them unblocks the other three:**
+> **You have exactly four things to do:**
 >
 > | # | Do this | Blocks |
 > |---|---|---|
-> | 1 | **Buy + verify the email domain** (~₱600–900/yr) — Step 6b | *Everything.* Signups, all 8 stub emails, MRV reminders |
-> | 2 | **Then** enable signups — Step 2, in that order | Every pilot invite |
-> | 3 | **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
-> | 4 | **Deploy the frontend + purge test data** — Step 2 / Step 3 | The pilot |
+> | 1 | 🔴 **Apply `20260731000100_policy_acceptances.sql`** | The consent gate. **Until you do, it silently does nothing** — see below |
+> | 2 | **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
+> | 3 | **Deploy the frontend + purge test data** — Step 2 / Step 3 | The pilot |
+> | 4 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
+>
+> ✅ **Signups are ON as of 2026-07-31** — measured, not assumed: `disable_signup: false`,
+> `mailer_autoconfirm: true`. Anyone can register and is signed in immediately, with no email
+> involved. That is the correct state while there is no verified sender domain. **Turn confirmation
+> back on before any public launch** — right now a person can register with an address they do not
+> control.
+>
+> ### 🔴 The one that will bite you: the consent gate fails OPEN
+>
+> New users are shown a blocking screen with the Terms, Privacy Policy and Carbon Credits Policy and
+> must tick a box before they can use the platform. Their acceptance — and **which version** they
+> accepted — is written to `policy_acceptances`.
+>
+> **That table does not exist until you apply the migration.** The gate deliberately lets users
+> through when it cannot read the table, rather than locking everyone out of the platform including
+> the admin who would have to fix it. So the failure mode is silent: no error, no warning, every user
+> sailing past a consent screen that never appears, and **no record of anyone agreeing to anything**.
+>
+> The one signal is a console error beginning `[policy] Could not read policy_acceptances`. After
+> applying, run the `VERIFY` block at the bottom of the migration — all four rows must read PASS.
+>
+> This is the same "built ≠ live" shape as the payout worker and the misnamed secret, and it is
+> called out here specifically because it is *designed* not to complain.
 >
 > **Order matters on 1 and 2.** Enabling signups while confirmation is required and no sender is
 > verified is the worst of the three states — see the red box in Step 2.
