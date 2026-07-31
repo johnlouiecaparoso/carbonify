@@ -1,13 +1,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import {
   listRecentTransactions,
   listAllDisputes,
   adminRefundTransaction,
   resolveDispute,
 } from '@/services/disputeService'
+import { peso, dateTime } from '@/utils/format'
 
 const loading = ref(true)
+const loadError = ref('')
 const activeTab = ref('transactions')
 const transactions = ref([])
 const disputes = ref([])
@@ -19,23 +23,33 @@ const refundTarget = ref(null) // transaction id
 const refundReason = ref('')
 
 const openDisputes = computed(() => disputes.value.filter((d) => d.status === 'open'))
+const resolvedDisputes = computed(() => disputes.value.filter((d) => d.status !== 'open'))
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
-}
+// This view's date helper was `toLocaleString` (date + time), not the
+// date-only `shortDate` other views use — it is `dateTime` in @/utils/format.
+const shortDate = dateTime
 function disputeStatusLabel(s) {
   return { open: 'Open', resolved_refunded: 'Refunded', resolved_rejected: 'Rejected' }[s] || s
 }
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const [txns, disp] = await Promise.all([listRecentTransactions(100), listAllDisputes()])
-    transactions.value = txns
-    disputes.value = disp
+    // Previously Promise.all with no catch: either query throwing left the page
+    // silently empty, with no error and no indication anything had failed.
+    const [txRes, dispRes] = await Promise.allSettled([
+      listRecentTransactions(100),
+      listAllDisputes(),
+    ])
+    if (txRes.status === 'fulfilled') transactions.value = txRes.value
+    if (dispRes.status === 'fulfilled') disputes.value = dispRes.value
+
+    const failed = [
+      txRes.status === 'rejected' && 'transactions',
+      dispRes.status === 'rejected' && 'disputes',
+    ].filter(Boolean)
+    if (failed.length) loadError.value = `Could not load: ${failed.join(', ')}.`
   } finally {
     loading.value = false
   }
@@ -84,11 +98,14 @@ onMounted(load)
 
 <template>
   <div class="refunds">
-    <header class="page-head">
-      <h1>Refunds &amp; Disputes</h1>
-      <p>Refund a transaction directly, or resolve a buyer-opened dispute. Refunds post
-        compensating ledger entries — re-check <code>reconcile_financials()</code> after each.</p>
-    </header>
+    <PageHeader title="Refunds &amp; Disputes">
+      <template #description>
+        Refund a transaction directly, or resolve a buyer-opened dispute. Refunds post
+        compensating ledger entries — re-check <code>reconcile_financials()</code> after each.
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div class="tabs">
       <button :class="['tab', { active: activeTab === 'transactions' }]" @click="activeTab = 'transactions'">
@@ -100,11 +117,12 @@ onMounted(load)
     </div>
 
     <p v-if="toast" class="toast">{{ toast }}</p>
+    <div v-if="loadError" class="admin-load-error">{{ loadError }}</div>
     <div v-if="loading" class="muted">Loading…</div>
 
     <!-- Transactions -->
     <section v-else-if="activeTab === 'transactions'" class="panel">
-      <div v-if="transactions.length" class="table-scroll">
+      <CollapsibleList v-if="transactions.length" :count="transactions.length">
         <table class="data-table">
           <thead>
             <tr><th>Date</th><th>Buyer</th><th>Seller</th><th>Qty</th><th>Amount</th><th>Status</th><th></th></tr>
@@ -145,13 +163,19 @@ onMounted(load)
             </template>
           </tbody>
         </table>
-      </div>
+      </CollapsibleList>
       <p v-else class="muted">No transactions.</p>
     </section>
 
     <!-- Disputes -->
     <section v-else class="panel">
-      <div v-if="openDisputes.length" class="disputes">
+      <CollapsibleList
+        v-if="openDisputes.length"
+        :count="openDisputes.length"
+        :visible="2"
+        row-selector=".dispute-card"
+      >
+      <div class="disputes">
         <article v-for="d in openDisputes" :key="d.id" class="dispute-card">
           <div class="dispute-head">
             <span class="badge open">Open</span>
@@ -168,35 +192,35 @@ onMounted(load)
           </div>
         </article>
       </div>
+      </CollapsibleList>
       <p v-else class="muted">No open disputes.</p>
 
-      <div v-if="disputes.length && disputes.length !== openDisputes.length" class="resolved">
+      <div v-if="resolvedDisputes.length" class="resolved">
         <h3>Resolved</h3>
-        <ul>
-          <li v-for="d in disputes.filter((x) => x.status !== 'open')" :key="d.id">
-            <span class="badge" :class="d.status">{{ disputeStatusLabel(d.status) }}</span>
-            {{ d.reason }} <span class="muted small">· {{ shortDate(d.resolved_at) }}</span>
-          </li>
-        </ul>
+        <CollapsibleList :count="resolvedDisputes.length" row-selector="li">
+          <ul>
+            <li v-for="d in resolvedDisputes" :key="d.id">
+              <span class="badge" :class="d.status">{{ disputeStatusLabel(d.status) }}</span>
+              {{ d.reason }} <span class="muted small">· {{ shortDate(d.resolved_at) }}</span>
+            </li>
+          </ul>
+        </CollapsibleList>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .refunds {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px;
-}
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
-  max-width: 640px;
 }
 code {
   background: #f1f5f9;
@@ -228,8 +252,8 @@ code {
   gap: 6px;
 }
 .tab.active {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--primary-color, #058526);
+  border-color: var(--primary-color, #058526);
   color: #fff;
 }
 .tab-count {
@@ -254,10 +278,6 @@ code {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 18px;
-}
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
 }
 .data-table {
   width: 100%;
@@ -381,5 +401,15 @@ code {
 .resolved li {
   font-size: 0.88rem;
   color: #374151;
+}
+
+.admin-load-error {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.86rem;
 }
 </style>

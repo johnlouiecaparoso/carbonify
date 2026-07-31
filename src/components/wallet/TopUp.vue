@@ -238,7 +238,7 @@ function handleCancel() {
 .input-label {
   font-weight: 600;
   font-size: 14px;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .amount-buttons {
@@ -249,23 +249,23 @@ function handleCancel() {
 
 .amount-btn {
   padding: 12px 8px;
-  border: 1px solid var(--carbonify-border);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
-  background: var(--carbonify-surface);
-  color: var(--carbonify-text);
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a1a);
   font-weight: 600;
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .amount-btn:hover {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-50);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-lightest, #f8fdf8);
 }
 
 .amount-btn.active {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-500);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
@@ -284,20 +284,20 @@ function handleCancel() {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--carbonify-border);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
-  background: var(--carbonify-surface);
+  background: var(--bg-primary, #ffffff);
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .payment-method:hover {
-  border-color: var(--carbonify-primary-500);
+  border-color: var(--primary-color, #058526);
 }
 
 .payment-method.active {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-50);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-lightest, #f8fdf8);
 }
 
 .payment-radio {
@@ -311,7 +311,7 @@ function handleCancel() {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(6, 158, 45, 0.12);
+  background: rgba(5, 133, 38, 0.12);
   color: var(--carbonify-primary-600, #047857);
   font-size: 22px;
 }
@@ -362,13 +362,13 @@ function handleCancel() {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--carbonify-primary-700);
+  color: var(--primary-dark, #045c1a);
 }
 
 .payment-info ul {
   margin: 0;
   padding-left: 20px;
-  color: var(--carbonify-primary-600);
+  color: var(--primary-hover, #04701f);
   font-size: 14px;
 }
 

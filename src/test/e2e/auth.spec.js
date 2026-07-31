@@ -33,11 +33,16 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('h2')).toContainText('Create your account')
   })
 
+  // Field-level validation renders through UiInput's `error` prop as
+  // `.enhanced-input__error`; form/server-level errors render as
+  // `.error-message`. There is no bare `.error` class — asserting on one is how
+  // these three tests sat red without anyone noticing.
   test('should show validation errors for empty login form', async ({ page }) => {
     await page.goto('/login')
     await page.click('button[type="submit"]')
 
-    await expect(page.locator('.error').first()).toBeVisible()
+    await expect(page.locator('.enhanced-input__error').first()).toBeVisible()
+    await expect(page.locator('.enhanced-input__error').first()).toContainText('required')
   })
 
   test('should show validation errors for invalid email', async ({ page }) => {
@@ -46,58 +51,45 @@ test.describe('Authentication Flow', () => {
     await page.fill('input[type="password"]', 'password123')
     await page.click('button[type="submit"]')
 
-    await expect(page.locator('.error').first()).toBeVisible()
+    await expect(page.locator('.enhanced-input__error').first()).toContainText(
+      'Enter a valid email address',
+    )
   })
 
-  test('should show validation errors for short password', async ({ page }) => {
+  // Guards a DELIBERATE removal, so it asserts the absence of an error rather
+  // than its presence. Sign-in used to demand 6 characters — a rule that can
+  // only ever reject a *correct* password belonging to an older account.
+  // Whether the password is right is the server's call, not the form's.
+  // See the comment in src/components/auth/LoginForm.vue:validatePassword.
+  test('should NOT reject a short password client-side on sign-in', async ({ page }) => {
     await page.goto('/login')
     await page.fill('input[type="email"]', 'test@example.com')
     await page.fill('input[type="password"]', '123')
     await page.click('button[type="submit"]')
 
-    await expect(page.locator('.error').first()).toBeVisible()
+    // The password field must never carry a length complaint. (The request goes
+    // to the server; whatever it answers is not this test's business.)
+    const passwordField = page.locator('.form-field').filter({ hasText: 'Password' })
+    await expect(passwordField.locator('.enhanced-input__error')).toHaveCount(0)
   })
 
-  test('should handle login with demo credentials', async ({ page }) => {
-    await page.goto('/login')
-    await page.fill('input[type="email"]', 'demo@carbonify.io')
-    await page.fill('input[type="password"]', 'demo123')
-    await page.click('button[type="submit"]')
-
-    // Should redirect to dashboard or stay on homepage
-    await expect(page).toHaveURL(/\/(dashboard|profile|\/)/)
-  })
-
-  test('should handle registration flow', async ({ page }) => {
+  // Client-side only: submitting a real registration would create an account on
+  // whatever backend the build points at. Whether the backend ACCEPTS signups is
+  // a separate, deliberately opt-in check — see pilot-readiness.spec.js.
+  test('should reject a registration password under 8 characters', async ({ page }) => {
     await page.goto('/register')
 
     await page.fill('input[id="name"]', 'Test User')
     await page.fill('input[id="email"]', 'test@example.com')
-    await page.fill('input[id="password"]', 'password123')
-    await page.fill('input[id="confirm"]', 'password123')
+    await page.fill('input[id="password"]', 'short1')
+    await page.fill('input[id="confirm"]', 'short1')
     await page.click('button[type="submit"]')
 
-    // Wait a bit for the registration to complete
-    await page.waitForTimeout(2000)
-    
-    // Check for any error messages
-    const errorMessages = await page.locator('.error, [class*="error"]').allTextContents()
-    console.log('Registration test - Error messages:', errorMessages)
-    
-    // Check for loading state
-    const isLoading = await page.locator('button[type="submit"]:disabled').count()
-    console.log('Registration test - Is loading:', isLoading > 0)
-    
-    // Check current URL and log it for debugging
-    const currentUrl = page.url()
-    console.log('Registration test - Current URL:', currentUrl)
-    
-    // Check if there are any validation errors
-    const validationErrors = await page.locator('small[style*="color: #b00020"]').allTextContents()
-    console.log('Registration test - Validation errors:', validationErrors)
-    
-    // Should redirect to login or show success message
-    await expect(page).toHaveURL(/\/login/)
+    await expect(page.locator('.enhanced-input__error').first()).toContainText(
+      'at least 8 characters',
+    )
+    // Client-side validation must stop the submit, not merely annotate it.
+    await expect(page).toHaveURL(/\/register/)
   })
 
   test('should show password mismatch error', async ({ page }) => {
@@ -109,6 +101,8 @@ test.describe('Authentication Flow', () => {
     await page.fill('input[id="confirm"]', 'different123')
     await page.click('button[type="submit"]')
 
-    await expect(page.locator('small')).toBeVisible()
+    await expect(page.locator('.enhanced-input__error').first()).toContainText(
+      'Passwords do not match',
+    )
   })
 })

@@ -19,7 +19,7 @@
         <div v-if="showSuccessCard" class="success-card-overlay">
           <div class="success-card">
             <div class="success-card-header">
-              <div class="success-icon">✅</div>
+              <div class="success-icon"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></div>
               <h2 class="success-title">Project Submitted Successfully!</h2>
               <p class="success-subtitle">
                 Your project <strong>"{{ submittedProject?.title }}"</strong> has been submitted for verification.
@@ -31,21 +31,21 @@
                 <h3 class="section-title">What happens next?</h3>
                 <div class="steps-list">
                   <div class="step-item">
-                    <div class="step-icon">1️⃣</div>
+                    <div class="step-icon" aria-hidden="true">1</div>
                     <div class="step-text">
                       <strong>Initial Screening</strong>
                       <span>Admin checks project completeness and MRV readiness</span>
                     </div>
                   </div>
                   <div class="step-item">
-                    <div class="step-icon">2️⃣</div>
+                    <div class="step-icon" aria-hidden="true">2</div>
                     <div class="step-text">
                       <strong>MRV Review</strong>
                       <span>Verifier reviews monitoring data, baseline, and methodology</span>
                     </div>
                   </div>
                   <div class="step-item">
-                    <div class="step-icon">3️⃣</div>
+                    <div class="step-icon" aria-hidden="true">3</div>
                     <div class="step-text">
                       <strong>Validation & Issuance</strong>
                       <span>Validated projects move to the active pool and can issue credits</span>
@@ -94,6 +94,25 @@
 
           <!-- Information Sidebar -->
           <div class="info-sidebar">
+            <!-- Fee disclosure — only shown when an admin has configured a fee. -->
+            <div v-if="hasFees" class="info-card fees-card">
+              <h3 class="info-title">Fees</h3>
+              <ul class="fees-list">
+                <li v-if="fees.onboardingFee > 0">
+                  <span>Onboarding</span>
+                  <strong>{{ peso(fees.onboardingFee) }}</strong>
+                </li>
+                <li v-if="fees.verificationFee > 0">
+                  <span>Verification / certification</span>
+                  <strong>{{ peso(fees.verificationFee) }}</strong>
+                </li>
+              </ul>
+              <p class="help-text">
+                Fees that apply to this project. You won't be charged during submission — an
+                administrator confirms any fee before it applies.
+              </p>
+            </div>
+
             <div class="info-card">
               <h3 class="info-title">Submission Guidelines</h3>
               <ul class="info-list">
@@ -158,11 +177,21 @@ import { useRouter, useRoute } from 'vue-router'
 import ProjectForm from '@/components/ProjectForm.vue'
 import UiButton from '@/components/ui/Button.vue'
 import { projectService } from '@/services/projectService'
+import { getProjectFees } from '@/services/settingsService'
+import { pesoWhole } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()
 const showSuccessCard = ref(false)
 const submittedProject = ref(null)
+
+// Fee disclosure (admin-configured; 0 = free). Purely informational at submit —
+// see docs/GAP_ANALYSIS.md for the collection follow-up.
+const fees = ref({ onboardingFee: 0, verificationFee: 0 })
+const hasFees = computed(() => fees.value.onboardingFee > 0 || fees.value.verificationFee > 0)
+// `pesoWhole`, not `peso`: these are CAPEX/OPEX capital figures where a
+// trailing `.00` on eight digits is noise.
+const peso = pesoWhole
 
 // Edit mode: /submit-project?id=<projectId> loads the project for editing
 // (used by the developer "Edit details" action in the needs-revision loop).
@@ -174,6 +203,13 @@ const loadError = ref('')
 
 const handleProjectSuccess = (projectData) => {
   console.log('Project saved successfully:', projectData)
+  // A draft has not entered the review queue, so the "what happens next" card
+  // would be misleading — send them to the dashboard, where the draft is listed
+  // with its Submit-for-review action.
+  if (projectData?.status === 'draft') {
+    router.push('/developer/projects')
+    return
+  }
   // Edits go straight back to the dashboard (the developer then resubmits there);
   // new submissions show the success card with next steps.
   if (isEdit.value) {
@@ -185,9 +221,10 @@ const handleProjectSuccess = (projectData) => {
 }
 
 const handleProjectCancel = () => {
-  console.log('Project submission cancelled')
-  // Navigate back to dashboard or homepage
-  router.push('/')
+  // Back to the developer's own workspace. This used to push '/', which
+  // redirects to /home — so abandoning a submission dropped a signed-in
+  // developer onto the public marketing page.
+  router.push('/developer/projects')
 }
 
 const goToMarketplace = () => {
@@ -207,6 +244,15 @@ const submitAnother = () => {
 }
 
 onMounted(async () => {
+  // Fee disclosure applies to both new and edited projects; load it regardless.
+  getProjectFees()
+    .then((f) => {
+      fees.value = f
+    })
+    .catch(() => {
+      /* fees are informational — a load failure just hides the card */
+    })
+
   if (!isEdit.value) return
   loadingProject.value = true
   loadError.value = ''
@@ -246,38 +292,43 @@ onMounted(async () => {
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 1.5rem;
 }
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  /* The one green banner, identical to components/layout/PageHeader.vue. This
+     page used to hard-code the darker --primary-dark for subtitle contrast,
+     which made it visibly darker than every other page. The gap was app-wide,
+     so it was fixed in the token instead: the whole green ramp was darkened on
+     2026-07-26 and --primary-color now clears AA on its own. See tokens.css. */
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   color: #fff;
   line-height: 1.6;
 }
 
 /* Main Content */
 .submit-content {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .content-layout {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  gap: 1.25rem;
   align-items: start;
 }
 
@@ -295,22 +346,50 @@ onMounted(async () => {
 .info-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .info-card {
   background: var(--bg-primary, #ffffff);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 0.75rem;
-  padding: 1.5rem;
+  padding: 1rem 1.15rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .info-title {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
+}
+
+.fees-card {
+  border-color: var(--primary-color, #058526);
+}
+
+.fees-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+
+.fees-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--border-color, #e2e8f0);
+}
+
+.fees-list li:last-child {
+  border-bottom: none;
+}
+
+.fees-list strong {
+  color: var(--primary-color, #058526);
+  white-space: nowrap;
 }
 
 .info-list {
@@ -320,7 +399,8 @@ onMounted(async () => {
 }
 
 .info-list li {
-  padding: 0.5rem 0;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
   color: var(--text-secondary, #4a5568);
   position: relative;
   padding-left: 1.5rem;
@@ -330,7 +410,7 @@ onMounted(async () => {
   content: '✓';
   position: absolute;
   left: 0;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: bold;
 }
 
@@ -338,19 +418,19 @@ onMounted(async () => {
 .process-steps {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .step {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .step-number {
-  width: 2rem;
-  height: 2rem;
-  background: var(--primary-color, #069e2d);
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--primary-color, #058526);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -362,7 +442,7 @@ onMounted(async () => {
 }
 
 .step-content h4 {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
   margin: 0 0 0.25rem 0;
@@ -370,7 +450,7 @@ onMounted(async () => {
 
 .step-content p {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
   line-height: 1.4;
 }
@@ -378,26 +458,27 @@ onMounted(async () => {
 /* Help Section */
 .help-text {
   color: var(--text-secondary, #4a5568);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   line-height: 1.5;
+  font-size: 0.9rem;
 }
 
 .help-button {
   display: inline-block;
   text-align: center;
   text-decoration: none;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.55rem 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .help-button:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
   transform: translateY(-1px);
 }
 
@@ -412,14 +493,6 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
-  }
-
-  .page-title {
-    font-size: 2rem;
-  }
-
-  .page-description {
-    font-size: 1rem;
   }
 
   .submit-content {
@@ -461,7 +534,7 @@ onMounted(async () => {
 }
 
 .success-card-header {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, var(--primary-hover, #04701f) 100%);
   padding: 1.5rem 1.5rem;
   text-align: center;
   color: white;
@@ -529,7 +602,7 @@ onMounted(async () => {
   padding: 0.75rem;
   background: var(--bg-secondary, #f8fdf8);
   border-radius: 0.5rem;
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
   transition: all 0.2s ease;
 }
 
@@ -538,10 +611,22 @@ onMounted(async () => {
   transform: translateX(4px);
 }
 
+/* Was 1️⃣ 2️⃣ 3️⃣ — keycap emoji, which render as a different glyph on every
+   platform and are announced by screen readers as "keycap digit one". A styled
+   numeral is the same information without either problem. */
 .step-icon {
-  font-size: 1.25rem;
   flex-shrink: 0;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .step-text {

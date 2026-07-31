@@ -35,13 +35,23 @@
             </option>
           </select>
           <button @click="refreshLogs" class="refresh-btn">Refresh</button>
+          <!-- Exports what is on screen, filters included: an investigation
+               usually wants the narrowed set, not the whole table. -->
+          <button
+            class="refresh-btn"
+            :disabled="!filteredLogs.length"
+            :title="`Export ${filteredLogs.length} row(s) as CSV`"
+            @click="exportCsv"
+          >
+            Export CSV
+          </button>
         </div>
 
         <!-- Logs Table -->
         <div v-if="loading" class="loading-state">Loading audit logs...</div>
         <div v-else-if="error" class="error-state">{{ error }}</div>
         <div v-else class="logs-table">
-          <div class="logs-table__scroll">
+          <CollapsibleList :count="visibleLogs.length">
             <table>
             <thead>
               <tr>
@@ -53,7 +63,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="log in filteredLogs" :key="log.id">
+              <tr v-for="log in visibleLogs" :key="log.id">
                 <td>{{ formatDate(log.created_at) }}</td>
                 <td>{{ log.user_name || 'System' }}</td>
                 <td>
@@ -68,8 +78,34 @@
               </tr>
             </tbody>
             </table>
-          </div>
+          </CollapsibleList>
+
           <div v-if="logs.length === 0" class="empty-state">No audit logs found.</div>
+          <div v-else-if="filteredLogs.length === 0" class="empty-state">
+            No logs match the current filters.
+          </div>
+
+          <!-- Rows load PAGE_SIZE at a time so a 500-row result set doesn't
+               render as one enormous page. This footer loads MORE rows into the
+               list; the "See more" toggle above expands the box around the rows
+               already loaded. -->
+          <div v-else class="table-footer">
+            <span class="row-count">
+              Showing {{ visibleLogs.length }} of {{ filteredLogs.length }}
+            </span>
+            <div class="footer-actions">
+              <button v-if="hasMore" class="see-more-btn" @click="showMore">
+                Load {{ Math.min(PAGE_SIZE, filteredLogs.length - visibleLogs.length) }} more
+              </button>
+              <button
+                v-if="visibleCount > PAGE_SIZE"
+                class="see-less-btn"
+                @click="showLess"
+              >
+                Show less
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -77,8 +113,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import { searchAuditLogs } from '@/services/auditService'
+import { exportAuditLogsCsv } from '@/services/adminExportService'
 
 const logs = ref([])
 const loading = ref(true)
@@ -86,6 +124,10 @@ const error = ref('')
 const searchQuery = ref('')
 const actionFilter = ref('')
 const userFilter = ref('')
+
+// Progressive reveal: render a page at a time instead of all 500 rows at once.
+const PAGE_SIZE = 25
+const visibleCount = ref(PAGE_SIZE)
 
 const uniqueUsers = computed(() => {
   const userMap = new Map()
@@ -98,6 +140,10 @@ const uniqueUsers = computed(() => {
   })
   return Array.from(userMap.values())
 })
+
+function exportCsv() {
+  exportAuditLogsCsv(filteredLogs.value)
+}
 
 const filteredLogs = computed(() => {
   let filtered = logs.value
@@ -127,6 +173,22 @@ const filteredLogs = computed(() => {
   return filtered
 })
 
+const visibleLogs = computed(() => filteredLogs.value.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < filteredLogs.value.length)
+
+function showMore() {
+  visibleCount.value += PAGE_SIZE
+}
+
+function showLess() {
+  visibleCount.value = PAGE_SIZE
+}
+
+// A new filter should start from the top, not deep in a previously expanded list.
+watch([searchQuery, actionFilter, userFilter], () => {
+  visibleCount.value = PAGE_SIZE
+})
+
 function formatDate(dateString) {
   if (!dateString) return 'N/A'
   const date = new Date(dateString)
@@ -151,6 +213,7 @@ async function loadLogs() {
     error.value = ''
     const result = await searchAuditLogs({}, 500)
     logs.value = result || []
+    visibleCount.value = PAGE_SIZE
   } catch (err) {
     console.error('Error loading audit logs:', err)
     error.value = 'Failed to load audit logs. Please try again.'
@@ -182,20 +245,20 @@ onMounted(() => {
 }
 
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: #fff;
 }
 
@@ -229,7 +292,7 @@ onMounted(() => {
 
 .refresh-btn {
   padding: 0.75rem 1.5rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 8px;
@@ -242,11 +305,6 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.logs-table__scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -321,6 +379,58 @@ th {
 .empty-state {
   text-align: center;
   padding: 2rem;
+}
+
+/* See-more footer -------------------------------------------------------- */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border-top: 1px solid #eef2f1;
+  background: #fafcfa;
+}
+
+.row-count {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.see-more-btn:hover {
+  background: var(--primary-hover, #059669);
+}
+
+.see-less-btn:hover {
+  background: #f3f4f6;
 }
 
 @media (max-width: 768px) {

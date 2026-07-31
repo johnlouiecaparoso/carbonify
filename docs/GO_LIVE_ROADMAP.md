@@ -1,11 +1,61 @@
 # Carbonify — Go-Live Roadmap (Real Users)
 
+> ## 🧭 2026-07-26 — a role-by-role review changed the gate list. Read this first.
+>
+> **A registry-corrupting defect was found and closed on live.** Both issuance triggers were active at
+> once, so validating a project *and* later approving a VER against it issued the same tonne twice
+> (backlog **#17**, upgraded to 🔴 and then closed the same day). An audit against live confirmed the
+> exposure was real but **never exercised** — nothing double-issued, nothing sold — so
+> `supabase/cutover/adopt_mint_on_ver.sql` was applied with no reconciliation needed.
+> **Live behaviour changed: a validated project no longer mints or lists anything.** See the warning
+> box at the top of [HANDOFF.md](HANDOFF.md).
+>
+> **Two NEW items belong on this gate, and neither is a code task:**
+>
+> - **#26 — farmers are not paid through the platform. ✅ ANSWERED 2026-07-28** (Carbonify is an
+>   introduction-and-records layer for feedstock, not the payment rail) **and ✅ BUILT 2026-07-29.** The
+>   record is now two-sided — the buyer asserts, the farmer confirms or contests — and the ToS §1.14 +
+>   in-app modal §6 state the position in lockstep.
+> - **#29 — the feedstock side has no admin surface at all. ✅ CLOSED 2026-07-29.** `/admin/feedstock`
+>   is read-only oversight plus one write: recording an off-platform resolution, including reversing a
+>   buyer's false "Paid". "Contact support" now resolves to somebody who can see the trade.
+> - ✅ **Both shipped in `20260729000100_feedstock_payment_record.sql`, applied to live 2026-07-29**
+>   alongside the escrow migration, with `reconcile_financials()` = 0 after each. Click-through
+>   pending.
+>
+> **Unchanged P0s:** independent penetration test, email confirmation (off by choice), runtime/pilot
+> verification.
+>
+> 🔴 **#14 (escrow) is APPLIED as of 2026-07-29 — and that created a new urgent item.**
+> `process_marketplace_purchase` now holds card sellers' net in `escrow_held`, and the **only** thing
+> that releases it is `release_matured_escrow()`, called from the `process-payouts` edge function.
+> **Until that function is deployed and on a ~15-minute cron, every card seller's money is held
+> permanently — not delayed.** Applying escrow without scheduling the worker is worse than not applying
+> it. **And it is not a one-click schedule** — the worker rejects any call without a
+> `x-worker-secret` header matching `PAYOUT_WORKER_SECRET`, so a naive schedule 401s silently forever.
+> Procedure: [`supabase/cutover/schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql).
+> The four behaviour checks in [ESCROW_DECISION.md §6](ESCROW_DECISION.md) are also still unrun:
+> **applied is not verified.**
+>
+> **Newly enforced since this page was written:** the CSP is no longer `Report-Only` (it had no
+> reporting endpoint either, so it was collecting nothing). It has been audited statically but **first
+> runs for real on deploy** — watch the console on that first load.
+>
+> Full list of what the review found: **#20–#31** in [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md).
+
+> 🧭 **2026-07-21 — the P0 table in §3 was reconciled against what has actually shipped.** Rows closed
+> since this page was written are struck through and dated. **Three P0 blockers remain:** an independent
+> penetration test, email confirmation (off by choice), and the runtime/pilot verification now being run
+> as a closed beta.
+>
+> **This page is the *real-money* gate.** The active next step is one phase earlier — the test-key closed
+> beta in **[SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md)**. For the current one-screen state read the
+> top of **[HANDOFF.md](HANDOFF.md)**.
+
 > 🧭 **2026-07-09 — this page predates the seven expansion features.** For their honest,
-> bullet-by-bullet status read **[EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md)**; for the
-> current one-screen summary read the top of **[HANDOFF.md](HANDOFF.md)**. Net change since this page
-> was written: features #1, #2, #3 and #5 are complete; #4 is 6/8 and #6 is 5/6; #7 is an interface
-> preview with no backend. All 31 migrations are applied. The **P0 blockers below are unchanged** —
-> an independent penetration test, and email confirmation is currently **off by choice**.
+> bullet-by-bullet status read **[EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md)**. Net change
+> since this page was written: features #1, #2, #3 and #5 are complete; #4 is 6/8 and #6 is 5/6; #7 is an
+> interface preview with no backend. All 31 migrations are applied.
 
 
 > **Updated:** 2026-07-04 · **Branch:** `feature-user-onboarding-ux` (PR #2 → `main`)
@@ -30,7 +80,7 @@
 
 | Area | Status |
 |---|---|
-| Auth, 6 roles + RLS, password reset, TOTP 2FA, audit logging | ✅ |
+| Auth, 7 roles + RLS, password reset, TOTP 2FA, audit logging | ✅ |
 | KYC (buy gate) + KYB (payout gate) | ✅ |
 | Project registration, documents, boundary map, status workflow, edit/resubmit | ✅ |
 | MRV: monitoring reports, server-side calculation, VER approval → mint | ✅ |
@@ -55,18 +105,20 @@
 | ~~Apply `20260703000400` — retirement identity = `auth.uid()`~~ | ✅ applied 2026-07-04 | — |
 | ~~Redeploy `send-approval-email` with `verify_jwt=true`~~ | ✅ done — but see the 🆕 relay row below: **it is still an authenticated relay** | — |
 | ~~Redeploy `paymongo-checkout` to require a verified JWT~~ | ✅ done — audit confirms it ignores client `user_id` | — |
-| Confirm `ALLOW_UNSIGNED_WEBHOOKS` unset + all edge secrets present | Dashboard | — |
-| Remove legacy/demo code paths (raw checkout branch, legacy webhook branches, `demo` purchase, dead wallet mutators) | Code + retest | recommended |
-| 🆕 **Retirement is not atomic** — `retire_credits_atomic` burns the credits, then a SEPARATE transaction writes `credit_retirements`. If that insert fails the units are gone with no retirement record or certificate. Move the insert inside the RPC, then retest flow E → `reconcile_financials()` = 0. | DB migration + retest | [CODE_AUDIT](CODE_AUDIT_2026-07-09.md) H1 |
-| 🆕 **`send-approval-email` is an authenticated arbitrary-email relay** — accepts caller-supplied `to`/`subject`/`html` with no admin check, so **any signed-in user can send arbitrary HTML mail from the Carbonify sender**. Resolve recipients server-side. | Edge redeploy | [CODE_AUDIT](CODE_AUDIT_2026-07-09.md) M1 |
-| 🆕 **Confirm RLS on the base-schema tables** — no migration enables RLS on `credit_ownership`, `credit_transactions`, `wallet_accounts`, `wallet_transactions`, `credit_listings`. If any is unprotected a client can forge credit ownership. Two SQL queries; run them. | SQL check | [CODE_AUDIT](CODE_AUDIT_2026-07-09.md) |
-| **Email confirmation is OFF by choice** — anyone can sign up with an address they do not control. Needs a domain (~₱600–900/yr), not a subscription. | Dashboard + domain | HANDOFF |
-| **Runtime verification of the expansion features** — 31 migrations applied, 0 exercised against the live DB. | Click-through | [RUNBOOK](RUNTIME_VERIFICATION_RUNBOOK.md) |
-| **Independent penetration test before switching to live keys** | External | — |
+| Confirm `ALLOW_UNSIGNED_WEBHOOKS` unset + all edge secrets present | Dashboard | Re-checked each pilot pre-flight — [RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §1e |
+| Remove legacy/demo code paths (raw checkout branch, legacy webhook branches, `demo` purchase, dead wallet mutators) | Code + retest | 🟡 partial — dead client money writers removed 2026-07-11; rest tracked in [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #8 |
+| ~~**Retirement is not atomic**~~ | ✅ fixed 2026-07-11 | Burn + `credit_retirements` insert now commit in one RPC transaction (`20260718000000`), with identity bound to `auth.uid()` |
+| ~~**`send-approval-email` is an authenticated arbitrary-email relay**~~ | ✅ closed 2026-07-11 | Recipients resolved server-side (H4) |
+| ~~**Confirm RLS on the base-schema tables**~~ | ✅ audited + closed 2026-07-11, **verified on live 2026-07-20** | Four ledger tables were already client-SELECT-only; three real write holes (`project_credits`, `credit_listings`, `credit_retirements`) found and closed by `20260718000800`. **Residual:** the posture is not yet in version control — [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #13c |
+| **Email confirmation** — the value has now been all three things this row has claimed, so read the measurement, not the prose. **Measured 2026-07-31: `disable_signup` = `false`, `mailer_autoconfirm` = `true`** — signups work, and confirmation is **off by choice** for the pilot. (It was `true`/`false` on 2026-07-30, which blocked the beta outright; the row before that assumed signups worked.) What is still outstanding is the *domain*: without a verified Resend sender, confirmation mail would go via Supabase's shared default SMTP and land in spam — which is why it is off rather than on. ~₱600–900/yr, not a subscription. Re-check any time with `pilot-readiness.spec.js`. | Dashboard + domain | 🟡 **not a beta blocker any more.** Confirmation must go back on before *public* launch — [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md) Step 6b |
+| **Runtime verification** — the spine (validate → list → buy → retire → certificate) was exercised live 2026-07-11 and the books reconcile to 0. Per-role breadth is now the **closed beta**. | Click-through | 🟡 in progress — [SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §3 (operator), [UAT_TEST_SCRIPT](UAT_TEST_SCRIPT.md) + [TEST_REPORT_FORM](TEST_REPORT_FORM.md) (pilot users) |
+| **Independent penetration test before switching to live keys** | External | 🔴 open — the last P0 |
+| ~~**Escrow hold window** — sellers immediately withdrawable with no chargeback hold~~ | ✅ decided 2026-07-25 — Option B (method-gated hold); `20260725000200` **applied 2026-07-29**, reconcile 0 after. **Still to verify:** `ESC-01…06` — it is holding real sellers' money now, and no purchase has been watched through the hold, release or refund-while-held paths | [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14 · [ESCROW_DECISION.md](ESCROW_DECISION.md) · [UAT_TEST_SCRIPT](UAT_TEST_SCRIPT.md) Part 2 |
 
 ### 🟠 P1 — High (before scaling / to be genuinely credible)
 | Item | Type |
 |---|---|
+| **Organization / company accounts** — no company entity exists; credits are owned by the employee, and VAT invoices carry no buyer TIN so a company cannot claim input VAT. Blocks the first *corporate* customer, not the beta. Scoped in [ORGANIZATION_ACCOUNTS_SCOPE.md](ORGANIZATION_ACCOUNTS_SCOPE.md) | Code (5 phases) |
 | Real credit-supplier integration (Carbonmark/Cloverly/Patch) — registry serials + retirement receipts | Code + external partner |
 | External PSP settlement reconciliation (system-vs-PayMongo, not just system-vs-self) | Code |
 | CSP + rate limiting on public functions + Sentry error tracking | Code/infra + keys |
@@ -128,19 +180,22 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 
 ## 5. The go / no-go gate (print this)
 
-**Do NOT accept real money until ALL of these are true:**
-- [ ] `profiles` role/KYC lock applied + verified (no self-escalation)
-- [ ] Retirement identity migration applied + retested
-- [ ] `send-approval-email` requires auth (relay closed)
-- [ ] `paymongo-checkout` requires a verified JWT
-- [ ] Email confirmation on; `ALLOW_UNSIGNED_WEBHOOKS` unset; secrets present
-- [ ] Legacy/demo code paths removed
-- [ ] All 6 money flows reconcile to 0 after every change
-- [ ] **Retirement made atomic** (credits + retirement row commit together)
-- [ ] **`send-approval-email` no longer relays arbitrary recipients/content**
-- [ ] **RLS confirmed on `credit_ownership` / `credit_transactions` / wallet tables**
+**Do NOT accept real money until ALL of these are true.** *(Status reconciled 2026-07-21.)*
+- [x] `profiles` role/KYC lock applied + verified (no self-escalation) — applied 2026-07-04
+- [x] Retirement identity migration applied + retested — `auth.uid()`-bound, no client-supplied fallback
+- [x] `send-approval-email` requires auth (relay closed) — 2026-07-11
+- [x] `paymongo-checkout` requires a verified JWT — ignores client `user_id`
+- [x] **Retirement made atomic** (credits + retirement row commit together) — `20260718000000`
+- [x] **RLS confirmed on `credit_ownership` / `credit_transactions` / wallet tables** — client-SELECT-only; three write holes closed by `20260718000800`, **verified on live 2026-07-20**
+- [x] All 6 money flows reconcile to 0 — `reconcile_financials()` = **0 rows** on live 2026-07-20
+- [ ] `ALLOW_UNSIGNED_WEBHOOKS` unset; all edge secrets present — re-confirm at pre-flight
+- [ ] Legacy/demo code paths removed — 🟡 partial ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #8)
+- [x] **Money-table RLS posture captured into a versioned migration** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #13c) — captured + applied to live 2026-07-25 (`20260725000100`); `supabase/diagnostics/money_table_rls_audit.sql` returns **0 findings**
+- [x] **Escrow decision made + APPLIED** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14) — Option B (method-gated hold) decided 2026-07-25, `20260725000200` **applied to live 2026-07-29**, reconcile = 0. See [ESCROW_DECISION.md](ESCROW_DECISION.md).
+- [ ] 🔴 **`process-payouts` deployed + scheduled (~15 min)** — escrow now HOLDS card sellers' funds and `release_matured_escrow()` is the only releaser. Unscheduled = permanently stranded seller money.
+- [ ] **The 4 escrow behaviour checks run** ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — applied is not the same as verified
 - [ ] **Email confirmation re-enabled** with a verified sender domain
-- [ ] **Runtime verification runbook completed**
+- [ ] **Closed beta completed** against its exit criteria ([SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §6)
 - [ ] **Independent penetration test passed**
 - [ ] Sentry + reconciliation/webhook monitoring live
 

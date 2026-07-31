@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getBiomassProducts, submitRfq, estimateRfqTotal } from '@/services/biomassService'
 import { BIOMASS_PRODUCT_TYPES, BIOMASS_UNITS, biomassTypeLabel } from '@/constants/biomass'
+import { peso } from '@/utils/format'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -21,9 +22,6 @@ const rfqSubmitting = ref(false)
 const rfqError = ref('')
 const rfqSuccess = ref(false)
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -144,7 +142,7 @@ onMounted(load)
     </div>
 
     <!-- RFQ modal -->
-    <div v-if="rfqProduct" class="modal-overlay" @click.self="closeRfq">
+    <div v-if="rfqProduct" class="modal-overlay" v-modal-a11y="closeRfq" @click.self="closeRfq">
       <div class="modal">
         <template v-if="rfqSuccess">
           <div class="success">
@@ -200,11 +198,11 @@ onMounted(load)
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .biomass { min-height: 100%; }
 .hero {
-  background: linear-gradient(135deg, #069e2d, #0b7a27);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
-.hero-inner { max-width: 1100px; margin: 0 auto; padding: 40px 16px; }
-.hero-inner h1 { margin: 0; font-size: 2rem; }
+.hero-inner { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+.hero-inner h1 { margin: 0; font-size: 1.5rem; }
 .hero-inner p { margin: 8px 0 16px; max-width: 640px; opacity: 0.95; }
 .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
@@ -232,7 +230,7 @@ onMounted(load)
 .price { font-weight: 700; color: #111827; }
 .price .per { font-weight: 400; color: #6b7280; font-size: 0.8rem; }
 .btn-primary {
-  background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 16px;
+  background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 16px;
   cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block;
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -247,7 +245,7 @@ onMounted(load)
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; }
 .retry-btn { margin-top: 8px; padding: 6px 14px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 8px; font-weight: 600; cursor: pointer; }
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon, .ok-icon { font-size: 48px; color: #069e2d; }
+.empty-icon, .ok-icon { font-size: 48px; color: #058526; }
 .empty h2 { margin: 12px 0 6px; }
 .empty p { max-width: 420px; margin: 0 auto 18px; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }

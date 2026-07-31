@@ -49,6 +49,10 @@
             <option value="price-low">Cheapest to Expensive</option>
             <option value="price-high">Expensive to Cheapest</option>
           </select>
+        </div>
+
+        <!-- Actions kept on their own row so the filter grid stays aligned -->
+        <div class="search-actions">
           <button
             type="button"
             class="save-search-button"
@@ -95,6 +99,18 @@
     <!-- Main Content -->
     <div class="marketplace-content">
       <div class="container">
+        <!-- KYC gate surfaced before the buyer invests effort in a purchase -->
+        <KycGateBanner />
+
+        <!-- Carried over from the carbon calculator -->
+        <div v-if="offsetTarget > 0" class="offset-target-banner">
+          <span class="material-symbols-outlined" aria-hidden="true">calculate</span>
+          <span>
+            Offsetting <strong>{{ formatNumber(offsetTarget) }} tCO₂e</strong> — purchase quantities
+            are pre-filled to match. Split across projects if one listing isn't enough.
+          </span>
+        </div>
+
         <div class="content-layout">
           <!-- Projects Content -->
           <div class="projects-content">
@@ -573,7 +589,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getMarketplaceListings, getMarketplaceStats } from '@/services/marketplaceService'
 import { SDG_TAGS } from '@/constants/sdgs'
@@ -582,6 +598,7 @@ import {
   getMyWatchlistIds,
   addToWatchlist,
   removeFromWatchlist,
+  checkWatchlistPriceAlerts,
 } from '@/services/watchlistService'
 import WatchButton from '@/components/ui/WatchButton.vue'
 import {
@@ -597,6 +614,8 @@ import UiButton from '@/components/ui/Button.vue'
 import Pagination from '@/components/ui/Pagination.vue'
 import AccessibleModal from '@/components/ui/AccessibleModal.vue'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
+import KycGateBanner from '@/components/ui/KycGateBanner.vue'
+import { useTradeEligibility } from '@/composables/useTradeEligibility'
 
 const {
   promptState,
@@ -610,7 +629,43 @@ const {
 } = useModernPrompt()
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
+
+/**
+ * Credits the buyer needs, handed over by the carbon calculator via ?credits=.
+ * Used to pre-fill the purchase quantity and to show a reminder banner, so the
+ * "know your footprint → offset it" path doesn't lose the number in transit.
+ */
+const offsetTarget = computed(() => {
+  const raw = Number(route.query.credits)
+  return Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 0
+})
+
+// KYC eligibility, resolved once for the page (see useTradeEligibility).
+const { needsKyc, requiredLevelLabel, currentLevelLabel, ensureLoaded: ensureKycLoaded } =
+  useTradeEligibility()
+
+/**
+ * Stop an unverified buyer at the door with an actionable prompt, instead of
+ * letting them configure a whole purchase and hit a raw error string on submit.
+ * Returns true if the caller should abort.
+ */
+async function blockedByKyc() {
+  await ensureKycLoaded()
+  if (!needsKyc.value) return false
+
+  const goToKyc = await confirm({
+    title: 'Identity verification required',
+    message:
+      `Your account is ${currentLevelLabel.value}. Buying carbon credits requires ` +
+      `${requiredLevelLabel.value} verification or higher. It usually takes one business day.`,
+    confirmText: 'Verify identity',
+    cancelText: 'Not now',
+  })
+  if (goToKyc) router.push('/kyc')
+  return true
+}
 
 // Computed property to ensure admin check is reactive
 const isUserAdmin = computed(() => {
@@ -871,6 +926,10 @@ async function loadMarketplaceData(background = false, forceRefresh = background
       checkSavedSearchAlerts(listings.value).catch((err) =>
         console.warn('Saved-search alert check failed:', err?.message),
       )
+      // Same deal for watched listings whose price has fallen since they saved it.
+      checkWatchlistPriceAlerts(listings.value).catch((err) =>
+        console.warn('Price-drop alert check failed:', err?.message),
+      )
     }
   } catch (err) {
     console.error('Error loading marketplace data:', err)
@@ -996,13 +1055,25 @@ async function showPurchaseModalFor(listing) {
 
   // Require login only when listing has credits to purchase
   if (!isSoldOut(listing) && !userStore.isAuthenticated) {
-    alert('Please log in to purchase credits')
+    await warning({
+      title: 'Sign in to continue',
+      message: 'Please log in to purchase credits.',
+      confirmText: 'Go to login',
+      showCancel: false,
+    })
     router.push({ name: 'login', query: { returnTo: '/marketplace' } })
     return
   }
 
+  // Verified identity is required to buy — say so now, not after checkout config.
+  if (!isSoldOut(listing) && (await blockedByKyc())) return
+
   selectedListing.value = listing
-  purchaseQuantity.value = 1
+  // Pre-fill from ?credits= when the buyer arrived from the carbon calculator,
+  // clamped to what this listing actually has.
+  purchaseQuantity.value = offsetTarget.value
+    ? Math.max(1, Math.min(offsetTarget.value, listing.available_quantity || 1))
+    : 1
   showPurchaseModal.value = true
 
   // Load wallet balance
@@ -1312,7 +1383,12 @@ async function toggleWatch(listing) {
     } else {
       next.add(id)
       watchedIds.value = next
-      await addToWatchlist({ listingId: id, projectId: listing.project_id })
+      // Record today's price as the baseline for future price-drop alerts.
+      await addToWatchlist({
+        listingId: id,
+        projectId: listing.project_id,
+        pricePerCredit: listing.price_per_credit,
+      })
     }
   } catch (err) {
     console.error('Watchlist toggle failed:', err?.message)
@@ -1355,36 +1431,48 @@ onUnmounted(() => {
 }
 
 .marketplace-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: var(--primary-color, #058526);
   color: white;
-  padding: 3rem 0;
+  padding: 1.5rem 0;
   text-align: center;
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.4rem 0;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   opacity: 0.9;
-  margin: 0 0 2rem 0;
+  margin: 0 0 1.25rem 0;
 }
 
+/* Six filters on a fixed 3-column grid: every box is the same width and the
+   rows always line up, instead of wrapping raggedly at arbitrary widths. */
 .search-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.search-actions {
   display: flex;
   justify-content: center;
-  gap: 1rem;
   flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 960px;
+  margin: 0.75rem auto 0;
 }
 
 .search-input-wrap {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  min-width: 240px;
+  min-width: 0;
 }
 
 .search-icon {
@@ -1396,7 +1484,7 @@ onUnmounted(() => {
 
 .search-input {
   width: 100%;
-  min-width: 240px;
+  min-width: 0;
   height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 8px;
@@ -1415,13 +1503,14 @@ onUnmounted(() => {
 }
 
 .filter-select {
+  width: 100%;
   height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.2);
   color: white;
   padding: 0 0.75rem;
-  min-width: 180px;
+  min-width: 0;
 }
 
 .filter-select option {
@@ -1429,16 +1518,23 @@ onUnmounted(() => {
 }
 
 .submit-project-button {
+  height: 42px;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: white;
-  padding: 0.75rem 1.5rem;
+  padding: 0 1.5rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.submit-project-button:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .submit-project-button .material-symbols-outlined {
@@ -1446,16 +1542,19 @@ onUnmounted(() => {
 }
 
 .save-search-button {
+  height: 42px;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: white;
-  padding: 0.75rem 1.25rem;
+  padding: 0 1.25rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .save-search-button:hover:not(:disabled) {
@@ -1475,8 +1574,10 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  margin-top: 1rem;
+  max-width: 960px;
+  margin: 1rem auto 0;
 }
 
 .saved-searches-label {
@@ -1531,6 +1632,24 @@ onUnmounted(() => {
 
 .marketplace-content {
   padding: 2rem 0;
+}
+
+.offset-target-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  color: #166534;
+  font-size: 0.9rem;
+}
+
+.offset-target-banner .material-symbols-outlined {
+  font-size: 1.4rem;
+  flex-shrink: 0;
 }
 
 .projects-content {
@@ -1737,7 +1856,7 @@ onUnmounted(() => {
 .details-link {
   display: inline-block;
   margin-top: 0.35rem;
-  color: #069e2d;
+  color: #058526;
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
@@ -2075,7 +2194,7 @@ onUnmounted(() => {
 
 .payment-method-card.active {
   border-color: var(--primary-color);
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .payment-method-icon {
@@ -2083,7 +2202,7 @@ onUnmounted(() => {
   height: 48px;
   border-radius: 12px;
   background: rgba(16, 185, 129, 0.12);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2142,17 +2261,20 @@ onUnmounted(() => {
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+  .search-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 640px;
+  }
+}
+
 @media (max-width: 768px) {
-  .marketplace-header {
-    padding: 2rem 0;
-  }
-
-  .page-title {
-    font-size: 2rem;
-  }
-
+  /* The banner's padding and type sizes are deliberately NOT restated here.
+     They used to be (2rem padding / 2rem title / 1rem description) -- all
+     pre-shrink values left behind when the desktop rule was pinned to
+     1.5rem/1.5rem/0.95rem, which made the banner larger on a phone than on a
+     desktop. Inheriting the desktop values is the whole point. */
   .page-description {
-    font-size: 1rem;
     margin: 0 0 1.5rem 0;
   }
 
@@ -2167,26 +2289,19 @@ onUnmounted(() => {
   }
 
   .search-controls {
-    flex-direction: column;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.65rem;
+    max-width: 320px;
   }
 
-  .search-input-wrap,
-  .filter-select {
-    width: 100%;
-    max-width: 270px;
-    min-width: 270px;
+  .search-actions {
+    flex-direction: column;
+    max-width: 320px;
   }
 
-  .search-input {
-    min-width: 0;
-  }
-
+  .save-search-button,
   .submit-project-button {
     width: 100%;
-    max-width: 270px;
-    justify-content: center;
   }
 
   .marketplace-content {
@@ -2256,23 +2371,13 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
-  .marketplace-header {
-    padding: 1.5rem 0;
-  }
-
-  .page-title {
-    font-size: 1.75rem;
-  }
-
   .container {
     padding: 0 1rem;
   }
 
-  .search-input-wrap,
-  .filter-select,
-  .submit-project-button {
+  .search-controls,
+  .search-actions {
     max-width: 100%;
-    min-width: 0;
   }
 
   .projects-grid {

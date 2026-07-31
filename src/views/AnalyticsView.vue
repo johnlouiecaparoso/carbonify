@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useUserStore } from '@/store/userStore'
 import { generateCarbonImpactReport } from '@/services/receiptService'
 import { getSellerBalance, getMySales, getMyPayouts } from '@/services/payoutService'
@@ -211,9 +212,11 @@ onMounted(() => {
 
 <template>
   <div class="analytics-view">
+    <PageHeader
+      title="Analytics Dashboard"
+      description="Analyze your buying and selling in the carbon market."
+    />
     <div class="container">
-      <h1 class="page-title">Analytics Dashboard</h1>
-      <p class="page-description">Analyze your buying and selling in the carbon market.</p>
 
       <!-- Buying / Selling tabs -->
       <div class="tab-bar">
@@ -451,22 +454,13 @@ onMounted(() => {
 
 <style scoped>
 .analytics-view {
-  padding: 2rem 0;
+  padding: 0 0 2rem;
   min-height: 100vh;
   background: var(--bg-secondary);
 }
 
-.page-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.page-description {
-  font-size: 1.125rem;
-  color: var(--text-secondary);
-  margin: 0 0 2rem 0;
+.analytics-view .container {
+  padding-top: 2rem;
 }
 
 .free-note {
@@ -482,7 +476,7 @@ onMounted(() => {
   color: #065f46;
 }
 .free-note a {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 700;
 }
 
@@ -506,8 +500,8 @@ onMounted(() => {
 }
 
 .tab.active {
-  color: var(--primary-color, #069e2d);
-  border-bottom-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
+  border-bottom-color: var(--primary-color, #058526);
 }
 
 .tab-lock {
@@ -572,7 +566,7 @@ onMounted(() => {
 }
 
 .metric-change.positive {
-  color: #10b981;
+  color: var(--success-color, #058526);
 }
 
 .charts-section {
@@ -678,7 +672,7 @@ onMounted(() => {
 }
 
 .activity-value.positive {
-  color: #10b981;
+  color: var(--success-color, #058526);
 }
 
 .empty-activity {
@@ -737,12 +731,12 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 @media (max-width: 768px) {

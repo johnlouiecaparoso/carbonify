@@ -1194,12 +1194,12 @@ function goBackHome() {
 .role-application {
   min-height: 100vh;
   background: var(--bg-secondary, #f5fbf7);
-  padding-bottom: 4rem;
+  padding-bottom: 2rem;
 }
 
 .role-application__hero {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, #0f9d58 100%);
-  padding: 4rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, #0f9d58 100%);
+  padding: 2rem 1.5rem;
   color: #ffffff;
   text-align: center;
 }
@@ -1209,41 +1209,41 @@ function goBackHome() {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.5rem;
 }
 
 .hero__title {
-  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
   font-weight: 800;
   margin: 0;
 }
 
 .hero__subtitle {
-  font-size: clamp(1rem, 2.2vw, 1.25rem);
+  font-size: clamp(0.9rem, 1.6vw, 1rem);
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.5;
   opacity: 0.95;
 }
 
 .role-application__content {
-  padding: 3rem 1.5rem;
+  padding: 1.5rem 1.5rem;
 }
 
 .content__wrap {
   max-width: 1080px;
   margin: 0 auto;
   display: grid;
-  gap: 2.5rem;
+  gap: 1.25rem;
 }
 
 .role-selector {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.75rem;
 }
 
 .role-selector__title {
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin: 0;
   color: var(--text-primary, #102616);
@@ -1251,32 +1251,32 @@ function goBackHome() {
 
 .role-selector__cards {
   display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .role-card {
   text-align: left;
-  padding: 1.75rem;
+  padding: 0.9rem 1rem;
   background: #ffffff;
-  border-radius: var(--radius-xl, 20px);
+  border-radius: 12px;
   border: 2px solid rgba(15, 157, 88, 0.1);
-  box-shadow: 0 12px 24px rgba(6, 158, 45, 0.08);
+  box-shadow: 0 2px 6px rgba(5, 133, 38, 0.06);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .role-card--active {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 16px 32px rgba(6, 158, 45, 0.16);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 16px 32px rgba(5, 133, 38, 0.16);
   transform: translateY(-4px);
 }
 
 .role-card:focus-visible {
-  outline: 4px solid rgba(6, 158, 45, 0.4);
+  outline: 4px solid rgba(5, 133, 38, 0.4);
   outline-offset: 3px;
 }
 
@@ -1288,7 +1288,7 @@ function goBackHome() {
 }
 
 .role-card__title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   margin: 0;
   color: var(--text-primary, #102616);
@@ -1297,8 +1297,8 @@ function goBackHome() {
 .role-card__badge {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
-  background: rgba(6, 158, 45, 0.15);
+  color: var(--primary-color, #058526);
+  background: rgba(5, 133, 38, 0.15);
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
 }
@@ -1306,7 +1306,8 @@ function goBackHome() {
 .role-card__summary {
   margin: 0;
   color: var(--text-muted, #4b5d52);
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 .role-card__highlights {
@@ -1314,7 +1315,8 @@ function goBackHome() {
   padding-left: 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.15rem;
+  font-size: 0.82rem;
   color: var(--text-primary, #102616);
 }
 
@@ -1324,22 +1326,22 @@ function goBackHome() {
 
 .application-form {
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 14px;
   border: 1px solid rgba(15, 157, 88, 0.15);
-  box-shadow: 0 24px 48px rgba(6, 158, 45, 0.12);
-  padding: 2.5rem;
+  box-shadow: 0 4px 12px rgba(5, 133, 38, 0.08);
+  padding: 1.25rem 1.5rem;
 }
 
 .application-form__header {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
 }
 
 .application-form__title {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary, #102616);
 }
@@ -1348,36 +1350,37 @@ function goBackHome() {
 .application-form__notice {
   margin: 0;
   color: var(--text-muted, #4b5d52);
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .application-form__notice {
-  font-size: 0.95rem;
-  background: rgba(6, 158, 45, 0.1);
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
-  color: var(--primary-color, #069e2d);
-  border: 1px solid rgba(6, 158, 45, 0.18);
+  font-size: 0.82rem;
+  background: rgba(5, 133, 38, 0.1);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  color: var(--primary-color, #058526);
+  border: 1px solid rgba(5, 133, 38, 0.18);
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.9rem;
 }
 
 .form__grid {
   display: grid;
-  column-gap: 3rem;
-  row-gap: 2.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  column-gap: 1rem;
+  row-gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
 .form__field {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0 0.25rem;
+  gap: 0.25rem;
+  padding: 0;
 }
 
 .form__field--textarea {
@@ -1385,7 +1388,7 @@ function goBackHome() {
 }
 
 .form__label {
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-primary, #102616);
   display: flex;
@@ -1402,38 +1405,41 @@ function goBackHome() {
 .form__input,
 .form__textarea {
   width: 100%;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid rgba(15, 157, 88, 0.2);
   background: #f9fffb;
-  padding: 1rem 1.1rem;
-  font-size: 0.95rem;
-  line-height: 1.45;
+  padding: 0.5rem 0.7rem;
+  /* 15px, with a 16px mobile override below — under 16px iOS zooms the page
+     on focus, which on a long form throws the user off their place. */
+  font-size: 0.94rem;
+  line-height: 1.4;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   color: var(--text-primary, #102616);
 }
 
 .form__textarea {
   resize: vertical;
-  min-height: 140px;
+  min-height: 74px;
 }
 
 .form__input:focus,
 .form__textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 4px rgba(6, 158, 45, 0.15);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.15);
 }
 
 .form__error {
   margin: 0;
   color: #b42318;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 
 .form__alert {
-  padding: 1rem 1.25rem;
-  border-radius: 14px;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
   background: rgba(180, 35, 24, 0.08);
   border: 1px solid rgba(180, 35, 24, 0.2);
   color: #7a1b10;
@@ -1455,7 +1461,8 @@ function goBackHome() {
 .form__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
   justify-content: flex-start;
   align-items: center;
 }
@@ -1466,8 +1473,10 @@ function goBackHome() {
   justify-content: center;
   gap: 0.5rem;
   border-radius: 999px;
-  padding: 0.85rem 1.75rem;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.88rem;
   font-weight: 600;
+  min-height: 40px;
   border: none;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -1475,14 +1484,14 @@ function goBackHome() {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, #058e3f 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, #04701f 100%);
   color: #ffffff;
-  box-shadow: 0 12px 20px rgba(6, 158, 45, 0.18);
+  box-shadow: 0 3px 8px rgba(5, 133, 38, 0.18);
 }
 
 .btn--primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 26px rgba(6, 158, 45, 0.24);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(5, 133, 38, 0.24);
 }
 
 .btn--primary:disabled {
@@ -1491,23 +1500,23 @@ function goBackHome() {
 }
 
 .btn--secondary {
-  background: rgba(6, 158, 45, 0.12);
-  color: var(--primary-color, #069e2d);
+  background: rgba(5, 133, 38, 0.12);
+  color: var(--primary-color, #058526);
 }
 
 .btn--secondary:hover {
-  background: rgba(6, 158, 45, 0.18);
+  background: rgba(5, 133, 38, 0.18);
   transform: translateY(-1px);
 }
 
 .btn--ghost {
   background: transparent;
   border: 1px solid rgba(15, 157, 88, 0.25);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .btn--ghost:hover {
-  background: rgba(6, 158, 45, 0.08);
+  background: rgba(5, 133, 38, 0.08);
 }
 
 .btn__spinner {
@@ -1576,17 +1585,27 @@ function goBackHome() {
   }
 }
 
+/*
+  These blocks previously held the PRE-SHRINK values — hero 3rem, content 2rem,
+  form card 1.75rem, title 1.75rem — every one of them now LARGER than the
+  desktop rule above. Because they win at small widths, the form would have
+  been more spacious on a phone than on a laptop, which is the exact trap the
+  2026-07-26 header pass hit and had to come back for: a density pass that
+  edits the desktop rule and leaves the @media blocks behind.
+
+  Mobile now only tightens further, and only overrides what genuinely differs.
+*/
 @media (max-width: 768px) {
   .role-application__hero {
-    padding: 3rem 1rem;
+    padding: 1.5rem 1rem;
   }
 
   .role-application__content {
-    padding: 2rem 1rem;
+    padding: 1rem;
   }
 
   .application-form {
-    padding: 1.75rem;
+    padding: 1rem;
   }
 
   .form__actions {
@@ -1597,19 +1616,17 @@ function goBackHome() {
   .btn {
     width: 100%;
   }
+
+  /* 16px so iOS does not zoom the page when a field takes focus. */
+  .form__input,
+  .form__textarea {
+    font-size: 16px;
+  }
 }
 
 @media (max-width: 540px) {
-  .hero__title {
-    font-size: 1.75rem;
-  }
-
-  .application-form__title {
-    font-size: 1.5rem;
-  }
-
   .role-card {
-    padding: 1.5rem;
+    padding: 0.8rem 0.9rem;
   }
 
   .form__grid {

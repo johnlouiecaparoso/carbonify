@@ -28,8 +28,9 @@ Access in Carbonify is controlled by three separate ideas. Understanding them up
 | Verifier Guide | Accredited verifiers who review project submissions and validate carbon claims | [04-verifier-guide.md](04-verifier-guide.md) |
 | Admin Guide | Administrators who manage users, roles, KYC/KYB, finance, refunds, and system config | [05-admin-guide.md](05-admin-guide.md) |
 | LGU Guide | Local Government Unit users who upload emissions data and manage community projects | [06-lgu-guide.md](06-lgu-guide.md) |
+| Farmer Guide | Farmers and cooperatives supplying biomass feedstock, logging deliveries, and tracking carbon participation | [07-farmer-guide.md](07-farmer-guide.md) |
 
-## The six roles at a glance
+## The seven roles at a glance
 
 | Role (display name) | What it's for |
 |---------------------|---------------|
@@ -38,8 +39,16 @@ Access in Carbonify is controlled by three separate ideas. Understanding them up
 | Project Developer | Create and manage carbon-credit projects and list credits for sale. |
 | Verifier | Review and approve/reject carbon-credit projects. |
 | LGU User | Local Government Unit user: upload LGU emissions and manage community projects. |
+| Farmer | Supply biomass feedstock, log deliveries, and see estimated carbon participation. |
 | Administrator | Full system access to manage every aspect of the platform. |
+
+Developer, verifier, and farmer are **specialist roles**: you apply, and the role stays restricted
+until an administrator approves it. Farmers have a memorable sign-up link to hand out offline:
+**`/register/farmer`**.
+
+> *Added 2026-07-26: the Farmer Guide. This table has always listed Farmer as a role, but the guide
+> set had no entry for it.*
 
 ---
 
-*Carbonify runs on Vue 3, Supabase, and PayMongo (GCash, Maya, and cards). Sandbox test card: 4343 4343 4343 4345.*
+*Carbonify runs on Vue 3, Supabase, and PayMongo (GCash, Maya, and cards). During the closed beta, payments run in test mode — test card: 4343 4343 4343 4345.*

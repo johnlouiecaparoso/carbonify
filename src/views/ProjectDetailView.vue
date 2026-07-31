@@ -112,7 +112,7 @@
                     {{ doc.name || 'Document ' + (i + 1) }}
                   </a>
                   <span v-else class="muted" title="Sign in to view project documents">
-                    🔒 {{ doc.name || 'Document ' + (i + 1) }} (sign in to view)
+                    <span class="material-symbols-outlined lock-ico" aria-hidden="true">lock</span> {{ doc.name || 'Document ' + (i + 1) }} (sign in to view)
                   </span>
                   <span v-if="doc.type" class="muted"> · {{ doc.type }}</span>
                 </li>
@@ -156,10 +156,70 @@
                   <span class="lst-price">₱{{ Number(l.price_per_credit).toLocaleString() }}/credit</span>
                   <span class="muted"> · {{ l.quantity }} available</span>
                   <span class="source-badge sm" :class="badgeClass(l.source)">{{ l.source || 'local' }}</span>
+                  <span
+                    v-if="priceVerdict(l.price_per_credit).verdict !== 'unknown'"
+                    class="price-verdict"
+                    :class="priceVerdict(l.price_per_credit).verdict"
+                  >
+                    {{ verdictLabel(priceVerdict(l.price_per_credit)) }}
+                  </span>
                 </li>
               </ul>
               <p v-else class="muted">No active listings.</p>
               <router-link to="/marketplace" class="buy-link">Go to marketplace →</router-link>
+            </section>
+
+            <!-- What has actually traded, so a price can be judged rather than
+                 just displayed. Hidden entirely when this project has no trades. -->
+            <section v-if="priceSummary.hasData" class="card">
+              <h2>Price history</h2>
+              <p class="muted price-history-sub">
+                Volume-weighted from settled trades, last 90 days.
+              </p>
+
+              <div class="price-stats">
+                <div>
+                  <span class="ph-label">Latest</span>
+                  <span class="ph-value">₱{{ priceSummary.latest.toLocaleString() }}</span>
+                </div>
+                <div>
+                  <span class="ph-label">90-day avg</span>
+                  <span class="ph-value">₱{{ priceSummary.average.toLocaleString() }}</span>
+                </div>
+                <div>
+                  <span class="ph-label">Range</span>
+                  <span class="ph-value">
+                    ₱{{ priceSummary.low.toLocaleString() }}–{{ priceSummary.high.toLocaleString() }}
+                  </span>
+                </div>
+                <div>
+                  <span class="ph-label">Trend</span>
+                  <span
+                    class="ph-value"
+                    :class="priceSummary.changePercent >= 0 ? 'up' : 'down'"
+                  >
+                    {{ priceSummary.changePercent >= 0 ? '▲' : '▼' }}
+                    {{ Math.abs(priceSummary.changePercent) }}%
+                  </span>
+                </div>
+              </div>
+
+              <!-- Sparkline: enough to read direction and volatility at a glance -->
+              <svg
+                v-if="sparkline.points"
+                class="sparkline"
+                :viewBox="`0 0 ${sparkline.width} ${sparkline.height}`"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Price trend over the last 90 days"
+              >
+                <polyline :points="sparkline.points" fill="none" stroke="#058526" stroke-width="2" />
+              </svg>
+
+              <p class="muted price-history-foot">
+                {{ priceSummary.totalCredits.toLocaleString() }} credits traded across
+                {{ priceHistory.length }} day{{ priceHistory.length === 1 ? '' : 's' }}.
+              </p>
             </section>
           </div>
         </div>
@@ -182,6 +242,11 @@ import {
   reversalRiskLabel,
   formatPermanence,
 } from '@/services/projectCredibility'
+import {
+  getProjectPriceHistory,
+  summarizePriceSeries,
+  comparePriceToMarket,
+} from '@/services/priceHistoryService'
 
 const props = defineProps({ id: { type: String, required: true } })
 
@@ -189,6 +254,7 @@ const loading = ref(true)
 const error = ref('')
 const project = ref(null)
 const listings = ref([])
+const priceHistory = ref([])
 const developer = ref(null)
 const mapEl = ref(null)
 let map = null
@@ -196,6 +262,47 @@ let map = null
 // Documents live in a private bucket; resolve each to a short-lived signed URL
 // after the project loads. Anonymous viewers get null URLs (shown as locked).
 const documents = ref([])
+
+const priceSummary = computed(() => summarizePriceSeries(priceHistory.value))
+
+/** Is this listing's ask cheap, fair, or expensive against what actually traded? */
+function priceVerdict(price) {
+  return comparePriceToMarket(price, priceHistory.value)
+}
+
+function verdictLabel({ verdict, deltaPercent }) {
+  const magnitude = Math.abs(deltaPercent)
+  if (verdict === 'below') return `${magnitude}% below avg`
+  if (verdict === 'above') return `${magnitude}% above avg`
+  return 'about average'
+}
+
+/**
+ * Sparkline path over the daily VWAP series. Scaled to the observed min/max so
+ * the shape shows real variation rather than a flat line near the axis; a
+ * single-point series has no shape to draw, so it's skipped.
+ */
+const sparkline = computed(() => {
+  const width = 240
+  const height = 48
+  const points = priceHistory.value.filter((p) => p.vwap > 0)
+  if (points.length < 2) return { width, height, points: '' }
+
+  const values = points.map((p) => p.vwap)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const stepX = width / (points.length - 1)
+
+  const coords = points.map((p, i) => {
+    const x = Math.round(i * stepX * 10) / 10
+    // Invert: SVG y grows downward, price should grow upward.
+    const y = Math.round((height - ((p.vwap - min) / span) * (height - 4) - 2) * 10) / 10
+    return `${x},${y}`
+  })
+
+  return { width, height, points: coords.join(' ') }
+})
 
 const coBenefits = computed(() => {
   const cb = project.value?.co_benefits
@@ -287,8 +394,8 @@ async function renderMap() {
   if (coords.value) {
     L.circleMarker([coords.value.lat, coords.value.lng], {
       radius: 9,
-      color: '#069e2d',
-      fillColor: '#10b981',
+      color: '#058526',
+      fillColor: '#058526',
       fillOpacity: 0.8,
       weight: 2,
     }).addTo(map)
@@ -296,7 +403,7 @@ async function renderMap() {
 
   if (project.value?.boundary) {
     try {
-      const layer = L.geoJSON(project.value.boundary, { style: { color: '#069e2d', weight: 2, fillOpacity: 0.1 } })
+      const layer = L.geoJSON(project.value.boundary, { style: { color: '#058526', weight: 2, fillOpacity: 0.1 } })
       layer.addTo(map)
       map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 13 })
     } catch (err) {
@@ -336,6 +443,8 @@ onMounted(async () => {
     } catch {
       listings.value = []
     }
+    // Price history is a nice-to-have on this page; never let it fail the load.
+    priceHistory.value = await getProjectPriceHistory(props.id, 90).catch(() => [])
     await loadDeveloper(project.value?.user_id)
     if (hasMap.value) await renderMap()
   } catch (err) {
@@ -369,7 +478,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-size: 0.85rem;
   font-weight: 600;
@@ -381,7 +490,7 @@ onBeforeUnmount(() => {
 }
 .back-link:hover {
   background: var(--bg-green-light, #e8f5e8);
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   transform: translateX(-2px);
 }
 .hero {
@@ -390,7 +499,7 @@ onBeforeUnmount(() => {
   border-radius: 1rem;
   overflow: hidden;
   max-height: 340px;
-  box-shadow: 0 16px 40px rgba(6, 158, 45, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 16px 40px rgba(5, 133, 38, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 .hero::after {
   content: '';
@@ -470,7 +579,7 @@ onBeforeUnmount(() => {
 }
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(6, 158, 45, 0.12);
+  box-shadow: 0 12px 28px rgba(5, 133, 38, 0.12);
   border-color: var(--border-green-light, #d4edda);
 }
 .card h2 {
@@ -479,7 +588,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: var(--text-primary, #1a1a1a);
   padding-left: 0.7rem;
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
   line-height: 1.2;
 }
 .trust-card {
@@ -487,7 +596,7 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
 }
 .trust-card:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 .facts {
   display: grid;
@@ -539,7 +648,7 @@ onBeforeUnmount(() => {
 }
 .chip {
   background: #e8f5e8;
-  color: #069e2d;
+  color: #058526;
   border: 1px solid #c6ecc6;
   border-radius: 999px;
   padding: 0.3rem 0.8rem;
@@ -548,9 +657,9 @@ onBeforeUnmount(() => {
   transition: all 0.15s ease;
 }
 .chip:hover {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
-  border-color: #069e2d;
+  border-color: #058526;
 }
 .docs,
 .listings {
@@ -581,8 +690,66 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 .lst-price {
-  color: #069e2d;
+  color: #058526;
   font-weight: 700;
+}
+.price-verdict {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+.price-verdict.below {
+  background: #dcfce7;
+  color: #166534;
+}
+.price-verdict.fair {
+  background: #f1f5f9;
+  color: #475569;
+}
+.price-verdict.above {
+  background: #fef3c7;
+  color: #92400e;
+}
+.price-history-sub {
+  margin-top: -0.35rem;
+  font-size: 0.8rem;
+}
+.price-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 0.75rem;
+  margin: 0.9rem 0;
+}
+.ph-label {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #94a3b8;
+  margin-bottom: 0.1rem;
+}
+.ph-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.ph-value.up {
+  color: #059669;
+}
+.ph-value.down {
+  color: #dc2626;
+}
+.sparkline {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+.price-history-foot {
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
 }
 .map {
   height: 280px;
@@ -643,18 +810,18 @@ onBeforeUnmount(() => {
   gap: 0.3rem;
   margin-top: 1rem;
   padding: 0.6rem 1.1rem;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: linear-gradient(135deg, var(--primary-color, #058526) 0%, var(--primary-hover, #04701f) 100%);
   color: #fff;
   font-weight: 600;
   font-size: 0.875rem;
   text-decoration: none;
   border-radius: 0.6rem;
-  box-shadow: 0 4px 12px rgba(6, 158, 45, 0.25);
+  box-shadow: 0 4px 12px rgba(5, 133, 38, 0.25);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .buy-link:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(6, 158, 45, 0.32);
+  box-shadow: 0 8px 18px rgba(5, 133, 38, 0.32);
 }
 .state {
   padding: 3rem 0;
@@ -668,5 +835,10 @@ onBeforeUnmount(() => {
   .grid {
     grid-template-columns: 1fr;
   }
+}
+
+.lock-ico {
+  font-size: 1em;
+  vertical-align: -2px;
 }
 </style>

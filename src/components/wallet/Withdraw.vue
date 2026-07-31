@@ -30,6 +30,7 @@ function buildDestination() {
 const errors = ref({})
 const loading = ref(false)
 const currentBalance = ref(0)
+const balanceError = ref('')
 
 const paymentMethods = [
   { value: 'gcash', label: 'GCash', icon: 'smartphone' },
@@ -109,11 +110,18 @@ function setMaxAmount() {
 }
 
 async function loadBalance() {
+  balanceError.value = ''
   try {
     const balance = await getSellerBalance()
     currentBalance.value = balance.available || 0
   } catch (error) {
+    // Say the balance is unknown rather than displaying PHP 0. A seller who
+    // opened this modal from a page showing PHP 5,000 available, and is then
+    // shown zero with the submit button greyed out, has been told their money
+    // is gone. The submit stays disabled either way — the server is the real
+    // gate — but the reason on screen has to be the true one.
     console.error('Error loading balance:', error)
+    balanceError.value = error?.message || 'Could not load your available balance.'
   }
 }
 
@@ -135,7 +143,11 @@ loadBalance()
     <!-- Current Balance -->
     <div class="balance-display">
       <div class="balance-label">Available Balance</div>
-      <div class="balance-amount">₱{{ currentBalance.toLocaleString() }}</div>
+      <div v-if="balanceError" class="balance-unknown">
+        Unavailable — {{ balanceError }}
+        <button type="button" class="balance-retry" @click="loadBalance">Retry</button>
+      </div>
+      <div v-else class="balance-amount">₱{{ currentBalance.toLocaleString() }}</div>
     </div>
 
     <form @submit.prevent="handleSubmit" class="form-grid">
@@ -231,7 +243,7 @@ loadBalance()
         <UiButton type="button" variant="ghost" @click="handleCancel" :disabled="loading">
           Cancel
         </UiButton>
-        <UiButton type="submit" variant="primary" :disabled="loading || currentBalance === 0">
+        <UiButton type="submit" variant="primary" :disabled="loading || currentBalance === 0 || !!balanceError">
           <span v-if="!loading">Withdraw ₱{{ formData.amount || '0' }}</span>
           <span v-else>Processing...</span>
         </UiButton>
@@ -266,34 +278,48 @@ loadBalance()
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--carbonify-primary-700);
+  color: var(--primary-dark, #045c1a);
 }
 
 .form-description {
   margin: 0;
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
   font-size: 14px;
 }
 
 .balance-display {
   text-align: center;
   padding: 20px;
-  background: var(--carbonify-primary-50);
-  border: 1px solid var(--carbonify-primary-200);
+  background: var(--primary-lightest, #f8fdf8);
+  border: 1px solid var(--border-green-light, #d4edda);
   border-radius: 12px;
   margin-bottom: 24px;
 }
 
 .balance-label {
   font-size: 14px;
-  color: var(--carbonify-primary-600);
+  color: var(--primary-hover, #04701f);
   margin-bottom: 8px;
 }
 
+.balance-unknown {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #991b1b;
+}
+.balance-retry {
+  background: none;
+  border: none;
+  padding: 0 0 0 6px;
+  color: #991b1b;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .balance-amount {
   font-size: 32px;
   font-weight: 800;
-  color: var(--carbonify-primary-700);
+  color: var(--primary-dark, #045c1a);
 }
 
 .form-grid {
@@ -309,7 +335,7 @@ loadBalance()
 .input-label {
   font-weight: 600;
   font-size: 14px;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .amount-buttons {
@@ -320,29 +346,29 @@ loadBalance()
 
 .amount-btn {
   padding: 12px 8px;
-  border: 1px solid var(--carbonify-border);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
-  background: var(--carbonify-surface);
-  color: var(--carbonify-text);
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a1a);
   font-weight: 600;
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .amount-btn:hover {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-50);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-lightest, #f8fdf8);
 }
 
 .amount-btn.active {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-500);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .max-btn {
-  background: var(--carbonify-primary-100);
-  border-color: var(--carbonify-primary-300);
+  background: var(--primary-light, #e8f5e8);
+  border-color: var(--border-green-light, #d4edda);
 }
 
 .payment-methods {
@@ -356,20 +382,20 @@ loadBalance()
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--carbonify-border);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
-  background: var(--carbonify-surface);
+  background: var(--bg-primary, #ffffff);
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .payment-method:hover {
-  border-color: var(--carbonify-primary-500);
+  border-color: var(--primary-color, #058526);
 }
 
 .payment-method.active {
-  border-color: var(--carbonify-primary-500);
-  background: var(--carbonify-primary-50);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-lightest, #f8fdf8);
 }
 
 .payment-radio {
@@ -383,7 +409,7 @@ loadBalance()
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(6, 158, 45, 0.12);
+  background: rgba(5, 133, 38, 0.12);
   color: var(--carbonify-primary-600, #047857);
   font-size: 22px;
 }

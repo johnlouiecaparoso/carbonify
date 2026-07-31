@@ -39,37 +39,89 @@
             <span v-if="selected.period_start">· {{ selected.period_start }} → {{ selected.period_end || '—' }}</span>
           </div>
 
-          <h4 class="block-title">Activity Data</h4>
-          <table class="data-table" v-if="selected.activity?.length">
+          <!-- Activity data AND the arithmetic applied to it. The reviewer is
+               accountable for the issued number, so showing the total without
+               the factor that produced it asked them to certify a figure they
+               could not audit. Reproduces calculate_report_vers() exactly. -->
+          <h4 class="block-title">Activity Data &amp; Calculation</h4>
+          <table class="data-table stack-on-mobile" v-if="calculation.lines.length">
             <thead>
-              <tr><th>Metric</th><th>Value</th><th>Unit</th></tr>
+              <tr>
+                <th>Metric</th>
+                <th class="num">Value</th>
+                <th>Unit</th>
+                <th class="num">Factor</th>
+                <th class="num">tCO₂e</th>
+              </tr>
             </thead>
             <tbody>
-              <tr v-for="a in selected.activity" :key="a.id">
-                <td>{{ a.metric_key }}</td>
-                <td>{{ Number(a.value).toLocaleString() }}</td>
-                <td>{{ a.unit }}</td>
+              <tr v-for="(line, i) in calculation.lines" :key="i" :class="{ unmatched: !line.matched }">
+                <td data-label="Metric">
+                  {{ line.label }}
+                  <span v-if="!line.matched" class="no-factor" title="No emission factor is defined for this metric on this project type, so it contributes nothing to the total.">
+                    no factor
+                  </span>
+                </td>
+                <td class="num" data-label="Value">{{ Number(line.value).toLocaleString() }}</td>
+                <td data-label="Unit">{{ line.unit || '—' }}</td>
+                <td class="num" data-label="Factor">{{ line.matched ? `× ${line.factor}` : '—' }}</td>
+                <td class="num" data-label="tCO2e">{{ line.matched ? line.subtotal.toLocaleString() : '0' }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4"><strong>Total</strong></td>
+                <td class="num" data-label="tCO2e"><strong>{{ calculation.total.toLocaleString() }}</strong></td>
+              </tr>
+            </tfoot>
           </table>
           <p v-else class="muted">No activity data submitted.</p>
 
+          <p v-if="calculation.unmatched" class="calc-warning">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            {{ calculation.unmatched }} metric(s) have no emission factor for
+            "{{ selected.project?.category || 'this project type' }}" and contribute nothing to the
+            total. Confirm the developer used the right metric before approving.
+          </p>
+          <p v-else-if="calculation.mismatch" class="calc-warning">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            This breakdown totals {{ calculation.total.toLocaleString() }} tCO₂e but the report
+            stores {{ Number(selected.proposed_vers || 0).toLocaleString() }}. The factors may have
+            changed since submission — re-check before approving.
+          </p>
+
           <h4 class="block-title">Evidence</h4>
           <div v-if="selected.evidence?.length" class="evidence-grid">
-            <a
-              v-for="ev in selected.evidence"
-              :key="ev.id"
-              :href="ev.file_url"
-              target="_blank"
-              rel="noopener"
-              class="evidence-item"
-            >
-              <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" />
-              <span v-else class="material-symbols-outlined file-icon">description</span>
-              <span class="evidence-caption">{{ ev.caption || 'Evidence' }}</span>
-            </a>
+            <!-- Each item carries its integrity flags: when and where the photo
+                 was taken, and whether these exact bytes have been submitted
+                 against another report. -->
+            <div v-for="ev in selected.evidence" :key="ev.id" class="evidence-cell">
+              <a :href="ev.file_url" target="_blank" rel="noopener" class="evidence-item">
+                <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" />
+                <span v-else class="material-symbols-outlined file-icon">description</span>
+                <span class="evidence-caption">{{ ev.caption || 'Evidence' }}</span>
+              </a>
+              <ul class="integrity-flags">
+                <li
+                  v-for="(flag, i) in integrityFor(ev).flags"
+                  :key="i"
+                  :class="['integrity-flag', flag.level]"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    {{ flagIcon(flag.level) }}
+                  </span>
+                  {{ flag.text }}
+                </li>
+              </ul>
+            </div>
           </div>
           <p v-else class="muted">No evidence attached.</p>
+
+          <p v-if="suspiciousEvidenceCount" class="calc-warning">
+            <span class="material-symbols-outlined" aria-hidden="true">gpp_maybe</span>
+            {{ suspiciousEvidenceCount }} evidence item(s) need a closer look — a duplicate
+            submission or a capture date outside this reporting period. Resolve before approving.
+          </p>
 
           <div v-if="selected.notes" class="dev-notes">
             <strong>Developer notes:</strong> {{ selected.notes }}
@@ -78,6 +130,22 @@
           <div class="vers-box">
             <span>Platform-calculated reductions</span>
             <strong>{{ Number(selected.proposed_vers || 0).toLocaleString() }} tCO₂e</strong>
+          </div>
+
+          <!-- Double-issuance warning. Live runs BOTH issuance triggers: this
+               project already minted a pool and a listing when it was validated,
+               so approving here mints a second time against the same project.
+               Deliberately a warning and not a block — see
+               alreadyIssuedOnValidation in monitoringService and backlog #17,
+               which has not yet settled which model is canonical. -->
+          <div v-if="selected.doubleIssuanceRisk" class="double-issue-warn" role="alert">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            <div>
+              <strong>This project was already issued credits when it was validated.</strong>
+              Approving this report mints a <em>second</em> batch against the same project. Unless
+              these reductions are genuinely additional to the ones already issued, do not approve —
+              confirm the issuance model with an administrator first.
+            </div>
           </div>
 
           <!-- Decision -->
@@ -128,19 +196,47 @@
         </div>
       </div>
     </div>
+
+    <!-- Same confirmation component the project review panel uses. -->
+    <ModernPrompt
+      :is-open="promptState.isOpen"
+      :type="promptState.type"
+      :title="promptState.title"
+      :message="promptState.message"
+      :confirm-text="promptState.confirmText"
+      :cancel-text="promptState.cancelText"
+      :show-cancel="promptState.showCancel"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="handleClose"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { REPORT_STATUS_META, REDUCTION_TYPES, suggestedReductionType } from '@/constants/mrv'
+import { useModernPrompt } from '@/composables/useModernPrompt'
+import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import {
   getReviewQueue,
   getReport,
   startReview,
   approveReport,
   rejectReport,
+  getMethodologyFactors,
+  buildVerCalculation,
+  findDuplicateEvidence,
 } from '@/services/monitoringService'
+import { evidenceIntegrity } from '@/utils/imageEvidence'
+
+const {
+  promptState,
+  confirm: confirmPrompt,
+  handleConfirm,
+  handleCancel,
+  handleClose,
+} = useModernPrompt()
 
 const queue = ref([])
 const loading = ref(false)
@@ -157,7 +253,53 @@ const notes = ref('')
 
 const selectedProjectTitle = computed(() => {
   const match = queue.value.find((r) => r.id === selected.value?.id)
-  return match?.project?.title || 'Project'
+  return match?.project?.title || selected.value?.project?.title || 'Project'
+})
+
+// Emission factors for the selected report's project type.
+const factors = ref([])
+
+// evidence id → other reports carrying the identical file.
+const duplicatesByEvidence = ref({})
+
+function integrityFor(evidence) {
+  return evidenceIntegrity(evidence, duplicatesByEvidence.value[evidence.id] || [], selected.value)
+}
+
+function flagIcon(level) {
+  return { ok: 'check_circle', warn: 'info', alert: 'gpp_maybe', info: 'help' }[level] || 'info'
+}
+
+const suspiciousEvidenceCount = computed(
+  () => (selected.value?.evidence || []).filter((ev) => integrityFor(ev).suspicious).length,
+)
+
+/** Look up duplicates for every hashed evidence item on the open report. */
+async function loadEvidenceDuplicates(report) {
+  const found = {}
+  for (const ev of report?.evidence || []) {
+    if (!ev.content_hash) continue
+    const dupes = await findDuplicateEvidence(ev.content_hash, report.id)
+    if (dupes.length) found[ev.id] = dupes
+  }
+  duplicatesByEvidence.value = found
+}
+
+/**
+ * The platform's arithmetic, line by line. `mismatch` flags a breakdown that no
+ * longer reproduces the stored proposed_vers — which happens when an admin
+ * edits methodology_factors after a report was submitted.
+ */
+const calculation = computed(() => {
+  const result = buildVerCalculation({
+    activity: selected.value?.activity || [],
+    factors: factors.value,
+  })
+  const stored = Number(selected.value?.proposed_vers || 0)
+  return {
+    ...result,
+    mismatch: result.lines.length > 0 && Math.abs(result.total - stored) > 0.000001,
+  }
 })
 
 function statusMeta(status) {
@@ -197,10 +339,15 @@ async function select(reportId) {
         new Date().getFullYear(),
     )
     // A suggestion from the project category, not a classification — the verifier
-    // confirms or overrides it before the credits are minted.
-    reductionType.value = suggestedReductionType(
-      selected.value.project?.category || selected.value.category || '',
-    )
+    // confirms or overrides it before the credits are minted. getReport now
+    // attaches the project, so this actually receives a category; it used to be
+    // handed '' on every report because monitoring_reports has no category column.
+    const category = selected.value.project?.category || ''
+    reductionType.value = suggestedReductionType(category)
+    // Same factors the server-side calculation joins against.
+    factors.value = await getMethodologyFactors(category)
+    duplicatesByEvidence.value = {}
+    loadEvidenceDuplicates(selected.value).catch(() => {})
     notes.value = ''
   } catch (err) {
     setMessage(err.message || 'Failed to load report', true)
@@ -222,7 +369,22 @@ async function doStartReview() {
 }
 
 async function doApprove() {
-  if (!confirm('Approve this report and issue credits to the project? This cannot be undone.')) return
+  // Approving mints credits and lists them for sale. That deserves the same
+  // styled, readable confirmation the project panel uses — this was a native
+  // blocking confirm() on the highest-stakes action in the product.
+  const qty = Number(approvedQuantity.value || 0).toLocaleString()
+  const base = `Approve this report and issue ${qty} tCO₂e to "${selectedProjectTitle.value}"? Credits are minted and listed on the marketplace. This cannot be undone.`
+
+  // Escalate the wording when this would be a second issuance — the inline
+  // banner can be scrolled past, the confirmation cannot.
+  const ok = await confirmPrompt({
+    title: selected.value?.doubleIssuanceRisk ? 'Issue credits a second time?' : 'Issue credits?',
+    message: selected.value?.doubleIssuanceRisk
+      ? `"${selectedProjectTitle.value}" was already issued credits when it was validated. ${base} You would be issuing against this project TWICE.`
+      : base,
+    confirmText: 'Approve & issue',
+  })
+  if (!ok) return
   working.value = true
   setMessage('')
   try {
@@ -233,11 +395,25 @@ async function doApprove() {
       notes: notes.value,
       reductionType: reductionType.value,
     })
-    setMessage('Approved. Credits issued and listed on the marketplace.')
-    selected.value = null
-    await loadQueue()
   } catch (err) {
     setMessage(err.message || 'Failed to approve', true)
+    working.value = false
+    return
+  }
+
+  setMessage('Approved. Credits issued and listed on the marketplace.')
+  selected.value = null
+
+  // Reloading the queue is NOT part of the issuance and must never be reported
+  // as a failed issuance. This used to sit inside the try above, so a failed
+  // reload — after credits had already been minted and listed — showed "Failed
+  // to approve". The obvious response to that is to approve again, which mints
+  // a second time. Refresh failures are now their own, non-alarming message.
+  try {
+    await loadQueue()
+  } catch (refreshError) {
+    console.error('Credits issued, but reloading the queue failed:', refreshError)
+    setMessage('Approved and issued. The queue below may be stale — press Refresh.')
   } finally {
     working.value = false
   }
@@ -250,16 +426,33 @@ async function doReject() {
     setMessage('Please add a brief reason (min 5 characters) before rejecting.', true)
     return
   }
-  if (!confirm('Reject this MRV report? The developer will be notified with your reason.')) return
+  const ok = await confirmPrompt({
+    title: 'Reject this report?',
+    message: 'The developer will be notified with your reason and will need to resubmit.',
+    confirmText: 'Reject report',
+  })
+  if (!ok) return
   working.value = true
   setMessage('')
   try {
     await rejectReport(selected.value.id, notes.value)
-    setMessage('Report rejected.')
-    selected.value = null
-    await loadQueue()
   } catch (err) {
     setMessage(err.message || 'Failed to reject', true)
+    working.value = false
+    return
+  }
+
+  setMessage('Report rejected.')
+  selected.value = null
+
+  // Same separation as doApprove: a rejection that committed must not be
+  // reported as failed because the reload afterwards did. Rejecting mints
+  // nothing, but a retry re-notifies the developer of a decision already sent.
+  try {
+    await loadQueue()
+  } catch (refreshError) {
+    console.error('Report rejected, but reloading the queue failed:', refreshError)
+    setMessage('Report rejected. The queue below may be stale — press Refresh.')
   } finally {
     working.value = false
   }
@@ -330,12 +523,12 @@ loadQueue()
 }
 
 .queue-item:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .queue-item.active {
   background: var(--primary-light, #e8f5e8);
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .queue-title {
@@ -402,6 +595,99 @@ loadQueue()
   border-bottom: 1px solid var(--border-light, #e8f5e8);
 }
 
+.data-table th.num,
+.data-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tfoot td {
+  border-top: 2px solid #e5e7eb;
+  border-bottom: none;
+}
+
+/* A metric with no factor contributes nothing — say so rather than showing a
+   silent zero the verifier has to notice on their own. */
+.data-table tr.unmatched td {
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.no-factor {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.calc-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  color: #92400e;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.calc-warning .material-symbols-outlined {
+  font-size: 1.05rem;
+  flex: 0 0 auto;
+}
+
+/* Evidence integrity ------------------------------------------------------ */
+.evidence-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.integrity-flags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.integrity-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.integrity-flag .material-symbols-outlined {
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.integrity-flag.ok {
+  color: #166534;
+}
+
+/* A missing geotag is an absence to weigh, not an accusation — amber, not red. */
+.integrity-flag.warn {
+  color: #92400e;
+}
+
+.integrity-flag.alert {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .muted {
   color: var(--text-muted, #6b7280);
   font-size: 0.85rem;
@@ -453,6 +739,24 @@ loadQueue()
   font-size: 0.85rem;
 }
 
+.double-issue-warn {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin: 12px 0;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.double-issue-warn .material-symbols-outlined {
+  color: #dc2626;
+  flex-shrink: 0;
+}
 .vers-box {
   display: flex;
   justify-content: space-between;
@@ -464,7 +768,7 @@ loadQueue()
 }
 
 .vers-box strong {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 1.2rem;
 }
 
@@ -497,7 +801,7 @@ loadQueue()
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .hint {
@@ -514,7 +818,7 @@ loadQueue()
 
 .message {
   margin-top: 0.6rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 500;
 }
 
@@ -542,7 +846,7 @@ loadQueue()
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 

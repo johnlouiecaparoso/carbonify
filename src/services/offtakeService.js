@@ -132,8 +132,11 @@ export async function getMyOfftakes() {
     .eq('developer_id', user.id)
     .order('created_at', { ascending: false })
   if (error) {
+    // Not []: an offtake agreement is a developer's forward revenue. "You have
+    // no agreements" is a claim about their business, not a loading state.
+    // OfftakeAgreementsView already renders `loadError` for this.
     console.error('Error loading offtake agreements:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load your offtake agreements')
   }
   return data || []
 }

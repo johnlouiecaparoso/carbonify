@@ -1,7 +1,12 @@
 <template>
   <div class="cart-view">
+    <PageHeader title="Your Cart" description="Review your items and check out." />
+
     <div class="container">
-      <h1 class="page-title">Your Cart</h1>
+
+      <!-- Same KYC gate the marketplace shows; the cart checkout path used to
+           skip it entirely, so the two paths enforced different rules. -->
+      <KycGateBanner v-if="cart.items.length > 0" context="checkout" />
 
       <!-- Sequential-checkout resume banner -->
       <div v-if="resuming && cart.items.length > 0" class="resume-banner">
@@ -60,9 +65,17 @@
           <p class="summary-note">
             Items are paid for one at a time; you'll be returned here to continue after each payment.
           </p>
-          <button class="checkout-btn" :disabled="checkingOut" @click="startCheckout">
+          <button
+            class="checkout-btn"
+            :disabled="checkingOut || needsKyc"
+            :title="needsKyc ? 'Identity verification required before checkout' : ''"
+            @click="startCheckout"
+          >
             {{ checkingOut ? 'Redirecting…' : 'Proceed to checkout' }}
           </button>
+          <router-link v-if="needsKyc" to="/kyc" class="kyc-link">
+            Verify your identity to check out →
+          </router-link>
           <button class="clear-btn" @click="cart.clear()">Clear cart</button>
           <p v-if="error" class="checkout-error">{{ error }}</p>
         </aside>
@@ -73,15 +86,20 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/store/cartStore'
 import { useUserStore } from '@/store/userStore'
 import { createMarketplaceCheckout } from '@/services/paymongoService'
+import { assertCanTrade } from '@/services/kycService'
 import { CART_CHECKOUT_ACTIVE, CART_PENDING_LISTING } from '@/constants/cart'
+import KycGateBanner from '@/components/ui/KycGateBanner.vue'
+import { useTradeEligibility } from '@/composables/useTradeEligibility'
 
 const router = useRouter()
 const cart = useCartStore()
 const userStore = useUserStore()
+const { needsKyc, ensureLoaded: ensureKycLoaded } = useTradeEligibility()
 const checkingOut = ref(false)
 const error = ref('')
 const resuming = ref(false)
@@ -102,6 +120,10 @@ async function startCheckout() {
 
   checkingOut.value = true
   try {
+    // Enforce the same KYC rule the marketplace path enforces. Checked before a
+    // PayMongo session exists so a rejection never strands a paid-for order.
+    await assertCanTrade()
+
     // Mark a sequential checkout in progress so the payment callback can clear
     // the paid item and bring the buyer back here for the next one.
     localStorage.setItem(CART_CHECKOUT_ACTIVE, '1')
@@ -135,6 +157,10 @@ async function startCheckout() {
 }
 
 onMounted(() => {
+  // Resolve KYC state up front so the checkout button reflects it immediately
+  // rather than flipping to disabled after the buyer has already clicked.
+  ensureKycLoaded()
+
   // Returning mid-sequence (callback cleared the paid item and sent us back).
   if (localStorage.getItem(CART_CHECKOUT_ACTIVE) === '1') {
     if (cart.items.length > 0) {
@@ -148,17 +174,16 @@ onMounted(() => {
 
 <style scoped>
 .cart-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
-.page-title {
-  font-size: 1.8rem;
-  margin: 0 0 1.25rem;
-}
+
 .resume-banner {
   display: flex;
   align-items: center;
@@ -181,7 +206,7 @@ onMounted(() => {
 .browse-link {
   display: inline-block;
   margin-top: 0.75rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -311,7 +336,7 @@ onMounted(() => {
   padding: 0.75rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -319,6 +344,18 @@ onMounted(() => {
 .checkout-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.kyc-link {
+  display: block;
+  margin-top: 0.6rem;
+  text-align: center;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #b45309;
+  text-decoration: none;
+}
+.kyc-link:hover {
+  text-decoration: underline;
 }
 .clear-btn {
   width: 100%;

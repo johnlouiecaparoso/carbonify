@@ -7,6 +7,10 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
+    // The happy-dom environment flakes on Windows under worker parallelism
+    // (workers fail to init and every file reports "no tests"). Run files
+    // serially so `npm test` is reliable; the suite is fast enough (~48s).
+    fileParallelism: false,
     setupFiles: ['./src/test/setup.js'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/src/test/e2e/**'],
     coverage: {

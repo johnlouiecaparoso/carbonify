@@ -3,9 +3,25 @@ import { getSession, signOut } from '@/services/authService'
 import { getProfile, updateProfile } from '@/services/profileService'
 import { roleService } from '@/services/roleService'
 import { logUserAction } from '@/services/auditService'
-import { ROLES } from '@/constants/roles'
+import { ROLES, canonicalizeRole } from '@/constants/roles'
 import { PLANS, effectivePlan, planHasFeature } from '@/constants/plans'
 import { getBlockingRoleApplicationForUser } from '@/services/roleApplicationService'
+
+/**
+ * True for storage keys that hold an auth session, and nothing else.
+ *
+ * The old test was `startsWith('sb-') || includes('supabase') || includes('auth')
+ * || includes('user')`. Those last two are substring matches on words common
+ * enough to catch unrelated keys — and clearLocalStorage runs on session
+ * EXPIRY, not just logout, so an expiring session took the user's other saved
+ * state with it. Supabase writes `sb-<project-ref>-auth-token`, so the prefix
+ * alone is sufficient and precise.
+ *
+ * Exported for unit testing.
+ */
+export function isAuthStorageKey(key) {
+  return typeof key === 'string' && (key.startsWith('sb-') || key.startsWith('supabase.'))
+}
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -16,6 +32,13 @@ export const useUserStore = defineStore('user', {
     permissions: [],
     _profileFetchPromise: null,
     _profileFetchInProgress: false,
+    _profileRetryInProgress: false,
+    // True when the LAST profile fetch failed transiently (timeout / network /
+    // unreadable row) rather than returning a definitive answer. Lets the UI
+    // tell "we couldn't load your profile" apart from "you are a general_user",
+    // and marks that the current role may be stale-but-last-known rather than
+    // a silent downgrade.
+    profileFetchFailed: false,
   }),
   getters: {
     isAuthenticated: (state) => !!state.session?.user,
@@ -31,7 +54,8 @@ export const useUserStore = defineStore('user', {
       roleService.hasAnyPermission(state.role, permissions),
     hasAllPermissions: (state) => (permissions) =>
       roleService.hasAllPermissions(state.role, permissions),
-    canAccessRoute: (state) => (routePath) => roleService.canAccessRoute(state.role, routePath),
+    // No canAccessRoute getter: route access is decided by route meta in the
+    // router guard, not by a second permission table that disagreed with it.
     // Subscription tier (orthogonal to role). Expiry-aware: a lapsed paid plan
     // resolves to FREE here, mirroring the server's effective-plan logic.
     plan: (state) => effectivePlan(state.profile),
@@ -130,11 +154,10 @@ export const useUserStore = defineStore('user', {
 
       // Mark as in progress and create promise
       this._profileFetchInProgress = true
-      this._profileFetchPromise = this._performProfileFetch()
-        .finally(() => {
-          this._profileFetchInProgress = false
-          this._profileFetchPromise = null
-        })
+      this._profileFetchPromise = this._performProfileFetch().finally(() => {
+        this._profileFetchInProgress = false
+        this._profileFetchPromise = null
+      })
 
       try {
         await this._profileFetchPromise
@@ -201,11 +224,7 @@ export const useUserStore = defineStore('user', {
             this.role = testAccount.role
           }
 
-          // Normalize role
-          const normalizedRole =
-            typeof this.role === 'string' ? this.role.toLowerCase().trim() : ROLES.GENERAL_USER
-          this.role = normalizedRole
-
+          this.role = canonicalizeRole(this.role)
           this.updatePermissions()
 
           if (import.meta.env.DEV) {
@@ -220,16 +239,11 @@ export const useUserStore = defineStore('user', {
           return
         }
 
-        // For real users, fetch from Supabase
-        // Add timeout to prevent hanging (increased to 20 seconds for slower connections)
-        // Use AbortController for better cancellation
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => {
-          controller.abort()
-        }, 20000)
-
+        // For real users, fetch from Supabase. Guard a hung request with a 20s
+        // timeout via Promise.race. (A previous AbortController here was built
+        // and wired to a timeout but never passed to getProfile, so it cancelled
+        // nothing — removed to avoid implying cancellation that never happened.)
         try {
-          // Fetch profile with timeout
           const profilePromise = getProfile(this.session.user.id)
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => {
@@ -238,28 +252,29 @@ export const useUserStore = defineStore('user', {
           })
 
           const profile = await Promise.race([profilePromise, timeoutPromise])
-          clearTimeout(timeoutId)
-          
-          // Handle case where profile is null (RLS blocked creation)
+
+          // A null profile is anomalous now that handle_new_auth_user creates a
+          // row for every user inside the signup transaction: it means we could
+          // not READ the row (RLS, or it isn't visible yet), not that the user
+          // has no role. Downgrading to general_user here is exactly the silent
+          // demotion that hid the original signup bug, so keep the last-known
+          // role, flag the failure, and let the background retry recover it.
           if (!profile) {
-            console.warn('⚠️ Profile is null (likely blocked by RLS policy). Using default values.')
-            this.profile = null
-            this.role = ROLES.GENERAL_USER
-            this.updatePermissions()
+            console.warn('⚠️ Profile not readable; keeping last-known role and retrying.')
+            this.profileFetchFailed = true
+            this._retryProfileFetch(3, 2000)
             return
           }
 
           this.profile = profile
-          // Normalize role - ensure it matches ROLES constants exactly
-          const roleFromProfile = profile.role || ROLES.GENERAL_USER
-          // Convert to lowercase and ensure it matches expected format
-          const normalizedRole =
-            typeof roleFromProfile === 'string'
-              ? roleFromProfile.toLowerCase().trim()
-              : ROLES.GENERAL_USER
+          // canonicalizeRole, not an inline lowercase/trim: the retry path below
+          // used to normalize differently, so a stored 'Admin' worked here and
+          // demoted the user to general_user after a timeout retry.
+          const normalizedRole = canonicalizeRole(profile.role)
 
           this.role = normalizedRole
           this.updatePermissions()
+          this.profileFetchFailed = false
 
           // Debug logging
           if (import.meta.env.DEV) {
@@ -277,31 +292,28 @@ export const useUserStore = defineStore('user', {
           }
           return
         } catch (timeoutError) {
-          clearTimeout(timeoutId)
-          
           // If it's a timeout, log it as a warning (not error) since we handle it gracefully
           if (timeoutError.message === 'Profile fetch timeout') {
-            console.warn('⚠️ Profile fetch timed out after 20 seconds. Continuing without profile.')
-            console.warn('💡 This may be due to slow network or database connection.')
-            console.warn('💡 Profile will be loaded in background once available.')
-            this.profile = null
-            this.role = ROLES.GENERAL_USER
-            this.updatePermissions()
-            
-            // Try to fetch profile in background with retry logic
+            console.warn('⚠️ Profile fetch timed out after 20 seconds.')
+            // A timeout is transient. Do NOT reset role to general_user: that
+            // silently strips an already-loaded admin's permissions and UI until
+            // a retry happens to land. Keep the last-known role, flag the
+            // failure, and recover in the background.
+            this.profileFetchFailed = true
             this._retryProfileFetch(3, 2000) // 3 retries, 2 second delay
             return
           }
           // Re-throw if it's not a timeout
           throw timeoutError
         }
-
       } catch (error) {
         // Handle RLS violations with specific messaging
         if (error.code === 'RLS_VIOLATION' || error.message?.includes('row-level security')) {
           console.warn('⚠️ Profile fetch blocked by RLS policy:', error.message)
           if (import.meta.env.DEV) {
-            console.warn('💡 To fix: Configure Supabase RLS policies to allow users to read/insert their own profiles.')
+            console.warn(
+              '💡 To fix: Configure Supabase RLS policies to allow users to read/insert their own profiles.',
+            )
           }
         } else if (error.message === 'Profile fetch timeout') {
           // Already handled in inner try-catch, just return
@@ -311,11 +323,12 @@ export const useUserStore = defineStore('user', {
           console.warn('⚠️ Profile fetch error (non-critical):', error.message)
         }
 
-        // Set default values and continue
-        this.profile = null
-        this.role = ROLES.GENERAL_USER
-        this.updatePermissions()
-        
+        // Don't reset role to general_user: an error is not proof the user lacks
+        // a role, and silently downgrading is the invisibility that masked the
+        // original signup bug. Preserve the last-known role, flag the failure,
+        // and recover via the background retry.
+        this.profileFetchFailed = true
+
         // Try to fetch profile in background with retry logic (only if not timeout)
         if (error.message !== 'Profile fetch timeout') {
           this._retryProfileFetch(3, 2000) // 3 retries, 2 second delay
@@ -329,35 +342,47 @@ export const useUserStore = defineStore('user', {
         return
       }
 
-      // Don't retry if another fetch is already in progress
-      if (this._profileFetchInProgress) {
+      // Guard against stacking multiple retry loops — but NOT against the primary
+      // fetch. This is invoked from inside _performProfileFetch's failure
+      // handlers, where _profileFetchInProgress is still true, so the old guard
+      // keyed on that flag returned immediately every time and the retry never
+      // actually ran. Use a dedicated retry flag instead.
+      if (this._profileRetryInProgress) {
         return
       }
+      this._profileRetryInProgress = true
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        const delay = initialDelay * Math.pow(2, attempt - 1) // Exponential backoff: 2s, 4s, 8s
-        
-        try {
-          await new Promise(resolve => setTimeout(resolve, delay))
-          
-          console.log(`🔄 Retrying profile fetch (attempt ${attempt}/${maxRetries})...`)
-          const profile = await getProfile(this.session.user.id)
-          
-          if (profile) {
-            this.profile = profile
-            this.role = profile.role || ROLES.GENERAL_USER
-            this.updatePermissions()
-            console.log(`✅ Profile loaded successfully after ${attempt} retry attempt(s)`)
-            return
-          }
-        } catch {
-          if (attempt === maxRetries) {
-            console.warn(`⚠️ Profile fetch failed after ${maxRetries} retry attempts`)
-            console.warn('💡 User will continue with default profile settings')
-          } else {
-            console.warn(`⚠️ Profile fetch retry ${attempt} failed, will retry in ${delay}ms...`)
+      try {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          const delay = initialDelay * Math.pow(2, attempt - 1) // Exponential backoff: 2s, 4s, 8s
+
+          try {
+            await new Promise((resolve) => setTimeout(resolve, delay))
+
+            console.log(`🔄 Retrying profile fetch (attempt ${attempt}/${maxRetries})...`)
+            const profile = await getProfile(this.session.user.id)
+
+            if (profile) {
+              this.profile = profile
+              // Same canonicalization as the primary path. These two disagreeing
+              // is what let a retry silently downgrade an admin.
+              this.role = canonicalizeRole(profile.role)
+              this.updatePermissions()
+              this.profileFetchFailed = false
+              console.log(`✅ Profile loaded successfully after ${attempt} retry attempt(s)`)
+              return
+            }
+          } catch {
+            if (attempt === maxRetries) {
+              console.warn(`⚠️ Profile fetch failed after ${maxRetries} retry attempts`)
+              console.warn('💡 User will continue with the last-known role')
+            } else {
+              console.warn(`⚠️ Profile fetch retry ${attempt} failed, will retry in ${delay}ms...`)
+            }
           }
         }
+      } finally {
+        this._profileRetryInProgress = false
       }
     },
 
@@ -400,50 +425,33 @@ export const useUserStore = defineStore('user', {
       this.profile = null
       this.role = ROLES.GENERAL_USER
       this.permissions = []
+      // A deliberate sign-out/expiry is a definitive answer, not a transient
+      // failure — clear the flag so a returning guest never sees the
+      // "couldn't load your profile" banner from a previous session.
+      this.profileFetchFailed = false
       this.clearLocalStorage()
     },
     clearLocalStorage() {
       try {
-        if (typeof window !== 'undefined') {
-          // Clear localStorage
-          if (window.localStorage) {
-            Object.keys(window.localStorage).forEach((key) => {
-              if (
-                key.startsWith('sb-') ||
-                key.includes('supabase') ||
-                key.includes('auth') ||
-                key.includes('user')
-              ) {
-                window.localStorage.removeItem(key)
-              }
-            })
-          }
+        if (typeof window === 'undefined') return
 
-          // Clear sessionStorage
-          if (window.sessionStorage) {
-            Object.keys(window.sessionStorage).forEach((key) => {
-              if (
-                key.startsWith('sb-') ||
-                key.includes('supabase') ||
-                key.includes('auth') ||
-                key.includes('user')
-              ) {
-                window.sessionStorage.removeItem(key)
-              }
-            })
-          }
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+          if (!storage) continue
+          Object.keys(storage)
+            .filter(isAuthStorageKey)
+            .forEach((key) => storage.removeItem(key))
+        }
 
-          // Clear any cookies related to authentication
-          if (document.cookie) {
-            document.cookie.split(';').forEach((cookie) => {
-              const eqPos = cookie.indexOf('=')
-              const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
-              if (name.includes('supabase') || name.includes('auth') || name.includes('session')) {
-                document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
-                document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
-              }
-            })
-          }
+        // Clear any cookies related to authentication
+        if (document.cookie) {
+          document.cookie.split(';').forEach((cookie) => {
+            const eqPos = cookie.indexOf('=')
+            const name = eqPos > -1 ? cookie.slice(0, eqPos).trim() : cookie.trim()
+            if (name.includes('supabase') || name.includes('auth') || name.includes('session')) {
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
+            }
+          })
         }
       } catch (e) {
         console.warn('Error clearing storage:', e)

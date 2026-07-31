@@ -45,41 +45,60 @@
       <div v-else-if="loading && !rows.length" class="state">Loading registry…</div>
       <div v-else-if="!rows.length" class="state">No certificates match your search.</div>
 
-      <table v-else class="reg-table">
-        <thead>
-          <tr>
-            <th>Certificate</th>
-            <th>Project</th>
-            <th>Category</th>
-            <th>Location</th>
-            <th class="num">Credits</th>
-            <th>Vintage</th>
-            <th>Beneficiary</th>
-            <th>Issued</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.certificate_number">
-            <td class="mono">{{ row.certificate_number }}</td>
-            <td>{{ row.project_title || '—' }}</td>
-            <td>{{ row.project_category || '—' }}</td>
-            <td>{{ row.project_location || '—' }}</td>
-            <td class="num">{{ Number(row.credits_quantity || 0).toLocaleString() }}</td>
-            <td>{{ row.vintage_year || '—' }}</td>
-            <td>{{ row.beneficiary_name || '—' }}</td>
-            <td>{{ formatDate(row.issued_at) }}</td>
-            <td>
-              <router-link
-                class="verify-link"
-                :to="`/verify/${encodeURIComponent(row.certificate_number)}`"
-              >
-                Verify →
-              </router-link>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <template v-else>
+        <div
+          ref="tableWrapRef"
+          class="table-wrap"
+          :class="{ collapsed: isCollapsed }"
+          :style="isCollapsed && collapsedHeight ? { maxHeight: `${collapsedHeight}px` } : null"
+        >
+          <table class="reg-table">
+            <thead ref="theadRef">
+              <tr>
+                <th>Certificate</th>
+                <th>Project</th>
+                <th>Category</th>
+                <th>Location</th>
+                <th class="num">Credits</th>
+                <th>Vintage</th>
+                <th>Beneficiary</th>
+                <th>Issued</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody ref="tbodyRef">
+              <tr v-for="row in rows" :key="row.certificate_number">
+                <td class="mono">{{ row.certificate_number }}</td>
+                <td>{{ row.project_title || '—' }}</td>
+                <td>{{ row.project_category || '—' }}</td>
+                <td>{{ row.project_location || '—' }}</td>
+                <td class="num">{{ Number(row.credits_quantity || 0).toLocaleString() }}</td>
+                <td>{{ row.vintage_year || '—' }}</td>
+                <td>{{ row.beneficiary_name || '—' }}</td>
+                <td>{{ formatDate(row.issued_at) }}</td>
+                <td>
+                  <router-link
+                    class="verify-link"
+                    :to="`/verify/${encodeURIComponent(row.certificate_number)}`"
+                  >
+                    Verify →
+                  </router-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="rows.length > VISIBLE_ROWS" class="show-more">
+          <button class="btn btn-more" @click="toggleExpanded">
+            {{
+              expanded
+                ? 'Show less'
+                : `Show more (${(rows.length - VISIBLE_ROWS).toLocaleString()} more)`
+            }}
+          </button>
+        </div>
+      </template>
 
       <div v-if="rows.length" class="pager">
         <button class="btn" :disabled="page === 0 || loading" @click="changePage(-1)">Previous</button>
@@ -93,11 +112,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { searchRegistry, getRegistryStats } from '@/services/registryService'
 import { PROJECT_TYPES } from '@/constants/projectTypes'
 
 const categories = PROJECT_TYPES.map((t) => t.value)
+
+// Certificates shown before the list is collapsed behind "Show more".
+const VISIBLE_ROWS = 4
 
 const search = ref('')
 const category = ref('')
@@ -107,6 +129,34 @@ const rows = ref([])
 const stats = ref({ certificate_count: 0, total_credits: 0, project_count: 0 })
 const loading = ref(false)
 const error = ref('')
+
+const expanded = ref(false)
+const collapsedHeight = ref(0)
+const tableWrapRef = ref(null)
+const theadRef = ref(null)
+const tbodyRef = ref(null)
+
+const isCollapsed = computed(() => !expanded.value && rows.value.length > VISIBLE_ROWS)
+
+// Height of the header + the first VISIBLE_ROWS rows, so exactly four
+// certificates are visible and the rest scroll inside the box.
+function measureCollapsedHeight() {
+  const head = theadRef.value
+  const body = tbodyRef.value
+  if (!head || !body || !body.rows.length) return
+  let height = head.offsetHeight
+  for (let i = 0; i < Math.min(VISIBLE_ROWS, body.rows.length); i += 1) {
+    height += body.rows[i].offsetHeight
+  }
+  collapsedHeight.value = height
+}
+
+function toggleExpanded() {
+  expanded.value = !expanded.value
+  if (!expanded.value) {
+    tableWrapRef.value?.scrollTo({ top: 0 })
+  }
+}
 
 function formatDate(value) {
   if (!value) return '—'
@@ -132,6 +182,9 @@ async function load() {
     })
     rows.value = r
     pageSize.value = ps
+    expanded.value = false
+    await nextTick()
+    measureCollapsedHeight()
   } catch (e) {
     error.value = e?.message || 'Failed to load the registry.'
   } finally {
@@ -168,12 +221,12 @@ onMounted(async () => {
   padding: 0 1.5rem;
 }
 .page-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  padding: 2.25rem 0;
+  background: var(--primary-color, #058526);
+  padding: 1.25rem 0;
 }
 .page-title {
   color: #fff;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 0.25rem;
 }
@@ -235,13 +288,18 @@ onMounted(async () => {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.reg-table {
-  width: 100%;
-  border-collapse: collapse;
+.table-wrap {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+}
+.table-wrap.collapsed {
+  overflow-y: auto;
+}
+.reg-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.875rem;
 }
 .reg-table th,
@@ -251,11 +309,15 @@ onMounted(async () => {
   text-align: left;
 }
 .reg-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: #f8fafc;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: #6b7280;
+  box-shadow: inset 0 -1px 0 #e5e7eb;
 }
 .reg-table th.num,
 .reg-table td.num {
@@ -266,10 +328,23 @@ onMounted(async () => {
   font-size: 0.8rem;
 }
 .verify-link {
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+}
+.show-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+.btn-more {
+  color: #058526;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.btn-more:hover {
+  background: #dcfce7;
 }
 .pager {
   display: flex;
@@ -297,8 +372,7 @@ onMounted(async () => {
 }
 @media (max-width: 768px) {
   .reg-table {
-    display: block;
-    overflow-x: auto;
+    min-width: 720px;
   }
   .stats {
     gap: 1.5rem;

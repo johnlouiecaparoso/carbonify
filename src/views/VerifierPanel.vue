@@ -32,20 +32,42 @@
           <p class="hint-text">Please contact an administrator if you believe this is an error.</p>
         </div>
 
-        <!-- Verifier Dashboard -->
+        <!-- Verifier Dashboard.
+             These three used to render simultaneously — ~2,750 lines of
+             component and three independent data loads on every visit, as one
+             long scroll. They are separate jobs, so they are now separate tabs
+             and each mounts only when opened. -->
         <div v-else class="verifier-dashboard">
-          <!-- Project Approval Panel -->
+          <div class="workbench-tabs" role="tablist" aria-label="Verifier workbench">
+            <button
+              v-for="tab in tabs"
+              :key="tab.value"
+              type="button"
+              role="tab"
+              :aria-selected="activeTab === tab.value"
+              :class="['workbench-tab', { active: activeTab === tab.value }]"
+              @click="activeTab = tab.value"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">{{ tab.icon }}</span>
+              {{ tab.label }}
+              <!-- Hidden at zero: a row of "0" badges is noise, and an empty
+                   queue is already the least interesting thing on the page. -->
+              <span v-if="tab.count > 0" class="tab-count" :aria-label="`${tab.count} awaiting review`">
+                {{ tab.count }}
+              </span>
+            </button>
+          </div>
+
+          <!-- Deliberately NOT wrapped in <KeepAlive>. Two of these panels use
+               useModernPrompt, whose promptState is a module-level singleton,
+               and ModernPrompt teleports to body — so keeping both alive would
+               put two dialogs in the document bound to the same state. Plain
+               v-if means exactly one is mounted, which is also what makes
+               re-entering a tab show a freshly loaded queue. -->
           <div class="approval-section">
-            <ProjectApprovalPanel />
-          </div>
-
-          <!-- MRV Report Verification -->
-          <div class="approval-section role-review-section">
-            <MrvReviewDashboard />
-          </div>
-
-          <div class="approval-section role-review-section">
-            <DeveloperApplicationsDashboard />
+            <ProjectApprovalPanel v-if="activeTab === 'projects'" />
+            <MrvReviewDashboard v-else-if="activeTab === 'mrv'" />
+            <DeveloperApplicationsDashboard v-else-if="activeTab === 'applications'" />
           </div>
         </div>
       </div>
@@ -54,12 +76,43 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '@/store/userStore'
 import ProjectApprovalPanel from '@/components/admin/ProjectApprovalPanel.vue'
 import DeveloperApplicationsDashboard from '@/components/verifier/DeveloperApplicationsDashboard.vue'
 import MrvReviewDashboard from '@/components/verifier/MrvReviewDashboard.vue'
+import { getVerifierQueueCounts } from '@/services/verifierQueueCounts'
 
 const store = useUserStore()
+
+// Backlog per queue. Only one panel mounts at a time, so without these the
+// verifier had to open all three dashboards to find out which had work —
+// the role's first question was its most expensive one to answer.
+const counts = ref({ projects: 0, mrv: 0, applications: 0 })
+
+const tabs = computed(() => [
+  { value: 'projects', label: 'Project Reviews', icon: 'fact_check', count: counts.value.projects },
+  { value: 'mrv', label: 'MRV Reports', icon: 'query_stats', count: counts.value.mrv },
+  {
+    value: 'applications',
+    label: 'Developer Applications',
+    icon: 'how_to_reg',
+    count: counts.value.applications,
+  },
+])
+
+// Project validation is the queue a verifier opens the panel for.
+const activeTab = ref('projects')
+
+async function loadCounts() {
+  counts.value = await getVerifierQueueCounts()
+}
+
+onMounted(() => {
+  // Only for verifiers: the other branches of this view render an access notice
+  // and must not fire three queries the viewer has no right to.
+  if (store.isVerifier) loadCounts()
+})
 </script>
 
 <style scoped>
@@ -69,9 +122,9 @@ const store = useUserStore()
 }
 
 .page-header {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #058526);
   color: white;
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
 }
 
@@ -83,14 +136,14 @@ const store = useUserStore()
 }
 
 .page-title {
-  font-size: var(--font-size-4xl);
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: var(--font-size-lg);
+  font-size: 0.95rem;
   color: #fff;
 }
 
@@ -143,7 +196,7 @@ const store = useUserStore()
   display: inline-block;
   margin-top: 1rem;
   padding: 0.75rem 1.5rem;
-  background: #10b981;
+  background: var(--primary-color, #058526);
   color: white;
   text-decoration: none;
   border-radius: 8px;
@@ -166,18 +219,69 @@ const store = useUserStore()
   box-shadow: none;
 }
 
-.role-review-section {
-  margin-top: 2rem;
+.workbench-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.workbench-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.05rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* On the active tab the grey pill disappears into the fill, so invert it. */
+.workbench-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.9);
+  color: #058526;
+}
+
+.workbench-tab .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.workbench-tab.active {
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
+  background: #ecfdf5;
+}
+
+@media (max-width: 640px) {
+  .workbench-tab {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 768px) {
-  .page-title {
-    font-size: 2rem;
-  }
 
-  .page-description {
-    font-size: 1rem;
-  }
+
+
 
   .verifier-content {
     padding: 1rem 0;

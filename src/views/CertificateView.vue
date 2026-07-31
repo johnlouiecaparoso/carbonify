@@ -145,7 +145,7 @@
                     "
                     class="detail-row verification-row"
                   >
-                    <span class="detail-label">✓ Onchain Verification:</span>
+                    <span class="detail-label"><span class="material-symbols-outlined inline-ico" aria-hidden="true">verified</span> Onchain Verification:</span>
                     <span class="detail-value verification-value">
                       {{ selectedCertificate.wallet_address || selectedCertificate.certificate_data?.wallet_address ? 'Verified via wallet' : 'Verified via payment reference' }}
                     </span>
@@ -226,6 +226,9 @@
                   </button>
                   <button class="btn btn-outline btn-sm" @click="openVerification(selectedCertificate)">
                     Verify
+                  </button>
+                  <button class="btn btn-outline btn-sm" @click="shareCertificate(selectedCertificate)">
+                    {{ sharedCertificate === selectedCertificate.certificate_number ? 'Link copied' : 'Share proof' }}
                   </button>
                 </div>
               </div>
@@ -329,7 +332,7 @@
                     "
                     class="detail-row verification-row"
                   >
-                    <span class="detail-label">✓ Onchain Verification:</span>
+                    <span class="detail-label"><span class="material-symbols-outlined inline-ico" aria-hidden="true">verified</span> Onchain Verification:</span>
                     <span class="detail-value verification-value">
                       {{ selectedCertificate.wallet_address || selectedCertificate.certificate_data?.wallet_address ? 'Verified via wallet' : 'Verified via payment reference' }}
                     </span>
@@ -411,6 +414,9 @@
                   <button class="btn btn-outline btn-sm" @click="openVerification(selectedCertificate)">
                     Verify
                   </button>
+                  <button class="btn btn-outline btn-sm" @click="shareCertificate(selectedCertificate)">
+                    {{ sharedCertificate === selectedCertificate.certificate_number ? 'Link copied' : 'Share proof' }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -437,6 +443,8 @@ const certificates = ref([])
 const loading = ref(false)
 const error = ref('')
 const selectedCertificate = ref(null)
+/** Certificate number whose link was just copied — drives the button's confirmation. */
+const sharedCertificate = ref('')
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 const mobileDetailOpen = ref(false)
 
@@ -601,6 +609,52 @@ function openVerification(certificate) {
   // Open the public verification page in a new tab
   const url = router.resolve(`/verify/${encodeURIComponent(number)}`).href
   window.open(url, '_blank', 'noopener')
+}
+
+/** Absolute, publicly-resolvable URL for a certificate's verification page. */
+function verificationUrl(number) {
+  const path = router.resolve(`/verify/${encodeURIComponent(number)}`).href
+  return new URL(path, window.location.origin).toString()
+}
+
+/**
+ * Share the public proof of an offset. This is the one artifact an ESG buyer
+ * actually wants to show other people, and until now the verification URL was
+ * built internally but never handed to them.
+ *
+ * Uses the native share sheet where available (mobile), otherwise copies the
+ * link — both end with the buyer holding a shareable URL.
+ */
+async function shareCertificate(certificate) {
+  const number = certificate?.certificate_number
+  if (!number) {
+    alert('This certificate does not have a verification number yet.')
+    return
+  }
+
+  const url = verificationUrl(number)
+  const shareData = {
+    title: 'Verified carbon offset',
+    text: `Carbon credit retirement certificate ${number}, verifiable on Carbonify.`,
+    url,
+  }
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData)
+      return
+    }
+    await navigator.clipboard.writeText(url)
+    sharedCertificate.value = number
+    setTimeout(() => {
+      if (sharedCertificate.value === number) sharedCertificate.value = ''
+    }, 3000)
+  } catch (err) {
+    // AbortError = the user dismissed the share sheet; not a failure.
+    if (err?.name === 'AbortError') return
+    console.error('Failed to share certificate:', err)
+    window.prompt('Copy this verification link:', url)
+  }
 }
 
 async function downloadCertificate(certificate) {
@@ -820,8 +874,8 @@ onUnmounted(() => {
 
 /* Page Header */
 .page-header {
-  background: var(--primary-color, #10b981);
-  padding: 2rem 0;
+  background: var(--primary-color, #058526);
+  padding: 1.25rem 0;
   border-bottom: none;
 }
 
@@ -837,7 +891,7 @@ onUnmounted(() => {
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem 0;
@@ -864,7 +918,7 @@ onUnmounted(() => {
   width: 50px;
   height: 50px;
   border: 4px solid var(--border-color, #d1e7dd);
-  border-top-color: var(--primary-color, #069e2d);
+  border-top-color: var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -922,7 +976,7 @@ onUnmounted(() => {
 }
 
 .empty-state p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 2rem 0;
 }
 
@@ -961,16 +1015,16 @@ onUnmounted(() => {
 }
 
 .certificate-list-item:hover {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
   transform: translateX(4px);
 }
 
 .certificate-list-item.active {
   background: var(--primary-light, #e8f5e8);
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.15);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.15);
 }
 
 .certificate-list-title {
@@ -980,7 +1034,7 @@ onUnmounted(() => {
 
 .certificate-list-meta {
   margin-top: 0.3rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.78rem;
   font-weight: 500;
 }
@@ -1014,7 +1068,7 @@ onUnmounted(() => {
   padding: 2rem;
   min-height: 360px;
   text-align: center;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .placeholder-icon {
@@ -1085,7 +1139,7 @@ onUnmounted(() => {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   background: var(--primary-light, #e8f5e8);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   border-radius: 0.375rem;
   font-size: 0.75rem;
   font-weight: 600;
@@ -1107,7 +1161,7 @@ onUnmounted(() => {
 }
 
 .detail-label {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.875rem;
 }
 
@@ -1119,7 +1173,7 @@ onUnmounted(() => {
 }
 
 .detail-value.active {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
 }
 
 .detail-row.highlight-row {
@@ -1130,14 +1184,14 @@ onUnmounted(() => {
 }
 
 .detail-value.highlight-value {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
   font-size: 0.9375rem;
 }
 
 .detail-value.description-value {
   font-style: italic;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   line-height: 1.5;
 }
 
@@ -1155,7 +1209,7 @@ onUnmounted(() => {
 }
 
 .detail-value.verification-value {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
   font-weight: 600;
 }
 
@@ -1180,12 +1234,12 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .btn-outline {
@@ -1200,7 +1254,7 @@ onUnmounted(() => {
 
 .btn-ghost {
   background: transparent;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   border: none;
 }
 
@@ -1291,5 +1345,11 @@ onUnmounted(() => {
 
 .mobile-certificate-card {
   margin-bottom: 0.5rem;
+}
+
+.inline-ico {
+  font-size: 1em;
+  vertical-align: -2px;
+  color: var(--primary-color, #058526);
 }
 </style>

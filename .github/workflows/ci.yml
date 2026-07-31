@@ -117,10 +117,27 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      # lhci serves `staticDistDir` (see lighthouserc.json), so dist/ has to
+      # exist in THIS job. It did not: the job checked out, installed and ran
+      # lhci against a tree with no build in it. The `build` job's artifact is
+      # never downloaded here, so `needs: build` bought ordering and nothing else.
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
       - name: Run Lighthouse CI
         run: npm run lighthouse:ci
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
 
   deploy:
     runs-on: ubuntu-latest

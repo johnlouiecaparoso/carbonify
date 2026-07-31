@@ -170,10 +170,12 @@
               </button>
             </div>
 
-            <!-- Credit Cards -->
-            <div v-else class="credits-grid">
+            <!-- Credit Cards: a compact vertically-scrollable area. Collapsed it
+                 shows the first few; "See more" reveals the rest, still scrolling
+                 within the same capped height so the page never runs away. -->
+            <div v-else class="credits-grid credits-scroll-y">
               <div
-                v-for="credit in creditPortfolio"
+                v-for="credit in shownHoldings"
                 :key="credit.id"
                 class="credit-card"
                 :class="{ retired: credit.ownership_status === 'retired' }"
@@ -223,6 +225,28 @@
                     Manage in Wallet
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div v-if="creditPortfolio.length > 0" class="holdings-footer">
+              <span class="holdings-count">
+                Showing {{ shownHoldings.length }} of {{ creditPortfolio.length }}
+              </span>
+              <div class="holdings-footer-actions">
+                <button
+                  v-if="hasMoreHoldings && !holdingsExpanded"
+                  class="see-more-btn"
+                  @click="showMoreHoldings"
+                >
+                  See more
+                </button>
+                <button
+                  v-if="holdingsExpanded"
+                  class="see-less-btn"
+                  @click="showLessHoldings"
+                >
+                  Show less
+                </button>
               </div>
             </div>
           </div>
@@ -362,6 +386,28 @@ const totalOwnedCredits = computed(() =>
   creditPortfolio.value.reduce((sum, record) => sum + (record.quantity || 0), 0),
 )
 
+// Holdings display: collapsed, it shows the first few cards in a single
+// horizontal scroller so a large portfolio stays compact and fits the screen;
+// "See more" expands to every card in the wrapping grid. The stats and
+// breakdowns above always use the full creditPortfolio — only the rendered
+// cards are limited.
+const COLLAPSED_COUNT = 4
+const holdingsExpanded = ref(false)
+const shownHoldings = computed(() =>
+  holdingsExpanded.value
+    ? creditPortfolio.value
+    : creditPortfolio.value.slice(0, COLLAPSED_COUNT),
+)
+const hasMoreHoldings = computed(() => creditPortfolio.value.length > COLLAPSED_COUNT)
+
+function showMoreHoldings() {
+  holdingsExpanded.value = true
+}
+
+function showLessHoldings() {
+  holdingsExpanded.value = false
+}
+
 const categoryBreakdown = computed(() => {
   const totals = new Map()
   creditPortfolio.value.forEach((record) => {
@@ -434,6 +480,7 @@ async function loadPortfolio() {
     ])
 
     creditPortfolio.value = portfolio || []
+    holdingsExpanded.value = false
     marketPrice.value = Number(market?.avg_price) || 0
     creditStats.value = stats || {
       total_owned: 0,
@@ -488,8 +535,8 @@ onMounted(() => {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
-  background: linear-gradient(135deg, var(--primary-color, #10b981), var(--primary-dark, #04773b));
+  padding: 1.25rem 0;
+  background: var(--primary-color, #058526);
   border-bottom: none;
   border-radius: 0 0 24px 24px;
   box-shadow: 0 24px 48px rgba(4, 119, 59, 0.2);
@@ -510,7 +557,7 @@ onMounted(() => {
 
 .btn-export {
   background: #ffffff;
-  color: #04773b;
+  color: #045c1a;
   border: 2px solid #ffffff;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
@@ -551,14 +598,14 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 0.5rem 0;
 }
 
 .page-description {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.85);
   margin: 0;
 }
@@ -624,7 +671,7 @@ onMounted(() => {
 
 .stat-content p {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
 }
 
@@ -675,6 +722,16 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
+/* Compact vertically-scrollable area so the holdings stay short and fit the
+   screen; the cards inside keep the normal grid layout. */
+.credits-scroll-y {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.25rem;
+  margin: -0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
 .credit-card {
   border: 1px solid rgba(15, 118, 110, 0.1);
   border-radius: 0.75rem;
@@ -686,12 +743,12 @@ onMounted(() => {
 .credit-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 30px rgba(15, 118, 110, 0.12);
-  border-color: rgba(6, 158, 45, 0.3);
+  border-color: rgba(5, 133, 38, 0.3);
 }
 
 .credit-card.retired {
   opacity: 0.75;
-  background: rgba(6, 158, 45, 0.12);
+  background: rgba(5, 133, 38, 0.12);
 }
 
 .insights-section {
@@ -742,7 +799,7 @@ onMounted(() => {
 .insight-empty {
   padding: 1rem;
   text-align: center;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   background: var(--bg-secondary, #f8fdf8);
   border-radius: 0.75rem;
 }
@@ -763,7 +820,7 @@ onMounted(() => {
   width: 100%;
   height: 12px;
   border-radius: 999px;
-  background: rgba(6, 158, 45, 0.15);
+  background: rgba(5, 133, 38, 0.15);
   overflow: hidden;
 }
 
@@ -789,7 +846,7 @@ onMounted(() => {
 .credit-image {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
@@ -811,6 +868,51 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-primary, #1a202c);
   margin: 0 0 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+/* See-more footer for the holdings grid */
+.holdings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.holdings-count {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+}
+.holdings-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-more-btn:hover {
+  background: var(--primary-hover, #04701f);
+}
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-less-btn:hover {
+  background: #f3f4f6;
 }
 
 .credit-location {
@@ -826,8 +928,8 @@ onMounted(() => {
 }
 
 .credit-category {
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  color: var(--primary-color, #069e2d);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  color: var(--primary-color, #058526);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.75rem;
@@ -846,7 +948,7 @@ onMounted(() => {
 
 .detail-label {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .detail-value {
@@ -856,7 +958,7 @@ onMounted(() => {
 }
 
 .detail-value.retired {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .credit-actions {
@@ -954,7 +1056,7 @@ onMounted(() => {
 
 .transaction-date {
   font-size: 0.875rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0;
 }
 
@@ -964,7 +1066,7 @@ onMounted(() => {
 }
 
 .transaction-amount.deposit {
-  color: var(--success-color, #10b981);
+  color: var(--success-color, #058526);
 }
 
 .transaction-amount.withdrawal {
@@ -1005,8 +1107,8 @@ onMounted(() => {
 }
 
 .badge-purchase {
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  color: var(--primary-color, #069e2d);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  color: var(--primary-color, #058526);
 }
 
 .purchase-title {
@@ -1016,7 +1118,7 @@ onMounted(() => {
 
 .purchase-date {
   font-size: 0.85rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .purchase-details {
@@ -1048,14 +1150,14 @@ onMounted(() => {
 .purchase-payment {
   font-size: 0.8rem;
   text-transform: uppercase;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   letter-spacing: 0.05em;
 }
 
 .empty-history {
   text-align: center;
   padding: 1rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -1073,7 +1175,7 @@ onMounted(() => {
   width: 2rem;
   height: 2rem;
   border: 3px solid var(--border-color, #e2e8f0);
-  border-top: 3px solid var(--primary-color, #069e2d);
+  border-top: 3px solid var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem auto;
@@ -1143,14 +1245,14 @@ onMounted(() => {
 
 .error-state p,
 .empty-state p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 1rem 0;
 }
 
 .empty-transactions {
   text-align: center;
   padding: 2rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 /* Responsive Design */
@@ -1159,9 +1261,7 @@ onMounted(() => {
     padding: 0 1rem;
   }
 
-  .page-title {
-    font-size: 2rem;
-  }
+
 
   .header-content {
     flex-direction: column;

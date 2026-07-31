@@ -15,6 +15,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getSession, ensureUserProfile } from '@/services/authService'
 import { isMfaRequired } from '@/services/mfaService'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 
 const router = useRouter()
 const route = useRoute()
@@ -53,7 +54,11 @@ onMounted(async () => {
     }
 
     const returnTo = route.query.returnTo
-    router.replace(returnTo ? decodeURIComponent(String(returnTo)) : { name: 'home' })
+    router.replace(
+      returnTo
+        ? decodeURIComponent(String(returnTo))
+        : getRoleDefaultRoute(store.role || store.profile?.role),
+    )
   } catch (err) {
     console.error('Auth callback error:', err)
     error.value = err?.message || 'Authentication failed. Please try again.'
@@ -83,7 +88,7 @@ onMounted(async () => {
 .callback-link {
   display: inline-block;
   margin-top: 1rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -92,7 +97,7 @@ onMounted(async () => {
   height: 40px;
   margin: 0 auto;
   border: 3px solid #d1fae5;
-  border-top-color: #069e2d;
+  border-top-color: #058526;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

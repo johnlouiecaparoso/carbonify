@@ -106,13 +106,13 @@ onMounted(async () => {
         <strong>${escapeHtml(title)}</strong><br/>
         ${escapeHtml(project.category || '')}<br/>
         <span style="color:#6b7280">${escapeHtml(project.location || '')}</span><br/>
-        ${price ? `<span style="color:#069e2d;font-weight:600">₱${Number(price).toLocaleString()}/credit</span><br/>` : ''}
-        <a href="/marketplace" style="color:#069e2d">View in marketplace →</a>
+        ${price ? `<span style="color:#058526;font-weight:600">₱${Number(price).toLocaleString()}/credit</span><br/>` : ''}
+        <a href="/marketplace" style="color:#058526">View in marketplace →</a>
       `
       L.circleMarker([coords.lat, coords.lng], {
         radius: 9,
-        color: '#069e2d',
-        fillColor: '#10b981',
+        color: '#058526',
+        fillColor: '#058526',
         fillOpacity: 0.8,
         weight: 2,
       })
@@ -161,12 +161,12 @@ function escapeHtml(str) {
 }
 
 .page-header {
-  background: var(--primary-color, #10b981);
-  padding: 2rem 0;
+  background: var(--primary-color, #058526);
+  padding: 1.25rem 0;
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem;

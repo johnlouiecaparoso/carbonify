@@ -148,8 +148,8 @@ async function submit() {
 
 .form-input:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .error-text {
@@ -171,7 +171,7 @@ async function submit() {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 
@@ -194,7 +194,7 @@ async function submit() {
 }
 
 .success-state .material-symbols-outlined {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .error-state .material-symbols-outlined {

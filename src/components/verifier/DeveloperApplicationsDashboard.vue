@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import {
   ROLE_APPLICATION_ROLES,
   ROLE_APPLICATION_STATUS,
@@ -30,9 +30,27 @@ const statusOptions = [
   { value: ROLE_APPLICATION_STATUS.REJECTED, label: 'Rejected' },
 ]
 
-const pendingCount = computed(
-  () => applications.value.filter((application) => application.status === ROLE_APPLICATION_STATUS.PENDING).length,
-)
+/**
+ * Outstanding applications, independent of the current filter.
+ *
+ * This used to count PENDING rows inside `applications`, which the server has
+ * already filtered by `statusFilter` — so switching the filter to Approved or
+ * Rejected made the header read "Pending: 0" no matter how big the real backlog
+ * was. It is a workload indicator, so it has to be counted separately.
+ */
+const pendingCount = ref(0)
+
+async function refreshPendingCount() {
+  try {
+    const pending = await fetchRoleApplications({
+      status: ROLE_APPLICATION_STATUS.PENDING,
+      roleRequested: ROLE_APPLICATION_ROLES.PROJECT_DEVELOPER,
+    })
+    pendingCount.value = pending.length
+  } catch {
+    // A backlog badge is never worth breaking the page over.
+  }
+}
 
 function formatDate(value) {
   if (!value) return '—'
@@ -146,11 +164,23 @@ async function updateStatus(newStatus) {
     }
 
     decisionCard.value = buildDecisionCard(result.application, newStatus)
-
-    await loadApplications()
   } catch (error) {
     console.error('Failed to update application status:', error)
     feedbackMessage.value = error.message || 'Unable to update application status.'
+    actionLoading.value = false
+    return
+  }
+
+  // Refreshing the list is NOT part of the decision, and must not be reported as
+  // if it were. This used to sit inside the try above, so a failed refresh —
+  // after the role had already been assigned — overwrote "Application approved."
+  // with "Unable to update application status." The verifier would then retry a
+  // decision that had in fact committed.
+  try {
+    await Promise.all([loadApplications(), refreshPendingCount()])
+  } catch (refreshError) {
+    console.error('Decision saved, but refreshing the queue failed:', refreshError)
+    feedbackMessage.value += ' (The list below may be out of date — refresh to update it.)'
   } finally {
     actionLoading.value = false
   }
@@ -158,6 +188,7 @@ async function updateStatus(newStatus) {
 
 onMounted(() => {
   loadApplications()
+  refreshPendingCount()
 })
 </script>
 

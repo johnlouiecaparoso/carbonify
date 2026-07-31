@@ -152,7 +152,7 @@ async function handleSubmit() {
 .field input:focus,
 .field select:focus {
   outline: none;
-  border-color: #069e2d;
+  border-color: #058526;
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 .row {
@@ -178,7 +178,7 @@ async function handleSubmit() {
   cursor: not-allowed;
 }
 .btn.primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
 }
 .btn.ghost {

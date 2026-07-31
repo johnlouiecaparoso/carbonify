@@ -143,33 +143,3 @@ export function handleApiError(error, context = '') {
   throw error
 }
 
-/**
- * Retry mechanism for failed requests
- */
-export async function withRetry(fn, maxRetries = 3, delay = 1000) {
-  let lastError
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn()
-    } catch (error) {
-      lastError = error
-
-      // Don't retry on auth errors
-      if (
-        error.code === ERROR_CODES.AUTH_REQUIRED ||
-        error.code === ERROR_CODES.INVALID_CREDENTIALS
-      ) {
-        throw error
-      }
-
-      if (attempt < maxRetries) {
-        console.warn(`Attempt ${attempt} failed, retrying in ${delay}ms...`)
-        await new Promise((resolve) => setTimeout(resolve, delay))
-        delay *= 2 // Exponential backoff
-      }
-    }
-  }
-
-  throw lastError
-}

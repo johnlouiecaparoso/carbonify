@@ -26,6 +26,48 @@ function triggerDownload(blob, filename) {
  * is typically "2026" / "2026 Q1" and therefore sorts chronologically.
  * @returns {{ labels: string[], avoided: number[], net: number[], generated: number[] }}
  */
+const MONTHS = [
+  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+]
+
+/**
+ * Sortable key for a free-text period label.
+ *
+ * period_label is whatever the LGU typed. Sorting the raw strings put
+ * "Apr 2026" before "Jan 2026", so a city labelling by month saw its trend
+ * plotted in alphabetical order. This pulls out a year and, where present, a
+ * quarter or month, and falls back to the raw string only when neither is
+ * recognisable — so mixed or unlabelled data still groups predictably instead
+ * of throwing.
+ *
+ * Pure — exported for unit testing.
+ */
+export function periodSortKey(label) {
+  const s = String(label || '').trim().toLowerCase()
+  const year = s.match(/\b(19|20)\d{2}\b/)
+  if (!year) return { year: Infinity, sub: Infinity, raw: s }
+
+  const quarter = s.match(/\bq([1-4])\b/)
+  if (quarter) return { year: Number(year[0]), sub: Number(quarter[1]), raw: s }
+
+  const monthIndex = MONTHS.findIndex((m) => new RegExp(`\\b${m}`).test(s))
+  // Months are spaced past quarters so a mixed set never interleaves them.
+  if (monthIndex !== -1) return { year: Number(year[0]), sub: 10 + monthIndex, raw: s }
+
+  // A bare year sorts before any of its sub-periods.
+  return { year: Number(year[0]), sub: -1, raw: s }
+}
+
+/** Chronological comparator over period labels. */
+export function comparePeriods(a, b) {
+  const ka = periodSortKey(a)
+  const kb = periodSortKey(b)
+  if (ka.year !== kb.year) return ka.year - kb.year
+  if (ka.sub !== kb.sub) return ka.sub - kb.sub
+  return ka.raw.localeCompare(kb.raw)
+}
+
 export function buildEmissionsTrend(records = []) {
   const buckets = new Map()
   for (const r of records) {
@@ -36,7 +78,7 @@ export function buildEmissionsTrend(records = []) {
     b.generated += Number(r.waste_generated_tonnes) || 0
     buckets.set(key, b)
   }
-  const labels = [...buckets.keys()].sort((a, b) => a.localeCompare(b))
+  const labels = [...buckets.keys()].sort(comparePeriods)
   return {
     labels,
     avoided: labels.map((l) => buckets.get(l).avoided),

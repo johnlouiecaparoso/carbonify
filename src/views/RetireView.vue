@@ -266,6 +266,19 @@
       :message="toast.message"
       @close="toast.show = false"
     />
+
+    <ModernPrompt
+      :is-open="promptState.isOpen"
+      :type="promptState.type"
+      :title="promptState.title"
+      :message="promptState.message"
+      :confirm-text="promptState.confirmText"
+      :cancel-text="promptState.cancelText"
+      :show-cancel="promptState.showCancel"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="handleClose"
+    />
   </div>
 </template>
 
@@ -273,15 +286,32 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
-import { getUserCreditPortfolio, retireCredits } from '@/services/marketplaceService'
+import { retireCredits } from '@/services/marketplaceService'
+// Portfolio comes from creditOwnershipService, NOT marketplaceService. Both
+// exported a `getUserCreditPortfolio` reading the same `credit_ownership` rows;
+// only this one rethrows. The marketplaceService copy swallowed the error and
+// returned [], which rendered here as "you own no credits to retire" and left
+// the error banner below as dead code. Same shape, same table, one fix — see
+// the note on the duplicate's removal in marketplaceService.
+import { creditOwnershipService } from '@/services/creditOwnershipService'
 import {
   getUserPurchaseHistoryPage,
   getUserRetirementHistory,
 } from '@/services/transactionHistoryService'
 import Toast from '@/components/ui/Toast.vue'
+import { useModernPrompt } from '@/composables/useModernPrompt'
+import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
+
+const {
+  promptState,
+  confirm: confirmPrompt,
+  handleConfirm,
+  handleCancel,
+  handleClose,
+} = useModernPrompt()
 
 // Lightweight in-app toast (replaces blocking window.alert on retire).
 const toast = ref({ show: false, type: 'success', message: '' })
@@ -375,7 +405,7 @@ const loadUserCredits = async () => {
 
   try {
     const credits = await Promise.race([
-      getUserCreditPortfolio(userId),
+      creditOwnershipService.getUserCreditPortfolio(userId),
       timeoutPromise,
     ])
 
@@ -442,6 +472,20 @@ const loadUserCredits = async () => {
 
 const handleRetire = async () => {
   if (!canRetire.value) return
+
+  // Retirement is permanent: retire_credits_atomic burns the balance and issues
+  // a retirement certificate, and there is no un-retire. Every lesser
+  // destructive action in this app confirms first; the one that irreversibly
+  // consumes the asset did not.
+  const confirmed = await confirmPrompt({
+    title: 'Retire these credits permanently?',
+    message:
+      `You are retiring ${creditsToRetire.value} credit(s) from "${selectedProjectName.value}". ` +
+      'Retired credits are burned, cannot be sold or transferred, and this cannot be undone. ' +
+      'A retirement certificate will be issued in your name.',
+    confirmText: 'Retire permanently',
+  })
+  if (!confirmed) return
 
   loading.value = true
   error.value = ''
@@ -547,9 +591,11 @@ const generateMissingCertificates = async () => {
       console.log(`✅ Generated ${result.generated} missing certificates`)
       // Reload history to show new certificates
       await loadUserCredits()
-      alert(`Successfully generated ${result.generated} certificate(s)!`)
+      // This view already has a toast; these were the last two blocking
+      // window.alert calls in it.
+      showToast(`Generated ${result.generated} certificate(s).`, 'success')
     } else {
-      alert('All purchases already have certificates.')
+      showToast('All purchases already have certificates.', 'success')
     }
     
     if (result.errors && result.errors.length > 0) {
@@ -592,20 +638,20 @@ onMounted(() => {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
-  background: var(--primary-color, #10b981);
+  padding: 1.25rem 0;
+  background: var(--primary-color, #058526);
   border-bottom: none;
 }
 
 .page-title {
-  font-size: var(--font-size-4xl);
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: var(--font-size-lg);
+  font-size: 0.95rem;
   color: #fff;
 }
 
@@ -651,7 +697,7 @@ onMounted(() => {
 
 .generate-cert-btn {
   padding: 0.5rem 1rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: var(--radius-md, 0.5rem);
@@ -711,7 +757,7 @@ onMounted(() => {
 .form-select:focus,
 .form-textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .input-help {
@@ -856,7 +902,7 @@ onMounted(() => {
 
 .history-item:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .purchase-item {
@@ -864,7 +910,7 @@ onMounted(() => {
 }
 
 .retirement-item {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid var(--success-color, #058526);
 }
 
 .history-project-info {
@@ -884,7 +930,7 @@ onMounted(() => {
 
 .purchase-badge {
   background: var(--primary-light, #e8f5e8);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .retirement-badge {
@@ -1020,9 +1066,9 @@ onMounted(() => {
     padding: 1.5rem 0;
   }
 
-  .page-title {
-    font-size: var(--font-size-3xl);
-  }
+  /* .page-title is not restated here on purpose. It used to override to
+     var(--font-size-3xl) (1.875rem), a pre-shrink leftover that rendered the
+     title larger on a phone than the 1.5rem desktop rule. */
 
   .retire-card {
     padding: 1.5rem;

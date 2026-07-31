@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
-import { ROLES } from '@/constants/roles'
+import { ROLES, canonicalizeRole } from '@/constants/roles'
 import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 import {
   createProjectDeveloperGuard,
@@ -18,34 +18,84 @@ const RegisterView = () => import(/* webpackChunkName: "auth" */ '@/views/Regist
 const WalletView = () => import(/* webpackChunkName: "user" */ '@/views/WalletView.vue')
 const ProfileView = () => import(/* webpackChunkName: "user" */ '@/views/ProfileView.vue')
 
-// Hidden Components removed - all old dashboard routes now redirect to homepage
-const EmailSettingsView = () =>
-  import(/* webpackChunkName: "settings" */ '@/views/EmailSettingsView.vue')
-const PaymentSettingsView = () =>
-  import(/* webpackChunkName: "settings" */ '@/views/PaymentSettingsView.vue')
 const UserPreferencesView = () =>
   import(/* webpackChunkName: "user" */ '@/views/UserPreferencesView.vue')
-const SocialView = () => import(/* webpackChunkName: "user" */ '@/views/SocialView.vue')
 
-const FINANCE_RESTRICTED_ROLES = [ROLES.ADMIN, ROLES.VERIFIER, ROLES.PROJECT_DEVELOPER]
+/**
+ * Roles that never buy credits. Blocked from the whole buying path — browsing a
+ * cart, holding a portfolio, saving listings, checking out.
+ *
+ * Project developers sell credits rather than buy them, so they sit here too;
+ * their money pages are /sales and /developer/ledger.
+ *
+ * Farmers sit here for the same reason (backlog #31, decided 2026-07-30: a
+ * farmer is a seller, not a buyer — they supply feedstock, they do not trade
+ * credits). Every other layer already said so: `isBuyerRole()` in
+ * constants/navigation.js excludes farmers, their sidebar is Feedstock +
+ * Insights with none of these routes in it, and they get no wallet entry in the
+ * account menu. Only this guard disagreed, so a farmer could still reach
+ * checkout by typing the URL while nothing ever offered it — the contradiction
+ * #31 was actually about. Their money pages are /farmer and /sales.
+ */
+const FINANCE_RESTRICTED_ROLES = [
+  ROLES.ADMIN,
+  ROLES.VERIFIER,
+  ROLES.PROJECT_DEVELOPER,
+  ROLES.FARMER,
+]
+
+/**
+ * Roles with no identity-verification path of their own. Everyone else — buyers,
+ * farmers, LGU users, developers — needs KYC to move money, so /kyc stays open
+ * to them.
+ */
+const NON_TRANSACTING_ROLES = [ROLES.ADMIN, ROLES.VERIFIER]
+
+/**
+ * Roles that have nothing to sell, and so have no earnings to see. Project
+ * developers sell credits and farmers sell feedstock; everyone else is blocked
+ * from /sales.
+ */
+const NON_SELLING_ROLES = [
+  ROLES.ADMIN,
+  ROLES.VERIFIER,
+  ROLES.GENERAL_USER,
+  ROLES.BUYER_INVESTOR,
+  ROLES.LGU_USER,
+]
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     // Public Routes
-    { path: '/home', name: 'home', component: HomepageView },
+    { path: '/home', name: 'home', meta: { public: true }, component: HomepageView },
     { path: '/', redirect: '/home' },
-    { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
-    { path: '/login', name: 'login', component: LoginView },
-    { path: '/register', name: 'register', component: RegisterView },
+    {
+      path: '/about',
+      name: 'about',
+      meta: { public: true },
+      component: () => import('@/views/AboutView.vue'),
+    },
+    {
+      // The in-app user guide. Auth-gated because every link in it goes to a
+      // signed-in surface; the public explanation of Carbonify is /about.
+      path: '/guide',
+      name: 'user-guide',
+      meta: { requiresAuth: true },
+      component: () => import('@/views/UserGuideView.vue'),
+    },
+    { path: '/login', name: 'login', meta: { public: true }, component: LoginView },
+    { path: '/register', name: 'register', meta: { public: true }, component: RegisterView },
     {
       path: '/forgot-password',
       name: 'forgot-password',
+      meta: { public: true },
       component: () => import('@/views/ForgotPasswordView.vue'),
     },
     {
       path: '/reset-password',
       name: 'reset-password',
+      meta: { public: true },
       component: () => import('@/views/ResetPasswordView.vue'),
     },
     {
@@ -59,17 +109,20 @@ const router = createRouter({
       // OAuth / phone sign-in lands here to finalize the session.
       path: '/auth/callback',
       name: 'auth-callback',
+      meta: { public: true },
       component: () => import('@/views/AuthCallbackView.vue'),
     },
     {
       path: '/marketplace',
       name: 'marketplace',
+      meta: { public: true },
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
     },
     {
       // Public biomass feedstock marketplace (browse + request-for-quotation).
       path: '/biomass',
       name: 'biomass-marketplace',
+      meta: { public: true },
       component: () => import('@/views/BiomassMarketplaceView.vue'),
     },
     {
@@ -95,12 +148,14 @@ const router = createRouter({
       // Public carbon registry — anyone can browse/verify issued & retired credits.
       path: '/registry',
       name: 'registry',
+      meta: { public: true },
       component: () => import('@/views/RegistryView.vue'),
     },
     {
       // Public market dashboard — anonymous market snapshot (supply, price, impact).
       path: '/market',
       name: 'market-dashboard',
+      meta: { public: true },
       component: () => import('@/views/MarketDashboardView.vue'),
     },
     {
@@ -112,6 +167,7 @@ const router = createRouter({
     {
       path: '/apply',
       name: 'role-application',
+      meta: { public: true },
       component: () => import('@/views/RoleApplicationView.vue'),
     },
     {
@@ -131,18 +187,17 @@ const router = createRouter({
       // Public certificate verification (QR codes resolve here)
       path: '/verify/:certificateNumber?',
       name: 'certificate-verify',
+      meta: { public: true },
       component: () => import('@/views/CertificateVerifyView.vue'),
     },
     {
-      path: '/mobile-test',
-      name: 'mobile-test',
-      component: () => import('@/views/MobileTestView.vue'),
-    },
-
-    // Redirect old dashboard routes to homepage
-    {
+      // Buyer / general-user workspace. Every other role has a dashboard to land
+      // on; before this, buyers landed on the public marketing homepage. Roles
+      // that never buy are bounced to their own default route by the guard.
       path: '/dashboard',
-      redirect: '/',
+      name: 'buyer-dashboard',
+      component: () => import('@/views/BuyerDashboardView.vue'),
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/profile',
@@ -245,34 +300,32 @@ const router = createRouter({
       },
     },
     {
-      path: '/buy-credits',
-      name: 'buy-credits',
-      component: () => import('@/views/BuyCreditsView.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
       path: '/credit-portfolio',
       name: 'credit-portfolio',
       component: () => import('@/views/CreditPortfolioView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/watchlist',
       name: 'watchlist',
       component: () => import('@/views/WatchlistView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/cart',
       name: 'cart',
       component: () => import('@/views/CartView.vue'),
-      meta: { requiresAuth: true },
+      // Checkout is buying. Admins/verifiers/developers used to reach this
+      // route freely — only the header's cart icon was hidden from them.
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/kyc',
       name: 'kyc',
       component: () => import('@/views/KycView.vue'),
-      meta: { requiresAuth: true },
+      // Developers and farmers need KYC to get paid; only admins and
+      // verifiers have no identity-verification path of their own.
+      meta: { requiresAuth: true, disallowedRoles: NON_TRANSACTING_ROLES },
     },
     {
       path: '/upgrade',
@@ -285,6 +338,7 @@ const router = createRouter({
     {
       path: '/projects/:id',
       name: 'project-detail',
+      meta: { public: true },
       component: () => import('@/views/ProjectDetailView.vue'),
       props: true,
     },
@@ -380,6 +434,35 @@ const router = createRouter({
       },
     },
     {
+      path: '/admin/privacy',
+      name: 'admin-privacy-requests',
+      component: () => import('@/views/AdminPrivacyRequestsView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      path: '/admin/aml',
+      name: 'admin-aml',
+      component: () => import('@/views/AdminAmlView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      // The feedstock side of the marketplace had no admin surface at all
+      // (backlog #29), so a farmer's non-payment dispute escalated to nobody.
+      path: '/admin/feedstock',
+      name: 'admin-feedstock',
+      component: () => import('@/views/AdminFeedstockView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
       path: '/verifier',
       name: 'verifier',
       component: () => import('@/views/VerifierPanel.vue'),
@@ -395,21 +478,9 @@ const router = createRouter({
       path: '/sales',
       name: 'seller-earnings',
       component: () => import('@/views/SellerEarningsView.vue'),
-      meta: { requiresAuth: true },
-    },
-
-    // Settings Routes
-    {
-      path: '/email-settings',
-      name: 'email-settings',
-      component: EmailSettingsView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/payment-settings',
-      name: 'payment-settings',
-      component: PaymentSettingsView,
-      meta: { requiresAuth: true },
+      // Seller earnings belong to whoever sells. Any signed-in buyer could
+      // open this page before.
+      meta: { requiresAuth: true, disallowedRoles: NON_SELLING_ROLES },
     },
 
     // Certificate and Receipt Routes
@@ -431,6 +502,22 @@ const router = createRouter({
       component: () => import('@/views/ReceiptView.vue'),
       meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
+    {
+      // Every checkout the buyer started, including pending/failed ones that
+      // never produced a receipt.
+      path: '/orders',
+      name: 'orders',
+      component: () => import('@/views/OrdersView.vue'),
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
+    },
+    {
+      // Buyer-facing side of the dispute flow (admins resolve them at
+      // /admin/refunds). Raised from a receipt via DisputeModal.
+      path: '/disputes',
+      name: 'my-disputes',
+      component: () => import('@/views/MyDisputesView.vue'),
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
+    },
 
     // Payment Callback (PayMongo redirects here after payment)
     {
@@ -447,29 +534,127 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
-    // User Preference & Social Routes
     {
+      // Theme, accessibility, language and display settings. App.vue applies
+      // these on mount, so this is the only screen that can change what the app
+      // looks like; it is reached from the account menu (constants/navigation).
       path: '/preferences',
       name: 'preferences',
       component: UserPreferencesView,
       meta: { requiresAuth: true },
     },
-    {
-      path: '/social',
-      name: 'social',
-      component: SocialView,
-      meta: { requiresAuth: true },
-    },
   ],
 })
+
+/**
+ * Every access check that applies to a signed-in user: MFA step-up, the
+ * role-specific guards, the `disallowedRoles` block list and the plan gate.
+ * Returns a redirect location, or `undefined` to allow the navigation.
+ *
+ * This lives in a function because it has to run on BOTH paths into an
+ * authenticated navigation. It used to be inline in the `isAuthenticated`
+ * branch only — so the second path, which restores a session straight from
+ * Supabase when the store has not hydrated, called `next()` having checked
+ * nothing. Any signed-in account could open /admin, /verifier or the whole
+ * buying path by hitting the URL while the store was cold (a hard refresh, or
+ * `fetchSession()` throwing, which is caught and ignored above). The route
+ * metadata was right the whole time; only one of the two branches consulted it.
+ */
+async function enforceAuthenticatedAccess(to, from, userStore) {
+  // Strict 2FA enforcement: if the user has MFA enrolled but their session is
+  // still at aal1, force them to the step-up page before any protected route.
+  if (to.name !== 'mfa-challenge') {
+    try {
+      const { isMfaRequired } = await import('@/services/mfaService')
+      const { required } = await isMfaRequired()
+      if (required) {
+        console.log('🔐 MFA step-up required, redirecting to challenge')
+        return { name: 'mfa-challenge', query: { returnTo: to.fullPath } }
+      }
+    } catch (mfaErr) {
+      // Fail open on transient errors so users are never locked out.
+      console.warn('MFA enforcement check failed (allowing):', mfaErr?.message)
+    }
+  }
+
+  // IMPORTANT: Ensure profile is loaded before checking role-specific routes
+  // This prevents navigation issues where role isn't loaded yet
+  if (
+    to.meta.requiresProjectDeveloper ||
+    to.meta.requiresAdmin ||
+    to.meta.requiresVerifier ||
+    to.meta.requiresLgu ||
+    to.meta.requiresFarmer ||
+    to.meta.requiresFeature
+  ) {
+    if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
+      console.log('⏳ Profile/role not loaded yet, fetching before route check...')
+      try {
+        await userStore.fetchUserProfile()
+      } catch (error) {
+        console.error('Error fetching profile in router guard:', error)
+      }
+    }
+  }
+
+  // Role-specific route requirements. Each guard returns a redirect or undefined.
+  const ROLE_GATES = [
+    { meta: 'requiresProjectDeveloper', guard: createProjectDeveloperGuard, label: 'Project Developer' },
+    { meta: 'requiresLgu', guard: createLguGuard, label: 'LGU' },
+    { meta: 'requiresFarmer', guard: createFarmerGuard, label: 'Farmer' },
+    { meta: 'requiresAdmin', guard: createAdminGuard, label: 'Admin' },
+    { meta: 'requiresVerifier', guard: createVerifierGuard, label: 'Verifier' },
+  ]
+
+  for (const { meta, guard, label } of ROLE_GATES) {
+    if (!to.meta[meta]) continue
+    const guardResult = await guard(userStore)(to, from)
+    if (guardResult) {
+      console.log(`❌ ${label} access required, redirecting...`)
+      return guardResult
+    }
+  }
+
+  const disallowedRoles = Array.isArray(to.meta.disallowedRoles) ? to.meta.disallowedRoles : []
+  if (disallowedRoles.length > 0) {
+    // canonicalizeRole, not a local lowercase/trim: an alias like 'super_admin'
+    // has to resolve to 'admin' here or it slips past every block list.
+    const normalizedRole = canonicalizeRole(userStore.role || userStore.profile?.role)
+    if (disallowedRoles.includes(normalizedRole)) {
+      console.warn('❌ Route blocked for role:', {
+        route: to.path,
+        role: normalizedRole,
+        disallowedRoles,
+      })
+      return getRoleDefaultRoute(normalizedRole || ROLES.GENERAL_USER)
+    }
+  }
+
+  // Subscription / premium gating (orthogonal to roles). Client-side UX gate
+  // only — premium actions are also enforced server-side.
+  if (to.meta.requiresFeature && !userStore.hasFeature(to.meta.requiresFeature)) {
+    console.log('🔒 Feature not in plan, redirecting to upgrade:', to.meta.requiresFeature)
+    return { name: 'upgrade', query: { feature: to.meta.requiresFeature } }
+  }
+
+  return undefined
+}
 
 // Router guard for authentication
 router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
-  // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback', 'biomass-marketplace']
-  if (publicRoutes.includes(to.name)) {
+  // Public routes declare themselves with `meta: { public: true }`.
+  //
+  // This used to be a hand-maintained array of route names living down here,
+  // far from the route table. It had drifted: 'marketplace' and 'project-detail'
+  // were missing, so the public marketplace — linked from the signed-out header
+  // — bounced every anonymous visitor to /login, and every shared project link
+  // was dead. It also listed 'homepage', a name no route has ever had.
+  //
+  // Keeping the flag on the route means adding a public route and forgetting to
+  // allowlist it is no longer possible.
+  if (to.meta.public) {
     console.log('✅ Public route, allowing access')
     next()
     return
@@ -549,120 +734,10 @@ router.beforeEach(async (to, from, next) => {
 
   // Check if user is authenticated
   if (userStore.isAuthenticated) {
-    console.log('✅ User authenticated, allowing access')
-
-    // Strict 2FA enforcement: if the user has MFA enrolled but their session is
-    // still at aal1, force them to the step-up page before any protected route.
-    if (to.name !== 'mfa-challenge') {
-      try {
-        const { isMfaRequired } = await import('@/services/mfaService')
-        const { required } = await isMfaRequired()
-        if (required) {
-          console.log('🔐 MFA step-up required, redirecting to challenge')
-          next({ name: 'mfa-challenge', query: { returnTo: to.fullPath } })
-          return
-        }
-      } catch (mfaErr) {
-        // Fail open on transient errors so users are never locked out.
-        console.warn('MFA enforcement check failed (allowing):', mfaErr?.message)
-      }
-    }
+    console.log('✅ User authenticated, running access checks')
 
     // Allow homepage access for authenticated users (no redirect)
-
-    // IMPORTANT: Ensure profile is loaded before checking role-specific routes
-    // This prevents navigation issues where role isn't loaded yet
-    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFarmer || to.meta.requiresFeature) {
-      if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
-        console.log('⏳ Profile/role not loaded yet, fetching before route check...')
-        try {
-          await userStore.fetchUserProfile()
-          // Small delay to ensure store is updated
-          await new Promise((resolve) => setTimeout(resolve, 150))
-        } catch (error) {
-          console.error('Error fetching profile in router guard:', error)
-        }
-      }
-    }
-
-    // Check for role-specific route requirements
-    if (to.meta.requiresProjectDeveloper) {
-      const projectDeveloperGuard = createProjectDeveloperGuard(userStore)
-      const guardResult = await projectDeveloperGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Project Developer access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for LGU-only routes
-    if (to.meta.requiresLgu) {
-      const lguGuard = createLguGuard(userStore)
-      const guardResult = await lguGuard(to, from)
-      if (guardResult) {
-        console.log('❌ LGU access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for farmer-only routes
-    if (to.meta.requiresFarmer) {
-      const farmerGuard = createFarmerGuard(userStore)
-      const guardResult = await farmerGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Farmer access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for admin-only routes
-    if (to.meta.requiresAdmin) {
-      const adminGuard = createAdminGuard(userStore)
-      const guardResult = await adminGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Admin access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    // Check for verifier-only routes
-    if (to.meta.requiresVerifier) {
-      const verifierGuard = createVerifierGuard(userStore)
-      const guardResult = await verifierGuard(to, from)
-      if (guardResult) {
-        console.log('❌ Verifier access required, redirecting...')
-        next(guardResult)
-        return
-      }
-    }
-
-    const disallowedRoles = Array.isArray(to.meta.disallowedRoles) ? to.meta.disallowedRoles : []
-    if (disallowedRoles.length > 0) {
-      const normalizedRole = String(userStore.role || userStore.profile?.role || '').toLowerCase().trim()
-      if (disallowedRoles.includes(normalizedRole)) {
-        console.warn('❌ Route blocked for role:', {
-          route: to.path,
-          role: normalizedRole,
-          disallowedRoles,
-        })
-        next(getRoleDefaultRoute(normalizedRole || ROLES.GENERAL_USER))
-        return
-      }
-    }
-
-    // Subscription / premium gating (orthogonal to roles). Client-side UX gate
-    // only — premium actions are also enforced server-side.
-    if (to.meta.requiresFeature && !userStore.hasFeature(to.meta.requiresFeature)) {
-      console.log('🔒 Feature not in plan, redirecting to upgrade:', to.meta.requiresFeature)
-      next({ name: 'upgrade', query: { feature: to.meta.requiresFeature } })
-      return
-    }
-
-    next()
+    next(await enforceAuthenticatedAccess(to, from, userStore))
   } else {
     // Final check: Try Supabase directly before redirecting to login
     // This handles cases where store hasn't loaded yet but session exists in localStorage
@@ -680,17 +755,17 @@ router.beforeEach(async (to, from, next) => {
           userStore.session = session
           await userStore.fetchUserProfile()
 
-          // Now that we have session, redirect to role-based route if on homepage
-          if (to.name === 'homepage') {
-            const { getRoleDefaultRoute } = await import('@/utils/getRoleDefaultRoute')
-            const defaultRoute = getRoleDefaultRoute(userStore.role || userStore.profile?.role)
-            console.log('✅ Session restored, redirecting to:', defaultRoute)
-            next(defaultRoute)
-            return
-          }
-
-          // Allow access to the requested route
-          next()
+          // Run the SAME access checks as the branch above. This used to be a
+          // bare `next()`: a restored session was treated as proof of
+          // authorisation, not just authentication, so every role gate and
+          // block list was skipped on this path.
+          //
+          // A `to.name === 'homepage'` branch used to sit here, sending a
+          // restored session to its role's default route. No route has ever
+          // been named 'homepage' (the marketing page is 'home'), so it never
+          // ran — and 'home' is public, so it returns long before reaching
+          // this block anyway.
+          next(await enforceAuthenticatedAccess(to, from, userStore))
           return
         }
       }
@@ -698,15 +773,15 @@ router.beforeEach(async (to, from, next) => {
       console.warn('⚠️ Could not check Supabase session:', supabaseError)
     }
 
-    // Only redirect to login if we're sure there's no session
-    // Don't redirect if user is already on login/register/homepage
-    if (to.name !== 'login' && to.name !== 'register' && to.name !== 'homepage') {
+    // Only redirect to login if we're sure there's no session. login/register
+    // are public and returned above; the check stays as a belt-and-braces guard
+    // against ever redirecting the login page to itself.
+    if (to.name !== 'login' && to.name !== 'register') {
       // Add returnTo query param to redirect back after login
       const returnTo = encodeURIComponent(to.fullPath)
       console.log('❌ User not authenticated, redirecting to login')
       next({ name: 'login', query: { returnTo } })
     } else {
-      // Allow access to login/register/homepage pages
       next()
     }
   }

@@ -84,7 +84,7 @@ Key routes:
 - `/wallet`: wallet view
 - `/submit-project`: project developer submission form
 - `/developer/projects`: developer dashboard
-- `/buy-credits`: purchase flow
+- *(`/buy-credits` was deleted 2026-07-26 — 1,006 lines duplicating the marketplace purchase flow, linked from nowhere. Buying happens at `/marketplace` → `/cart`.)*
 - `/credit-portfolio`: owned credits
 - `/certificates`: generated certificates
 - `/receipts`: generated receipts

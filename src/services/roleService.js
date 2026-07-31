@@ -1,5 +1,5 @@
 import { getSupabase } from '@/services/supabaseClient'
-import { ROLES } from '@/constants/roles'
+import { ROLES, canonicalizeRole } from '@/constants/roles'
 import { logUserAction } from '@/services/auditService'
 
 /**
@@ -17,52 +17,56 @@ export class RoleService {
   }
 
   /**
-   * Check if user is admin
+   * Check if user is admin.
+   *
+   * Canonicalized rather than compared with ===, so the aliases the database
+   * accepts (notably 'super_admin', which public.is_admin() already grants full
+   * RLS rights) resolve the same way here as they do server-side.
    */
   isAdmin(role) {
-    return role === ROLES.ADMIN
+    return canonicalizeRole(role) === ROLES.ADMIN
   }
 
   /**
    * Check if user is general user
    */
   isGeneralUser(role) {
-    return role === ROLES.GENERAL_USER
+    return canonicalizeRole(role) === ROLES.GENERAL_USER
   }
 
   /**
    * Check if user is project developer
    */
   isProjectDeveloper(role) {
-    return role === ROLES.PROJECT_DEVELOPER
+    return canonicalizeRole(role) === ROLES.PROJECT_DEVELOPER
   }
 
   /**
    * Check if user is verifier
    */
   isVerifier(role) {
-    return role === ROLES.VERIFIER
+    return canonicalizeRole(role) === ROLES.VERIFIER
   }
 
   /**
    * Check if user is buyer/investor
    */
   isBuyerInvestor(role) {
-    return role === ROLES.BUYER_INVESTOR
+    return canonicalizeRole(role) === ROLES.BUYER_INVESTOR
   }
 
   /**
    * Check if user is LGU (local government unit)
    */
   isLguUser(role) {
-    return role === ROLES.LGU_USER
+    return canonicalizeRole(role) === ROLES.LGU_USER
   }
 
   /**
    * Check if user is a farmer (smallholder feedstock supplier)
    */
   isFarmer(role) {
-    return role === ROLES.FARMER
+    return canonicalizeRole(role) === ROLES.FARMER
   }
 
   /**
@@ -85,14 +89,6 @@ export class RoleService {
    */
   hasAllPermissions(role, permissions) {
     return permissions.every((permission) => this.hasPermission(role, permission))
-  }
-
-  /**
-   * Check if user can access a specific route
-   */
-  canAccessRoute(role, routePath) {
-    const routePermissions = this.getRoutePermissions(routePath)
-    return this.hasAnyPermission(role, routePermissions)
   }
 
   /**
@@ -169,41 +165,28 @@ export class RoleService {
       ],
     }
 
-    return permissions[role] || []
+    // Canonicalized for the same reason the predicates above are: a stored
+    // 'super_admin' or 'Admin' would otherwise miss every key here and come
+    // back with no permissions at all.
+    return permissions[canonicalizeRole(role)] || []
   }
 
-  /**
-   * Get required permissions for a route
+  /*
+   * A second, parallel authorization scheme lived here: getRoutePermissions()
+   * plus canAccessRoute(), consulted by createRoleGuard/createPermissionGuard
+   * in middleware/roleGuard.js. None of it was ever wired into the router,
+   * which is fortunate, because it disagreed with the real guards:
+   *
+   *   - It matched with `startsWith` over object key order, so '/admin/users'
+   *     resolved against the '/admin' entry and never reached its own.
+   *   - '/marketplace' demanded 'view_marketplace', which verifiers do not
+   *     have — so enabling it would have hidden the marketplace from them.
+   *   - Unknown routes fell through to ['view_own_profile'], i.e. open to all.
+   *
+   * Route access is decided in one place now: route meta (`public`,
+   * `requiresAuth`, `requiresAdmin`, `disallowedRoles`, …) read by the guard in
+   * router/index.js. Permissions below remain for feature-level checks.
    */
-  getRoutePermissions(routePath) {
-    const routePermissions = {
-      '/admin': ['view_all_projects', 'manage_system_settings'],
-      '/admin/projects': ['view_all_projects'],
-      '/admin/users': ['view_all_users', 'edit_user_roles'],
-      '/admin/analytics': ['view_analytics'],
-      '/admin/audit': ['view_audit_logs'],
-      '/verifier': ['view_all_projects', 'edit_project_status'],
-      '/farmer': ['manage_farm_parcels'],
-      '/projects': ['create_projects', 'view_own_projects'],
-      '/marketplace': ['view_marketplace'],
-      '/portfolio': ['view_own_portfolio'],
-      '/wallet': ['manage_wallet'],
-      '/certificates': ['view_certificates'],
-      '/receipts': ['view_receipts'],
-      '/profile': ['view_own_profile'], // Profile is accessible to all authenticated users
-    }
-
-    // Find matching route (supports dynamic routes)
-    for (const [route, permissions] of Object.entries(routePermissions)) {
-      if (routePath.startsWith(route)) {
-        return permissions
-      }
-    }
-
-    // Default permissions for unknown routes - allow if user is authenticated
-    // This prevents blocking access to routes that might not be in the list
-    return ['view_own_profile']
-  }
 
   /**
    * Update user role
@@ -273,7 +256,7 @@ export class RoleService {
         return ROLES.GENERAL_USER
       }
 
-      return profile.role || ROLES.GENERAL_USER
+      return canonicalizeRole(profile.role)
     } catch (error) {
       console.error('Error getting user role:', error)
       return ROLES.GENERAL_USER
@@ -314,7 +297,8 @@ export class RoleService {
       [ROLES.PROJECT_DEVELOPER]: 'Can create and manage carbon credit projects',
       [ROLES.BUYER_INVESTOR]: 'Can purchase and manage carbon credits',
       [ROLES.GENERAL_USER]: 'Basic user access to view marketplace and manage profile',
-      [ROLES.LGU_USER]: 'Local Government Unit user: upload LGU emissions and manage community projects',
+      [ROLES.LGU_USER]:
+        'Local Government Unit user: upload LGU emissions and manage community projects',
       [ROLES.FARMER]:
         'Smallholder feedstock supplier: register plantation parcels, list biomass, and log deliveries against accepted quotes',
     }
@@ -338,9 +322,55 @@ export const hasPermission = roleService.hasPermission.bind(roleService)
 export const hasAnyPermission = roleService.hasAnyPermission.bind(roleService)
 export const hasAllPermissions = roleService.hasAllPermissions.bind(roleService)
 export const getRolePermissions = roleService.getRolePermissions.bind(roleService)
-export const canAccessRoute = roleService.canAccessRoute.bind(roleService)
 export const updateUserRole = roleService.updateUserRole.bind(roleService)
 export const getUserRole = roleService.getUserRole.bind(roleService)
 export const getAllRoles = roleService.getAllRoles.bind(roleService)
 export const getRoleDescription = roleService.getRoleDescription.bind(roleService)
 export const getRoleDisplayName = roleService.getRoleDisplayName.bind(roleService)
+
+/**
+ * Suspend or reactivate an account (admin only).
+ *
+ * Suspension blocks TRANSACTING, not access. A suspended user can still sign
+ * in, read their receipts, download certificates for credits they already
+ * retired, and exercise their Data Privacy Act rights — see the header of
+ * 20260722000800 for why that separation is load-bearing.
+ *
+ * The RPC is authoritative: it refuses a non-admin, refuses self-suspension,
+ * and refuses a suspension with no reason.
+ *
+ * @param {string} userId
+ * @param {boolean} suspended
+ * @param {string} [reason] - required when suspending
+ */
+export async function setUserSuspended(userId, suspended, reason = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!userId) throw new Error('User is required')
+
+  const { data, error } = await supabase.rpc('set_user_suspended', {
+    p_user_id: userId,
+    p_suspended: !!suspended,
+    p_reason: reason || null,
+  })
+  if (error) throw new Error(error.message || 'Could not update the account status.')
+
+  logUserAction(suspended ? 'USER_SUSPENDED' : 'USER_REACTIVATED', 'profiles', null, userId, {
+    reason: reason || null,
+  }).catch(() => {})
+
+  return data
+}
+
+/**
+ * True when a profile row represents a suspended account.
+ *
+ * Treats a missing `is_active` as ACTIVE: every profile predates
+ * 20260722000800, and defaulting the other way would read every existing user
+ * as suspended on an un-migrated database.
+ *
+ * Pure — exported for unit testing.
+ */
+export function isSuspendedProfile(profile) {
+  return profile?.is_active === false
+}

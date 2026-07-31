@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyBiomassProducts,
   createBiomassProduct,
@@ -9,12 +10,16 @@ import {
 import { getMyKyb } from '@/services/kybService'
 import { useUserStore } from '@/store/userStore'
 import { BIOMASS_PRODUCT_TYPES, BIOMASS_UNITS, biomassTypeLabel } from '@/constants/biomass'
+import { peso } from '@/utils/format'
 import KybForm from '@/components/wallet/KybForm.vue'
 
 const userStore = useUserStore()
 const loading = ref(true)
 const loadError = ref('')
 const kyb = ref({ verified: false, application: null })
+// Distinct from "not verified": a failed lookup is not a decision about the
+// account. Farmers are unaffected either way — canList exempts them.
+const kybUnknown = ref(false)
 const products = ref([])
 const showKyb = ref(false)
 
@@ -40,23 +45,32 @@ const formErrors = ref([])
 const saving = ref(false)
 const saveError = ref('')
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [k, p] = await Promise.all([getMyKyb(), getMyBiomassProducts()])
-    kyb.value = k
-    products.value = p
-  } catch (err) {
-    console.error('Failed to load supplier data:', err)
-    loadError.value = err?.message || 'We could not load your listings right now.'
-  } finally {
-    loading.value = false
+
+  // allSettled, not all: a farmer's right to list does not depend on KYB at all
+  // (see canList), so a failed KYB lookup must not take their listings page down
+  // with it. Only the listings themselves are load-bearing here.
+  const [k, p] = await Promise.allSettled([getMyKyb(), getMyBiomassProducts()])
+
+  if (k.status === 'fulfilled') {
+    kyb.value = k.value
+    kybUnknown.value = false
+  } else {
+    console.error('Could not check business verification:', k.reason)
+    kybUnknown.value = true
   }
+
+  if (p.status === 'fulfilled') {
+    products.value = p.value || []
+  } else {
+    console.error('Failed to load listings:', p.reason)
+    loadError.value = p.reason?.message || 'We could not load your listings right now.'
+  }
+
+  loading.value = false
 }
 
 function resetForm() {
@@ -111,13 +125,12 @@ onMounted(load)
 
 <template>
   <div class="sell">
-    <header class="page-head">
-      <h1>Sell Feedstock</h1>
-      <p>
-        List your biomass so buyers can request quotes. Businesses need verification (KYB) before
-        listing; approved farmers can list right away.
-      </p>
-    </header>
+    <PageHeader
+      title="Sell Feedstock"
+      description="List your biomass so buyers can request quotes. Businesses need verification (KYB) before listing; approved farmers can list right away."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="loadError" class="notice error">
@@ -125,8 +138,21 @@ onMounted(load)
     </div>
 
     <template v-else>
+      <!-- KYB status unreadable. Only shown to accounts whose listing right
+           actually depends on it — a farmer is exempt via canList, so telling
+           them we couldn't check would be noise about something irrelevant. -->
+      <div v-if="kybUnknown && !canList" class="notice warn">
+        <span class="material-symbols-outlined" aria-hidden="true">help</span>
+        <div class="notice-body">
+          <strong>We couldn't check your business verification.</strong>
+          Listing stays unavailable until we can confirm it. This is a problem on our side, not a
+          decision about your account.
+          <div class="notice-action"><button class="btn-primary sm" @click="load">Try again</button></div>
+        </div>
+      </div>
+
       <!-- KYB gate -->
-      <div v-if="!canList" class="notice warn">
+      <div v-else-if="!canList" class="notice warn">
         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
         <div class="notice-body">
           <strong>Business verification required.</strong>
@@ -228,19 +254,18 @@ onMounted(load)
     </template>
 
     <!-- KYB modal -->
-    <div v-if="showKyb" class="modal-overlay" @click.self="showKyb = false">
+    <div v-if="showKyb" class="modal-overlay" v-modal-a11y="() => (showKyb = false)" @click.self="showKyb = false">
       <div class="modal">
         <KybForm @success="onKybSuccess" @cancel="showKyb = false" />
       </div>
+    </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.sell { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; }
-.muted { color: #6b7280; }
+.sell { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 960px; margin: 0 auto; padding: 24px 16px; }.muted { color: #6b7280; }
 .notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; }
 .notice.warn { background: #fef3c7; color: #92400e; }
 .notice.error { background: #fee2e2; color: #991b1b; }
@@ -258,7 +283,7 @@ onMounted(load)
 .fg input, .fg select, .fg textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
 .err-list { margin: 14px 0 0; padding-left: 18px; color: #991b1b; font-size: 0.85rem; }
 .form-actions { margin-top: 16px; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 600; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 600; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 6px 12px; font-size: 0.85rem; }
 .table-scroll { width: 100%; overflow-x: auto; }
@@ -269,7 +294,7 @@ onMounted(load)
 .badge.active { background: #d1fae5; color: #065f46; }
 .badge.inactive { background: #e5e7eb; color: #6b7280; }
 .badge.sold_out { background: #fef3c7; color: #92400e; }
-.link-btn { background: none; border: none; color: #069e2d; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.link-btn { background: none; border: none; color: #058526; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
 .modal { background: #fff; border-radius: 16px; padding: 24px; max-width: 540px; width: 100%; max-height: 90vh; overflow-y: auto; }
 @media (max-width: 640px) {

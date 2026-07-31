@@ -1,10 +1,10 @@
 <template>
   <div class="watchlist-view">
-    <div class="container">
-      <h1 class="page-title">My Watchlist</h1>
-      <p class="page-description">Listings you've saved to follow.</p>
+    <PageHeader title="Saved" description="Listings you've saved to follow." />
 
-      <div v-if="loading" class="state-card">Loading your watchlist…</div>
+    <div class="container">
+
+      <div v-if="loading" class="state-card">Loading your saved listings…</div>
       <div v-else-if="error" class="state-card error">{{ error }}</div>
       <div v-else-if="items.length === 0" class="state-card">
         <p>You haven't saved any listings yet.</p>
@@ -16,7 +16,7 @@
           <div class="watch-card__media">
             <img v-if="item.listing?.project_image" :src="item.listing.project_image" :alt="item.title" />
             <div v-else class="media-fallback"><span class="material-symbols-outlined">eco</span></div>
-            <button class="remove-btn" title="Remove from watchlist" @click="remove(item)">
+            <button class="remove-btn" title="Remove from saved" @click="remove(item)">
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
@@ -30,6 +30,29 @@
                 <span class="price">{{ formatCurrency(item.listing.price_per_credit, item.listing.currency) }}</span>
                 <span class="qty">{{ formatNumber(item.listing.available_quantity) }} left</span>
               </div>
+
+              <!-- Movement since the buyer saved it — the reason to keep a watchlist -->
+              <p v-if="item.change" class="watch-change" :class="item.change.direction">
+                {{ item.change.direction === 'down' ? '▼' : '▲' }}
+                {{ Math.abs(item.change.percent) }}% since you saved it
+                <span class="watch-change-base">
+                  (was {{ formatCurrency(item.price_at_save, item.listing.currency) }})
+                </span>
+              </p>
+              <p v-else-if="!item.price_at_save" class="watch-nobase">
+                Saved before price tracking — re-save to watch for drops.
+              </p>
+
+              <label class="alert-toggle">
+                <input
+                  type="checkbox"
+                  :checked="item.notify_on_drop !== false"
+                  :disabled="!item.price_at_save || togglingId === item.listing_id"
+                  @change="toggleAlert(item, $event.target.checked)"
+                />
+                <span>Alert me if the price drops</span>
+              </label>
+
               <div class="watch-actions">
                 <router-link :to="`/projects/${item.project_id}`" class="ghost-btn">Details</router-link>
                 <router-link to="/marketplace" class="primary-btn">Buy on marketplace</router-link>
@@ -54,12 +77,43 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMyWatchlist, removeFromWatchlist } from '@/services/watchlistService'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import {
+  getMyWatchlist,
+  removeFromWatchlist,
+  setWatchlistAlert,
+} from '@/services/watchlistService'
 import { getMarketplaceListings } from '@/services/marketplaceService'
 
 const loading = ref(true)
 const error = ref('')
 const items = ref([])
+const togglingId = ref('')
+
+/**
+ * Price movement since the buyer saved the listing. Null when there's no
+ * baseline (saved before price tracking) or nothing has moved.
+ */
+function priceChange(savedPrice, currentPrice) {
+  const base = Number(savedPrice)
+  const now = Number(currentPrice)
+  if (!(base > 0) || !(now > 0) || base === now) return null
+  const percent = Math.round(((now - base) / base) * 100)
+  if (percent === 0) return null
+  return { percent, direction: percent < 0 ? 'down' : 'up' }
+}
+
+async function toggleAlert(item, enabled) {
+  togglingId.value = item.listing_id
+  try {
+    await setWatchlistAlert(item.listing_id, enabled)
+    item.notify_on_drop = enabled
+  } catch (err) {
+    console.error('Failed to update alert preference:', err)
+  } finally {
+    togglingId.value = ''
+  }
+}
 
 function formatCurrency(value, currency = 'PHP') {
   const sym = currency === 'PHP' ? '₱' : `${currency} `
@@ -81,6 +135,7 @@ async function load() {
         ...r,
         listing,
         title: listing?.project_title || 'Saved listing',
+        change: listing ? priceChange(r.price_at_save, listing.price_per_credit) : null,
       }
     })
   } catch (err) {
@@ -105,21 +160,16 @@ onMounted(load)
 
 <style scoped>
 .watchlist-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
-.page-title {
-  font-size: 1.8rem;
-  margin: 0 0 0.4rem;
-}
-.page-description {
-  color: #6b7280;
-  margin: 0 0 1.5rem;
-}
+
 .state-card {
   padding: 2rem;
   border: 1px solid #e5e7eb;
@@ -136,7 +186,7 @@ onMounted(load)
 .browse-link {
   display: inline-block;
   margin-top: 0.75rem;
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -220,6 +270,38 @@ onMounted(load)
   color: #6b7280;
   font-size: 0.8rem;
 }
+.watch-change {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+.watch-change.down {
+  color: #059669;
+}
+.watch-change.up {
+  color: #dc2626;
+}
+.watch-change-base {
+  font-weight: 400;
+  color: #9ca3af;
+}
+.watch-nobase {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0 0 0.5rem;
+}
+.alert-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 0.85rem;
+  cursor: pointer;
+}
+.alert-toggle input:disabled + span {
+  opacity: 0.5;
+}
 .watch-unavailable {
   color: #9ca3af;
   font-size: 0.85rem;
@@ -243,8 +325,8 @@ onMounted(load)
   color: #374151;
 }
 .primary-btn {
-  background: #069e2d;
-  border-color: #069e2d;
+  background: #058526;
+  border-color: #058526;
   color: #fff;
 }
 </style>

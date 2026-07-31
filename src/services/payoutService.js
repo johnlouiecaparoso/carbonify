@@ -14,10 +14,11 @@ export async function getSellerBalance() {
   if (!supabase) return { available: 0, held: 0, currency: 'PHP' }
 
   const { data, error } = await supabase.rpc('get_my_seller_balance')
-  if (error) {
-    console.error('Error fetching seller balance:', error)
-    return { available: 0, held: 0, currency: 'PHP' }
-  }
+  // Throw rather than returning zeros. A swallowed error here rendered
+  // "PHP 0.00 available" — which a seller reads as "I have no money", not as
+  // "we could not look". On the page where someone decides whether to withdraw,
+  // an invented zero is worse than an error.
+  if (error) throw new Error(error.message || 'Could not load your seller balance')
   // RPC returns a single-row table.
   const row = Array.isArray(data) ? data[0] : data
   return {
@@ -25,6 +26,73 @@ export async function getSellerBalance() {
     held: Number(row?.held) || 0,
     currency: row?.currency || 'PHP',
   }
+}
+
+/**
+ * The caller's still-held escrow, soonest release first.
+ *
+ * `get_my_seller_balance` returns a single `held` total with no dates, so the
+ * earnings page could tell a seller that money existed and was not theirs yet,
+ * without ever saying when it would be — the one question that balance actually
+ * raises. `escrow_holds.hold_until` has always carried the answer, and sellers
+ * have had RLS read access to their own rows since 20260606000600; nothing
+ * queried it.
+ *
+ * @returns {Promise<Array<{id: string, amount: number, currency: string, holdUntil: (string|null), transactionId: string}>>}
+ */
+export async function getMyEscrowHolds(limit = 50) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('escrow_holds')
+    .select('id, amount, currency, hold_until, transaction_id')
+    .eq('seller_id', user.id)
+    .eq('status', 'held')
+    // Matches idx_escrow_holds_due (status, hold_until); nulls last so a hold
+    // with no window set never claims to be the next release.
+    .order('hold_until', { ascending: true, nullsFirst: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message || 'Could not load your escrow holds')
+
+  return (data || []).map((h) => ({
+    id: h.id,
+    amount: Number(h.amount) || 0,
+    currency: h.currency || 'PHP',
+    holdUntil: h.hold_until || null,
+    transactionId: h.transaction_id,
+  }))
+}
+
+/**
+ * The soonest upcoming escrow release, or null when nothing is held.
+ *
+ * Pure so the "next release" line can be unit-tested without a database.
+ *
+ * @param {Array<{amount?: number, holdUntil?: (string|null)}>} holds
+ */
+export function nextEscrowRelease(holds = []) {
+  const dated = (holds || []).filter((h) => h?.holdUntil)
+  if (!dated.length) return null
+
+  let soonest = dated[0]
+  for (const h of dated) {
+    if (new Date(h.holdUntil) < new Date(soonest.holdUntil)) soonest = h
+  }
+  // Sum everything releasing on that same day, not just the one row — a seller
+  // reads this as "what lands next", and same-day holds land together.
+  const day = String(soonest.holdUntil).slice(0, 10)
+  const amount = dated
+    .filter((h) => String(h.holdUntil).slice(0, 10) === day)
+    .reduce((sum, h) => sum + (Number(h.amount) || 0), 0)
+
+  return { holdUntil: soonest.holdUntil, amount: round2(amount) }
 }
 
 /**
@@ -63,18 +131,39 @@ export async function getMySales(limit = 50) {
   } = await supabase.auth.getUser()
   if (!user) return []
 
+  // transaction_fee is selected because the seller is entitled to see it: the
+  // "Total" on a sale is GROSS, but what reaches their balance is gross minus
+  // this fee (process_marketplace_purchase computes v_seller_net exactly this
+  // way and credits seller_payable with it). Without the fee column the sales
+  // table and the available balance disagree and nothing in the UI explains why.
   const { data, error } = await supabase
     .from('credit_transactions')
-    .select('id, quantity, price_per_credit, total_amount, currency, status, created_at, completed_at')
+    .select(
+      'id, quantity, price_per_credit, total_amount, transaction_fee, currency, status, created_at, completed_at',
+    )
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching sales:', error)
-    return []
-  }
-  return data || []
+  // Throw, don't return []. An empty array is indistinguishable from "you have
+  // made no sales", so a failed query used to tell a seller with a full ledger
+  // that they had sold nothing.
+  if (error) throw new Error(error.message || 'Could not load your sales')
+  return (data || []).map((row) => ({ ...row, net_amount: netOf(row) }))
+}
+
+/**
+ * What the seller actually receives for a sale: gross less the platform fee.
+ *
+ * Mirrors `v_seller_net := v_amount - v_fee` in
+ * `20260606000400_process_marketplace_purchase.sql`. Kept as one exported
+ * helper so the per-sale row and the per-project rollup cannot drift apart.
+ *
+ * @param {{total_amount?: number|string, transaction_fee?: number|string}} row
+ * @returns {number}
+ */
+export function netOf(row) {
+  return round2((Number(row?.total_amount) || 0) - (Number(row?.transaction_fee) || 0))
 }
 
 function round2(n) {
@@ -104,6 +193,8 @@ export function aggregateSalesByProject(rows = []) {
       salesCount: 0,
       creditsSold: 0,
       grossEarnings: 0,
+      platformFees: 0,
+      netEarnings: 0,
       currency: r.currency || 'PHP',
       lastSaleDate: null,
     }
@@ -111,6 +202,8 @@ export function aggregateSalesByProject(rows = []) {
     existing.salesCount += 1
     existing.creditsSold += Number(r.quantity) || 0
     existing.grossEarnings += Number(r.total_amount) || 0
+    existing.platformFees += Number(r.transaction_fee) || 0
+    existing.netEarnings += netOf(r)
     if (r.date && (!existing.lastSaleDate || new Date(r.date) > new Date(existing.lastSaleDate))) {
       existing.lastSaleDate = r.date
     }
@@ -119,7 +212,12 @@ export function aggregateSalesByProject(rows = []) {
   }
 
   return Array.from(byProject.values())
-    .map((p) => ({ ...p, grossEarnings: round2(p.grossEarnings) }))
+    .map((p) => ({
+      ...p,
+      grossEarnings: round2(p.grossEarnings),
+      platformFees: round2(p.platformFees),
+      netEarnings: round2(p.netEarnings),
+    }))
     .sort((a, b) => b.grossEarnings - a.grossEarnings)
 }
 
@@ -140,23 +238,21 @@ export async function getMySalesByProject(limit = 200) {
   const { data, error } = await supabase
     .from('credit_transactions')
     .select(
-      `id, quantity, total_amount, currency, status, created_at, completed_at,
+      `id, quantity, total_amount, transaction_fee, currency, status, created_at, completed_at,
        project_credits!inner(projects!inner(id, title))`,
     )
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching sales by project:', error)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load your earnings by project')
 
   const rows = (data || []).map((t) => ({
     project_id: t.project_credits?.projects?.id,
     project_title: t.project_credits?.projects?.title,
     quantity: t.quantity,
     total_amount: t.total_amount,
+    transaction_fee: t.transaction_fee,
     currency: t.currency,
     status: t.status,
     date: t.completed_at || t.created_at,
@@ -176,9 +272,6 @@ export async function getMyPayouts(limit = 20) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    console.error('Error fetching payouts:', error)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load your withdrawals')
   return data || []
 }

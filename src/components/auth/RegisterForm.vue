@@ -2,10 +2,16 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { registerWithEmail, signInWithGoogle } from '@/services/authService'
+import { useAuthProviders } from '@/composables/useAuthProviders'
+import { useUserStore } from '@/store/userStore'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 
 const router = useRouter()
+const store = useUserStore()
+// #32 — only offer Google if the backend has the provider enabled.
+const { googleEnabled } = useAuthProviders()
 const googleLoading = ref(false)
 const name = ref('')
 const email = ref('')
@@ -63,15 +69,40 @@ async function handleSubmit() {
   loading.value = true
   try {
     // Register with email
-    await registerWithEmail({
+    const result = await registerWithEmail({
       name: name.value.trim(),
       email: email.value,
       password: password.value,
     })
 
-    // Signal the login page to confirm the account was created — otherwise the
-    // user lands on a bare sign-in form and can't tell whether it worked.
-    router.replace({ path: '/login', query: { registered: '1' } })
+    // This used to redirect to "Account created. Sign in to continue."
+    // unconditionally, without looking at the result. Two cases were wrong:
+    // an address that was already registered, and a project that requires
+    // email confirmation — where signing in is exactly what does NOT work yet.
+    if (result?.alreadyRegistered) {
+      emailError.value =
+        'That email already has an account. Sign in instead, or reset your password.'
+      return
+    }
+
+    // When email confirmation is OFF, signUp returns a SESSION — the account is
+    // created and already signed in. Sending that user to /login showed a sign-in
+    // form to someone who was, at that moment, signed in: they would enter the
+    // credentials they had just chosen and wonder why it took two goes.
+    //
+    // Only bounce to /login when there is genuinely no session to use, which is
+    // the confirmation-required case.
+    if (result?.session) {
+      await store.fetchSession()
+      await store.fetchUserProfile()
+      router.replace(getRoleDefaultRoute(store.role || store.profile?.role))
+      return
+    }
+
+    router.replace({
+      path: '/login',
+      query: result?.needsEmailConfirmation ? { confirm: '1' } : { registered: '1' },
+    })
   } catch (err) {
     console.error('Registration failed:', err)
     errorMessage.value = err?.message || 'Unable to register. Please try again.'
@@ -91,7 +122,9 @@ async function handleSubmit() {
       <!-- Full Name Input -->
       <div class="form-field">
         <label for="name" class="form-label">
-          <span class="material-symbols-outlined label-icon" aria-hidden="true">account_circle</span>
+          <span class="material-symbols-outlined label-icon" aria-hidden="true"
+            >account_circle</span
+          >
           Full name
         </label>
         <UiInput
@@ -167,27 +200,28 @@ async function handleSubmit() {
       </UiButton>
     </form>
 
-    <div class="auth-divider"><span>or</span></div>
+    <template v-if="googleEnabled">
+      <div class="auth-divider"><span>or</span></div>
 
-    <button type="button" class="social-button" :disabled="googleLoading" @click="signUpGoogle">
-      <img
-        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-        alt=""
-        class="social-icon"
-      />
-      <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
-    </button>
+      <button type="button" class="social-button" :disabled="googleLoading" @click="signUpGoogle">
+        <img
+          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+          alt=""
+          class="social-icon"
+        />
+        <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
+      </button>
+    </template>
 
     <div class="role-apply-box">
-      <p class="role-apply-title">Farming, developing, or verifying?</p>
+      <p class="role-apply-title">Farming or developing carbon projects?</p>
       <p class="role-apply-text">
-        A farmer needs only a name and location. Developers and verifiers are asked for business
-        registration or accreditation. All three are reviewed before approval.
+        The account above lets you buy and retire credits right away. A farmer needs only a name and
+        location; developers are asked for business registration. Both are reviewed before approval.
       </p>
       <div class="role-apply-links">
         <router-link to="/register/farmer">Register as a Farmer →</router-link>
         <router-link to="/apply?role=project-developer">Apply as a Project Developer →</router-link>
-        <router-link to="/apply?role=verifier">Apply as a Verifier →</router-link>
       </div>
     </div>
   </div>
@@ -216,7 +250,8 @@ async function handleSubmit() {
   color: #1f2937;
   margin: 0 0 0.5rem;
   letter-spacing: -0.025em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .register-subtitle {
@@ -225,7 +260,8 @@ async function handleSubmit() {
   margin: 0;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Form Grid - Optimized spacing and centering */
@@ -253,7 +289,8 @@ async function handleSubmit() {
   font-size: 0.875rem;
   font-weight: 500;
   color: #6b7280;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .label-icon {
@@ -286,14 +323,16 @@ async function handleSubmit() {
   font-size: 0.875rem;
   color: #1f2937;
   background: #ffffff;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .form-grid :deep(.enhanced-input__field:focus) {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .form-grid :deep(.enhanced-input__field::placeholder) {
@@ -316,7 +355,7 @@ async function handleSubmit() {
 }
 
 .create-account-button :deep(.ui-btn) {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #ffffff;
   border-radius: 8px;
   padding: 0.75rem 1.5rem;
@@ -327,11 +366,12 @@ async function handleSubmit() {
   justify-content: center;
   gap: 0.5rem;
   border: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .create-account-button :deep(.ui-btn:hover) {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .error-message {
@@ -413,7 +453,9 @@ button[disabled] {
   font-weight: 600;
   color: #374151;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .social-button:hover:not(:disabled) {
@@ -456,7 +498,7 @@ button[disabled] {
   gap: 0.3rem;
 }
 .role-apply-links a {
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   font-size: 0.82rem;
   text-decoration: none;

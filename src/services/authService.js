@@ -7,44 +7,104 @@ import {
   getRoleApplicationStatusLabel,
 } from '@/services/roleApplicationService'
 
+/**
+ * Turn a GoTrue error into something a human can act on.
+ *
+ * GoTrue's strings are written for the developer holding the dashboard, not
+ * for the person staring at the form. "Signups not allowed for this instance"
+ * is a *server configuration* state — the user did nothing wrong and there is
+ * nothing they can do about it, but as raw text it reads like a rejection of
+ * them. Anyone who has not read the runbook cannot tell the difference between
+ * that and a bad password.
+ *
+ * Unmapped messages fall through unchanged: inventing friendlier text for an
+ * error we have not seen would hide the one detail that identifies it.
+ */
+export function friendlyAuthError(message) {
+  const raw = String(message || '')
+  const lower = raw.toLowerCase()
+
+  if (lower.includes('signups not allowed') || lower.includes('signup is disabled')) {
+    return 'New account registration is currently turned off for this site. This is a server setting, not a problem with your details — please contact the Carbonify team.'
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'Please confirm your email address first. Check your inbox — and your spam folder — for the confirmation link.'
+  }
+  if (lower.includes('invalid login credentials')) {
+    return 'That email and password do not match an account. Check both, or reset your password.'
+  }
+  if (lower.includes('email rate limit') || lower.includes('over_email_send_rate_limit')) {
+    return 'Too many emails have been sent from this site in the last hour. Please wait a little while and try again.'
+  }
+  if (lower.includes('password should be at least')) {
+    return 'Please choose a longer password — at least 8 characters.'
+  }
+  // Deliberately NOT mapped: "User already registered". `registerWithEmail`
+  // detects that case from the empty `identities` array and words it itself,
+  // and adding a second disclosure path here would widen the account
+  // enumeration surface the decoy-user check exists to keep narrow.
+  return raw
+}
+
 export async function loginWithEmail({ email, password }) {
   const supabase = getSupabase()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {
     // Log failed login attempt
     await logUserAction('LOGIN_FAILED', 'user', null, null, { email, error: error.message })
-    throw new Error(error.message || 'Invalid credentials or account not registered.')
+    throw new Error(friendlyAuthError(error.message) || 'Invalid credentials or account not registered.')
   }
 
+  // Specialist accounts (verifier / project developer) may not sign in until an
+  // admin approves their application.
+  //
+  // The lookup and the decision are deliberately separate. They used to share
+  // one try block, with the rethrow keyed on the thrown message containing
+  // "cannot sign in until it is approved" — so a security decision hung on
+  // matching a sentence that also had to stay in sync with a regex in
+  // LoginForm.vue. Any edit to that wording would have silently let unapproved
+  // specialists in.
+  let blockingApplication = null
   try {
-    const blockingApplication = await getBlockingRoleApplicationForUser({
+    blockingApplication = await getBlockingRoleApplicationForUser({
       userId: data.user?.id,
       email,
     })
+  } catch (lookupError) {
+    // Fails OPEN, on purpose: this query hitting a missing table or a network
+    // blip must not lock every user out of the platform. The server-side RLS
+    // policies remain the real boundary on what an unapproved account can do.
+    console.error('Error checking role application approval during login:', lookupError)
+  }
 
-    if (blockingApplication) {
-      await supabase.auth.signOut({ scope: 'global' })
+  if (blockingApplication) {
+    await supabase.auth.signOut({ scope: 'global' })
 
-      const roleLabel =
-        blockingApplication.role_requested === 'verifier' ? 'Verifier' : 'Project Developer'
-      const statusLabel = getRoleApplicationStatusLabel(blockingApplication.status).toLowerCase()
-
-      await logUserAction('LOGIN_BLOCKED_UNVERIFIED_ROLE', 'user', data.user?.id, null, {
-        email,
-        requested_role: blockingApplication.role_requested,
-        application_status: blockingApplication.status,
-      })
-
-      throw new Error(
-        `Your ${roleLabel} account is ${statusLabel} and cannot sign in until it is approved. We will email you once your account is verified.`,
-      )
+    // `getBlockingRoleApplicationForUser` queries every role in
+    // ROLE_APPLICATION_ROLES, which includes FARMER — so a farmer with a
+    // pending application was told their "Project Developer account" was
+    // awaiting approval. Three roles can be applied for; name the right one.
+    const ROLE_LABELS = {
+      verifier: 'Verifier',
+      project_developer: 'Project Developer',
+      farmer: 'Farmer',
     }
-  } catch (approvalError) {
-    if (approvalError?.message?.includes('cannot sign in until it is approved')) {
-      throw approvalError
-    }
+    const roleLabel = ROLE_LABELS[blockingApplication.role_requested] || 'Specialist'
+    const statusLabel = getRoleApplicationStatusLabel(blockingApplication.status).toLowerCase()
 
-    console.error('Error checking role application approval during login:', approvalError)
+    await logUserAction('LOGIN_BLOCKED_UNVERIFIED_ROLE', 'user', data.user?.id, null, {
+      email,
+      requested_role: blockingApplication.role_requested,
+      application_status: blockingApplication.status,
+    })
+
+    // `code` is what callers should branch on. The message is for humans and
+    // may be reworded freely.
+    const blocked = new Error(
+      `Your ${roleLabel} account is ${statusLabel} and cannot sign in until it is approved. We will email you once your account is verified.`,
+    )
+    blocked.code = 'ROLE_APPLICATION_PENDING'
+    throw blocked
   }
 
   // Log successful login
@@ -70,11 +130,30 @@ export async function registerWithEmail({ name, email, password }) {
       email,
       error: error.message,
     })
-    throw new Error(error.message || 'Unable to register. Please try again.')
+    const friendly = new Error(friendlyAuthError(error.message) || 'Unable to register. Please try again.')
+    // Keep the raw text reachable for the console and for support, without
+    // putting GoTrue's wording in front of the person filling in the form.
+    friendly.cause = error
+    throw friendly
   }
+
+  // Supabase deliberately does NOT error when the email is already registered —
+  // that would let anyone enumerate accounts. It returns a decoy user with an
+  // empty `identities` array instead. Without this check the existing owner of
+  // that address is told they just created an account.
+  const alreadyRegistered =
+    Array.isArray(data.user?.identities) && data.user.identities.length === 0
+
+  // No session means Supabase is waiting on a confirmation click. The caller
+  // must not tell the user to go and sign in.
+  const needsEmailConfirmation = !alreadyRegistered && !data.session
 
   // Log successful registration
   await logUserAction('REGISTRATION_SUCCESS', 'user', data.user?.id, null, { email, name })
+
+  if (alreadyRegistered) {
+    return { ...data, alreadyRegistered: true, needsEmailConfirmation: false }
+  }
 
   // Create profile if user was created successfully
   if (data.user) {
@@ -94,7 +173,7 @@ export async function registerWithEmail({ name, email, password }) {
     }
   }
 
-  return data
+  return { ...data, alreadyRegistered: false, needsEmailConfirmation }
 }
 
 /**
@@ -175,8 +254,7 @@ export async function ensureUserProfile() {
   }
 
   const meta = user.user_metadata || {}
-  const fullName =
-    meta.full_name || meta.name || user.email?.split('@')[0] || user.phone || 'User'
+  const fullName = meta.full_name || meta.name || user.email?.split('@')[0] || user.phone || 'User'
 
   return createUserProfile(user.id, { full_name: fullName })
 }
@@ -268,12 +346,9 @@ export async function signOut() {
     let user = null
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('getUser timeout')), 2000)
+        setTimeout(() => reject(new Error('getUser timeout')), 2000),
       )
-      const { data } = await Promise.race([
-        supabase.auth.getUser(),
-        timeoutPromise,
-      ])
+      const { data } = await Promise.race([supabase.auth.getUser(), timeoutPromise])
       user = data?.user
     } catch (e) {
       // Ignore getUser timeout/error - proceed with signOut anyway
@@ -283,9 +358,9 @@ export async function signOut() {
     // Sign out from Supabase (with timeout to prevent hanging)
     const signOutPromise = supabase.auth.signOut({ scope: 'global' })
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('signOut timeout')), 3000)
+      setTimeout(() => reject(new Error('signOut timeout')), 3000),
     )
-    
+
     await Promise.race([signOutPromise, timeoutPromise])
 
     // Log successful logout (non-blocking)
@@ -299,9 +374,11 @@ export async function signOut() {
     try {
       const { data } = await supabase.auth.getUser()
       if (data?.user?.id) {
-        logUserAction('LOGOUT_FAILED', 'user', data.user.id, null, { error: e.message }).catch(() => {
-          // Ignore audit log errors
-        })
+        logUserAction('LOGOUT_FAILED', 'user', data.user.id, null, { error: e.message }).catch(
+          () => {
+            // Ignore audit log errors
+          },
+        )
       }
     } catch {
       // Ignore - we're already in error handling

@@ -64,11 +64,26 @@ serve(async (req) => {
 
   const results: Array<{ id: string; status: string; error?: string }> = []
   for (const row of (pending ?? []) as DeletionRow[]) {
-    // Mark in-progress so a concurrent run doesn't pick it up.
-    await supabase
+    // Claim it (pending -> in_progress) ATOMICALLY. The `.eq('status','pending')`
+    // is what makes this a claim rather than a note: two overlapping runs can
+    // both SELECT the same pending row, and an unconditional update let both
+    // proceed to deleteUser(). The second call then failed with "User not
+    // found" and the error path below reset the row to 'pending' — so a
+    // successfully erased account was recorded as an outstanding erasure
+    // request, forever, and retried on every subsequent run.
+    //
+    // This mirrors what mark_payout_processing() does for payouts: only the
+    // caller that won the transition may act.
+    const { data: claimed, error: claimErr } = await supabase
       .from('data_subject_requests')
       .update({ status: 'in_progress', updated_at: new Date().toISOString() })
       .eq('id', row.id)
+      .eq('status', 'pending')
+      .select('id')
+    if (claimErr || !claimed || claimed.length === 0) {
+      results.push({ id: row.id, status: 'skipped_not_claimed' })
+      continue
+    }
 
     // Delete the auth user — cascades profile-keyed personal data.
     const { error: delErr } = await supabase.auth.admin.deleteUser(row.user_id)

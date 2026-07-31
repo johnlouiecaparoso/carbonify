@@ -35,7 +35,16 @@ coverage
 .env.*.local
 
 # Supabase CLI local link state (per-developer)
-supabase/.temp/linked-project.json
+supabase/.temp/
 
 .vercel
 .env*
+
+# Claude Code: share the project orientation doc, keep per-developer settings out.
+# settings.local.json is Claude Code's convention for machine-local overrides
+# (personal permission grants), so it must not be committed.
+.claude/settings.local.json
+
+# Playwright output (created by `npm run test:e2e`)
+test-results/
+playwright-report/

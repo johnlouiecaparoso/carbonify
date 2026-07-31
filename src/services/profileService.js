@@ -39,16 +39,21 @@ export async function createProfile(profileData) {
     profile.notification_preferences = profileData.notification_preferences
   }
 
-  // Check if profile already exists
+  // Check if profile already exists. Select the FULL row, not just id: now that
+  // the handle_new_auth_user trigger pre-creates a profile for every signup,
+  // this "already exists" branch is the common path, and callers expect a
+  // complete profile back. Returning a bare { id } stub made the store set
+  // role = canonicalizeRole(undefined) → general_user and render a blank
+  // profile page, and passed full_name = undefined into the welcome notification.
   const { data: existingProfile } = await supabase
     .from('profiles')
-    .select('id')
+    .select('*')
     .eq('id', profile.id)
-    .single()
+    .maybeSingle()
 
   // If profile exists, return it instead of creating duplicate
   if (existingProfile) {
-    console.log('Profile already exists, returning existing profile:', existingProfile)
+    console.log('Profile already exists, returning existing profile:', existingProfile.id)
     return existingProfile
   }
 

@@ -1,11 +1,13 @@
 <template>
   <div class="upgrade-view">
-    <div class="container">
-      <h1 class="page-title">Upgrade your plan</h1>
-      <p class="page-description">
+    <PageHeader title="Upgrade your plan">
+      <template #description>
         You're on the <strong>{{ currentPlanName }}</strong> plan.
         Unlock advanced analytics and unlimited listings.
-      </p>
+      </template>
+    </PageHeader>
+
+    <div class="container">
 
       <div v-if="reasonText" class="reason-banner">
         <span class="material-symbols-outlined" aria-hidden="true">lock</span>
@@ -78,6 +80,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { PLANS, FREE_LISTING_LIMIT, FEATURES, getPlanDisplayName } from '@/constants/plans'
@@ -175,21 +178,16 @@ async function subscribe(planKey) {
 
 <style scoped>
 .upgrade-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 1.5rem 1rem 0;
 }
-.page-title {
-  font-size: 1.8rem;
-  margin: 0 0 0.5rem;
-}
-.page-description {
-  color: #6b7280;
-  margin: 0 0 1.5rem;
-}
+
 .reason-banner {
   display: flex;
   align-items: center;
@@ -247,10 +245,10 @@ async function subscribe(planKey) {
   flex-direction: column;
 }
 .plan-card.paid {
-  border-color: #069e2d;
+  border-color: #058526;
 }
 .plan-card.current {
-  outline: 2px solid #069e2d;
+  outline: 2px solid #058526;
 }
 .plan-name {
   font-size: 1.2rem;
@@ -288,14 +286,14 @@ async function subscribe(planKey) {
   content: '✓';
   position: absolute;
   left: 0;
-  color: #069e2d;
+  color: #058526;
   font-weight: 700;
 }
 .plan-cta {
   padding: 0.7rem 1rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   font-size: 0.9rem;

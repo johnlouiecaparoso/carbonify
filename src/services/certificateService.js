@@ -767,14 +767,21 @@ export async function generateMissingCertificates(userId) {
 }
 
 /**
- * Get user's certificates
+ * Get user's certificates.
+ *
+ * Throws on failure rather than returning []. Two reasons, and the second is
+ * the one that bites: a retirement certificate is a buyer's evidence that they
+ * offset something, so an empty list reads as "you have retired nothing" — and
+ * CertificateView responds to a zero-length result by calling
+ * generateMissingCertificates(), so a transient read failure sent the app off
+ * to re-issue certificates for a user who already had them. Its `catch` already
+ * renders the error state; until now that branch could never run.
  */
 export async function getUserCertificates(userId) {
   const supabase = getSupabase()
 
   if (!supabase) {
-    console.warn('Supabase client not available')
-    return []
+    throw new Error('Supabase client not available')
   }
 
   try {
@@ -817,7 +824,7 @@ export async function getUserCertificates(userId) {
 
     if (error) {
       console.error('Error fetching certificates:', error)
-      return []
+      throw new Error(error.message || 'Failed to load certificates')
     }
 
     // Enrich certificates with data from certificate_data if needed
@@ -836,7 +843,7 @@ export async function getUserCertificates(userId) {
     return enrichedCertificates
   } catch (error) {
     console.error('Error in getUserCertificates:', error)
-    return []
+    throw error instanceof Error ? error : new Error('Failed to load certificates')
   }
 }
 

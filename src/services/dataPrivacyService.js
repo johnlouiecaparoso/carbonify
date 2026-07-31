@@ -184,7 +184,7 @@ export async function requestAccountDeletion(reason = null) {
 /** List the signed-in user's data-subject requests, newest first. */
 export async function getMyDataRequests() {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   const user = await getCurrentUser()
   const { data, error } = await supabase
@@ -194,8 +194,10 @@ export async function getMyDataRequests() {
     .order('created_at', { ascending: false })
 
   if (error) {
+    // Not []: a user who asked to be deleted, and is shown no pending request,
+    // reasonably concludes the request never registered and asks again.
     console.warn('[dataPrivacy] could not load requests:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load your data requests')
   }
   return data || []
 }
@@ -209,4 +211,123 @@ export async function cancelDeletionRequest(requestId) {
   const { error } = await supabase.rpc('cancel_data_subject_request', { p_id: requestId })
   if (error) throw new Error(error.message || 'Could not cancel the request.')
   return true
+}
+
+// ============================================================================
+// Admin side — actioning the queue.
+//
+// Everything above is what the data subject can do for themselves. Until
+// 20260722000700 there was nothing here at all: requests landed in a table with
+// admin-action columns and an index built for a pending queue, and no admin
+// could see one. Under the Data Privacy Act a deletion request starts a clock,
+// so an unread queue is a legal exposure, not a missing convenience.
+//
+// NOTE: none of this erases anything. The account-deletion worker holds the
+// service role and is gated by a shared secret a browser must never carry, so
+// these functions manage triage and status only.
+// ============================================================================
+
+/** Statuses an admin may move a request into (see the RPC). */
+export const DSR_ADMIN_STATUSES = ['in_progress', 'completed', 'rejected']
+
+/** Statuses that still need someone to act. */
+export const DSR_OPEN_STATUSES = ['pending', 'in_progress']
+
+/**
+ * Every data-subject request, newest first, with the requester's name/email
+ * attached. Admin-only in practice — RLS returns just the caller's own rows to
+ * anyone else, so a non-admin sees their own requests rather than an error.
+ *
+ * @param {Object} [opts]
+ * @param {string} [opts.status] - a single status, or 'open' for anything unresolved
+ */
+export async function listDataSubjectRequests({ status = 'open' } = {}) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+
+  let query = supabase.from(REQUESTS_TABLE).select('*').order('created_at', { ascending: false })
+  if (status === 'open') query = query.in('status', DSR_OPEN_STATUSES)
+  else if (status && status !== 'all') query = query.eq('status', status)
+
+  const { data, error } = await query
+  if (error) {
+    // Not []: this is the DPA erasure queue, and every row on it has a
+    // statutory clock running. "No outstanding requests" is precisely the
+    // wrong thing to show when the query failed — the same shape as the
+    // account-deletion secret that made every request queue forever while
+    // the docs recorded erasure as shipping.
+    console.warn('[dataPrivacy] could not load requests:', error.message)
+    throw new Error(error.message || 'Failed to load data-subject requests')
+  }
+
+  const rows = data || []
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))]
+  if (!userIds.length) return rows
+
+  // Best-effort: if profile reads are restricted the queue still renders, just
+  // without names.
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', userIds)
+
+  const byId = new Map((profiles || []).map((p) => [p.id, p]))
+  return rows.map((r) => ({
+    ...r,
+    requester_name: byId.get(r.user_id)?.full_name || null,
+    requester_email: byId.get(r.user_id)?.email || null,
+  }))
+}
+
+/**
+ * Move a request through triage. `notes` is required when rejecting — refusing
+ * a statutory right has to carry a reason on the record.
+ *
+ * @param {string} requestId
+ * @param {'in_progress'|'completed'|'rejected'} status
+ * @param {string} [notes]
+ */
+export async function processDataSubjectRequest(requestId, status, notes = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Service unavailable. Please try again in a moment.')
+  if (!requestId) throw new Error('Request is required')
+  if (!DSR_ADMIN_STATUSES.includes(status)) throw new Error('Unsupported status')
+
+  const { data, error } = await supabase.rpc('process_data_subject_request', {
+    p_id: requestId,
+    p_status: status,
+    p_notes: notes || null,
+  })
+  if (error) throw new Error(error.message || 'Could not update the request.')
+
+  logUserAction('DSR_PROCESSED', 'data_subject_request', null, requestId, {
+    status,
+  }).catch(() => {})
+
+  return data
+}
+
+/**
+ * Split a request list into the counts an admin cares about.
+ * Pure — exported for unit testing.
+ */
+export function summariseDataRequests(requests = []) {
+  const summary = { total: requests.length, pending: 0, inProgress: 0, deletions: 0, overdue: 0 }
+  // The DPA gives a controller a limited window to respond; 30 days is the
+  // convention used here to surface anything ageing, not a legal assertion.
+  const cutoff = Date.now() - 30 * 86400000
+
+  for (const r of requests) {
+    if (r.status === 'pending') summary.pending += 1
+    if (r.status === 'in_progress') summary.inProgress += 1
+    if (r.request_type === 'deletion' && DSR_OPEN_STATUSES.includes(r.status)) summary.deletions += 1
+    if (
+      DSR_OPEN_STATUSES.includes(r.status) &&
+      r.created_at &&
+      new Date(r.created_at).getTime() < cutoff
+    ) {
+      summary.overdue += 1
+    }
+  }
+  return summary
 }

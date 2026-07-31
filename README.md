@@ -19,7 +19,7 @@ Carbonify (repo/internal name **ecolink**; `package.json` name `carbonify`) is a
 
 **Roles / security**
 
-- Roles: general user, project developer, verifier, LGU, admin (see `src/constants/roles.js`)
+- Roles: general user, buyer/investor, project developer, verifier, LGU, farmer, admin — 7 total (see `src/constants/roles.js`)
 - Supabase Auth with MFA/2FA step-up enforcement in the router guard, OAuth/phone callback, KYC (buyer) and KYB (seller) flows
 - Role-based route guards and finance-restricted role gating in `src/router/index.js`
 
@@ -96,7 +96,7 @@ src/
   store/        Pinia stores (userStore, ...)
   router/       Vue Router + role/MFA guards
   constants/    roles and other enums
-  config/       environment.js, production.js, database.js
+  config/       database.js
   middleware/   role guards
   utils/        analytics, helpers
 supabase/

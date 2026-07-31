@@ -2,11 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Carbonify Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/carbonify-logo.png" />
-    <link rel="apple-touch-icon" href="/carbonify-logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#069e2d" />
+    <!-- Carbonify Favicon. These are real PNGs generated from the 1024px master;
+         the old /carbonify-logo.png was a JPEG with a .png extension (and a
+         flattened transparency checkerboard baked into its corners). -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- viewport-fit=cover extends under the notch (paired with safe-area insets
+         in responsive.css); user-scalable is left ON so users can pinch-zoom
+         (removing it was a WCAG 1.4.4 failure). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Keep in step with --primary-color in src/styles/tokens.css and
+         theme_color in public/manifest.json. -->
+    <meta name="theme-color" content="#058526" />
     <meta
       name="description"
       content="Carbonify - A platform for trading carbon credits and managing environmental projects"
@@ -16,13 +23,6 @@
       content="carbon credits, environment, sustainability, trading, eco-friendly"
     />
     <meta name="author" content="Carbonify Team" />
-
-    <!-- Cache Busting Meta Tags -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <meta name="version" content="1.0.0" />
-    <meta name="build-time" content="2024-10-02T10:00:00.000Z" />
 
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="/manifest.json" onerror="this.onerror=null;console.warn('Manifest not available (may be blocked by preview protection)')" />
@@ -38,7 +38,8 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://carbonify.app" />
-    <meta property="og:image" content="/carbonify-logo.png" />
+    <!-- Absolute: social scrapers do not resolve relative image URLs. -->
+    <meta property="og:image" content="https://carbonify.app/icon-512.png" />
 
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary" />
@@ -47,28 +48,29 @@
       name="twitter:description"
       content="A platform for trading carbon credits and managing environmental projects"
     />
-    <meta name="twitter:image" content="/carbonify-logo.png" />
+    <meta name="twitter:image" content="https://carbonify.app/icon-512.png" />
 
     <!-- Google Fonts - Roboto + Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+    <!-- display=block matters for an ICON font specifically. Material Symbols
+         renders by ligature, so while the font is still loading the browser
+         shows the ligature NAME as plain text — a page full of the literal
+         words "check_circle", "menu_book", "visibility". `block` keeps the
+         glyph invisible until the font arrives instead of flashing its name. -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=block"
     />
 
     <title>Carbonify - Carbon Credit Marketplace</title>
   </head>
   <body>
     <div id="app"></div>
+    <!-- The service worker is registered once, from utils/cache.js via main.js.
+         It used to be registered three times (here, utils/mobile.js and
+         utils/cache.js). -->
     <script type="module" src="/src/main.js"></script>
-    <script>
-      // Service worker is optional (skip if missing to avoid console errors on Vercel)
-      if ('serviceWorker' in navigator) {
-        var swPromise = navigator.serviceWorker.register('/sw.js')
-        if (swPromise && swPromise.catch) swPromise.catch(function() {})
-      }
-    </script>
   </body>
 </html>

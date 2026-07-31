@@ -8,38 +8,56 @@
           :class="['filter-tab', { active: statusFilter === 'all' }]"
           @click="statusFilter = 'all'"
         >
-          All Projects ({{ allProjects.length }})
+          All Projects ({{ tabCounts.all }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'submitted' }]"
           @click="statusFilter = 'submitted'"
         >
-          Submitted ({{ allProjects.filter(p => p.status === 'submitted').length }})
+          Submitted ({{ tabCounts.submitted }})
         </button>
         <button
           :class="['filter-tab', { active: statusFilter === 'in_review' }]"
           @click="statusFilter = 'in_review'"
         >
-          In Review ({{ allProjects.filter(p => p.status === 'in_review').length }})
+          In Review ({{ tabCounts.in_review }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'needs_revision' }]"
           @click="statusFilter = 'needs_revision'"
         >
-          Needs Revision ({{ allProjects.filter(p => p.status === 'needs_revision').length }})
+          Needs Revision ({{ tabCounts.needs_revision }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'validated' }]"
           @click="statusFilter = 'validated'"
         >
-          Validated ({{ allProjects.filter(p => p.status === 'validated').length }})
+          Validated ({{ tabCounts.validated }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'rejected' }]"
           @click="statusFilter = 'rejected'"
         >
-          Rejected ({{ allProjects.filter(p => p.status === 'rejected').length }})
+          Rejected ({{ tabCounts.rejected }})
         </button>
+      </div>
+
+      <!-- Queue controls. A queue longer than one screen was previously
+           navigable only by scrolling it. -->
+      <div class="queue-controls">
+        <label class="queue-search">
+          <span class="material-symbols-outlined" aria-hidden="true">search</span>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search title, category, location or id"
+            aria-label="Search the review queue"
+          />
+        </label>
+        <label class="queue-toggle">
+          <input v-model="mineOnly" type="checkbox" />
+          <span>Assigned to me ({{ myOpenCount }})</span>
+        </label>
       </div>
     </div>
 
@@ -76,13 +94,56 @@
     <!-- Projects List -->
     <div v-else class="projects-layout">
       <aside class="project-list">
-        <button
+        <!-- Bulk triage. Validate/reject are deliberately absent — see the
+             comment on selectedIds. -->
+        <div class="bulk-bar">
+          <label class="bulk-select-all">
+            <input
+              type="checkbox"
+              :checked="allVisibleSelected"
+              :disabled="!displayedProjects.length"
+              @change="toggleSelectAll"
+            />
+            <span>{{ selectedCount ? `${selectedCount} selected` : 'Select all' }}</span>
+          </label>
+
+          <div v-if="selectedCount" class="bulk-actions">
+            <select v-model="bulkAssignee" class="assign-select" :disabled="bulkBusy">
+              <option value="">Unassign</option>
+              <option v-for="v in verifiers" :key="v.id" :value="v.id">
+                {{ v.id === currentUserId ? `${v.display_name} (you)` : v.display_name }}
+              </option>
+            </select>
+            <button type="button" class="bulk-btn" :disabled="bulkBusy" @click="bulkAssign">
+              Assign
+            </button>
+            <button type="button" class="bulk-btn" :disabled="bulkBusy" @click="bulkStartReview">
+              Mark under review
+            </button>
+            <button type="button" class="bulk-btn ghost" :disabled="bulkBusy" @click="clearSelection">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div
           v-for="project in displayedProjects"
           :key="project.id"
-          type="button"
-          :class="['project-list-item', { active: project.id === activeProjectId }]"
-          @click="activeProjectId = project.id"
+          class="project-list-row"
+          :class="{ selected: selectedIds.has(project.id) }"
         >
+          <input
+            type="checkbox"
+            class="project-select"
+            :checked="selectedIds.has(project.id)"
+            :aria-label="`Select ${project.title}`"
+            @change="toggleSelected(project.id)"
+          />
+          <button
+            type="button"
+            :class="['project-list-item', { active: project.id === activeProjectId }]"
+            @click="activeProjectId = project.id"
+          >
           <span class="project-list-title">{{ project.title }}</span>
           <span class="project-list-badges">
             <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
@@ -100,8 +161,17 @@
             >
               {{ ageDays(project) }}d · overdue
             </span>
+            <span
+              v-if="project.assigned_verifier_id"
+              class="assignee-badge"
+              :class="{ mine: project.assigned_verifier_id === currentUserId }"
+              :title="`Assigned to ${verifierName(project.assigned_verifier_id)}`"
+            >
+              {{ verifierName(project.assigned_verifier_id) }}
+            </span>
           </span>
-        </button>
+          </button>
+        </div>
       </aside>
 
       <section v-if="activeProject" class="project-detail">
@@ -135,6 +205,33 @@
               <span v-if="projectOverdue(activeProject)" class="sla-badge overdue">
                 Over {{ slaDays }}-day SLA
               </span>
+            </div>
+            <!-- Assignment says who is EXPECTED to review, not who is permitted
+                 to — any verifier can still decide any project. -->
+            <div class="meta-item">
+              <span class="material-symbols-outlined" aria-hidden="true">assignment_ind</span>
+              <label class="assign-label" for="assignee-select">Assigned to</label>
+              <select
+                id="assignee-select"
+                class="assign-select"
+                :value="activeProject.assigned_verifier_id || ''"
+                :disabled="assigningId === activeProject.id"
+                @change="setAssignee(activeProject, $event.target.value || null)"
+              >
+                <option value="">Unassigned</option>
+                <option v-for="v in verifiers" :key="v.id" :value="v.id">
+                  {{ v.id === currentUserId ? `${v.display_name} (you)` : v.display_name }}
+                </option>
+              </select>
+              <button
+                v-if="activeProject.assigned_verifier_id !== currentUserId"
+                type="button"
+                class="assign-me"
+                :disabled="assigningId === activeProject.id"
+                @click="setAssignee(activeProject, currentUserId)"
+              >
+                Take it
+              </button>
             </div>
           </div>
 
@@ -189,6 +286,49 @@
             <p>{{ activeProject.verification_notes }}</p>
           </div>
         </div>
+
+          <!-- Verification history: every recorded action, who and when. The
+               audit rows existed but were admin-only to read and were never
+               written for project decisions, so this was invisible. -->
+          <div class="detail-section">
+            <h4>
+              <span class="material-symbols-outlined" aria-hidden="true">history</span>
+              <span>Verification Timeline</span>
+            </h4>
+            <div class="timeline-actions">
+              <button
+                type="button"
+                class="export-btn"
+                :disabled="exporting"
+                @click="exportReport('pdf')"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                {{ exporting === 'pdf' ? 'Preparing…' : 'Export report (PDF)' }}
+              </button>
+              <button
+                type="button"
+                class="export-btn"
+                :disabled="exporting"
+                @click="exportReport('csv')"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">table_view</span>
+                {{ exporting === 'csv' ? 'Preparing…' : 'CSV' }}
+              </button>
+            </div>
+
+            <ol v-if="timeline.length" class="timeline">
+              <li v-for="(event, i) in timeline" :key="i" class="timeline-item">
+                <div class="timeline-dot" aria-hidden="true"></div>
+                <div class="timeline-body">
+                  <span class="timeline-label">{{ event.label }}</span>
+                  <span class="timeline-when">{{ formatDate(event.at) }}</span>
+                  <span v-if="event.actor" class="timeline-actor">by {{ event.actor }}</span>
+                  <p v-if="event.detail" class="timeline-detail">{{ event.detail }}</p>
+                </div>
+              </li>
+            </ol>
+            <p v-else class="muted-note">No recorded activity yet.</p>
+          </div>
 
         <ProjectAssessmentPanel :project="activeProject" />
 
@@ -412,7 +552,16 @@ import ProjectAssessmentPanel from '@/components/verifier/ProjectAssessmentPanel
 import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 import { addProjectComment } from '@/services/projectCommentService'
 import ValidationChecklist from '@/components/verifier/ValidationChecklist.vue'
-import { getSlaDays, projectAgeDays, isOverdue } from '@/services/verificationService'
+import {
+  getSlaDays,
+  projectAgeDays,
+  isOverdue,
+  listVerifiers,
+  assignProject,
+  searchProjects,
+  getProjectAuditTrail,
+  buildProjectTimeline,
+} from '@/services/verificationService'
 import { resolveDocumentUrls } from '@/services/storageService'
 
 const { promptState, confirm, success, error: showErrorPrompt, handleConfirm, handleCancel, handleClose } = useModernPrompt()
@@ -436,17 +585,115 @@ const rejectPromptState = ref({
   resolve: null,
 })
 
+/**
+ * Which raw DB statuses belong in each queue tab.
+ *
+ * The tabs used to compare `p.status === statusFilter` exactly, but the create
+ * paths write 'pending' — so every first-time submission was missing from the
+ * Submitted tab and its count, visible only under "All". The legacy aliases
+ * 'approved' and 'under_review' were dropped the same way. The decision buttons
+ * on this very panel already treat ['submitted','pending','in_review'] as one
+ * group; the tabs simply hadn't caught up.
+ */
+const TAB_STATUSES = {
+  submitted: ['submitted', 'pending'],
+  in_review: ['in_review', 'under_review'],
+  needs_revision: ['needs_revision'],
+  validated: ['validated', 'approved'],
+  rejected: ['rejected'],
+}
+
+function inBucket(project, bucket) {
+  return (TAB_STATUSES[bucket] || [bucket]).includes(project.status)
+}
+
+// Queue controls: free-text search plus a "mine only" toggle. A queue with more
+// than one screen of work was previously navigable only by scrolling.
+const searchQuery = ref('')
+const mineOnly = ref(false)
+const verifiers = ref([])
+const assigningId = ref(null)
+
+const currentUserId = computed(() => userStore.session?.user?.id || userStore.profile?.id || null)
+
+function verifierName(id) {
+  if (!id) return null
+  if (id === currentUserId.value) return 'You'
+  return verifiers.value.find((v) => v.id === id)?.display_name || 'A verifier'
+}
+
 // Computed property for displayed projects based on filter
 const displayedProjects = computed(() => {
-  if (statusFilter.value === 'all') {
-    return allProjects.value
+  const byStatus =
+    statusFilter.value === 'all'
+      ? allProjects.value
+      : allProjects.value.filter((p) => inBucket(p, statusFilter.value))
+
+  const byOwner = mineOnly.value
+    ? byStatus.filter((p) => p.assigned_verifier_id && p.assigned_verifier_id === currentUserId.value)
+    : byStatus
+
+  return searchProjects(byOwner, searchQuery.value)
+})
+
+/** How many open reviews are assigned to the signed-in verifier. */
+const myOpenCount = computed(
+  () =>
+    allProjects.value.filter(
+      (p) =>
+        p.assigned_verifier_id === currentUserId.value &&
+        ['submitted', 'pending', 'in_review'].includes(p.status),
+    ).length,
+)
+
+async function setAssignee(project, verifierId) {
+  assigningId.value = project.id
+  try {
+    await assignProject(project.id, verifierId)
+    // Patch in place: reloading the whole queue would lose the open project.
+    const row = allProjects.value.find((p) => p.id === project.id)
+    if (row) {
+      row.assigned_verifier_id = verifierId || null
+      row.assigned_at = verifierId ? new Date().toISOString() : null
+    }
+  } catch (err) {
+    await showErrorPrompt({
+      title: 'Assignment failed',
+      message: err.message || 'Could not assign this review.',
+    })
+  } finally {
+    assigningId.value = null
   }
-  return allProjects.value.filter(p => p.status === statusFilter.value)
+}
+
+/**
+ * Tab counts, computed once per change instead of five inline
+ * `allProjects.filter(...)` scans re-run on every render.
+ */
+const tabCounts = computed(() => {
+  const counts = { all: allProjects.value.length }
+  for (const bucket of Object.keys(TAB_STATUSES)) {
+    counts[bucket] = allProjects.value.filter((p) => inBucket(p, bucket)).length
+  }
+  return counts
 })
 
 const activeProject = computed(() =>
   displayedProjects.value.find((project) => project.id === activeProjectId.value) || null,
 )
+
+// Verification history for the open project. Audit rows only became readable to
+// verifiers in 20260722000300; buildProjectTimeline folds in the project's own
+// created_at/verified_at so pre-existing projects still show their spine.
+//
+// Declared BEFORE the watch below, which is `immediate` and therefore runs
+// during setup. Its callback is async, but on the first run activeProject is
+// null, so neither ternary reaches an `await` — the whole body executes
+// synchronously and the assignment to auditRows landed in its temporal dead
+// zone. Every mount of this panel threw "Cannot access 'auditRows' before
+// initialization" into the ErrorBoundary, so a verifier opening their queue got
+// an error card instead of the queue.
+const auditRows = ref([])
 
 // Supporting docs live in a private bucket → resolve signed URLs for the active
 // project whenever it changes (verifiers are authenticated, so signing works).
@@ -457,9 +704,123 @@ watch(
     resolvedDocuments.value = proj?.supporting_documents
       ? await resolveDocumentUrls(proj.supporting_documents)
       : []
+    auditRows.value = proj?.id ? await getProjectAuditTrail(proj.id) : []
   },
   { immediate: true },
 )
+
+const timeline = computed(() =>
+  activeProject.value
+    ? buildProjectTimeline({ project: activeProject.value, auditRows: auditRows.value })
+    : [],
+)
+
+/**
+ * Bulk actions (role-needs #7).
+ *
+ * Deliberately limited to ASSIGNMENT and MARK-UNDER-REVIEW. Bulk validate and
+ * bulk reject are not offered and should not be: validating mints credits and
+ * creates a marketplace listing, and this panel already requires a rubric to be
+ * assessed before one project can be validated -- doing that to twenty at once
+ * would make the rubric decorative. Rejection likewise needs a per-project
+ * reason, which is exactly what a bulk control cannot supply.
+ *
+ * What actually costs a verifier time at scale is triage, not judgement, so
+ * that is what is batched.
+ */
+const selectedIds = ref(new Set())
+const bulkBusy = ref(false)
+
+const selectedCount = computed(() => selectedIds.value.size)
+const allVisibleSelected = computed(
+  () =>
+    displayedProjects.value.length > 0 &&
+    displayedProjects.value.every((p) => selectedIds.value.has(p.id)),
+)
+
+function toggleSelected(projectId) {
+  const next = new Set(selectedIds.value)
+  if (next.has(projectId)) next.delete(projectId)
+  else next.add(projectId)
+  selectedIds.value = next
+}
+
+function toggleSelectAll() {
+  selectedIds.value = allVisibleSelected.value
+    ? new Set()
+    : new Set(displayedProjects.value.map((p) => p.id))
+}
+
+function clearSelection() {
+  selectedIds.value = new Set()
+}
+
+/** Run `fn` over the selection, reporting how many failed rather than stopping. */
+async function runBulk(fn, describe) {
+  if (!selectedCount.value || bulkBusy.value) return
+  bulkBusy.value = true
+  const ids = [...selectedIds.value]
+  const failures = []
+
+  try {
+    for (const id of ids) {
+      try {
+        await fn(id)
+      } catch (err) {
+        failures.push(`${allProjects.value.find((p) => p.id === id)?.title || id}: ${err.message}`)
+      }
+    }
+    await loadPendingProjects(true)
+    clearSelection()
+
+    if (failures.length) {
+      await showErrorPrompt({
+        title: `${describe}: ${failures.length} of ${ids.length} failed`,
+        message: failures.slice(0, 5).join('\n'),
+      })
+    } else {
+      await success({ title: describe, message: `${ids.length} project(s) updated.` })
+    }
+  } finally {
+    bulkBusy.value = false
+  }
+}
+
+const bulkAssignee = ref('')
+
+function bulkAssign() {
+  const target = bulkAssignee.value || null
+  return runBulk((id) => assignProject(id, target), target ? 'Assigned' : 'Assignment cleared')
+}
+
+function bulkStartReview() {
+  return runBulk(
+    (id) => projectApprovalService.updateProjectStatus(id, 'in_review', ''),
+    'Marked under review',
+  )
+}
+
+// Which export is running ('pdf' | 'csv' | null), so only that button shows it.
+const exporting = ref(null)
+
+async function exportReport(format) {
+  if (!activeProject.value || exporting.value) return
+  exporting.value = format
+  try {
+    const { exportVerificationReportPdf, exportVerificationReportCsv } = await import(
+      '@/services/verificationReportService'
+    )
+    const run = format === 'pdf' ? exportVerificationReportPdf : exportVerificationReportCsv
+    await run(activeProject.value)
+  } catch (err) {
+    await showErrorPrompt({
+      title: 'Export failed',
+      message: err.message || 'Could not generate the verification report.',
+    })
+  } finally {
+    exporting.value = null
+  }
+}
 
 const slaDays = ref(5)
 const verifierPrice = ref('')
@@ -485,6 +846,11 @@ onMounted(() => {
   loadPendingProjects()
   getSlaDays().then((d) => {
     slaDays.value = d
+  })
+  // Populates the assignment picker. Best-effort: the queue works without it,
+  // assignment just falls back to showing ids-free labels.
+  listVerifiers().then((list) => {
+    verifiers.value = list
   })
 })
 
@@ -843,9 +1209,6 @@ async function openVerificationModal(project, newStatus) {
     }
     pendingProjects.value = pendingProjects.value.filter((p) => p.id !== project.id)
 
-    // Reload the list to ensure consistency
-    await loadPendingProjects()
-
     setDecisionCard(project, newStatus)
 
     // Show modern success prompt
@@ -854,6 +1217,18 @@ async function openVerificationModal(project, newStatus) {
       message: `"${project.title}" has been marked as ${statusLabel.toLowerCase()}.`,
       confirmText: 'OK',
     })
+
+    // Reload AFTER reporting the outcome, and never inside the decision's catch.
+    // Validating mints a credit pool and an active marketplace listing, so a
+    // reload that failed here used to raise "Validation Failed — please try
+    // again" over a validation that had already succeeded and already listed
+    // credits for sale. The list being stale is a far smaller problem than
+    // telling a verifier the opposite of what happened.
+    try {
+      await loadPendingProjects()
+    } catch (refreshErr) {
+      console.error('Decision saved, but reloading the project list failed:', refreshErr)
+    }
   } catch (err) {
     console.error('Error updating project status:', err)
     await showErrorPrompt({
@@ -947,6 +1322,274 @@ async function openVerificationModal(project, newStatus) {
   flex-wrap: wrap;
 }
 
+/* Verification timeline --------------------------------------------------- */
+.timeline-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.export-btn .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.export-btn:hover:not(:disabled) {
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.4rem;
+}
+
+.timeline-item {
+  position: relative;
+  padding: 0 0 0.9rem 1.25rem;
+  border-left: 2px solid #e5e7eb;
+}
+
+.timeline-item:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -5px;
+  top: 0.3rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color, #058526);
+}
+
+.timeline-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+}
+
+.timeline-label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.timeline-when,
+.timeline-actor {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.timeline-detail {
+  flex-basis: 100%;
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.muted-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* Queue controls ---------------------------------------------------------- */
+.queue-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.queue-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 260px;
+  max-width: 420px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+}
+
+.queue-search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  color: #0f172a;
+  background: transparent;
+}
+
+.queue-search:focus-within {
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.12);
+}
+
+.queue-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Bulk triage ------------------------------------------------------------- */
+.bulk-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.bulk-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.bulk-btn {
+  border: 1px solid var(--primary-color, #058526);
+  background: var(--primary-color, #058526);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bulk-btn.ghost {
+  background: #fff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.bulk-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.project-list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.project-list-row.selected {
+  background: #ecfdf5;
+  border-radius: 10px;
+}
+
+.project-select {
+  margin-top: 0.9rem;
+  flex: 0 0 auto;
+}
+
+.project-list-row .project-list-item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Assignment -------------------------------------------------------------- */
+.assign-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.assign-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.85rem;
+  color: #0f172a;
+  max-width: 220px;
+}
+
+.assign-me {
+  border: 1px solid var(--primary-color, #058526);
+  background: #fff;
+  color: var(--primary-color, #058526);
+  border-radius: 8px;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.assign-me:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.assignee-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 700;
+  max-width: 10ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Your own queue should be findable at a glance in a long list. */
+.assignee-badge.mine {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .filter-tab {
   padding: 0.55rem 1.1rem;
   border: 1px solid var(--carbonify-border, #e5e7eb);
@@ -960,13 +1603,13 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .filter-tab:hover {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
 }
 
 .filter-tab.active {
-  background: var(--primary-color, #069e2d);
-  border-color: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
+  border-color: var(--primary-color, #058526);
   color: white;
   box-shadow: 0 10px 18px rgba(16, 185, 129, 0.18);
 }
@@ -983,7 +1626,7 @@ async function openVerificationModal(project, newStatus) {
   width: 48px;
   height: 48px;
   border: 4px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--primary-color, #069e2d);
+  border-top-color: var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s ease-in-out infinite;
   margin: 0 auto 16px;
@@ -1008,7 +1651,7 @@ async function openVerificationModal(project, newStatus) {
 
 .retry-btn {
   padding: 10px 18px;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 8px;
@@ -1228,7 +1871,7 @@ async function openVerificationModal(project, newStatus) {
 
 .project-list-item.active {
   background: rgba(16, 185, 129, 0.16);
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
 }
 
 .project-list-title {
@@ -1392,7 +2035,7 @@ async function openVerificationModal(project, newStatus) {
 
 .detail-section h4 .material-symbols-outlined {
   font-size: 1.2rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .detail-section p {
@@ -1431,7 +2074,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .verifier-price-row:focus-within {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .verifier-price-prefix {
@@ -1486,7 +2129,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.success {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   box-shadow: 0 12px 20px rgba(16, 185, 129, 0.22);
 }
@@ -1512,8 +2155,8 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.outline:hover:not(:disabled) {
-  border-color: var(--primary-color, #069e2d);
-  color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-color, #058526);
 }
 
 .action-btn.outline.danger {

@@ -76,7 +76,99 @@ export async function getReport(reportId) {
     .eq('report_id', reportId)
     .order('created_at', { ascending: true })
 
-  return { ...report, activity: activity || [], evidence: evidence || [] }
+  // The project rides along the way it does on the review-queue rows. Without
+  // it the reviewer had no category, so the reduction-type suggestion always
+  // received '' — and the emission factors (keyed by project_type) could not be
+  // looked up at all. `user_id` is the owner, used for the self-review guard;
+  // `status` drives the double-issuance warning.
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id, title, category, location, user_id, status')
+    .eq('id', report.project_id)
+    .maybeSingle()
+
+  // Set here as well as in getReviewQueue: the review screen selects a report
+  // through THIS function, not from the queue row, so a flag attached only to
+  // the queue would never reach the screen that has to show it.
+  return {
+    ...report,
+    project: project || null,
+    doubleIssuanceRisk: alreadyIssuedOnValidation(project),
+    activity: activity || [],
+    evidence: evidence || [],
+  }
+}
+
+/**
+ * Emission factors for a project type, keyed by metric.
+ *
+ * Same source the server-side calculate_report_vers() joins against, so a
+ * breakdown built from these reproduces the stored proposed_vers exactly.
+ * Readable by any authenticated user; degrades to [] so the review screen still
+ * renders without the breakdown.
+ */
+export async function getMethodologyFactors(projectType) {
+  const supabase = client()
+  if (!projectType) return []
+  const { data, error } = await supabase
+    .from('methodology_factors')
+    .select('metric_key, label, unit, factor, description')
+    .eq('project_type', projectType)
+  if (error) {
+    console.warn('[mrv] methodology factors unavailable:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Reproduce the platform's VER arithmetic, line by line, for verifier review.
+ *
+ * Mirrors calculate_report_vers() (20260604010000):
+ *   sum(activity.value * factor.factor) for factors matching the project type.
+ *
+ * That is an INNER JOIN server-side, so an activity metric with no factor for
+ * this project type contributes NOTHING to the total and simply disappears.
+ * Those lines are returned with `matched: false` and a zero subtotal, because a
+ * metric silently worth nothing is exactly the kind of thing a verifier is
+ * accountable for noticing.
+ *
+ * Pure — exported for unit testing.
+ *
+ * @param {Object} input
+ * @param {Array<{metric_key:string, value:number, unit?:string}>} input.activity
+ * @param {Array<{metric_key:string, label?:string, unit?:string, factor:number}>} input.factors
+ * @returns {{lines:Array<Object>, total:number, unmatched:number}}
+ */
+export function buildVerCalculation({ activity = [], factors = [] } = {}) {
+  const factorByKey = new Map(
+    (factors || []).filter((f) => f?.metric_key).map((f) => [f.metric_key, f]),
+  )
+
+  const lines = (activity || []).map((row) => {
+    const factorRow = factorByKey.get(row?.metric_key)
+    const value = Number(row?.value) || 0
+    const factor = factorRow ? Number(factorRow.factor) || 0 : null
+    const matched = !!factorRow
+    return {
+      metricKey: row?.metric_key || '',
+      label: factorRow?.label || row?.metric_key || 'Unknown metric',
+      value,
+      unit: row?.unit || factorRow?.unit || '',
+      factor,
+      // Unmatched metrics contribute 0 — the server-side join drops them.
+      subtotal: matched ? value * factor : 0,
+      matched,
+    }
+  })
+
+  const total = lines.reduce((sum, line) => sum + line.subtotal, 0)
+  return {
+    lines,
+    // Round the way a tCO2e figure is reported; the per-line values stay exact.
+    total: Math.round(total * 1e6) / 1e6,
+    unmatched: lines.filter((line) => !line.matched).length,
+  }
 }
 
 /**
@@ -165,13 +257,66 @@ export async function saveActivityData(reportId, items = []) {
  */
 export async function addEvidence(reportId, { file_url, file_type = null, caption = '' }) {
   const supabase = client()
-  const { data, error } = await supabase
-    .from('monitoring_evidence')
-    .insert([{ report_id: reportId, file_url, file_type, caption }])
-    .select()
-    .single()
+
+  // Capture metadata + content hash at upload (20260722000400). Best-effort:
+  // integrity data supports the verifier's review, it is never a reason to lose
+  // a developer's upload, so a failure here still stores the file.
+  let integrity = {}
+  try {
+    const { analyseEvidence } = await import('@/utils/imageEvidence')
+    integrity = await analyseEvidence(file_url)
+  } catch (err) {
+    console.warn('[mrv] evidence analysis skipped:', err?.message)
+  }
+
+  const insert = async (row) =>
+    supabase.from('monitoring_evidence').insert([row]).select().single()
+
+  let { data, error } = await insert({
+    report_id: reportId,
+    file_url,
+    file_type,
+    caption,
+    ...integrity,
+  })
+
+  // Schema-drift safety, as the project services do: if the integrity columns
+  // are not applied on this DB, store the evidence without them rather than
+  // failing the upload.
+  if (error && /column .* does not exist/i.test(error.message || '')) {
+    console.warn('[mrv] integrity columns missing, storing evidence without them')
+    ;({ data, error } = await insert({ report_id: reportId, file_url, file_type, caption }))
+  }
+
   if (error) throw new Error(error.message || 'Failed to add evidence')
   return data
+}
+
+/**
+ * Other evidence rows sharing this file's exact bytes.
+ *
+ * An identical hash on a different report means the same photo is doing duty
+ * twice — the check the verifier cannot perform by eye. Excludes the row's own
+ * report so re-uploading within one report is not reported as a duplicate.
+ *
+ * Verifier/admin only in practice (mrv_evidence_all is staff-or-owner), and
+ * degrades to [] so a review screen never breaks over it.
+ */
+export async function findDuplicateEvidence(contentHash, excludeReportId = null) {
+  if (!contentHash) return []
+  const supabase = client()
+  let query = supabase
+    .from('monitoring_evidence')
+    .select('id, report_id, caption, created_at')
+    .eq('content_hash', contentHash)
+  if (excludeReportId) query = query.neq('report_id', excludeReportId)
+
+  const { data, error } = await query.limit(20)
+  if (error) {
+    console.warn('[mrv] duplicate evidence lookup unavailable:', error.message)
+    return []
+  }
+  return data || []
 }
 
 export async function deleteEvidence(evidenceId) {
@@ -239,15 +384,48 @@ export async function getReviewQueue() {
   if (!reports || reports.length === 0) return []
 
   const projectIds = [...new Set(reports.map((r) => r.project_id))]
+  // `status` is selected so the reviewer can be told when approving this report
+  // would be a SECOND issuance against the same project — see
+  // alreadyIssuedOnValidation below.
   const { data: projects } = await supabase
     .from('projects')
-    .select('id, title, category, location, user_id')
+    .select('id, title, category, location, user_id, status')
     .in('id', projectIds)
 
   return reports.map((r) => {
     const project = (projects || []).find((p) => p.id === r.project_id)
-    return { ...r, project: project || null }
+    return { ...r, project: project || null, doubleIssuanceRisk: alreadyIssuedOnValidation(project) }
   })
+}
+
+/**
+ * Would approving a VER against this project mint credits it has ALREADY been
+ * issued once?
+ *
+ * Live runs both issuance triggers at the same time, which no single migration
+ * intended:
+ *
+ *   20260604010100  dropped trg_activate_validated_project and created
+ *                   trg_mint_credits_on_ver_approval  (decoupled, mint-on-VER)
+ *   20260626000500  re-created trg_activate_validated_project
+ *   ...             nothing ever dropped trg_mint_credits_on_ver_approval
+ *
+ * So validating a project mints a pool and an active listing, and then
+ * approving a VER against that same project mints again. For a registry that is
+ * the cardinal error — the same tonne sold twice — and the only thing currently
+ * preventing it is a reviewer remembering a sentence in DEFERRED_BACKLOG.md
+ * (#17, still open: which model is canonical has not been decided).
+ *
+ * This does NOT block the approval. Which trigger to drop is an architecture
+ * decision, and blocking would strand legitimate approvals if mint-on-VER turns
+ * out to be the intended model. It exists so the warning reaches the one person
+ * in a position to notice, at the moment they are deciding.
+ *
+ * @param {{status?: string}|null} project
+ * @returns {boolean}
+ */
+export function alreadyIssuedOnValidation(project) {
+  return ['validated', 'approved'].includes(String(project?.status || '').toLowerCase())
 }
 
 /**
@@ -286,6 +464,38 @@ export async function approveReport(
   }
   if (reductionType && !['removal', 'avoidance'].includes(reductionType)) {
     throw new Error('Reduction type must be either removal or avoidance')
+  }
+
+  // Independence: approving a VER mints credits against the project, so the
+  // owner may not be the approver. Enforced by trg_guard_ver_self_approval
+  // (20260722000100); checked here for a readable message.
+  if (projectId && uid) {
+    const { data: owned } = await supabase
+      .from('projects')
+      .select('user_id')
+      .eq('id', projectId)
+      .maybeSingle()
+    if (owned?.user_id && owned.user_id === uid) {
+      throw new Error(
+        'You cannot approve emission reductions for your own project. Verification must be carried out by someone who does not own the project.',
+      )
+    }
+  }
+
+  // Approving mints credits, so departing from the platform's own calculation
+  // has to be justified on the record. Read the stored figure rather than
+  // trusting one passed in alongside the amount being overridden.
+  const { data: reportRow } = await supabase
+    .from('monitoring_reports')
+    .select('proposed_vers')
+    .eq('id', reportId)
+    .maybeSingle()
+
+  const proposed = Number(reportRow?.proposed_vers ?? qty)
+  if (Math.abs(qty - proposed) > 0.000001 && String(notes || '').trim().length < 5) {
+    throw new Error(
+      `You are approving ${qty} tCO₂e against a calculated ${proposed}. Add a note (at least 5 characters) explaining the adjustment.`,
+    )
   }
 
   const nowIso = new Date().toISOString()

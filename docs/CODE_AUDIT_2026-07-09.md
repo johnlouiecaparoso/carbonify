@@ -1,5 +1,32 @@
 # Codebase Audit — 2026-07-09
 
+> ## ✅ Actioned 2026-07-26 — do not re-derive this list
+>
+> The dead-code section below was **right**, and has now been swept. 32 files were deleted in
+> `750ea37` plus `AdvancedSearch.vue` in the doc-reconciliation pass, and five unreachable routes went
+> with them. Two of this audit's specific warnings proved important:
+>
+> - **`AdvancedSearch.vue` is pinned by `vite.config.js` manualChunks.** That pin was its *only*
+>   reference anywhere in the repo, so an import-graph scan reports the file as used and misses it
+>   entirely — which is exactly what happened on 2026-07-26 until this document was re-read. Component
+>   and config line were removed together, as advised.
+> - **`MobileTestView.vue` is not dead — it is a live route at `/mobile-test`,** public to anonymous
+>   visitors. Deleted along with the route.
+> - **`services/credits|payments|payouts` are imported only by tests.** Still true, still deliberate;
+>   tracked as **#21** in [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) rather than deleted, because it is
+>   an architecture decision.
+> - **The hand-rolled modal overlays were real, and worse than recorded.** This audit's count of 26 was
+>   against the pre-sweep tree; 15 survived the dead-file deletions. Not one of them handled Escape,
+>   so wallet top-up and withdraw could be opened but not dismissed by keyboard. **Closed 2026-07-28**
+>   (backlog #10) — via a `v-modal-a11y` directive rather than by adopting `AccessibleModal.vue`, since
+>   these overlays wrap components that already render their own header.
+>
+> Names in the body that no longer exist (`adminService.js`, `authServiceSimple.js`,
+> `sampleDataService.js`, `verifierService.js`, `UserDashboard.vue`, `UserProfile.vue`) were removed
+> before this pass. The body is left as written — it is a dated record, and its value now is that it
+> called all of this two and a half weeks early.
+
+
 > Four parallel audits across dead code, the service layer, SQL/edge functions, and the Vue views.
 > **Every finding below was re-verified by hand** before being written down; anything I could not
 > substantiate with a concrete failing input is marked SPECULATIVE or dropped.

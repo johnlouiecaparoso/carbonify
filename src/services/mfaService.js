@@ -52,17 +52,33 @@ export async function isMfaEnabled() {
 /**
  * After login: returns { required, factorId }. Required when the session is at
  * aal1 but the user has a verified factor (nextLevel aal2).
+ *
+ * The router calls this before every protected navigation, so it is written to
+ * do no network I/O on the common path. getAuthenticatorAssuranceLevel() only
+ * decodes the session JWT locally, and nextLevel === 'aal2' is derived from
+ * session.user.factors — which means the factor id is already in hand and
+ * listFactors() (a real request) is unnecessary. It stays as a fallback for
+ * sessions that predate factors being embedded.
  */
 export async function isMfaRequired() {
   const supabase = client()
   try {
     const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (error) return { required: false, factorId: null }
-    if (data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2') {
-      const factor = await getVerifiedTotpFactor()
-      return { required: !!factor, factorId: factor?.id || null }
+    if (data?.currentLevel !== 'aal1' || data?.nextLevel !== 'aal2') {
+      return { required: false, factorId: null }
     }
-    return { required: false, factorId: null }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const embedded = (session?.user?.factors || []).find(
+      (factor) => factor.status === 'verified' && factor.factor_type === 'totp',
+    )
+    if (embedded) return { required: true, factorId: embedded.id }
+
+    const factor = await getVerifiedTotpFactor()
+    return { required: !!factor, factorId: factor?.id || null }
   } catch (err) {
     // Fail open on API errors so users are never locked out by a transient fault.
     console.warn('MFA assurance check failed:', err?.message)

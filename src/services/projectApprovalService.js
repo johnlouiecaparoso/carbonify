@@ -1,6 +1,26 @@
 import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
 import { notifyProjectSubmitted } from '@/services/emailService'
+import { missingRequiredDocLabels } from '@/constants/projectDocuments'
+import { logUserAction } from '@/services/auditService'
+
+/**
+ * Record a verification decision on the project's audit trail.
+ *
+ * These decisions produced NO audit rows at all until now, despite the role
+ * documentation listing time-stamped audit logs as a verifier feature. Writing
+ * one is best-effort: an audit failure must never roll back a decision that has
+ * already been persisted.
+ */
+async function recordProjectAudit(action, projectId, userId, metadata = {}) {
+  try {
+    // logUserAction is (action, entityType, userId, entityId, metadata) — the
+    // user comes BEFORE the resource id.
+    await logUserAction(action, 'projects', userId, projectId, metadata)
+  } catch (err) {
+    console.warn('[audit] failed to record', action, err?.message)
+  }
+}
 
 const PROJECT_WORKFLOW_STATUS = {
   DRAFT: 'draft',
@@ -65,9 +85,26 @@ export class ProjectApprovalService {
         throw new Error('User not authenticated')
       }
 
+      // Independence: nobody validates their own project. Validating mints a
+      // credit pool and an active listing, so this is self-issuance of a
+      // sellable asset. Enforced for real by trg_guard_project_self_validation
+      // (20260722000100); checked here so the verifier gets a sentence instead
+      // of a raw Postgres exception.
+      const { data: owned } = await this.supabase
+        .from('projects')
+        .select('user_id')
+        .eq('id', projectId)
+        .maybeSingle()
+
+      if (owned?.user_id && owned.user_id === userId) {
+        throw new Error(
+          'You cannot validate your own project. Verification must be carried out by someone who does not own the project.',
+        )
+      }
+
       // Update project status to validated
       console.log('🔄 Validating project:', { projectId, userId })
-      
+
       const { data: updatedProject, error: updateError } = await this.supabase
         .from('projects')
         .update({
@@ -87,6 +124,8 @@ export class ProjectApprovalService {
       }
       
       console.log('✅ Project validated successfully')
+
+      await recordProjectAudit('project_validated', projectId, userId, { note: notes || null })
 
       // NOTE: Credits are intentionally NOT issued at validation time.
       // Under the decoupled MRV model, carbon credits are minted only when a
@@ -158,6 +197,10 @@ export class ProjectApprovalService {
         throw new Error(error.message || 'Failed to update project status')
       }
 
+      await recordProjectAudit(`project_${normalizedStatus}`, projectId, userId, {
+        note: notes || null,
+      })
+
       return data
     } catch (error) {
       console.error('Error updating project status:', error)
@@ -217,6 +260,67 @@ export class ProjectApprovalService {
 
     // Verifiers are notified by the notify_project_submitted DB trigger (RLS
     // blocks a developer from inserting notifications for other users).
+    return data
+  }
+
+  /**
+   * Move the caller's own draft into the review queue.
+   *
+   * The required-document check that ProjectForm applies at first submission
+   * has to run again here — a draft is deliberately saved without it, so this
+   * is the point where the rule is actually enforced. Mirrors resubmitProject:
+   * ownership and source status are proven before the write, and the
+   * notify_project_submitted DB trigger raises the verifier notification.
+   *
+   * @param {string} projectId
+   * @returns {Promise<Object>} the updated project row
+   */
+  async submitDraftForReview(projectId) {
+    if (!this.supabase) {
+      throw new Error('Supabase client not available')
+    }
+    const userId = await getCurrentUserId()
+    if (!userId) {
+      throw new Error('User not authenticated')
+    }
+
+    const { data: project, error: fetchError } = await this.supabase
+      .from('projects')
+      .select('id, user_id, status, supporting_documents')
+      .eq('id', projectId)
+      .single()
+
+    if (fetchError || !project) {
+      throw new Error('Project not found')
+    }
+    if (project.user_id !== userId) {
+      throw new Error('You can only submit your own projects.')
+    }
+    if (normalizeProjectWorkflowStatus(project.status) !== PROJECT_WORKFLOW_STATUS.DRAFT) {
+      throw new Error('Only a draft can be submitted for review.')
+    }
+
+    const missing = missingRequiredDocLabels(project.supporting_documents)
+    if (missing.length) {
+      throw new Error(
+        `Attach all required documents before submitting. Missing: ${missing.join(', ')}.`,
+      )
+    }
+
+    const { data, error } = await this.supabase
+      .from('projects')
+      .update({
+        status: PROJECT_WORKFLOW_STATUS.SUBMITTED,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', projectId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message || 'Failed to submit project for review')
+    }
+
     return data
   }
 
@@ -646,10 +750,15 @@ export class ProjectApprovalService {
 
     try {
       // Fetch all projects from Supabase - this gets fresh data from the database
-      // Deleted projects will NOT appear here because they are physically removed
+      // Deleted projects will NOT appear here because they are physically removed.
+      //
+      // Drafts are excluded: a draft is the developer's private workspace, not a
+      // submission. Without this filter every half-written draft would surface in
+      // the verifier console's "All" tab the moment save-as-draft shipped.
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .neq('status', 'draft')
         .order('created_at', { ascending: false })
 
       if (error) {

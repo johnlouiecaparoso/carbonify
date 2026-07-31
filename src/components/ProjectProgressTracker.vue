@@ -111,14 +111,14 @@ const activeIndex = computed(() => {
 }
 
 .step-dot.done {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 
 .step-dot.active {
   background: #fff;
-  color: var(--primary-color, #069e2d);
-  border: 2px solid var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
+  border: 2px solid var(--primary-color, #058526);
 }
 
 .step-dot.failed {
@@ -144,7 +144,7 @@ const activeIndex = computed(() => {
 }
 
 .step-line.done {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
 }
 
 @media (max-width: 600px) {

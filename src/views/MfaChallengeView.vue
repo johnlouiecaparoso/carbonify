@@ -37,6 +37,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { isMfaRequired, challengeAndVerify } from '@/services/mfaService'
 import { signOut } from '@/services/authService'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 
 const router = useRouter()
 const route = useRoute()
@@ -50,7 +51,8 @@ const error = ref('')
 
 function destination() {
   const returnTo = route.query.returnTo
-  return returnTo ? decodeURIComponent(String(returnTo)) : '/'
+  if (returnTo) return decodeURIComponent(String(returnTo))
+  return getRoleDefaultRoute(store.role || store.profile?.role)
 }
 
 onMounted(async () => {
@@ -148,8 +150,8 @@ async function signOutAndExit() {
 
 .mfa-input:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .error-text {
@@ -168,7 +170,7 @@ async function signOutAndExit() {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 

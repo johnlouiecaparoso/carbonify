@@ -1,0 +1,114 @@
+/* ============================================================================
+ * Card-stacking data tables for narrow screens.
+ *
+ * The developer's data tables run 4–10 columns. Their only mobile treatment was
+ * `overflow-x: auto`, so the 10-column asset ledger became a horizontal
+ * scroller on a phone — technically permitted (WCAG 1.4.10 Reflow explicitly
+ * exempts content needing two-dimensional layout, which is what a data table
+ * is) but genuinely unpleasant to read.
+ *
+ * Under 640px an opted-in table collapses so each ROW becomes a card and each
+ * CELL becomes a "Label — value" line, with the label taken from the cell's
+ * `data-label` attribute.
+ *
+ * OPT-IN, via `.stack-on-mobile` on the <table>. `.data-table` alone is not
+ * enough: six other views (admin refunds, biomass, investor portal, LGU, DB
+ * management, MRV review) share that class, and stacking a table whose cells
+ * carry no data-label would produce unlabelled values — strictly worse than
+ * scrolling. A table opts in only once every <td> has a label.
+ *
+ * On <thead>: display:none, not visually-hidden. Every cell already carries its
+ * own visible label, so leaving the header row in the accessibility tree would
+ * make a screen reader announce all headers once as a meaningless run of text
+ * and then announce each one again per cell.
+ *
+ * No ARIA roles are re-applied. Overriding `display` drops the implicit table
+ * roles, and that is the intent here: at this width the content is no longer a
+ * grid but a list of self-describing cards, so announcing "table" would
+ * contradict what is on screen. The label/value pairing carries the meaning.
+ *
+ * Selectors double `.stack-on-mobile` to win against the scoped component
+ * styles they override. Vue's scoping adds a `[data-v-*]` attribute to a
+ * component's own selectors, raising their specificity above a plain global
+ * rule; this global sheet also loads before them, so ties would go the wrong
+ * way. Doubling the class outranks both without needing !important.
+ * ==========================================================================*/
+
+@media (max-width: 640px) {
+  .data-table.stack-on-mobile.stack-on-mobile {
+    display: block;
+    width: 100%;
+    border-collapse: separate;
+  }
+
+  /* Headers are redundant once every cell is labelled — see note above. */
+  .data-table.stack-on-mobile.stack-on-mobile thead {
+    display: none;
+  }
+
+  .data-table.stack-on-mobile.stack-on-mobile tbody,
+  .data-table.stack-on-mobile.stack-on-mobile tfoot {
+    display: block;
+  }
+
+  /* One row = one card. */
+  .data-table.stack-on-mobile.stack-on-mobile tr {
+    display: block;
+    margin: 0 0 0.6rem;
+    padding: 0.6rem 0.8rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+  }
+
+  .data-table.stack-on-mobile.stack-on-mobile tr:last-child {
+    margin-bottom: 0;
+  }
+
+  /* One cell = one "Label        value" line. */
+  .data-table.stack-on-mobile.stack-on-mobile td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    width: auto;
+    padding: 0.32rem 0;
+    border: none;
+    white-space: normal;
+  }
+
+  .data-table.stack-on-mobile.stack-on-mobile tr > td + td {
+    border-top: 1px dashed #f1f5f9;
+  }
+
+  .data-table.stack-on-mobile.stack-on-mobile td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    margin-right: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    /* 4.76:1 on white — these labels are the only thing naming the value. */
+    color: #64748b;
+  }
+
+  /* A full-width cell (the ledger's "Total" spanner) reads as a card heading. */
+  .data-table.stack-on-mobile.stack-on-mobile td[colspan]:not([data-label]) {
+    justify-content: flex-start;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  /* The totals row is a summary, not another record. */
+  .data-table.stack-on-mobile.stack-on-mobile tfoot tr {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  /* The wrapper's horizontal scroll is meaningless once the table is stacked,
+     and clipping would cut the card borders. */
+  .table-scroll:has(> .data-table.stack-on-mobile) {
+    overflow-x: visible;
+  }
+}

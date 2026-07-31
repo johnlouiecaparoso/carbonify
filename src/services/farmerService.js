@@ -1,5 +1,8 @@
 import { getSupabase } from '@/services/supabaseClient'
-import { createNotificationsForUsers } from '@/services/notificationService'
+import {
+  createNotificationsForUsers,
+  createNotificationsForRoles,
+} from '@/services/notificationService'
 import { uploadProjectDocument } from '@/services/storageService'
 
 /**
@@ -9,12 +12,21 @@ import { uploadProjectDocument } from '@/services/storageService'
  * deliveries (`farmer_deliveries`) against an ACCEPTED biomass RFQ. The buyer
  * confirms receipt and marks the delivery paid.
  *
- * Payment status here is bookkeeping only — it never touches `ledger_entries` /
- * `escrow_holds` / `payout_requests`, so the proven money path is unaffected.
+ * **Carbonify is not the payment rail for feedstock** (decided 2026-07-28,
+ * DEFERRED_BACKLOG.md #26). Buyer and farmer settle directly — cash, GCash, bank
+ * transfer — and Carbonify records that they did. Payment status here never
+ * touches `ledger_entries` / `escrow_holds` / `payout_requests`, so the proven
+ * money path is unaffected.
+ *
+ * Because that record is the *entire* product on this path, it is **two-sided**:
+ * `payment_status` is the buyer's assertion, `farmer_payment_ack` is the farmer's
+ * answer to it (confirm or dispute), and `payment_resolution` is how staff closed
+ * a disagreement. Never render the buyer's assertion alone as settled fact.
  *
  * Every delivery write goes through a SECURITY DEFINER RPC (record_farmer_delivery
- * / confirm_farmer_delivery / mark_farmer_delivery_paid) which self-guards on
- * auth.uid(); parcels are plain RLS-scoped table access.
+ * / confirm_farmer_delivery / mark_farmer_delivery_paid /
+ * acknowledge_farmer_delivery_payment / resolve_farmer_delivery_payment) which
+ * self-guards on auth.uid(); parcels are plain RLS-scoped table access.
  *
  * Pure validation/aggregation helpers are exported for unit testing.
  */
@@ -205,10 +217,17 @@ export function unattributableDeliveries(deliveries = []) {
  * accepted, so they are neither earned nor owed. `amountOwed` is the money a
  * buyer has confirmed receipt for but not yet paid.
  *
+ * `totalEarned` and `paidCount` follow the **buyer's assertion**
+ * (`payment_status`), because that is what the buyer has claimed and what the
+ * farmer is being asked about. `awaitingAck` counts assertions the farmer has not
+ * answered yet and `disputedCount` those they have contradicted — surface both
+ * next to the money, or the page states a total the farmer may not agree with.
+ *
  * @param {Array} deliveries rows from `farmer_deliveries`
  * @returns {{deliveryCount:number, pendingCount:number, confirmedCount:number,
  *   rejectedCount:number, quantityDelivered:number, quantityPending:number,
- *   totalEarned:number, amountOwed:number, paidCount:number}}
+ *   totalEarned:number, amountOwed:number, paidCount:number,
+ *   awaitingAck:number, disputedCount:number}}
  */
 export function aggregateFarmerDeliveries(deliveries = []) {
   const rows = Array.isArray(deliveries) ? deliveries : []
@@ -222,6 +241,8 @@ export function aggregateFarmerDeliveries(deliveries = []) {
     totalEarned: 0,
     amountOwed: 0,
     paidCount: 0,
+    awaitingAck: 0,
+    disputedCount: 0,
   }
 
   for (const d of rows) {
@@ -243,9 +264,15 @@ export function aggregateFarmerDeliveries(deliveries = []) {
       if (d?.payment_status === 'paid') {
         out.totalEarned += amount
         out.paidCount += 1
+        if (d?.farmer_payment_ack !== 'confirmed' && d?.farmer_payment_ack !== 'disputed') {
+          out.awaitingAck += 1
+        }
       } else {
         out.amountOwed += amount
       }
+      // A dispute counts on either side of the paid/unpaid split: "you said you
+      // paid me and did not" and "you never paid me at all" are both disputes.
+      if (d?.farmer_payment_ack === 'disputed') out.disputedCount += 1
     }
   }
 
@@ -304,10 +331,10 @@ export async function getMyParcels() {
     .select('*')
     .eq('farmer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading farm parcels:', error.message)
-    return []
-  }
+  // Throw rather than returning []. An empty array is indistinguishable from
+  // "you have registered no parcels", and a farmer shown an empty farm may
+  // reasonably re-register land they already have, creating duplicates.
+  if (error) throw new Error(error.message || 'Could not load your parcels')
   return data || []
 }
 
@@ -378,10 +405,11 @@ export async function getMyAcceptedRfqs() {
     .eq('seller_id', user.id)
     .eq('status', 'accepted')
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading accepted RFQs:', error.message)
-    return []
-  }
+  // The sharpest of the three to swallow: this list is what the "Record
+  // delivery" action is driven from, so returning [] on failure told a farmer
+  // who had an accepted order that they had none, and removed the only way to
+  // log the delivery they are owed money for.
+  if (error) throw new Error(error.message || 'Could not load your accepted quotes')
   return data || []
 }
 
@@ -394,10 +422,10 @@ export async function getMyDeliveries() {
     .select('*')
     .eq('farmer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading deliveries:', error.message)
-    return []
-  }
+  // Deliveries drive the earnings summary, so a swallowed failure here did not
+  // just hide history — it reported the farmer's total paid and outstanding as
+  // PHP 0.00.
+  if (error) throw new Error(error.message || 'Could not load your deliveries')
   return data || []
 }
 
@@ -410,10 +438,7 @@ export async function getIncomingDeliveries() {
     .select('*')
     .eq('buyer_id', user.id)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('Error loading incoming deliveries:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Could not load incoming deliveries')
   return data || []
 }
 
@@ -535,7 +560,12 @@ export async function confirmDelivery(delivery, accept, note, projectId = null) 
   return data
 }
 
-/** Buyer marks a confirmed delivery as paid. Notifies the farmer. */
+/**
+ * Buyer records that they settled a confirmed delivery off-platform. Notifies
+ * the farmer — as an assertion awaiting their answer, not as a settled fact.
+ *
+ * Carbonify moves no money here. See the module header and #26.
+ */
 export async function markDeliveryPaid(delivery, reference) {
   const supabase = getSupabase()
   if (!supabase) throw new Error('Supabase client not available')
@@ -543,18 +573,82 @@ export async function markDeliveryPaid(delivery, reference) {
     p_delivery_id: delivery.id,
     p_reference: reference || null,
   })
-  if (error) throw new Error(error.message || 'Failed to mark delivery paid')
+  if (error) throw new Error(error.message || 'Failed to record payment')
 
   try {
     await createNotificationsForUsers([delivery.farmer_id], {
       type: 'farmer_delivery_paid',
-      title: 'Delivery marked paid',
-      message: `The buyer marked your delivery of ${delivery.quantity} ${delivery.unit} as paid.`,
+      title: 'Buyer says they paid you',
+      message:
+        `The buyer recorded that they paid you for your delivery of ` +
+        `${delivery.quantity} ${delivery.unit}. Carbonify does not hold or ` +
+        `transfer this money — please confirm you received it, or say if you did not.`,
       link: '/farmer',
       metadata: { delivery_id: delivery.id },
     })
   } catch (e) {
     console.warn('Payment notify failed (non-fatal):', e?.message)
+  }
+  return data
+}
+
+/**
+ * The farmer answers the buyer's payment assertion: confirm receipt, or dispute.
+ *
+ * Usable in both failure modes — "you said you paid me and you did not" and "you
+ * confirmed my delivery and never paid at all". A dispute must carry a reason
+ * (the RPC enforces it too) and notifies the buyer plus admins, because on a
+ * records-layer product an unanswered dispute has nowhere else to go.
+ *
+ * @param {object} delivery the `farmer_deliveries` row
+ * @param {boolean} confirm true = money received, false = dispute
+ * @param {string} [note] required when disputing
+ */
+export async function acknowledgeDeliveryPayment(delivery, confirm, note = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+
+  if (!confirm && !String(note || '').trim()) {
+    throw new Error('Please describe what happened so this can be looked into')
+  }
+
+  const { data, error } = await supabase.rpc('acknowledge_farmer_delivery_payment', {
+    p_delivery_id: delivery.id,
+    p_confirm: !!confirm,
+    p_note: String(note || '').trim() || null,
+  })
+  if (error) throw new Error(error.message || 'Failed to record your response')
+
+  const qty = `${delivery.quantity} ${delivery.unit}`
+  try {
+    if (confirm) {
+      await createNotificationsForUsers([delivery.buyer_id], {
+        type: 'farmer_payment_confirmed',
+        title: 'Farmer confirmed your payment',
+        message: `The farmer confirmed they received payment for the delivery of ${qty}.`,
+        link: '/biomass/buy',
+        metadata: { delivery_id: delivery.id },
+      })
+    } else {
+      await createNotificationsForUsers([delivery.buyer_id], {
+        type: 'farmer_payment_disputed',
+        title: 'Farmer disputes a payment record',
+        message: `The farmer says they have not been paid for the delivery of ${qty}.`,
+        link: '/biomass/buy',
+        metadata: { delivery_id: delivery.id },
+      })
+      // The escalation point (#29). Notified separately so a failure to reach
+      // the buyer cannot also silence staff.
+      await createNotificationsForRoles(['admin'], {
+        type: 'farmer_payment_disputed',
+        title: 'Feedstock payment disputed',
+        message: `A farmer says they have not been paid for a confirmed delivery of ${qty}.`,
+        link: '/admin/feedstock',
+        metadata: { delivery_id: delivery.id },
+      })
+    }
+  } catch (e) {
+    console.warn('Payment acknowledgement notify failed (non-fatal):', e?.message)
   }
   return data
 }

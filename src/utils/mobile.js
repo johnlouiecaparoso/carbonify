@@ -313,173 +313,29 @@ export const mobilePerformance = {
     })
   },
 
-  /**
-   * Enable service worker for offline support
-   */
-  enableServiceWorker() {
-    if (!('serviceWorker' in navigator)) {
-      return
-    }
-
-    const { protocol, hostname } = window.location
-    const isSecureContext =
-      window.isSecureContext || protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1'
-
-    if (!isSecureContext) {
-      console.debug('Skipping service worker registration: insecure context detected')
-      return
-    }
-
-    // Use setTimeout to avoid DOMException from using objects after page navigation
-    setTimeout(() => {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          if (registration && registration.active) {
-            console.log('✅ Service Worker registered successfully')
-          }
-        })
-        .catch(() => { /* optional: SW not available */ })
-    }, 100)
-  },
+  // Service worker registration used to live here too. It is now owned solely
+  // by setupServiceWorkerCache() in utils/cache.js — see main.js.
 }
 
 /**
- * Mobile navigation utilities
- */
-export const mobileNavigation = {
-  /**
-   * Create mobile-friendly navigation
-   */
-  createMobileNav() {
-    const nav = document.createElement('nav')
-    nav.className = 'mobile-nav'
-    nav.innerHTML = `
-      <div class="mobile-nav-header">
-        <button class="mobile-nav-toggle" aria-label="Toggle navigation">
-          <span class="hamburger"></span>
-        </button>
-        <div class="mobile-nav-logo">Carbonify</div>
-      </div>
-      <div class="mobile-nav-content">
-        <ul class="mobile-nav-links">
-          <li><a href="/">Home</a></li>
-          <li><a href="/marketplace">Marketplace</a></li>
-          <li><a href="/wallet">Wallet</a></li>
-          <li><a href="/certificates">Certificates</a></li>
-          <li><a href="/carbon-calculator">Carbon Calculator</a></li>
-          <li><a href="/profile">Profile</a></li>
-        </ul>
-      </div>
-    `
-
-    // Add mobile nav styles
-    const style = document.createElement('style')
-    style.textContent = `
-      .mobile-nav {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        background: white;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        z-index: 1000;
-        transform: translateY(-100%);
-        transition: transform 0.3s ease;
-      }
-
-      .mobile-nav.open {
-        transform: translateY(0);
-      }
-
-      .mobile-nav-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem;
-        border-bottom: 1px solid #e5e7eb;
-      }
-
-      .mobile-nav-toggle {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.5rem;
-      }
-
-      .hamburger {
-        display: block;
-        width: 24px;
-        height: 2px;
-        background: #374151;
-        position: relative;
-        transition: all 0.3s ease;
-      }
-
-      .hamburger::before,
-      .hamburger::after {
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 2px;
-        background: #374151;
-        transition: all 0.3s ease;
-      }
-
-      .hamburger::before {
-        top: -8px;
-      }
-
-      .hamburger::after {
-        top: 8px;
-      }
-
-      .mobile-nav-content {
-        padding: 1rem;
-      }
-
-      .mobile-nav-links {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .mobile-nav-links li {
-        margin-bottom: 0.5rem;
-      }
-
-      .mobile-nav-links a {
-        display: block;
-        padding: 0.75rem;
-        color: #374151;
-        text-decoration: none;
-        border-radius: 6px;
-        transition: background-color 0.2s;
-      }
-
-      .mobile-nav-links a:hover {
-        background: #f3f4f6;
-      }
-
-      @media (min-width: 769px) {
-        .mobile-nav {
-          display: none;
-        }
-      }
-    `
-    document.head.appendChild(style)
-    document.body.appendChild(nav)
-
-    // Add toggle functionality
-    const toggle = nav.querySelector('.mobile-nav-toggle')
-    toggle.addEventListener('click', () => {
-      nav.classList.toggle('open')
-    })
-  },
-}
-
-/**
- * Initialize mobile enhancements
+ * Initialize mobile enhancements.
+ *
+ * Called exactly once, from main.js. It used to ALSO auto-bind itself to
+ * DOMContentLoaded at module scope — and because a module script evaluates
+ * before that event fires, both ran. None of the functions below guard against
+ * re-entry, so every mobile visitor got two copies of the injected <style>
+ * blocks and two of the injected nav.
+ *
+ * The injected nav is gone entirely. It hardcoded its own link list (Home,
+ * Marketplace, Wallet, Certificates, Carbon Calculator, Profile) as raw <a
+ * href> full page loads, bypassing constants/navigation.js — the documented
+ * single source of truth — and showing buying routes to admins, verifiers and
+ * developers, whom FINANCE_RESTRICTED_ROLES bounces off those very pages. It
+ * could not even be opened: the element sat at translateY(-100%) and its only
+ * toggle button was inside it, off-screen. But transform does not remove
+ * anything from the tab order or the accessibility tree, so keyboard and
+ * screen-reader users on mobile still walked through twelve phantom links.
+ * The real mobile navigation is the hamburger in components/layout/Header.vue.
  */
 export function initializeMobile() {
   // Add mobile-specific styles
@@ -489,26 +345,4 @@ export function initializeMobile() {
   // Optimize performance
   mobilePerformance.optimizeImages()
   mobilePerformance.preloadCriticalResources()
-  mobilePerformance.enableServiceWorker()
-
-  // Create mobile navigation if on mobile
-  if (viewport.isMobile()) {
-    mobileNavigation.createMobileNav()
-  }
-
-  // Listen for orientation changes
-  viewport.onOrientationChange(() => {
-    // Re-initialize mobile navigation if needed
-    if (viewport.isMobile()) {
-      const existingNav = document.querySelector('.mobile-nav')
-      if (!existingNav) {
-        mobileNavigation.createMobileNav()
-      }
-    }
-  })
-}
-
-// Auto-initialize on load
-if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', initializeMobile)
 }

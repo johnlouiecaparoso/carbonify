@@ -158,7 +158,7 @@ The original plan targeted a **14-week, 7-sprint MVP** for a Philippine carbon-c
 
 ## 🗺 Re-Planned Roadmap (remaining work)
 
-The 14-week MVP is effectively complete on web. The next phases move from "prototype" to "real marketplace."
+The 14-week MVP is effectively complete on web. The next phases move from "working product" to "accredited, real-money marketplace."
 
 ### 🔴 Phase A — Money Foundation (production blocker)
 - [ ] Move payment amounts server-side (Edge Functions authoritative)

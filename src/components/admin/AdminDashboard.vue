@@ -13,7 +13,7 @@
           <span class="material-symbols-outlined">group</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.totalUsers }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.totalUsers ? '—' : stats.totalUsers }}</p>
           <h3>Total Users</h3>
         </div>
       </div>
@@ -22,7 +22,7 @@
           <span class="material-symbols-outlined">pending_actions</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.pendingRoleApplications }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.pendingRoleApplications ? '—' : stats.pendingRoleApplications }}</p>
           <h3>Pending Role Applications</h3>
         </div>
       </div>
@@ -31,7 +31,7 @@
           <span class="material-symbols-outlined">shield_person</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.totalAdmins }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.totalAdmins ? '—' : stats.totalAdmins }}</p>
           <h3>Administrators</h3>
         </div>
       </div>
@@ -40,61 +40,18 @@
           <span class="material-symbols-outlined">how_to_reg</span>
         </div>
         <div class="stat-body">
-          <p class="stat-number">{{ loading ? '...' : stats.pendingVerifierApplications }}</p>
+          <p class="stat-number">{{ loading ? '...' : statErrors.pendingVerifierApplications ? '—' : stats.pendingVerifierApplications }}</p>
           <h3>Pending Verifier Applicants</h3>
         </div>
       </div>
     </div>
 
     <div class="admin-content">
-      <!-- Admin Tools Section -->
-      <div class="admin-section">
-        <h2>Admin Tools</h2>
-        <p>System administration and management tools.</p>
-
-        <div class="admin-tools-grid">
-          <router-link to="/admin/users" class="admin-tool-card">
-            <div class="tool-icon" aria-hidden="true">
-              <span class="material-symbols-outlined">group</span>
-            </div>
-            <h3>User Management</h3>
-            <p>Manage user accounts, roles, and permissions</p>
-          </router-link>
-
-          <router-link to="/admin/finance" class="admin-tool-card">
-            <div class="tool-icon" aria-hidden="true">
-              <span class="material-symbols-outlined">account_balance</span>
-            </div>
-            <h3>Finance Console</h3>
-            <p>Sales, fees, payouts, and book reconciliation</p>
-          </router-link>
-
-          <router-link to="/admin/audit-logs" class="admin-tool-card">
-            <div class="tool-icon" aria-hidden="true">
-              <span class="material-symbols-outlined">assignment</span>
-            </div>
-            <h3>Audit Logs</h3>
-            <p>View system activity and user actions</p>
-          </router-link>
-
-          <router-link to="/admin/kyc" class="admin-tool-card">
-            <div class="tool-icon" aria-hidden="true">
-              <span class="material-symbols-outlined">verified_user</span>
-            </div>
-            <h3>KYC Review</h3>
-            <p>Approve identity verification applications</p>
-          </router-link>
-
-          <router-link to="/admin/config" class="admin-tool-card">
-            <div class="tool-icon" aria-hidden="true">
-              <span class="material-symbols-outlined">tune</span>
-            </div>
-            <h3>System Configuration</h3>
-            <p>Platform fee, KYC tiers, and emission factors</p>
-          </router-link>
-        </div>
-      </div>
-
+      <!-- The hand-written "Admin Tools" grid that used to sit here listed five
+           of the nine admin pages; the other four (KYB review, AML screening,
+           privacy requests, refunds) were reachable only from a scrolling
+           profile dropdown. All nine are now in the sidebar, under Operations
+           and Compliance, so this dashboard shows work rather than links. -->
       <div class="admin-section">
         <div class="section-header">
           <div>
@@ -125,6 +82,15 @@ const stats = ref({
   pendingRoleApplications: 0,
   totalAdmins: 0,
   pendingVerifierApplications: 0,
+})
+
+// Which of the four counts could not be read. Distinct from a count of zero,
+// which on this page is a statement that there is no work waiting.
+const statErrors = ref({
+  totalUsers: false,
+  pendingRoleApplications: false,
+  totalAdmins: false,
+  pendingVerifierApplications: false,
 })
 
 const loading = ref(true)
@@ -199,17 +165,24 @@ async function loadStats() {
         .eq('role_requested', 'verifier'),
     ])
 
-    if (totalUsersError) {
-      console.error('Error counting users:', totalUsersError)
+    // A count that failed is NOT zero. "0 pending role applications" on the
+    // admin landing page reads as "nothing needs my attention", so an unread
+    // count renders as an explicit unknown instead — otherwise applicants wait
+    // on an admin who was told there was no queue.
+    statErrors.value = {
+      totalUsers: Boolean(totalUsersError),
+      totalAdmins: Boolean(adminError),
+      pendingRoleApplications: Boolean(pendingRoleApplicationsError),
+      pendingVerifierApplications: Boolean(pendingVerifierApplicationsError),
     }
-    if (adminError) {
-      console.error('Error counting admin users:', adminError)
-    }
-    if (pendingRoleApplicationsError) {
-      console.error('Error counting pending role applications:', pendingRoleApplicationsError)
-    }
-    if (pendingVerifierApplicationsError) {
-      console.error('Error counting pending verifier applications:', pendingVerifierApplicationsError)
+
+    for (const [what, err] of [
+      ['users', totalUsersError],
+      ['admin users', adminError],
+      ['pending role applications', pendingRoleApplicationsError],
+      ['pending verifier applications', pendingVerifierApplicationsError],
+    ]) {
+      if (err) console.error(`Error counting ${what}:`, err)
     }
 
     stats.value.totalUsers = totalUsersCount || 0
@@ -218,12 +191,19 @@ async function loadStats() {
     stats.value.pendingVerifierApplications = pendingVerifierApplicationsCount || 0
   } catch (error) {
     console.error('Error loading admin stats:', error)
-    // Set defaults on error
+    // Nothing was read, so every tile is unknown rather than zero — see the
+    // note on statErrors above.
     stats.value = {
       totalUsers: 0,
       pendingRoleApplications: 0,
       totalAdmins: 0,
       pendingVerifierApplications: 0,
+    }
+    statErrors.value = {
+      totalUsers: true,
+      pendingRoleApplications: true,
+      totalAdmins: true,
+      pendingVerifierApplications: true,
     }
   } finally {
     loading.value = false
@@ -245,13 +225,13 @@ async function loadStats() {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0 4rem;
+  padding: 1.25rem 0 3.5rem;
   border-bottom: none;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #fff;
@@ -259,7 +239,7 @@ async function loadStats() {
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -289,13 +269,13 @@ async function loadStats() {
   padding: 1.4rem 1.5rem;
   border-radius: 1rem;
   border: 1px solid #eef2f1;
-  box-shadow: 0 10px 24px rgba(6, 158, 45, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 24px rgba(5, 133, 38, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 32px rgba(6, 158, 45, 0.16);
+  box-shadow: 0 16px 32px rgba(5, 133, 38, 0.16);
 }
 
 .stat-icon {
@@ -314,7 +294,7 @@ async function loadStats() {
 
 .stat-icon.users {
   background: #e8f5e8;
-  color: #069e2d;
+  color: #058526;
 }
 .stat-icon.apps {
   background: #fef3c7;
@@ -364,7 +344,7 @@ async function loadStats() {
   padding: 1.75rem;
   border-radius: 1rem;
   border: 1px solid #eef2f1;
-  box-shadow: 0 4px 16px rgba(6, 158, 45, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 16px rgba(5, 133, 38, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .admin-section h2 {
@@ -373,7 +353,7 @@ async function loadStats() {
   font-size: 1.4rem;
   font-weight: 700;
   padding-left: 0.7rem;
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
   line-height: 1.2;
 }
 
@@ -401,7 +381,7 @@ async function loadStats() {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
   font-size: 0.85rem;
   padding: 0.5rem 0.9rem;
@@ -412,67 +392,9 @@ async function loadStats() {
 }
 
 .section-link:hover {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
-.admin-tools-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.1rem;
-}
-
-.admin-tool-card {
-  display: block;
-  padding: 1.5rem;
-  background: #fff;
-  border: 1px solid #e8edf1;
-  border-radius: 0.9rem;
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.admin-tool-card:hover {
-  background: #fff;
-  border-color: var(--primary-color, #069e2d);
-  transform: translateY(-3px);
-  box-shadow: 0 14px 28px rgba(6, 158, 45, 0.14);
-}
-
-.tool-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  margin-bottom: 1rem;
-  border-radius: 0.85rem;
-  background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
-  color: var(--primary-color, #069e2d);
-  transition: transform 0.2s ease;
-}
-
-.admin-tool-card:hover .tool-icon {
-  transform: scale(1.06);
-}
-
-.tool-icon .material-symbols-outlined {
-  font-size: 28px;
-}
-
-.admin-tool-card h3 {
-  margin: 0 0 0.4rem 0;
-  color: var(--text-primary, #1a1a1a);
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.admin-tool-card p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
 </style>

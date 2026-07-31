@@ -99,6 +99,59 @@ export const ROLE_ICONS = {
 }
 
 /**
+ * Aliases the database already accepts for each canonical role.
+ *
+ * This mirrors `public.canonicalize_notification_role()` (migration
+ * 20260402000100), which `public.is_admin()` is built on. That means the
+ * SERVER grants a `super_admin` every admin right via RLS. The client used to
+ * compare roles with `===` against the canonical value, so a super_admin was
+ * refused by the admin guard and redirected to `/admin` — the very route that
+ * had just refused them — producing an infinite navigation redirect.
+ *
+ * Keep this table in sync with that migration. Deliberately NOT merged into
+ * ROLES: these are values that may arrive from the database, not values an
+ * admin may assign (see roleService.updateUserRole, which validates against
+ * Object.values(ROLES)).
+ */
+const ROLE_ALIASES = {
+  administrator: ROLES.ADMIN,
+  super_admin: ROLES.ADMIN,
+  superadmin: ROLES.ADMIN,
+  verification: ROLES.VERIFIER,
+  qa: ROLES.VERIFIER,
+  projectdeveloper: ROLES.PROJECT_DEVELOPER,
+  developer: ROLES.PROJECT_DEVELOPER,
+  buyerinvestor: ROLES.BUYER_INVESTOR,
+  investor: ROLES.BUYER_INVESTOR,
+  generaluser: ROLES.GENERAL_USER,
+  user: ROLES.GENERAL_USER,
+  lgu: ROLES.LGU_USER,
+}
+
+/**
+ * Reduce any role value the database might hold to its canonical form.
+ *
+ * Every role comparison in the app must go through this. Two code paths used to
+ * normalize differently — the primary profile fetch lowercased and trimmed, the
+ * retry path did neither — so a stored `'Admin'` worked on first load and
+ * silently demoted the user to general_user after a timeout retry.
+ *
+ * @param {unknown} role
+ * @returns {string} a canonical ROLES value, or GENERAL_USER when unrecognisable
+ */
+export function canonicalizeRole(role) {
+  if (typeof role !== 'string') return ROLES.GENERAL_USER
+
+  const normalized = role
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+  if (!normalized) return ROLES.GENERAL_USER
+
+  return ROLE_ALIASES[normalized] || normalized
+}
+
+/**
  * Get role display name
  * @param {string} role - Role key
  * @returns {string} Display name for the role
@@ -114,5 +167,5 @@ export function getRoleDisplayName(role) {
     [ROLES.GENERAL_USER]: 'General User',
   }
 
-  return displayNames[role] || 'Unknown Role'
+  return displayNames[canonicalizeRole(role)] || 'Unknown Role'
 }

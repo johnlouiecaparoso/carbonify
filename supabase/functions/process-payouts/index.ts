@@ -43,6 +43,23 @@ serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+  // Escrow (backlog #14, Option B): release matured, dispute-free holds to
+  // seller_payable BEFORE disbursing, so freshly-matured proceeds are withdrawable
+  // in the same run. Best-effort — if release_matured_escrow() isn't deployed yet
+  // (the escrow migration is staged, applied during the pilot), this is a no-op and
+  // must never block payouts. Uses the same worker/service-role auth.
+  let escrowReleased = 0
+  try {
+    const { data: released, error: releaseErr } = await supabase.rpc('release_matured_escrow')
+    if (releaseErr) {
+      console.error('release_matured_escrow failed (continuing):', releaseErr.message)
+    } else {
+      escrowReleased = Number(released) || 0
+    }
+  } catch (e) {
+    console.error('release_matured_escrow threw (continuing):', (e as Error).message)
+  }
+
   const { data: pending, error } = await supabase
     .from('payout_requests')
     .select('id, amount, currency, destination')
@@ -81,7 +98,7 @@ serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ processed: results.length, results }), {
+  return new Response(JSON.stringify({ escrowReleased, processed: results.length, results }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })

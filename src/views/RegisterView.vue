@@ -1,12 +1,38 @@
 <script setup>
 import RegisterForm from '@/components/auth/RegisterForm.vue'
+import { POLICY_DOCUMENTS, OPEN_POLICY_EVENT } from '@/constants/policy'
 
 /**
- * Roles that can't simply be self-selected at signup — each is reviewed. Farmer
- * leads because it is the lowest-friction path (no business registration, no
- * accreditation) and the audience least likely to hunt for a link.
+ * Open a policy document in the ONE modal that renders the legal text, which
+ * lives in App.vue. This page dispatches an event rather than linking, because
+ * the footer that normally carries these links is hidden on the auth pages
+ * (`showHeader` excludes `register`) — so without this there is no way at all
+ * to read the Terms before agreeing to them by signing up.
+ *
+ * Deliberately NOT a checkbox. The blocking consent gate on first sign-in is
+ * what records agreement, against a policy version, in `policy_acceptances`.
+ * A tick here would record nothing and only imply it had.
+ */
+function openPolicy(id) {
+  window.dispatchEvent(new CustomEvent(OPEN_POLICY_EVENT, { detail: { doc: id } }))
+}
+
+/**
+ * Signup paths. The buyer/user path is the default and instant — it just uses
+ * the account form above (no review), so its card scrolls back to that form
+ * rather than opening an application. Farmer and developer are reviewed roles.
+ *
+ * Verifier is intentionally NOT self-selectable here: a verifier approves credit
+ * issuance (a privileged action), so — like LGU — the role is admin-provisioned,
+ * not applied for from the public signup page.
  */
 const specialistRoles = [
+  {
+    action: 'scroll',
+    icon: 'shopping_cart',
+    title: 'I am a buyer / user',
+    description: 'Buy and retire carbon credits. No application needed — sign up above.',
+  },
   {
     to: '/register/farmer',
     icon: 'agriculture',
@@ -19,13 +45,16 @@ const specialistRoles = [
     title: 'I develop carbon projects',
     description: 'Register projects, report monitoring data, and issue credits.',
   },
-  {
-    to: { path: '/apply', query: { role: 'verifier' } },
-    icon: 'verified',
-    title: 'I am a verifier',
-    description: 'Review projects and approve verified emission reductions.',
-  },
 ]
+
+/** Buyer/user needs no application — send them to the account form at the top. */
+function scrollToSignup() {
+  const field = document.getElementById('name')
+  if (field) {
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    field.focus({ preventScroll: true })
+  }
+}
 </script>
 
 <template>
@@ -54,29 +83,56 @@ const specialistRoles = [
       <div class="panel-card">
         <RegisterForm />
 
-        <!-- Roles that need review before approval. Each says plainly what it's
-             for, so nobody applies as a Verifier when they meant Developer. -->
+        <!-- Signup paths. Each says plainly what it's for, so nobody applies as a
+             Developer when they only want to buy credits. The buyer/user card
+             scrolls to the account form (instant); farmer/developer are reviewed. -->
         <div class="apply-specialist">
           <span class="apply-specialist__label">Joining as something specific?</span>
           <div class="role-cards">
-            <router-link
-              v-for="role in specialistRoles"
-              :key="role.to"
-              :to="role.to"
-              class="role-card"
-            >
-              <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
-              <span class="role-card__body">
-                <span class="role-card__title">{{ role.title }}</span>
-                <span class="role-card__desc">{{ role.description }}</span>
-              </span>
-              <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
-            </router-link>
+            <template v-for="role in specialistRoles" :key="role.title">
+              <button
+                v-if="role.action === 'scroll'"
+                type="button"
+                class="role-card"
+                @click="scrollToSignup"
+              >
+                <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
+                <span class="role-card__body">
+                  <span class="role-card__title">{{ role.title }}</span>
+                  <span class="role-card__desc">{{ role.description }}</span>
+                </span>
+                <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
+              </button>
+              <router-link
+                v-else
+                :to="role.to"
+                class="role-card"
+              >
+                <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
+                <span class="role-card__body">
+                  <span class="role-card__title">{{ role.title }}</span>
+                  <span class="role-card__desc">{{ role.description }}</span>
+                </span>
+                <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
+              </router-link>
+            </template>
           </div>
           <p class="apply-specialist__note">
-            These roles are reviewed before approval. You'll create an account first either way.
+            Buyers can start right away. Farmer and developer applications are reviewed before
+            approval — you'll create an account first either way.
           </p>
         </div>
+
+        <p class="panel-legal">
+          By creating an account you agree to our<template
+            v-for="(doc, i) in POLICY_DOCUMENTS"
+            :key="doc.id"
+            ><span v-if="i > 0">{{ i === POLICY_DOCUMENTS.length - 1 ? ' and' : ',' }}</span>
+            <button type="button" class="legal-link" @click="openPolicy(doc.id)">
+              {{ doc.label }}</button
+            ></template
+          >. You will be asked to confirm this once, the first time you sign in.
+        </p>
 
         <div class="panel-footer">
           <span class="panel-desc">Already have an account?</span>
@@ -90,12 +146,11 @@ const specialistRoles = [
 <style scoped>
 /* Enhanced Auth Layout with Modern Styling */
 .auth-layout {
-  height: 100vh;
+  min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   background: #ffffff;
   position: relative;
-  overflow: hidden;
 }
 
 
@@ -113,12 +168,16 @@ const specialistRoles = [
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
-  position: relative;
+  /* Sticky on desktop so the brand panel stays visible while the taller
+     register form scrolls on its own side. */
+  position: sticky;
+  top: 0;
+  align-self: start;
   overflow: hidden;
   z-index: 1;
-  height: 100%;
+  height: 100vh;
 }
 
 .hero-card {
@@ -152,14 +211,15 @@ const specialistRoles = [
 
 /* Enhanced Logo Styling */
 .auth-logo-container {
-  height: 4.25rem !important;
-  width: auto !important;
-  max-width: 11rem !important;
-  min-height: 4.25rem !important;
-  max-height: 4.25rem !important;
-  border-radius: 14px !important;
-  border: 1px solid rgba(209, 250, 229, 0.9);
-  padding: 0.55rem 0.9rem;
+  height: 5rem !important;
+  width: 5rem !important;
+  min-width: 5rem !important;
+  max-width: 5rem !important;
+  min-height: 5rem !important;
+  max-height: 5rem !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(209, 250, 229, 0.9);
+  padding: 0;
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   display: inline-flex;
@@ -171,12 +231,11 @@ const specialistRoles = [
 }
 
 .auth-logo-image {
-  height: auto !important;
-  width: auto !important;
-  object-fit: contain !important;
+  height: 100% !important;
+  width: 100% !important;
+  object-fit: cover !important;
   display: block !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  border-radius: 50% !important;
 }
 
 .brand-title {
@@ -204,8 +263,8 @@ const specialistRoles = [
   justify-content: center;
   padding: 2rem 1.5rem;
   background: #ffffff;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: visible;
   position: relative;
   z-index: 1;
 }
@@ -217,13 +276,11 @@ const specialistRoles = [
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow-y: auto;
   overflow-x: hidden;
   position: relative;
   padding: 2rem;
   display: flex;
   flex-direction: column;
-  max-height: 100%;
   box-sizing: border-box;
 }
 
@@ -265,18 +322,26 @@ const specialistRoles = [
   border-radius: 10px;
   text-decoration: none;
   color: inherit;
+  /* Shared by <router-link> (anchor) and the buyer/user <button>; reset native
+     button chrome so both render identically. */
+  width: 100%;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .role-card:hover,
 .role-card:focus-visible {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: #f0fdf4;
   transform: translateY(-1px);
 }
 
 .role-card__icon {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 1.5rem;
   flex-shrink: 0;
 }
@@ -315,6 +380,31 @@ const specialistRoles = [
 }
 
 /* Enhanced Footer */
+.panel-legal {
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.legal-link {
+  background: none;
+  border: 0;
+  padding: 0 0 0 0.25rem;
+  font: inherit;
+  color: var(--primary-color, #058526);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.legal-link:hover {
+  color: var(--primary-hover, #04701f);
+}
+
 .panel-footer {
   padding: 1rem 0 0 0;
   text-align: center;
@@ -336,7 +426,7 @@ const specialistRoles = [
 }
 
 .muted-link {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-weight: 500;
   font-size: 0.875rem;
@@ -346,26 +436,31 @@ const specialistRoles = [
 }
 
 .muted-link:hover {
-  color: var(--primary-hover, #058e3f);
+  color: var(--primary-hover, #04701f);
 }
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
   .auth-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto;
+    min-height: 100vh;
   }
 
   .auth-hero {
     padding: 1.5rem 1rem;
     min-height: auto;
     height: auto;
+    /* stack normally on mobile — no sticky */
+    position: static;
+    align-self: auto;
   }
 
   .auth-panel {
     padding: 1rem;
+    min-height: 0;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .panel-card {
@@ -389,11 +484,11 @@ const specialistRoles = [
   }
 
   .auth-logo-container {
-    width: auto !important;
+    width: 5rem !important;
     height: 5rem !important;
-    min-width: 0 !important;
+    min-width: 5rem !important;
     min-height: 5rem !important;
-    max-width: 100% !important;
+    max-width: 5rem !important;
     max-height: 5rem !important;
   }
 
@@ -423,11 +518,11 @@ const specialistRoles = [
   }
 
   .auth-logo-container {
-    width: auto !important;
+    width: 4.5rem !important;
     height: 4.5rem !important;
-    min-width: 0 !important;
+    min-width: 4.5rem !important;
     min-height: 4.5rem !important;
-    max-width: 100% !important;
+    max-width: 4.5rem !important;
     max-height: 4.5rem !important;
   }
 

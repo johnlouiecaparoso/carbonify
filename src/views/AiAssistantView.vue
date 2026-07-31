@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { useUserStore } from '@/store/userStore'
 
 /**
@@ -82,16 +83,17 @@ const draft = ref('')
 
 <template>
   <div class="assistant">
-    <header class="page-head">
-      <div class="head-row">
-        <span class="material-symbols-outlined head-icon" aria-hidden="true">smart_toy</span>
-        <div>
-          <h1>AI Project Assistant</h1>
-          <p>Ask questions about your projects, credits, and monitoring data in plain language.</p>
-        </div>
-      </div>
-      <span class="pill">Preview</span>
-    </header>
+    <PageHeader
+      icon="smart_toy"
+      title="AI Project Assistant"
+      description="Ask questions about your projects, credits, and monitoring data in plain language."
+    >
+      <template #actions>
+        <span class="pill">Preview</span>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div class="notice info" role="status">
       <span class="material-symbols-outlined" aria-hidden="true">construction</span>
@@ -160,16 +162,15 @@ const draft = ref('')
         </p>
       </aside>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.assistant { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
-.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.assistant { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
 .head-row { display: flex; gap: 12px; align-items: flex-start; }
-.head-icon { font-size: 36px; color: #069e2d; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 0; }
+.head-icon { font-size: 36px; color: #058526; }
 .pill { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
@@ -182,7 +183,7 @@ const draft = ref('')
 .chat { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; }
 .messages { min-height: 120px; }
 .msg { display: flex; gap: 10px; }
-.avatar { font-size: 26px; color: #069e2d; background: #f0fdf4; border-radius: 50%; padding: 6px; }
+.avatar { font-size: 26px; color: #058526; background: #f0fdf4; border-radius: 50%; padding: 6px; }
 .bubble { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; }
 .bubble p { margin: 0; }
 .bubble p + p { margin-top: 8px; }
@@ -195,13 +196,13 @@ const draft = ref('')
 .composer { display: flex; gap: 8px; margin-top: 20px; align-items: flex-end; }
 .composer textarea { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 0.9rem; font-family: inherit; resize: none; background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
 .composer-note { margin: 6px 0 0; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .capabilities { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; }
 .capabilities h2 { margin: 0 0 14px; font-size: 1.05rem; }
 .cap { display: flex; gap: 12px; margin-bottom: 16px; }
-.cap-icon { font-size: 22px; color: #069e2d; }
+.cap-icon { font-size: 22px; color: #058526; }
 .cap h3 { margin: 0 0 3px; font-size: 0.9rem; }
 .cap p { margin: 0; font-size: 0.83rem; color: #6b7280; line-height: 1.45; }
 .foot { border-top: 1px solid #e5e7eb; padding-top: 12px; margin: 0; }

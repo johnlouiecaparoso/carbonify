@@ -52,7 +52,7 @@ The stack Carbonify uses today works and is a reasonable choice. The table shows
 | Backend / DB | Supabase (Postgres, Auth, Edge Functions, Storage) | Keep Supabase; **adopt CLI migrations** (`supabase db push`) instead of hand-applied SQL | The #1 maintainability fix — see Part C |
 | Server logic | Postgres `SECURITY DEFINER` RPCs + Deno Edge Functions | Keep; move heavy/batch jobs (reconciliation, payouts, reports) to a dedicated worker as volume grows | Edge functions have CPU/cold-start limits |
 | Payments (PH) | PayMongo (cards, GCash, Maya) | Keep PayMongo or Xendit; **a licensed PSP/EMI must custody funds** for real operation | Regulatory requirement, not a code choice |
-| Real credits | Simulated | **Carbonmark / Cloverly / Patch API** for real verified credits | Fastest path to "real" without becoming a registry |
+| Real credits | Issued in-platform, not registry-backed | **Carbonmark / Cloverly / Patch API** for externally verified credits | Fastest path to registry-backed credits without becoming a registry |
 | Maps | Leaflet + OpenStreetMap | Keep (no API key, free tiles) | Good enough; MapLibre if you need vector tiles |
 | Charts | Chart.js (`vue-chartjs`) | Keep | Fine |
 | PDFs / QR | jsPDF + `qrcode` | Keep, or server-side PDF for tamper-resistance | Server-rendered certs are harder to forge |

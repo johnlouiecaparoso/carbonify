@@ -8,6 +8,11 @@ const route = useRoute()
 // Set by RegisterForm on a successful signup. Without it the user lands on a
 // bare sign-in form with no confirmation their account was created.
 const showRegisteredBanner = computed(() => route.query.registered === '1')
+
+// Signup succeeded but the account is not usable until the emailed link is
+// clicked. Telling this user to "sign in to continue" sends them straight into
+// an "email not confirmed" error with no explanation of why.
+const showConfirmBanner = computed(() => route.query.confirm === '1')
 </script>
 
 <template>
@@ -17,11 +22,7 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
         <div class="brand">
           <div class="brand-badge">
             <div class="auth-logo-container">
-              <img
-                src="/carbonify-logo.png"
-                alt="Carbonify"
-                class="auth-logo-image"
-              />
+              <img src="/carbonify-logo.png" alt="Carbonify" class="auth-logo-image" />
             </div>
           </div>
           <div class="brand-text">
@@ -34,7 +35,10 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 
     <section class="auth-panel">
       <div class="panel-card">
-        <div v-if="showRegisteredBanner" class="success-banner" role="status">
+        <div v-if="showConfirmBanner" class="success-banner" role="status">
+          Account created. Check your inbox and click the confirmation link, then sign in.
+        </div>
+        <div v-else-if="showRegisteredBanner" class="success-banner" role="status">
           Account created. Sign in to continue.
         </div>
         <LoginForm />
@@ -54,12 +58,11 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 <style scoped>
 /* Enhanced Auth Layout with Modern Styling */
 .auth-layout {
-  height: 100vh;
+  min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   background: #ffffff;
   position: relative;
-  overflow: hidden;
 }
 
 /* Mobile responsive */
@@ -76,12 +79,16 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
-  position: relative;
+  /* Sticky on desktop so the brand panel stays visible while the form side
+     scrolls if content ever exceeds the viewport. */
+  position: sticky;
+  top: 0;
+  align-self: start;
   overflow: hidden;
   z-index: 1;
-  height: 100%;
+  height: 100vh;
 }
 
 .hero-card {
@@ -115,14 +122,15 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 
 /* Enhanced Logo Styling */
 .auth-logo-container {
-  height: 4.25rem !important;
-  width: auto !important;
-  max-width: 11rem !important;
-  min-height: 4.25rem !important;
-  max-height: 4.25rem !important;
-  border-radius: 14px !important;
-  border: 1px solid rgba(209, 250, 229, 0.9);
-  padding: 0.55rem 0.9rem;
+  height: 5rem !important;
+  width: 5rem !important;
+  min-width: 5rem !important;
+  max-width: 5rem !important;
+  min-height: 5rem !important;
+  max-height: 5rem !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(209, 250, 229, 0.9);
+  padding: 0;
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   display: inline-flex;
@@ -134,12 +142,11 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 }
 
 .auth-logo-image {
-  height: auto !important;
-  width: auto !important;
-  object-fit: contain !important;
+  height: 100% !important;
+  width: 100% !important;
+  object-fit: cover !important;
   display: block !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  border-radius: 50% !important;
 }
 
 .brand-title {
@@ -148,7 +155,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   margin: 0;
   letter-spacing: -0.02em;
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .brand-subtitle {
@@ -157,7 +165,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   color: #ffffff;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Enhanced Auth Panel */
@@ -167,8 +176,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   justify-content: center;
   padding: 2rem 1.5rem;
   background: #ffffff;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: visible;
   position: relative;
   z-index: 1;
 }
@@ -191,10 +200,10 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 .success-banner {
   margin: 0 0 1.5rem 0;
   padding: 1rem 1.25rem;
-  border: 1px solid var(--primary-color, #069e2d);
+  border: 1px solid var(--primary-color, #058526);
   border-radius: 16px;
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  color: var(--primary-dark, #04773b);
+  color: var(--primary-dark, #045c1a);
   font-weight: 600;
   font-size: 0.875rem;
   display: flex;
@@ -205,7 +214,7 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 
 .success-banner::before {
   content: '✓';
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
   border-radius: 50%;
   width: 22px;
@@ -252,41 +261,47 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   margin: 0;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .muted-link {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   text-decoration: none;
   font-weight: 500;
   font-size: 0.875rem;
   transition: color 0.2s ease;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .muted-link:hover {
-  color: var(--primary-hover, #058e3f);
+  color: var(--primary-hover, #04701f);
 }
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
   .auth-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    height: 100vh;
+    grid-template-rows: auto auto;
+    min-height: 100vh;
   }
 
   .auth-hero {
     padding: 1.5rem 1rem;
     min-height: auto;
     height: auto;
+    /* stack normally on mobile — no sticky */
+    position: static;
+    align-self: auto;
   }
 
   .auth-panel {
     padding: 1rem;
+    min-height: 0;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .panel-card {
@@ -311,11 +326,11 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   }
 
   .auth-logo-container {
-    width: auto !important;
+    width: 5rem !important;
     height: 5rem !important;
-    min-width: 0 !important;
+    min-width: 5rem !important;
     min-height: 5rem !important;
-    max-width: 100% !important;
+    max-width: 5rem !important;
     max-height: 5rem !important;
   }
 
@@ -345,11 +360,11 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   }
 
   .auth-logo-container {
-    width: auto !important;
+    width: 4.5rem !important;
     height: 4.5rem !important;
-    min-width: 0 !important;
+    min-width: 4.5rem !important;
     min-height: 4.5rem !important;
-    max-width: 100% !important;
+    max-width: 4.5rem !important;
     max-height: 4.5rem !important;
   }
 

@@ -181,20 +181,20 @@ onMounted(() => {
 }
 
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #058526);
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: #fff;
 }
 
@@ -232,7 +232,7 @@ onMounted(() => {
 
 .table-card h3 {
   margin: 0 0 0.5rem 0;
-  color: var(--primary-color, #10b981);
+  color: var(--primary-color, #058526);
 }
 
 .table-card p {
@@ -289,7 +289,7 @@ onMounted(() => {
 
 .refresh-btn {
   padding: 0.75rem 1.5rem;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #058526);
   color: white;
   border: none;
   border-radius: 8px;

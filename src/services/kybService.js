@@ -60,7 +60,7 @@ export async function getMyKyb() {
   } = await supabase.auth.getUser()
   if (!user) return { verified: false, application: null }
 
-  const [{ data: profile }, { data: apps }] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: apps }] = await Promise.all([
     supabase.from('profiles').select('kyb_verified').eq('id', user.id).single(),
     supabase
       .from('kyb_applications')
@@ -68,6 +68,20 @@ export async function getMyKyb() {
       .order('submitted_at', { ascending: false })
       .limit(1),
   ])
+
+  // The profile row is the ONLY thing that decides `verified`, and this error
+  // used to be discarded — so a transient failure came back as
+  // `verified: false`, indistinguishable from a genuine "not verified yet".
+  // Callers then told an already-verified seller that business verification was
+  // required and disabled their withdraw button. A failed lookup is not a fact
+  // about the user.
+  //
+  // The applications query is deliberately NOT fatal: it only supplies the
+  // detail shown alongside the status, and losing it degrades the message
+  // rather than inverting it.
+  if (profileError) {
+    throw new Error(profileError.message || 'Could not check your business verification status')
+  }
 
   return {
     verified: Boolean(profile?.kyb_verified),
@@ -81,7 +95,7 @@ export async function getMyKyb() {
  */
 export async function listKybApplications(status = null) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   let query = supabase
     .from('kyb_applications')
@@ -95,8 +109,10 @@ export async function listKybApplications(status = null) {
 
   const { data, error } = await query
   if (error) {
+    // Not []: "No pending applications" is a review queue reading as empty.
+    // A seller waiting on verification is indistinguishable from a failed read.
     console.error('listKybApplications failed:', error.message)
-    return []
+    throw new Error(error.message || 'Failed to load KYB applications')
   }
   return data || []
 }

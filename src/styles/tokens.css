@@ -1,0 +1,121 @@
+/* ============================================================================
+ * Carbonify design tokens — THE single source of truth for colour, spacing,
+ * radius, shadow and type scale.
+ *
+ * These previously lived in a <style> block inside src/App.vue, while
+ * src/styles/design-system.css sat here looking authoritative but was imported
+ * by nothing at all. Anyone opening src/styles/ found a 333-line "design system"
+ * defining a different brand green (#2d5a27), a full utility-class layer, and a
+ * prefers-color-scheme dark block — none of which had ever applied to a single
+ * pixel. That file is gone; this one is real and is imported by main.js.
+ *
+ * NOT dark-mode aware, deliberately. Every view hard-codes its own #ffffff
+ * surfaces and slate text, so remapping these tokens alone would produce dark
+ * page chrome behind white cards. Dark mode is a real project (migrate the ~57
+ * views off literals first), not a media query.
+ * ==========================================================================*/
+
+:root {
+  /* Core Green Colors
+   *
+   * Contrast against white, which is what every green page banner, primary
+   * button and badge puts on top of these. All three clear the WCAG AA 4.5:1
+   * floor for normal text, so the 0.95rem banner subtitle is legible:
+   *   --primary-color  4.78:1   --primary-hover  6.28:1   --primary-dark  8.23:1
+   *
+   * The ramp was darkened wholesale on 2026-07-26 (was #069e2d / #058e3f /
+   * #04773b). The old --primary-color measured 3.54:1 — it passed AA only for
+   * large text, so every banner title was fine and every banner subtitle was
+   * not. Keep the ordering primary > hover > dark in lightness: the old pair
+   * would have inverted if only --primary-color had been darkened, making the
+   * hover state lighter than the resting state.
+   *
+   * Guarded by src/test/styles/tokenContrast.test.js — it parses this file, so
+   * editing a value here to something that fails AA fails the suite. */
+  --primary-color: #058526;
+  --primary-hover: #04701f;
+  --primary-dark: #045c1a;
+  --primary-light: #e8f5e8;
+  --primary-lighter: #f0f9f0;
+  --primary-lightest: #f8fdf8;
+
+  /* Text Colors */
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a5568;
+  /* Darkened 2026-07-26 in the same pass as the green ramp above. The previous
+     value measured 4.02:1 on white — under the AA 4.5:1 floor — and this token
+     backs ~150 muted labels across every role. #64748b is 4.76:1. */
+  --text-muted: #64748b;
+  --text-light: #ffffff;
+  --text-green: #045c1a;
+
+  /* Background Colors - White & Green Theme */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fdf8;
+  --bg-tertiary: #f0f9f0;
+  --bg-muted: #e8f5e8;
+  --bg-accent: #d4edda;
+  --bg-green: #058526;
+  --bg-green-light: #e8f5e8;
+  --bg-green-dark: #045c1a;
+
+  /* Border Colors */
+  --border-color: #d1e7dd;
+  --border-light: #e8f5e8;
+  --border-green: #058526;
+  --border-green-light: #d4edda;
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+
+  /* Shadows with Green Tints */
+  --shadow-sm: 0 1px 2px rgba(5, 133, 38, 0.1);
+  --shadow-md: 0 4px 6px rgba(5, 133, 38, 0.15);
+  --shadow-lg: 0 10px 15px rgba(5, 133, 38, 0.2);
+  --shadow-xl: 0 20px 25px rgba(5, 133, 38, 0.25);
+  --shadow-green: 0 4px 12px rgba(5, 133, 38, 0.3);
+  --shadow-green-lg: 0 8px 24px rgba(5, 133, 38, 0.4);
+
+  /* Status Colors */
+  --success-color: #058526;
+  --success-light: #d4edda;
+  --warning-color: #ffc107;
+  --warning-light: #fff3cd;
+  --error-color: #dc3545;
+  --error-light: #f8d7da;
+  --info-color: #17a2b8;
+  --info-light: #d1ecf1;
+
+  /* Typography */
+  --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* xs was referenced by ProfileView (field errors, char counts) before it was
+     ever defined, so those rules silently inherited their parent's size. */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-6xl: 3.75rem;
+
+  /* Transitions */
+  --transition: all 0.15s ease-in-out;
+
+  /* Mobile breakpoints */
+  --mobile-sm: 480px;
+  --mobile-md: 768px;
+  --tablet: 1024px;
+}

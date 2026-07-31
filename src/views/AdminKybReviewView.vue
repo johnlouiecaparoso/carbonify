@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { listKybApplications, reviewKyb } from '@/services/kybService'
 
 const loading = ref(true)
+const loadError = ref('')
 const applications = ref([])
 const statusFilter = ref('pending')
 const notesById = ref({})
@@ -29,9 +31,16 @@ function shortDate(d) {
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     // Load all so the tab counts are accurate; filtering is client-side.
     applications.value = await listKybApplications()
+  } catch (err) {
+    // Without this, a failed read rendered as "No pending applications" — a
+    // review queue that looks cleared while sellers wait on verification.
+    console.error('Failed to load KYB applications:', err)
+    applications.value = []
+    loadError.value = 'We could not load the applications. This is a loading error, not an empty queue.'
   } finally {
     loading.value = false
   }
@@ -56,10 +65,12 @@ onMounted(load)
 
 <template>
   <div class="kyb-review">
-    <header class="page-head">
-      <h1>KYB Review</h1>
-      <p>Approve or reject seller business verifications. Approving unlocks withdrawals.</p>
-    </header>
+    <PageHeader
+      title="KYB Review"
+      description="Approve or reject seller business verifications. Approving unlocks withdrawals."
+    />
+
+    <div class="page-body">
 
     <div class="tabs">
       <button
@@ -76,6 +87,10 @@ onMounted(load)
     <p v-if="toast" class="toast">{{ toast }}</p>
 
     <div v-if="loading" class="muted">Loading…</div>
+    <p v-else-if="loadError" class="load-error">
+      {{ loadError }}
+      <button class="retry" @click="load">Try again</button>
+    </p>
     <p v-else-if="!filtered.length" class="muted empty">No {{ statusFilter }} applications.</p>
 
     <div v-else class="cards">
@@ -124,28 +139,46 @@ onMounted(load)
         </div>
       </article>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .kyb-review {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+
+.page-body {
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px;
-}
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
 }
 .muted {
   color: #6b7280;
 }
 .empty {
   padding: 24px 0;
+}
+.load-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--error-color, #b91c1c);
+  border-radius: 8px;
+  background: #fef2f2;
+  color: var(--error-color, #b91c1c);
+}
+.retry {
+  background: #fff;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  color: inherit;
 }
 .tabs {
   display: flex;
@@ -166,8 +199,8 @@ onMounted(load)
   gap: 6px;
 }
 .tab.active {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--primary-color, #058526);
+  border-color: var(--primary-color, #058526);
   color: #fff;
 }
 .tab-count {
@@ -284,7 +317,7 @@ onMounted(load)
   cursor: not-allowed;
 }
 .btn.approve {
-  background: #10b981;
+  background: var(--success-color, #058526);
   color: #fff;
 }
 .btn.reject {

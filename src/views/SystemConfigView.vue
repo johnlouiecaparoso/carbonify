@@ -1,12 +1,12 @@
 <template>
   <div class="config-view">
+    <PageHeader
+      title="System Configuration"
+      description="Manage platform-wide settings. Changes take effect on the next relevant action (e.g. the platform fee applies to new purchases)."
+    />
     <div class="container">
-      <h1 class="page-title">System Configuration</h1>
-      <p class="page-description">
-        Manage platform-wide settings. Changes take effect on the next relevant action
-        (e.g. the platform fee applies to new purchases).
-      </p>
 
+      <div v-if="loadError" class="admin-load-error">{{ loadError }}</div>
       <div v-if="loading" class="state-card">Loading configuration…</div>
 
       <template v-else>
@@ -25,6 +25,46 @@
             seller's net. 0 = no fee.
           </p>
           <p v-if="feeMsg" class="msg" :class="feeMsg.type">{{ feeMsg.text }}</p>
+        </section>
+
+        <!-- Project & verification fees -->
+        <section class="config-card">
+          <h2 class="card-title">Project & verification fees</h2>
+          <div class="field-row">
+            <label for="onboarding-fee">Project onboarding fee (₱)</label>
+            <input
+              id="onboarding-fee"
+              type="number"
+              step="1"
+              min="0"
+              v-model.number="onboardingFee"
+            />
+            <button class="save-btn" :disabled="savingFees" @click="saveFees">
+              {{ savingFees ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+          <p class="field-hint">
+            Flat fee shown to a developer when they submit a project. 0 = free onboarding.
+          </p>
+          <div class="field-row">
+            <label for="verification-fee">Verification / certification fee (₱)</label>
+            <input
+              id="verification-fee"
+              type="number"
+              step="1"
+              min="0"
+              v-model.number="verificationFee"
+            />
+            <button class="save-btn" :disabled="savingFees" @click="saveFees">
+              {{ savingFees ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+          <p class="field-hint">
+            Flat fee for verification / certification support, disclosed on the project. 0 = free.
+            Collection is a follow-up (see <code>docs/GAP_ANALYSIS.md</code>); today these are
+            configuration + disclosure only.
+          </p>
+          <p v-if="feesMsg" class="msg" :class="feesMsg.type">{{ feesMsg.text }}</p>
         </section>
 
         <!-- Trading / KYC -->
@@ -54,7 +94,7 @@
           <p v-if="factorMsg" class="msg" :class="factorMsg.type">{{ factorMsg.text }}</p>
 
           <div v-if="factors.length === 0" class="state-card">No emission factors found.</div>
-          <div v-else class="table-scroll">
+          <CollapsibleList v-else :count="factors.length">
           <table class="factor-table">
             <thead>
               <tr>
@@ -81,7 +121,7 @@
               </tr>
             </tbody>
           </table>
-          </div>
+          </CollapsibleList>
         </section>
       </template>
     </div>
@@ -90,34 +130,64 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import {
   getAllSettings,
   updateSetting,
   listMethodologyFactors,
   updateMethodologyFactor,
+  FEE_KEYS,
 } from '@/services/settingsService'
 
 const loading = ref(true)
+const loadError = ref('')
 const feePercent = ref(0)
 const minKyc = ref(1)
 const kycTiers = ref([])
 const factors = ref([])
+const onboardingFee = ref(0)
+const verificationFee = ref(0)
 
 const savingFee = ref(false)
 const savingKyc = ref(false)
+const savingFees = ref(false)
 const savingFactorId = ref(null)
 const feeMsg = ref(null)
 const kycMsg = ref(null)
+const feesMsg = ref(null)
 const factorMsg = ref(null)
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const [settings, factorRows] = await Promise.all([getAllSettings(), listMethodologyFactors()])
-    feePercent.value = Number(settings.platform_fee_percent ?? 0)
-    minKyc.value = Number(settings.min_kyc_level_to_trade ?? 1)
-    kycTiers.value = Array.isArray(settings.kyc_tiers) ? settings.kyc_tiers : []
-    factors.value = factorRows
+    // Settings and methodology factors are independent panels; a failure in one
+    // used to leave the whole config page blank with no explanation.
+    const [settingsRes, factorRes] = await Promise.allSettled([
+      getAllSettings(),
+      listMethodologyFactors(),
+    ])
+
+    if (settingsRes.status === 'fulfilled') {
+      const settings = settingsRes.value
+      feePercent.value = Number(settings.platform_fee_percent ?? 0)
+      minKyc.value = Number(settings.min_kyc_level_to_trade ?? 1)
+      kycTiers.value = Array.isArray(settings.kyc_tiers) ? settings.kyc_tiers : []
+      onboardingFee.value = Number(settings[FEE_KEYS.onboarding] ?? 0)
+      verificationFee.value = Number(settings[FEE_KEYS.verification] ?? 0)
+    }
+    if (factorRes.status === 'fulfilled') factors.value = factorRes.value
+
+    const failed = [
+      settingsRes.status === 'rejected' && 'platform settings',
+      factorRes.status === 'rejected' && 'methodology factors',
+    ].filter(Boolean)
+    // Never let a blank field read as "the saved value is empty" -- saving over
+    // that would silently reset live configuration.
+    if (failed.length) {
+      loadError.value = `Could not load: ${failed.join(', ')}. Do not save those sections until this resolves.`
+    }
   } finally {
     loading.value = false
   }
@@ -137,6 +207,26 @@ async function saveFee() {
     feeMsg.value = { type: 'error', text: err.message }
   } finally {
     savingFee.value = false
+  }
+}
+
+async function saveFees() {
+  feesMsg.value = null
+  if (onboardingFee.value < 0 || verificationFee.value < 0) {
+    feesMsg.value = { type: 'error', text: 'Fees cannot be negative.' }
+    return
+  }
+  savingFees.value = true
+  try {
+    // Two independent settings; save both so either input's Save button persists
+    // the whole section.
+    await updateSetting(FEE_KEYS.onboarding, Number(onboardingFee.value) || 0)
+    await updateSetting(FEE_KEYS.verification, Number(verificationFee.value) || 0)
+    feesMsg.value = { type: 'ok', text: 'Fees saved.' }
+  } catch (err) {
+    feesMsg.value = { type: 'error', text: err.message }
+  } finally {
+    savingFees.value = false
   }
 }
 
@@ -175,20 +265,14 @@ onMounted(load)
 
 <style scoped>
 .config-view {
-  padding: 2rem 0 4rem;
+  min-height: 100vh;
+  padding: 0 0 4rem;
+  background: var(--bg-secondary, #f8fdf8);
 }
 .container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 0 1rem;
-}
-.page-title {
-  font-size: 1.8rem;
-  margin: 0 0 0.5rem;
-}
-.page-description {
-  color: #6b7280;
-  margin: 0 0 1.5rem;
+  padding: 2rem 1rem 0;
 }
 .config-card {
   background: #fff;
@@ -241,7 +325,7 @@ onMounted(load)
   padding: 0.5rem 1.1rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   cursor: pointer;
@@ -253,11 +337,6 @@ onMounted(load)
 .save-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 .factor-table {
   width: 100%;
@@ -300,9 +379,6 @@ onMounted(load)
   .config-view {
     padding: 1.25rem 0 3rem;
   }
-  .page-title {
-    font-size: 1.45rem;
-  }
   .config-card {
     padding: 1.1rem;
   }
@@ -312,5 +388,15 @@ onMounted(load)
   .factor-table {
     white-space: nowrap;
   }
+}
+
+.admin-load-error {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.86rem;
 }
 </style>

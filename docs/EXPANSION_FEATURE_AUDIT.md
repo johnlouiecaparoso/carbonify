@@ -171,3 +171,18 @@ Nothing below is blocked on code we can write today.
 - Surface methodology / development status / feedstock on the **public registry**, so the
   "national biomass registry" claim is true rather than aspirational.
 - An ESG export for **developers** (they can prove issuance but not disclose it).
+
+## Commercial feature request mapping
+
+You asked about a broader commercial package. Based on the code and docs, the current state is:
+
+| Requested feature | Status | Where it shows up |
+|---|---|---|
+| Project onboarding fees | ❌ absent | No dedicated submit-project fee flow or config was found. |
+| Verification & certification support | ✅ present | Public certificate verification, QR checks, tamper-evident signatures. |
+| Marketplace transaction fees | ✅ present | Platform fee config applies to purchases and is booked to platform revenue. |
+| Premium enterprise tools and data analytics | ✅ present | Pro-gated analytics and investor portal / data-room tooling. |
+| White-label MRV/API solutions | 🟡 partial | Roadmap mentions supplier / registry API work, but not a white-label product surface. |
+
+For the implementation path for the missing or partial items, see [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
+

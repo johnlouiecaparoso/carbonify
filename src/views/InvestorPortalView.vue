@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getInvestmentPipeline, documentCount } from '@/services/investorService'
 import { getProjectDocuments, logAccess, formatSize } from '@/services/dataRoomService'
 import { FEATURES } from '@/constants/plans'
+import { peso, num, pct } from '@/utils/format'
 import FeatureGate from '@/components/ui/FeatureGate.vue'
 import CategoryChart from '@/components/charts/CategoryChart.vue'
 import {
@@ -51,15 +53,6 @@ function openDocument(doc) {
   window.open(doc.url, '_blank', 'noopener')
 }
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function num(n) {
-  return Number(n || 0).toLocaleString('en-PH')
-}
-function pct(v) {
-  return v == null ? '—' : `${(v * 100).toFixed(1)}%`
-}
 
 const categories = computed(() => summary.value?.byCategory.map((c) => c.category) || [])
 
@@ -92,7 +85,7 @@ const filtered = computed(() =>
 
 const chartData = computed(() => {
   const cats = summary.value?.byCategory || []
-  const palette = ['#069e2d', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#eab308']
+  const palette = ['#058526', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#eab308']
   return {
     labels: cats.map((c) => c.category),
     datasets: [{ data: cats.map((c) => c.grossRevenue), backgroundColor: cats.map((_, i) => palette[i % palette.length]) }],
@@ -121,10 +114,12 @@ onMounted(load)
 
 <template>
   <div class="investor">
-    <header class="page-head">
-      <h1>Investor Portal</h1>
-      <p>The validated project pipeline — credit supply, projected value, financial returns, and funding needs.</p>
-    </header>
+    <PageHeader
+      title="Investor Portal"
+      description="The validated project pipeline — credit supply, projected value, financial returns, and funding needs."
+    />
+
+    <div class="page-body">
 
     <FeatureGate
       :feature="FEATURES.INVESTOR_PORTAL"
@@ -203,7 +198,7 @@ onMounted(load)
             </div>
           </div>
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table stack-on-mobile">
               <thead>
                 <tr>
                   <th>Project</th>
@@ -219,7 +214,7 @@ onMounted(load)
               </thead>
               <tbody>
                 <tr v-for="p in filtered" :key="p.id">
-                  <td>
+                  <td data-label="Project">
                     <router-link :to="`/projects/${p.id}`" class="proj-link">{{ p.title }}</router-link>
                     <div class="muted small">
                       {{ p.category }}<span v-if="p.location"> · {{ p.location }}</span>
@@ -229,13 +224,13 @@ onMounted(load)
                       {{ developmentStatusLabel(p.development_status) }}
                     </span>
                   </td>
-                  <td class="num">{{ num(p.estimated_credits) }}</td>
-                  <td class="num">{{ p.credit_price ? peso(p.credit_price) : '—' }}</td>
-                  <td class="num">
+                  <td class="num" data-label="Credits">{{ num(p.estimated_credits) }}</td>
+                  <td class="num" data-label="Price">{{ p.credit_price ? peso(p.credit_price) : '—' }}</td>
+                  <td class="num" data-label="Projected value">
                     {{ peso(p.financials.totalRevenue) }}
                     <div v-if="p.financials.revenueBasis === 'blended'" class="muted small">blended</div>
                   </td>
-                  <td class="num">
+                  <td class="num" data-label="Contracted">
                     <template v-if="p.financials.agreementCount > 0">
                       <span class="contracted">{{ pct(p.financials.contractedShare) }}</span>
                       <div class="muted small">{{ peso(p.financials.contractedRevenue) }}</div>
@@ -245,7 +240,7 @@ onMounted(load)
                     </template>
                     <span v-else class="muted" title="No offtake agreement — all revenue is speculative">—</span>
                   </td>
-                  <td class="num">
+                  <td class="num" data-label="IRR">
                     <span v-if="p.financials.irr != null" class="irr">{{ pct(p.financials.irr) }}</span>
                     <span v-else class="muted">—</span>
                     <div v-if="p.financials.agreementCount > 0" class="muted small">
@@ -257,8 +252,8 @@ onMounted(load)
                       </template>
                     </div>
                   </td>
-                  <td class="num">{{ p.financials.fundingGap != null ? peso(p.financials.fundingGap) : '—' }}</td>
-                  <td class="num">
+                  <td class="num" data-label="Funding gap">{{ p.financials.fundingGap != null ? peso(p.financials.fundingGap) : '—' }}</td>
+                  <td class="num" data-label="Docs">
                     <button
                       v-if="documentCount(p)"
                       class="link-btn"
@@ -268,7 +263,7 @@ onMounted(load)
                     </button>
                     <span v-else class="muted">—</span>
                   </td>
-                  <td class="num">
+                  <td class="num" data-label="Financials">
                     <button class="link-btn" @click="detail = p">Financials</button>
                   </td>
                 </tr>
@@ -294,7 +289,7 @@ onMounted(load)
     </FeatureGate>
 
     <!-- Data room -->
-    <div v-if="dataRoom" class="modal-overlay" @click.self="dataRoom = null">
+    <div v-if="dataRoom" class="modal-overlay" v-modal-a11y="() => (dataRoom = null)" @click.self="dataRoom = null">
       <div class="modal">
         <h2>Data room</h2>
         <p class="muted small">{{ dataRoom.title }}</p>
@@ -332,7 +327,7 @@ onMounted(load)
     </div>
 
     <!-- Financial detail modal -->
-    <div v-if="detail" class="modal-overlay" @click.self="detail = null">
+    <div v-if="detail" class="modal-overlay" v-modal-a11y="() => (detail = null)" @click.self="detail = null">
       <div class="modal">
         <h2>{{ detail.title }}</h2>
         <p class="muted small">{{ detail.category }}<span v-if="detail.location"> · {{ detail.location }}</span></p>
@@ -434,13 +429,13 @@ onMounted(load)
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.investor { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; max-width: 640px; }
+.investor { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 .notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; }
@@ -464,7 +459,7 @@ onMounted(load)
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; white-space: nowrap; }
 .data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.proj-link { color: #069e2d; font-weight: 600; text-decoration: none; }
+.proj-link { color: #058526; font-weight: 600; text-decoration: none; }
 .proj-link:hover { text-decoration: underline; }
 .irr { color: #065f46; font-weight: 600; }
 .contracted { color: #065f46; font-weight: 600; }
@@ -472,7 +467,7 @@ onMounted(load)
 .doc-list { list-style: none; margin: 14px 0 0; padding: 0; }
 .doc-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #e5e7eb; }
 .doc-row:first-child { border-top: none; }
-.doc-icon { color: #069e2d; }
+.doc-icon { color: #058526; }
 .doc-main { flex: 1; display: flex; flex-direction: column; }
 .doc-name { font-weight: 600; font-size: 0.9rem; }
 .note-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-top: 14px; }
@@ -502,13 +497,13 @@ onMounted(load)
   letter-spacing: 0.02em;
 }
 .bar { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin: 10px 0 6px; }
-.bar-fill { height: 100%; background: #069e2d; border-radius: 999px; }
-.link-btn { background: none; border: none; color: #069e2d; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.bar-fill { height: 100%; background: #058526; border-radius: 999px; }
+.link-btn { background: none; border: none; color: #058526; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
 .legend { margin: 12px 0 0; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; }
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty h2 { margin: 12px 0 6px; }
 .empty p { max-width: 420px; margin: 0 auto 18px; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }

@@ -63,6 +63,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getMarketStats } from '@/services/registryService'
+import { peso } from '@/utils/format'
 
 const loading = ref(true)
 const stats = ref({
@@ -86,9 +87,6 @@ const retiredPct = computed(() => {
 function fmt(n) {
   return Number(n || 0).toLocaleString()
 }
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 onMounted(async () => {
   try {
@@ -110,12 +108,12 @@ onMounted(async () => {
   padding: 0 1.5rem;
 }
 .market-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  padding: 2.25rem 0;
+  background: var(--primary-color, #058526);
+  padding: 1.25rem 0;
   color: #fff;
 }
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 0.35rem;
 }
@@ -229,7 +227,7 @@ onMounted(async () => {
   display: inline-block;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   text-decoration: none;
@@ -243,8 +241,6 @@ onMounted(async () => {
   .container {
     padding: 0 1rem;
   }
-  .page-title {
-    font-size: 1.5rem;
-  }
+
 }
 </style>

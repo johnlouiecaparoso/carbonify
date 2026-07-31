@@ -129,8 +129,8 @@
             </button>
           </div>
 
-          <div v-else class="receipts-list">
-            <div v-for="receipt in receipts" :key="receipt.id" class="receipt-card">
+          <div v-else class="receipts-list list-scroll-y">
+            <div v-for="receipt in shownReceipts" :key="receipt.id" class="receipt-card">
               <div class="receipt-header">
                 <div class="receipt-icon">Receipt</div>
                 <div class="receipt-info">
@@ -189,21 +189,59 @@
                 <button class="btn btn-outline btn-sm" @click="viewReceiptDetails(receipt)">
                   View Details
                 </button>
+                <button class="btn btn-ghost btn-sm" @click="reportProblem(receipt)">
+                  Report a problem
+                </button>
               </div>
+            </div>
+          </div>
+
+          <div v-if="receipts.length > 0" class="list-footer">
+            <span class="list-count">
+              Showing {{ shownReceipts.length }} of {{ receipts.length }}
+            </span>
+            <div class="list-footer-actions">
+              <button
+                v-if="hasMore && !receiptsExpanded"
+                class="see-more-btn"
+                @click="showMore"
+              >
+                See more
+              </button>
+              <button v-if="receiptsExpanded" class="see-less-btn" @click="showLess">
+                Show less
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Buyer-raised dispute on a specific purchase -->
+    <DisputeModal
+      v-if="disputeReceipt"
+      :transaction-id="String(disputeReceipt.transaction_id || disputeReceipt.id || '')"
+      :project-title="getProjectTitle(disputeReceipt) || 'Purchase'"
+      :amount-label="formatCurrency(getTotalAmount(disputeReceipt), getCurrency(disputeReceipt))"
+      @close="disputeReceipt = null"
+      @opened="handleDisputeOpened"
+    />
+
+    <div v-if="disputeConfirmation" class="dispute-toast" role="status">
+      <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+      <span>{{ disputeConfirmation }}</span>
+      <router-link to="/disputes" class="dispute-toast__link">Track it</router-link>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getUserReceipts, downloadReceipt as downloadReceiptFile } from '@/services/receiptService'
 import { downloadVatInvoice } from '@/services/vatInvoiceService'
+import DisputeModal from '@/components/account/DisputeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -212,8 +250,41 @@ const userStore = useUserStore()
 const receipts = ref([])
 const loading = ref(false)
 const error = ref('')
+
+// Collapsed, the list shows the first few receipts in a single horizontal
+// scroller so a long history stays compact and fits the screen; "See more"
+// expands to the full vertical list.
+const COLLAPSED_COUNT = 4
+const receiptsExpanded = ref(false)
+const shownReceipts = computed(() =>
+  receiptsExpanded.value ? receipts.value : receipts.value.slice(0, COLLAPSED_COUNT),
+)
+const hasMore = computed(() => receipts.value.length > COLLAPSED_COUNT)
+
+function showMore() {
+  receiptsExpanded.value = true
+}
+
+function showLess() {
+  receiptsExpanded.value = false
+}
 const selectedReceipt = ref(null)
 const invoicingId = ref(null)
+const disputeReceipt = ref(null)
+const disputeConfirmation = ref('')
+
+function reportProblem(receipt) {
+  disputeConfirmation.value = ''
+  disputeReceipt.value = receipt
+}
+
+function handleDisputeOpened() {
+  disputeReceipt.value = null
+  disputeConfirmation.value = 'Report submitted — our team will review it.'
+  setTimeout(() => {
+    disputeConfirmation.value = ''
+  }, 8000)
+}
 
 async function downloadInvoice(receipt) {
   const txId = receipt.transaction_id || receipt.id
@@ -241,6 +312,7 @@ async function loadReceipts() {
   try {
     const data = await getUserReceipts(userStore.session.user.id)
     receipts.value = data || []
+    receiptsExpanded.value = false
     syncSelectedReceiptFromRoute()
   } catch (err) {
     console.error('Error loading receipts:', err)
@@ -460,8 +532,8 @@ onMounted(() => {
 }
 
 .page-header {
-  background: var(--primary-color, #10b981);
-  padding: 2rem 0;
+  background: var(--primary-color, #058526);
+  padding: 1.25rem 0;
   border-bottom: none;
 }
 
@@ -477,7 +549,7 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem 0;
@@ -502,7 +574,7 @@ onMounted(() => {
   width: 50px;
   height: 50px;
   border: 4px solid var(--border-color, #d1e7dd);
-  border-top-color: var(--primary-color, #069e2d);
+  border-top-color: var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -517,7 +589,7 @@ onMounted(() => {
 .error-icon {
   font-size: 1rem;
   margin-bottom: 1rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .empty-state {
@@ -528,7 +600,7 @@ onMounted(() => {
 .empty-icon {
   font-size: 1rem;
   margin-bottom: 1rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .empty-state h3 {
@@ -538,7 +610,7 @@ onMounted(() => {
 }
 
 .empty-state p {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin: 0 0 2rem 0;
 }
 
@@ -546,6 +618,59 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+/* Compact vertically-scrollable area so a long history stays short and fits
+   the screen; "See more" reveals the rest within the same scroll box. */
+.receipts-list.list-scroll-y {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* See-more footer */
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.list-count {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+}
+.list-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.see-more-btn {
+  padding: 0.5rem 1.1rem;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-more-btn:hover {
+  background: var(--primary-hover, #04701f);
+}
+.see-less-btn {
+  padding: 0.5rem 1.1rem;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.see-less-btn:hover {
+  background: #f3f4f6;
 }
 
 .receipt-card {
@@ -574,7 +699,7 @@ onMounted(() => {
   min-width: 4.5rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .receipt-info {
@@ -590,7 +715,7 @@ onMounted(() => {
 
 .receipt-number {
   display: block;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.875rem;
   margin: 0 0 0.25rem 0;
 }
@@ -599,7 +724,7 @@ onMounted(() => {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   background: var(--bg-secondary, #f8fdf8);
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   border-radius: 0.375rem;
   font-size: 0.75rem;
 }
@@ -621,7 +746,7 @@ onMounted(() => {
 }
 
 .detail-label {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.875rem;
 }
 
@@ -630,10 +755,12 @@ onMounted(() => {
   font-weight: 500;
   font-size: 0.875rem;
   text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .detail-value.completed {
-  color: var(--success-color, #069e2d);
+  color: var(--success-color, #058526);
 }
 
 .detail-break {
@@ -687,7 +814,7 @@ onMounted(() => {
 
 .receipt-modal-header p {
   margin: 0.35rem 0 0;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .receipt-modal-grid {
@@ -724,12 +851,12 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 .btn-outline {
@@ -744,7 +871,7 @@ onMounted(() => {
 
 .btn-ghost {
   background: transparent;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   border: none;
 }
 
@@ -755,6 +882,29 @@ onMounted(() => {
 .btn-sm {
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
+}
+
+.dispute-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #064e3b;
+  color: #fff;
+  padding: 0.75rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 1100;
+}
+
+.dispute-toast__link {
+  color: #a7f3d0;
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {

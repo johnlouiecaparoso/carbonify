@@ -4,9 +4,16 @@
     <div class="header-container">
       <!-- Mobile Header Layout -->
       <div class="mobile-header-layout">
-        <!-- Left Section: Hamburger Menu -->
-        <div class="mobile-left-section">
-          <button @click="toggleMobileMenu" class="mobile-hamburger-btn">
+        <!-- Menu button and logo share one flex row so they sit on the same
+             baseline. They used to be pinned to opposite ends of the header. -->
+        <div class="brand-group">
+          <button
+            class="menu-btn"
+            type="button"
+            :aria-label="menuButtonLabel"
+            :aria-expanded="menuExpanded"
+            @click="onMenuButtonClick"
+          >
             <svg class="hamburger-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -16,16 +23,8 @@
               ></path>
             </svg>
           </button>
-        </div>
 
-        <!-- Center Section: Empty for cleaner look -->
-        <div class="mobile-center-section">
-          <!-- Search moved to hamburger menu -->
-        </div>
-
-        <!-- Right Section: Logo -->
-        <div class="mobile-right-section">
-          <router-link to="/" class="mobile-logo">
+          <router-link to="/" class="logo">
             <img
               src="/carbonify-logo.png"
               alt="Carbonify"
@@ -33,21 +32,53 @@
             />
           </router-link>
         </div>
+
+        <!-- Right Section: cart badge -->
+        <div class="mobile-right-section">
+          <router-link
+            v-if="userStore.isAuthenticated && showCartIcon && cartStore.count > 0"
+            to="/cart"
+            class="cart-button mobile-cart"
+            :aria-label="`Cart, ${cartStore.count} credits`"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
+            <span class="cart-badge">{{ cartStore.count > 99 ? '99+' : cartStore.count }}</span>
+          </router-link>
+        </div>
       </div>
 
       <!-- Desktop Navigation (Hidden on Mobile) -->
       <div class="desktop-header-layout">
-        <!-- Logo -->
-        <router-link to="/" class="logo desktop-logo">
-          <img
-            src="/carbonify-logo.png"
-            alt="Carbonify"
-            class="brand-wordmark"
-          />
-        </router-link>
+        <!-- Menu button + logo. The button replaced the sidebar's own collapse
+             control, so there is one place to widen or narrow the sidebar and
+             it sits where a menu button is expected. Guests have no sidebar to
+             toggle, so they get the logo alone. -->
+        <div class="brand-group">
+          <button
+            v-if="userStore.isAuthenticated"
+            class="menu-btn"
+            type="button"
+            :aria-label="menuButtonLabel"
+            :aria-expanded="menuExpanded"
+            @click="onMenuButtonClick"
+          >
+            <svg class="hamburger-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              ></path>
+            </svg>
+          </button>
 
-        <!-- Desktop Navigation -->
-        <nav class="desktop-nav">
+          <router-link to="/" class="logo desktop-logo">
+            <img src="/carbonify-logo.png" alt="Carbonify" class="brand-wordmark" />
+          </router-link>
+        </div>
+
+        <!-- Desktop Navigation — guests only; the sidebar is the signed-in nav. -->
+        <nav v-if="!userStore.isAuthenticated" class="desktop-nav">
           <router-link
             v-for="item in navItems"
             :key="item.path"
@@ -60,68 +91,92 @@
 
         <!-- Desktop Actions -->
         <div class="desktop-actions">
-        <div v-if="userStore.isAuthenticated" class="notifications-menu">
-          <button class="notifications-button" @click="toggleNotificationMenu" type="button">
-            <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
-            <span v-if="unreadNotificationCount > 0" class="notifications-badge">
-              {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+          <!-- Cart lives next to the bell so buyers have an ambient reminder that
+             they have items pending; it used to be text buried in the profile
+             dropdown, which meant a filled cart was effectively invisible. -->
+          <router-link
+            v-if="userStore.isAuthenticated && showCartIcon"
+            to="/cart"
+            class="cart-button"
+            :aria-label="cartStore.count > 0 ? `Cart, ${cartStore.count} credits` : 'Cart'"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
+            <span v-if="cartStore.count > 0" class="cart-badge">
+              {{ cartStore.count > 99 ? '99+' : cartStore.count }}
             </span>
-          </button>
-          <div v-if="showNotificationMenu" class="notifications-dropdown">
-            <div class="notifications-header-row">
-              <strong>Notifications</strong>
+          </router-link>
+
+          <div v-if="userStore.isAuthenticated" class="notifications-menu">
+            <button class="notifications-button" @click="toggleNotificationMenu" type="button">
+              <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+              <span v-if="unreadNotificationCount > 0" class="notifications-badge">
+                {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+              </span>
+            </button>
+            <div v-if="showNotificationMenu" class="notifications-dropdown">
+              <div class="notifications-header-row">
+                <strong>Notifications</strong>
+                <button
+                  class="mark-all-read-btn"
+                  type="button"
+                  @click="markAllAsRead"
+                  :disabled="unreadNotificationCount === 0"
+                >
+                  Mark all read
+                </button>
+              </div>
+
+              <div v-if="notificationItems.length === 0" class="notifications-empty">
+                No notifications yet.
+              </div>
+
               <button
-                class="mark-all-read-btn"
+                v-for="notification in notificationItems"
+                :key="notification.id"
                 type="button"
-                @click="markAllAsRead"
-                :disabled="unreadNotificationCount === 0"
+                class="notification-item"
+                :class="{ unread: !notification.is_read }"
+                @click="openNotification(notification)"
               >
-                Mark all read
+                <span class="notification-title">{{ notification.title }}</span>
+                <span class="notification-message">{{ notification.message }}</span>
+                <span class="notification-time">{{
+                  formatNotificationTime(notification.created_at)
+                }}</span>
               </button>
             </div>
+          </div>
 
-            <div v-if="notificationItems.length === 0" class="notifications-empty">
-              No notifications yet.
-            </div>
-
-            <button
-              v-for="notification in notificationItems"
-              :key="notification.id"
-              type="button"
-              class="notification-item"
-              :class="{ unread: !notification.is_read }"
-              @click="openNotification(notification)"
+          <div v-if="userStore.isAuthenticated" class="user-menu">
+            <div
+              class="user-avatar user-avatar-thumb"
+              :class="{ 'has-image': showAvatarImage, 'is-stale': userStore.profileFetchFailed }"
+              @click="showUserMenu = !showUserMenu"
             >
-              <span class="notification-title">{{ notification.title }}</span>
-              <span class="notification-message">{{ notification.message }}</span>
-              <span class="notification-time">{{ formatNotificationTime(notification.created_at) }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div v-if="userStore.isAuthenticated" class="user-menu">
-          <div
-            class="user-avatar user-avatar-thumb"
-            :class="{ 'has-image': showAvatarImage }"
-            @click="showUserMenu = !showUserMenu"
-          >
-            <img
-              v-if="showAvatarImage"
-              :src="avatarUrl"
-              alt="User avatar"
-              class="avatar-img"
-              @error.stop="onAvatarError"
-            />
-            <span v-else class="avatar-initials">{{ avatarInitials }}</span>
-          </div>
+              <img
+                v-if="showAvatarImage"
+                :src="avatarUrl"
+                alt="User avatar"
+                class="avatar-img"
+                @error.stop="onAvatarError"
+              />
+              <span v-else class="avatar-initials">{{ avatarInitials }}</span>
+              <!-- Ambient marker that the profile (and therefore the role/name
+                   shown) couldn't be loaded and is being retried, so a briefly
+                   stale role isn't silently mistaken for the real one. -->
+              <span
+                v-if="userStore.profileFetchFailed"
+                class="avatar-status-dot"
+                role="status"
+                aria-label="Couldn't load your profile — retrying"
+                title="Couldn't load your profile — retrying"
+              ></span>
+            </div>
             <!-- User Dropdown Menu -->
             <div v-if="showUserMenu" class="user-dropdown">
               <!-- Identity header -->
               <div class="dropdown-header">
-                <div
-                  class="dropdown-avatar"
-                  :class="{ 'has-image': showAvatarImage }"
-                >
+                <div class="dropdown-avatar" :class="{ 'has-image': showAvatarImage }">
                   <img
                     v-if="showAvatarImage"
                     :src="avatarUrl"
@@ -142,29 +197,79 @@
                 </div>
               </div>
 
-              <div class="dropdown-scroll">
-                <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
-                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">manage_accounts</span>
-                  <span>Profile Settings</span>
+              <!-- Surfaced only while a profile fetch is failing: the name and
+                   role above may be stale or defaulted. Without this the app
+                   would silently show "User" and general_user permissions with
+                   no hint that anything went wrong. -->
+              <div
+                v-if="userStore.profileFetchFailed"
+                class="dropdown-stale-notice"
+                role="status"
+                aria-live="polite"
+              >
+                <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                  >sync_problem</span
+                >
+                <span>Couldn't load your profile. Retrying — your role may be out of date.</span>
+              </div>
+
+              <div class="dropdown-body">
+                <!-- One way back to the workspace. Everything else the user
+                     might be hunting for is grouped there, not here. -->
+                <router-link
+                  :to="workspaceHome.path"
+                  class="dropdown-item dropdown-item--workspace"
+                  @click="showUserMenu = false"
+                >
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">
+                    {{ workspaceHome.icon || 'space_dashboard' }}
+                  </span>
+                  <span>{{ workspaceHome.label }}</span>
                 </router-link>
 
-                <template v-for="section in profileSections" :key="section.title">
-                  <div class="dropdown-section-label">{{ section.title }}</div>
-                  <router-link
-                    v-for="link in section.items"
-                    :key="link.path"
-                    :to="link.path"
-                    class="dropdown-item"
-                    @click="showUserMenu = false"
+                <div class="dropdown-divider" role="separator"></div>
+
+                <router-link
+                  v-for="link in accountItems"
+                  :key="link.path"
+                  :to="link.path"
+                  class="dropdown-item"
+                  @click="showUserMenu = false"
+                >
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">{{
+                    link.icon
+                  }}</span>
+                  <span>{{ link.label }}</span>
+                </router-link>
+
+                <div class="dropdown-divider" role="separator"></div>
+
+                <button type="button" class="dropdown-item" @click="startTour">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">tour</span>
+                  <span>Take a tour</span>
+                </button>
+
+                <!-- Directly below the tour on purpose: the tour is a one-shot
+                     modal, and this is the page you come back to. -->
+                <router-link to="/guide" class="dropdown-item" @click="showUserMenu = false">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                    >menu_book</span
                   >
-                    <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">{{ link.icon }}</span>
-                    <span>{{ link.label }}</span>
-                  </router-link>
-                </template>
+                  <span>User guide</span>
+                </router-link>
+
+                <router-link to="/about" class="dropdown-item" @click="showUserMenu = false">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                    >info</span
+                  >
+                  <span>About</span>
+                </router-link>
               </div>
 
               <button @click="handleLogout" class="dropdown-item logout">
-                <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">logout</span>
+                <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                  >logout</span
+                >
                 <span>Logout</span>
               </button>
             </div>
@@ -177,8 +282,14 @@
       </div>
     </div>
 
-    <!-- Mobile Menu Overlay -->
-    <div v-if="mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false">
+    <!-- Mobile Menu Overlay — guests only. A signed-in user's hamburger opens
+         the sidebar instead, which already holds every feature plus their
+         account links, so this menu would be a second copy of it. -->
+    <div
+      v-if="mobileMenuOpen && !userStore.isAuthenticated"
+      class="mobile-overlay"
+      @click="mobileMenuOpen = false"
+    >
       <div class="mobile-menu" @click.stop>
         <div class="mobile-content">
           <!-- Header with Logo and Close -->
@@ -189,26 +300,6 @@
             </button>
           </div>
 
-          <!-- Signed-in identity card -->
-          <div v-if="userStore.isAuthenticated" class="m-user-card">
-            <div class="m-user-avatar" :class="{ 'has-image': showAvatarImage }">
-              <img
-                v-if="showAvatarImage"
-                :src="avatarUrl"
-                alt="User avatar"
-                @error.stop="onAvatarError"
-              />
-              <span v-else>{{ avatarInitials }}</span>
-            </div>
-            <div class="m-user-meta">
-              <span class="m-user-name">{{ userStore.profile?.full_name || 'User' }}</span>
-              <span class="m-user-role" :data-role="userStore.role">
-                {{ getRoleDisplayName(userStore.role) }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Navigation + grouped account links -->
           <nav class="m-nav">
             <div class="m-section-label">Navigate</div>
             <router-link
@@ -221,40 +312,16 @@
             >
               <span>{{ item.label }}</span>
             </router-link>
-
-            <template v-if="userStore.isAuthenticated">
-              <div class="m-section-label">Account</div>
-              <router-link to="/profile" @click="mobileMenuOpen = false" class="m-nav-item">
-                <span class="material-symbols-outlined m-nav-ico" aria-hidden="true">manage_accounts</span>
-                <span>Profile Settings</span>
-              </router-link>
-
-              <template v-for="section in profileSections" :key="section.title">
-                <div class="m-section-label">{{ section.title }}</div>
-                <router-link
-                  v-for="link in section.items"
-                  :key="link.path"
-                  :to="link.path"
-                  @click="mobileMenuOpen = false"
-                  class="m-nav-item"
-                >
-                  <span class="material-symbols-outlined m-nav-ico" aria-hidden="true">{{ link.icon }}</span>
-                  <span>{{ link.label }}</span>
-                </router-link>
-              </template>
-            </template>
           </nav>
 
           <!-- Footer actions -->
           <div class="m-foot">
-            <button v-if="userStore.isAuthenticated" class="m-logout" @click="handleLogout">
-              <span class="material-symbols-outlined m-nav-ico" aria-hidden="true">logout</span>
-              <span>Logout</span>
-            </button>
-            <template v-else>
-              <router-link to="/login" class="m-auth-btn" @click="mobileMenuOpen = false">Login</router-link>
-              <router-link to="/register" class="m-auth-btn primary" @click="mobileMenuOpen = false">Sign Up</router-link>
-            </template>
+            <router-link to="/login" class="m-auth-btn" @click="mobileMenuOpen = false"
+              >Login</router-link
+            >
+            <router-link to="/register" class="m-auth-btn primary" @click="mobileMenuOpen = false"
+              >Sign Up</router-link
+            >
           </div>
         </div>
       </div>
@@ -268,6 +335,9 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { useCartStore } from '@/store/cartStore'
 import { getRoleDisplayName } from '@/constants/roles'
+import { buildGuestNav, buildAccountMenu, homeDestination } from '@/constants/navigation'
+import { useSidebar } from '@/composables/useSidebar'
+import { performLogout } from '@/utils/logout'
 import { getUserInitials } from '@/services/profileService'
 import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 import { getSupabase } from '@/services/supabaseClient'
@@ -282,6 +352,14 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const isKycVerified = computed(() => Number(userStore.profile?.kyc_level) >= 2)
 
+// Roles that never buy don't need a cart icon taking up header space. The
+// router blocks them from /cart too (FINANCE_RESTRICTED_ROLES) — for a while
+// this comment claimed that was already true when only the icon was hidden and
+// the route was wide open.
+const showCartIcon = computed(
+  () => !(userStore.isAdmin || userStore.isVerifier || userStore.isProjectDeveloper),
+)
+
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
 const showNotificationMenu = ref(false)
@@ -290,277 +368,76 @@ const notificationItems = ref([])
 const notificationPollTimer = ref(null)
 const notificationChannel = ref(null)
 
-// Toggle mobile menu
-const toggleMobileMenu = () => {
-  mobileMenuOpen.value = !mobileMenuOpen.value
+const { drawerOpen, collapsed, toggleDrawer, toggleCollapsed } = useSidebar()
+
+// The sidebar renders as a persistent rail at this width and an off-canvas
+// drawer below it — the same breakpoint AppSidebar's own media query uses.
+const DESKTOP_QUERY = '(min-width: 1024px)'
+const isDesktop = ref(false)
+let desktopMedia = null
+
+function syncIsDesktop(event) {
+  isDesktop.value = event.matches
 }
 
-// Role-based navigation items
-const navItems = computed(() => {
-  const baseItems = [
-    { path: '/', label: 'Home' },
-    { path: '/marketplace', label: 'Marketplace' },
-    { path: '/biomass', label: 'Biomass' },
-    { path: '/market', label: 'Market' },
-    { path: '/registry', label: 'Registry' },
-    { path: '/about', label: 'About' },
-  ]
-
+/**
+ * One button, three jobs, decided by who is looking and how wide the screen is:
+ *   signed-in desktop → widen/narrow the sidebar (this replaced the sidebar's
+ *                       own collapse button, so the control is in one place)
+ *   signed-in mobile  → open/close the sidebar drawer
+ *   guest mobile      → open the marketing menu; guests have no sidebar
+ */
+function onMenuButtonClick() {
   if (!userStore.isAuthenticated) {
-    return baseItems
+    mobileMenuOpen.value = !mobileMenuOpen.value
+    return
   }
-
-  const items = [...baseItems]
-
-  // About lives in the profile dropdown (accountLinks) for every signed-in role,
-  // so drop it from the top nav here. Guests (handled above) keep it in the nav.
-  const aboutIndex = items.findIndex((item) => item.path === '/about')
-  if (aboutIndex !== -1) items.splice(aboutIndex, 1)
-
-  // Project developers access the map from their profile dropdown instead.
-  if (!userStore.isProjectDeveloper) {
-    items.push({ path: '/map', label: 'Project Map' })
+  if (isDesktop.value) {
+    toggleCollapsed()
+    return
   }
+  toggleDrawer()
+}
 
-  const hideFinanceAndCertificateNav =
-    userStore.isAdmin || userStore.isVerifier || userStore.isProjectDeveloper
-
-  if (!hideFinanceAndCertificateNav) {
-    // Saved, Cart, Wallet, Receipts, Certificates and KYC all live in the profile
-    // dropdown (see accountLinks) to keep the top nav uncluttered for buyers.
-    // Portfolio (a buyer's owned/retired credits + ESG export) and the Carbon
-    // Calculator are prominent enough to keep in the top nav.
-    items.push({ path: '/credit-portfolio', label: 'Portfolio' })
-    items.push({ path: '/retire', label: 'Retire Credits' })
-    items.push({ path: '/carbon-calculator', label: 'Carbon Calculator' })
-  }
-
-  if (userStore.isAdmin) {
-    items.push({ path: '/admin', label: 'Admin Dashboard' })
-    return items
-  }
-
-  if (userStore.isProjectDeveloper) {
-    items.push({ path: '/submit-project', label: 'Submit Project' })
-    items.push({ path: '/developer/projects', label: 'My Project Dashboard' })
-    items.push({ path: '/developer/ledger', label: 'Carbon Assets' })
-    items.push({ path: '/sales', label: 'Seller Earnings' })
-    // Project Map + Monitoring (MRV) live in the profile dropdown (accountLinks).
-  }
-
-  if (userStore.isVerifier) {
-    items.push({ path: '/verifier', label: 'Verifier Panel' })
-  }
-
-  if (userStore.isLguUser) {
-    items.push({ path: '/lgu', label: 'LGU Tools' })
-  }
-
-  if (userStore.isFarmer) {
-    items.push({ path: '/farmer', label: 'Farmer Portal' })
-    items.push({ path: '/biomass/sell', label: 'Sell Feedstock' })
-  }
-
-  if (userStore.isBuyerInvestor) {
-    items.push({ path: '/investor', label: 'Investor Portal' })
-  }
-
-  return items
+const menuButtonLabel = computed(() => {
+  if (!userStore.isAuthenticated) return mobileMenuOpen.value ? 'Close menu' : 'Open menu'
+  if (isDesktop.value) return collapsed.value ? 'Expand sidebar' : 'Collapse sidebar'
+  return drawerOpen.value ? 'Close navigation' : 'Open navigation'
 })
 
-// Role-aware links shown under "Profile Settings" in the profile dropdown,
-// grouped into labelled sections (each with a Material Symbols icon) so the
-// dashboards/account pages are organised the same way for every role and the
-// top nav stays uncluttered. Routes are unchanged from before — only their
-// grouping + icons are new.
-const profileSections = computed(() => {
-  if (!userStore.isAuthenticated) return []
-
-  const aboutItem = { path: '/about', label: 'About', icon: 'info' }
-  const sections = []
-
-  // 1) Workspace — each role's primary dashboards. These also live in the top
-  //    nav; surfacing them here gives a consistent quick-access spot per role.
-  const workspace = []
-  if (userStore.isAdmin) {
-    workspace.push(
-      { path: '/admin', label: 'Admin Dashboard', icon: 'space_dashboard' },
-      { path: '/admin/finance', label: 'Finance Console', icon: 'account_balance' },
-      { path: '/admin/users', label: 'User Management', icon: 'group' },
-      { path: '/admin/kyc', label: 'KYC Review', icon: 'badge' },
-      { path: '/admin/kyb', label: 'KYB Review', icon: 'verified_user' },
-      { path: '/admin/refunds', label: 'Refunds & Disputes', icon: 'currency_exchange' },
-      { path: '/admin/config', label: 'System Config', icon: 'tune' },
-    )
-  }
-  if (userStore.isVerifier) {
-    workspace.push({ path: '/verifier', label: 'Verifier Panel', icon: 'fact_check' })
-  }
-  if (userStore.isProjectDeveloper) {
-    workspace.push(
-      { path: '/developer/projects', label: 'My Projects', icon: 'space_dashboard' },
-      { path: '/submit-project', label: 'Submit Project', icon: 'add_circle' },
-      { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
-      { path: '/developer/offtakes', label: 'Offtake Agreements', icon: 'handshake' },
-      { path: '/developer/data-room', label: 'Data Room Activity', icon: 'visibility' },
-      { path: '/sales', label: 'Seller Earnings', icon: 'payments' },
-      { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
-      { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
-    )
-  }
-  if (userStore.isLguUser) {
-    workspace.push({ path: '/lgu', label: 'LGU Tools', icon: 'apartment' })
-  }
-  if (userStore.isFarmer) {
-    workspace.push(
-      { path: '/farmer', label: 'Farmer Portal', icon: 'agriculture' },
-      { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
-      { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
-    )
-  }
-  if (workspace.length) sections.push({ title: 'Workspace', items: workspace })
-
-  // Analytics is available to EVERY authenticated role. Free users get a summary;
-  // Pro unlocks the full dashboard (gated inside the view). The AI Assistant sits
-  // here too — currently an interface preview, ungated until the backend lands.
-  sections.push({
-    title: 'Insights',
-    items: [
-      { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
-      { path: '/assistant', label: 'AI Assistant', icon: 'smart_toy' },
-    ],
-  })
-
-  // 2) Project developers: map + monitoring tucked under the profile menu.
-  if (userStore.isProjectDeveloper) {
-    sections.push(
-      {
-        title: 'Project Tools',
-        items: [
-          { path: '/map', label: 'Project Map', icon: 'map' },
-          { path: '/developer/mrv-dashboard', label: 'MRV Dashboard', icon: 'query_stats' },
-          { path: '/monitoring', label: 'Monitoring (MRV)', icon: 'monitoring' },
-        ],
-      },
-      {
-        title: 'More',
-        items: [
-          { path: '/upgrade', label: 'Upgrade plan', icon: 'rocket_launch' },
-          aboutItem,
-        ],
-      },
-    )
-    return sections
-  }
-
-  // 3) Buyers / general / LGU users: account pages grouped by purpose. KYC gates
-  //    transacting, so it leads the Account group.
-  if (!(userStore.isAdmin || userStore.isVerifier)) {
-    if (userStore.isBuyerInvestor) {
-      sections.push({
-        title: 'Investor',
-        items: [{ path: '/investor', label: 'Investor Portal', icon: 'trending_up' }],
-      })
-    }
-    sections.push(
-      {
-        title: 'Account',
-        items: [
-          { path: '/kyc', label: 'KYC Verification', icon: 'verified_user' },
-          { path: '/wallet', label: 'Wallet', icon: 'account_balance_wallet' },
-        ],
-      },
-      {
-        title: 'Shopping',
-        items: [
-          {
-            path: '/cart',
-            label: cartStore.count > 0 ? `Cart (${cartStore.count})` : 'Cart',
-            icon: 'shopping_cart',
-          },
-          { path: '/watchlist', label: 'Saved', icon: 'bookmark' },
-        ],
-      },
-      {
-        title: 'Credits',
-        items: [
-          { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
-          { path: '/retire', label: 'Retire Credits', icon: 'eco' },
-        ],
-      },
-      {
-        title: 'Biomass',
-        items: [
-          { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
-          { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
-        ],
-      },
-      {
-        title: 'Records',
-        items: [
-          { path: '/receipts', label: 'Receipts', icon: 'receipt_long' },
-          { path: '/certificates', label: 'Certificates', icon: 'verified' },
-        ],
-      },
-      {
-        title: 'More',
-        items: [
-          { path: '/upgrade', label: 'Upgrade plan', icon: 'rocket_launch' },
-          aboutItem,
-        ],
-      },
-    )
-    return sections
-  }
-
-  // 4) Admins / verifiers: only About remains outside the Workspace group.
-  sections.push({ title: 'More', items: [aboutItem] })
-  return sections
+// Only meaningful for the two states that show or hide a panel. Collapsing the
+// desktop rail narrows it rather than closing it, so it reports nothing.
+const menuExpanded = computed(() => {
+  if (!userStore.isAuthenticated) return String(mobileMenuOpen.value)
+  if (isDesktop.value) return undefined
+  return String(drawerOpen.value)
 })
+
+// Signed-out visitors only. Signed-in users navigate from the sidebar — a
+// header nav plus a sidebar is two menus competing to be the place you look.
+const navItems = computed(() => buildGuestNav())
+
+// Avatar dropdown — your account only. Product features that used to live here
+// (17 links across 7 scrolling sections) are in the sidebar now. The rule a
+// user can learn: under your face is about YOU; the product is in the sidebar.
+const accountItems = computed(() => buildAccountMenu(userStore))
+
+// The dashboard the avatar menu links back to, labelled per role.
+const workspaceHome = computed(() => homeDestination(userStore))
 
 function isActive(path) {
   return route.path === path
 }
 
 function handleLogout() {
-  console.log('🚨 LOGOUT BUTTON CLICKED! Starting logout process...')
-
-  // Close the dropdown menu immediately
   showUserMenu.value = false
+  performLogout(userStore)
+}
 
-  // Clear all storage immediately
-  try {
-    if (typeof window !== 'undefined') {
-      // Clear localStorage
-      localStorage.clear()
-      // Clear sessionStorage
-      sessionStorage.clear()
-      console.log('Storage cleared')
-    }
-  } catch (storageError) {
-    console.warn('Storage clear error:', storageError)
-  }
-
-  // Perform logout from user store (don't wait for it)
-  userStore.logout().catch((error) => {
-    console.error('User store logout error:', error)
-  })
-
-  // Force immediate redirect to login page
-  console.log('Redirecting to login page...')
-
-  // Use the most reliable redirect method with a longer delay
-  setTimeout(() => {
-    console.log('Executing redirect now...')
-    try {
-      // Force a complete page reload to the login page
-      window.location.replace('/login')
-      console.log('Redirect initiated successfully')
-    } catch (error) {
-      console.error('Redirect failed, trying alternative:', error)
-      window.location.href = '/login'
-    }
-  }, 200)
+// WelcomeTour (mounted at the app root) listens for this on the window.
+function startTour() {
+  showUserMenu.value = false
+  window.dispatchEvent(new Event('carbonify:open-tour'))
 }
 
 const avatarUrl = computed(() => {
@@ -740,6 +617,14 @@ onMounted(() => {
   loadNotifications()
   startNotificationPolling()
   startNotificationSubscription()
+
+  // matchMedia rather than a resize listener: it fires only when the breakpoint
+  // is actually crossed, not on every pixel of a drag.
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    desktopMedia = window.matchMedia(DESKTOP_QUERY)
+    isDesktop.value = desktopMedia.matches
+    desktopMedia.addEventListener('change', syncIsDesktop)
+  }
 })
 
 onUnmounted(() => {
@@ -749,6 +634,7 @@ onUnmounted(() => {
   }
 
   stopNotificationSubscription()
+  desktopMedia?.removeEventListener('change', syncIsDesktop)
 })
 
 watch(
@@ -807,6 +693,46 @@ watch(
   width: 100%;
 }
 
+/* Menu button + logo, one row.
+   align-items:center on the row and equal box heights on both children is what
+   keeps the three lines and the wordmark on a shared centre line — the two used
+   to live in separate, independently padded sections at opposite ends. */
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Matches .brand-wordmark's 2.25rem box, so neither child sets the row
+     height and the two stay optically level whatever the logo does. */
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.menu-btn:hover {
+  background: var(--bg-accent);
+  color: var(--primary-color);
+}
+
+.menu-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 /* Logo */
 .logo {
   display: flex;
@@ -819,15 +745,20 @@ watch(
 /* Carbonify wordmark logo */
 .brand-wordmark {
   height: 2.25rem;
-  width: auto;
+  width: 2.25rem;
   display: block;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-green-light, rgba(209, 250, 229, 0.9));
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .brand-wordmark--mobile {
   height: 1.9rem;
-  padding: 0.25rem 0;
+  width: 1.9rem;
+  padding: 0;
 }
 
 .logo-container {
@@ -843,7 +774,7 @@ watch(
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  border: 3px solid #10b981;
+  border: 3px solid var(--primary-color, #058526);
   padding: 0.35rem;
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
@@ -866,7 +797,7 @@ watch(
 .logo-name {
   font-weight: 800;
   font-size: 1.25rem;
-  color: #10b981;
+  color: var(--primary-color, #058526);
   letter-spacing: 0.05em;
   text-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
@@ -1002,7 +933,11 @@ watch(
   font-weight: 500;
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
   padding: 0.5rem 0.9rem;
   border-radius: var(--radius-lg);
   position: relative;
@@ -1060,6 +995,40 @@ watch(
 
 .notifications-menu {
   position: relative;
+}
+
+.cart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+}
+
+.cart-button .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.35rem;
+  min-width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: #058526;
+  color: #fff;
+  font-size: 0.6rem;
+  line-height: 1rem;
+  padding: 0 0.2rem;
+  font-weight: 700;
 }
 
 .notifications-button {
@@ -1236,6 +1205,42 @@ watch(
   letter-spacing: 0.03em;
 }
 
+/* Stale-profile marker: overflow is hidden on the thumb, so the dot sits just
+   outside it. The ring keeps it legible over either the initials background or
+   a photo. */
+.user-avatar-thumb.is-stale {
+  overflow: visible;
+}
+
+.avatar-status-dot {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  animation: avatarStalePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes avatarStalePulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-status-dot {
+    animation: none;
+  }
+}
+
 .user-avatar:hover {
   background: var(--bg-accent);
 }
@@ -1254,20 +1259,27 @@ watch(
   background: var(--bg-primary);
   border: 1px solid var(--border-green-light);
   border-radius: var(--radius-xl);
-  box-shadow: 0 16px 40px rgba(6, 158, 45, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 16px 40px rgba(5, 133, 38, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.06);
   z-index: 1000;
   min-width: 16rem;
   max-width: 19rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: min(75vh, 34rem);
   animation: dropdownIn 0.16s ease;
 }
 
 @keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Identity header */
@@ -1340,34 +1352,38 @@ watch(
   color: #fff;
 }
 
-/* Scrollable link area between the fixed header and logout */
-.dropdown-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.35rem 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-green-light) transparent;
+/* Stale-profile notice, between the identity header and the account links. */
+.dropdown-stale-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #92400e;
+  background: #fffbeb;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.dropdown-scroll::-webkit-scrollbar,
+.dropdown-stale-notice .dropdown-ico {
+  color: #f59e0b;
+  font-size: 1.05rem;
+}
+
+/* Account links between the identity header and logout. No scroll region and
+   no section labels any more: the menu is short enough to read at a glance. */
+.dropdown-body {
+  flex: 1;
+  padding: 0.35rem 0;
+}
+
 .m-nav::-webkit-scrollbar {
   width: 6px;
 }
 
-.dropdown-scroll::-webkit-scrollbar-thumb,
 .m-nav::-webkit-scrollbar-thumb {
   background: var(--border-green-light);
   border-radius: 999px;
-}
-
-/* Section labels that group the links */
-.dropdown-section-label {
-  padding: 0.5rem 1rem 0.25rem;
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .dropdown-item {
@@ -1384,7 +1400,10 @@ watch(
   background: none;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, padding-left 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    padding-left 0.15s ease;
   box-sizing: border-box;
   position: relative;
 }
@@ -1403,6 +1422,16 @@ watch(
 }
 
 .dropdown-item:hover .dropdown-ico {
+  color: var(--primary-color);
+}
+
+/* The one product link left in this menu — the way back to the workspace where
+   the rest of the app is grouped. Weighted so it reads as the primary action. */
+.dropdown-item--workspace {
+  font-weight: 600;
+}
+
+.dropdown-item--workspace .dropdown-ico {
   color: var(--primary-color);
 }
 
@@ -1427,8 +1456,12 @@ watch(
 }
 
 /* Role-tinted pill colours in the dropdown header */
-.dropdown-role[data-role='admin'] { background: rgba(255, 255, 255, 0.28); }
-.dropdown-role[data-role='verifier'] { background: rgba(255, 255, 255, 0.24); }
+.dropdown-role[data-role='admin'] {
+  background: rgba(255, 255, 255, 0.28);
+}
+.dropdown-role[data-role='verifier'] {
+  background: rgba(255, 255, 255, 0.24);
+}
 
 /* Admin Dropdown Items */
 .dropdown-divider {
@@ -1518,65 +1551,11 @@ watch(
   }
 }
 
-.mobile-left-section {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex-shrink: 0;
-  margin: 0;
-  padding: 0.5rem 1rem;
-  width: auto;
-}
-
-.mobile-hamburger-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: var(--transition);
-  border-radius: var(--radius-md);
-}
-
-.mobile-hamburger-btn:hover {
-  background: var(--bg-accent);
-  color: var(--primary-color);
-}
-
 .hamburger-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: var(--text-primary);
-}
-
-.mobile-logo {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-}
-
-.mobile-logo-container {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  border: 3px solid #10b981;
-  padding: 0.3rem;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-}
-
-.mobile-logo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 50%;
+  width: 1.4rem;
+  height: 1.4rem;
+  /* currentColor, so the icon picks up .menu-btn's hover colour. */
+  color: currentColor;
 }
 
 .mobile-home-btn {
@@ -1596,9 +1575,9 @@ watch(
   color: white;
 }
 
-/* Mobile center section - empty for cleaner header */
-.mobile-center-section {
-  flex: 1;
+.mobile-cart {
+  width: 2rem;
+  height: 2rem;
 }
 
 .mobile-right-section {
@@ -1628,28 +1607,6 @@ watch(
   }
 }
 
-/* Mobile Actions Container */
-.mobile-actions-left {
-  display: none;
-}
-
-@media (max-width: 1024px) {
-  .mobile-actions-left {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    position: absolute;
-    top: 50%;
-    left: var(--spacing-md);
-    transform: translateY(-50%);
-  }
-
-  /* Hide logo on mobile */
-  .desktop-logo {
-    display: none;
-  }
-}
-
 /* Extra small screens */
 @media (max-width: 480px) {
   .mobile-header-layout {
@@ -1657,13 +1614,9 @@ watch(
     gap: 0.25rem;
   }
 
-  .mobile-left-section {
-    gap: 0.5rem;
-  }
-
-  .mobile-logo-container {
-    width: 1.75rem;
-    height: 1.75rem;
+  .brand-group {
+    gap: 0.4rem;
+    padding-inline: 0.75rem;
   }
 
   .mobile-home-btn {
@@ -1897,14 +1850,9 @@ watch(
 
 /* Very small screens adjustments */
 @media (max-width: 360px) {
-  .mobile-left-section,
+  .brand-group,
   .mobile-right-section {
     padding: 0.5rem 0.75rem;
-  }
-
-  .mobile-logo-container {
-    width: 2rem;
-    height: 2rem;
   }
 
   .mobile-menu {
@@ -2068,26 +2016,6 @@ watch(
   gap: 0.75rem;
 }
 
-.mobile-logo {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  border: 2px solid #10b981;
-  padding: 0.2rem;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mobile-logo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 50%;
-}
-
 .mobile-title {
   font-size: var(--font-size-xl);
   font-weight: 700;
@@ -2161,7 +2089,7 @@ watch(
   color: white;
   font-weight: 600;
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.2);
 }
 
 /* Mobile User Profile Section */
@@ -2315,8 +2243,12 @@ watch(
 
 .m-menu-logo {
   height: 1.9rem;
-  width: auto;
+  width: 1.9rem;
   display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-green-light, rgba(209, 250, 229, 0.9));
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .m-menu-close {

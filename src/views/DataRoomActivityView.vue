@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getSupabase } from '@/services/supabaseClient'
 import { getMyDataRoomActivity, aggregateAccessLog } from '@/services/dataRoomService'
 
@@ -67,13 +68,12 @@ onMounted(load)
 
 <template>
   <div class="activity">
-    <header class="page-head">
-      <h1>Data Room Activity</h1>
-      <p>
-        Which investors opened your project documents in the Investor Portal. Your own views aren't
-        counted.
-      </p>
-    </header>
+    <PageHeader
+      title="Data Room Activity"
+      description="Which investors opened your project documents in the Investor Portal. Your own views aren't counted."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="loadError" class="notice error">
@@ -131,13 +131,13 @@ onMounted(load)
         that their diligence isn't published as a lead list.
       </p>
     </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.activity { max-width: 820px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; }
+.activity { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 820px; margin: 0 auto; padding: 24px 16px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 
@@ -159,7 +159,7 @@ onMounted(load)
 .doc-list li:first-child { border-top: none; }
 
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty p { margin: 12px auto 0; max-width: 440px; }
 .foot { margin-top: 16px; }
 

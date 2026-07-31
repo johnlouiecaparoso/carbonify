@@ -84,7 +84,11 @@ export class ProjectService {
         category: projectData.category.trim(),
         location: projectData.location.trim(),
         expected_impact: projectData.expected_impact.trim(),
-        status: 'pending',
+        // A draft is the developer's private workspace: it never enters the
+        // review queue, so notify_project_submitted_trigger (which fires only
+        // for 'submitted'/'pending') stays silent for it. Any other requested
+        // status still becomes 'pending' — a client may not self-promote.
+        status: projectData.status === 'draft' ? 'draft' : 'pending',
         user_id: finalUserId,
         ...(projectData.geo_coordinates && { geo_coordinates: projectData.geo_coordinates }),
         ...(projectData.boundary && { boundary: projectData.boundary }),
@@ -133,6 +137,10 @@ export class ProjectService {
               name: doc.name,
               type: doc.type,
               size: doc.size,
+              // Which compliance slot this file fills (see REQUIRED_PROJECT_DOCS).
+              // Dropped until now, so a stored project could not say which file
+              // was the PDD and which the ECC.
+              label: doc.label || null,
               path: doc.path || null,
               url: doc.url || null,
             })),
@@ -299,6 +307,10 @@ export class ProjectService {
               name: doc.name,
               type: doc.type,
               size: doc.size,
+              // Which compliance slot this file fills (see REQUIRED_PROJECT_DOCS).
+              // Dropped until now, so a stored project could not say which file
+              // was the PDD and which the ECC.
+              label: doc.label || null,
               path: doc.path || null,
               url: doc.url || null,
             })),

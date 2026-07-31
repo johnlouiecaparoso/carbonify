@@ -13,6 +13,7 @@ import {
   isKnownMethodology,
 } from '@/constants/projectRegistry'
 import { uploadProjectDocument } from '@/services/storageService'
+import { REQUIRED_PROJECT_DOCS, OPTIONAL_PROJECT_DOCS } from '@/constants/projectDocuments'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
 import {
@@ -134,6 +135,8 @@ const isDraggingFiles = ref(false)
 
 // Form state
 const loading = ref(false)
+// Which button is busy, so only that one shows a spinner label.
+const savingDraft = ref(false)
 const errors = ref({})
 const success = ref('')
 
@@ -353,6 +356,19 @@ function clearFieldError(field) {
   success.value = ''
 }
 
+// The required-error text is built from the field KEY, which is a database
+// column name. Capitalizing it alone left the underscore in place, so the form
+// told a project developer "Host_entity is required" — six fields did this
+// (host_entity, geo_coordinates, expected_impact, start_date, end_date,
+// estimated_credits). Underscores become spaces before capitalizing, and a rule
+// may override with an explicit `label`.
+function fieldLabel(field) {
+  const rule = validationRules[field]
+  if (rule?.label) return rule.label
+  const words = field.replace(/_/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 function validateField(field) {
   const value = formData.value[field]
   const rule = validationRules[field]
@@ -360,17 +376,17 @@ function validateField(field) {
   // Handle required validation
   if (rule.required) {
     if (value === null || value === undefined || value === '') {
-      errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+      errors.value[field] = `${fieldLabel(field)} is required`
       return false
     }
     // For strings, also check if trimmed value is empty
     if (typeof value === 'string' && value.trim() === '') {
-      errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+      errors.value[field] = `${fieldLabel(field)} is required`
       return false
     }
     // For numbers, check if it's a valid number (not NaN)
     if (typeof value === 'number' && isNaN(value)) {
-      errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+      errors.value[field] = `${fieldLabel(field)} is required`
       return false
     }
   }
@@ -662,49 +678,67 @@ function onFileZoneClick(event) {
   triggerDocumentsSelect()
 }
 
-// Documents the developer MUST attach on a NEW submission (mirror the "*"
-// markers in the template). Feasibility is intentionally optional.
-const REQUIRED_DOCS = [
-  { field: 'pdd_file', label: 'PDD', key: 'pdd' },
-  { field: 'baseline_file', label: 'Baseline Report', key: 'baseline' },
-  { field: 'additionality_file', label: 'Additionality Justification', key: 'additionality' },
-  { field: 'leakage_file', label: 'Leakage Assessment', key: 'leakage' },
-  { field: 'safeguards_file', label: 'Safeguards Checklist', key: 'safeguards' },
-  { field: 'lgu_endorsement_file', label: 'LGU Endorsement', key: 'lgu_endorsement' },
-  { field: 'land_ownership_file', label: 'Land Ownership / Lease', key: 'land_ownership' },
-  { field: 'ecc_file', label: 'ECC / Permits', key: 'ecc' },
-  { field: 'moa_file', label: 'MOA / Agreements', key: 'moa' },
-]
-
-// MRV reports are produced periodically in the monitoring module; attaching one
-// here is how a *published* report reaches the public registry page, which the
-// registry spec asks for. Optional: a new project has no monitoring history yet.
-const OPTIONAL_DOCS = [
-  { field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' },
-  { field: 'mrv_report_file', label: 'MRV Report', key: 'mrv_report' },
-]
+// The required/optional document lists moved to @/constants/projectDocuments so
+// that submitting a DRAFT for review later enforces the same rule — the check
+// used to exist only here, at first submission.
+const REQUIRED_DOCS = REQUIRED_PROJECT_DOCS
+const OPTIONAL_DOCS = OPTIONAL_PROJECT_DOCS
 
 // How many required docs are still missing (drives the submit-button hint).
 const missingRequiredDocs = computed(() =>
   REQUIRED_DOCS.filter((d) => !formData.value[d.field]).map((d) => d.label),
 )
 
-async function handleSubmit() {
+/**
+ * Draft saving is offered for a NEW project or one that is already a draft.
+ *
+ * Never for a project that has been submitted: `status` is an editable column,
+ * so saving a pending or needs_revision project "as a draft" would quietly pull
+ * it out of the verifier's queue and out of the revision loop, with nobody
+ * told. Those projects already have a non-destructive save — the Update button,
+ * which preserves whatever status they hold.
+ */
+const canSaveAsDraft = computed(
+  () => !isEditMode.value || props.project?.status === 'draft',
+)
+
+/**
+ * @param {Object} [opts]
+ * @param {boolean} [opts.asDraft=false] - save without entering the review
+ *   queue. A draft skips the required-document check and every field validation
+ *   except a title (a untitled draft is unfindable in the dashboard list). The
+ *   full rules are re-applied when the draft is submitted for review.
+ */
+async function handleSubmit({ asDraft = false } = {}) {
   clearErrors()
 
-  if (!validateForm() || !isFormValid.value) {
+  if (asDraft) {
+    // Mirrors canSaveAsDraft. Demoting a submitted project back to a draft would
+    // remove it from the review queue without telling anyone.
+    if (!canSaveAsDraft.value) {
+      errors.value.general = 'This project has already been submitted and cannot be saved as a draft.'
+      return
+    }
+    if (!String(formData.value.title || '').trim()) {
+      errors.value.title = 'Give your draft a title so you can find it later.'
+      errors.value.general = 'A title is required, even for a draft.'
+      return
+    }
+  } else if (!validateForm() || !isFormValid.value) {
     errors.value.general =
       errors.value.general || 'Please complete the required fields highlighted above.'
     return
   }
 
   // Require the compliance documents on a NEW submission — without them a
-  // verifier has nothing to review. (Edits preserve previously-uploaded docs.)
-  if (!isEditMode.value && missingRequiredDocs.value.length) {
+  // verifier has nothing to review. (Edits preserve previously-uploaded docs;
+  // drafts are checked at submit-for-review time instead.)
+  if (!asDraft && !isEditMode.value && missingRequiredDocs.value.length) {
     errors.value.general = `Please attach all required documents before submitting. Missing: ${missingRequiredDocs.value.join(', ')}.`
     return
   }
 
+  savingDraft.value = asDraft
   loading.value = true
 
   try {
@@ -741,7 +775,15 @@ async function handleSubmit() {
         permanence_years: formData.value.permanence_years,
         reversal_risk: formData.value.reversal_risk,
       }),
-      status: isEditMode.value ? (props.project && props.project.status ? props.project.status : 'draft') : 'submitted',
+      // Saving as a draft always parks the project in 'draft', including when a
+      // draft is edited. Otherwise an edit keeps whatever status it already had
+      // (so editing a needs_revision project does not silently re-queue it) and
+      // a brand-new submission goes to the review queue.
+      status: asDraft
+        ? 'draft'
+        : isEditMode.value
+          ? props.project?.status || 'draft'
+          : 'submitted',
       documents: [],
     }
 
@@ -965,11 +1007,14 @@ async function handleSubmit() {
       // client insert can't create notifications for other users under RLS).
     }
 
-    // Emit success event
+    // Emit success event. projectData.status tells the parent whether this was
+    // a draft save (go back to the dashboard) or a real submission (show the
+    // "what happens next" card).
     emit('success', projectData)
 
-    // Reset form if creating new project
-    if (!isEditMode.value) {
+    // Reset form if creating new project. Not for a draft: the parent navigates
+    // to the dashboard, and blanking the fields first just flashes an empty form.
+    if (!isEditMode.value && !asDraft) {
       resetForm()
     }
   } catch (error) {
@@ -994,6 +1039,7 @@ async function handleSubmit() {
     }
   } finally {
     loading.value = false
+    savingDraft.value = false
   }
 }
 
@@ -1066,7 +1112,9 @@ onMounted(() => {
       <p v-else>Update your project details below.</p>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="form">
+    <!-- Explicit call: the native submit event would otherwise be destructured
+         as the options object. -->
+    <form @submit.prevent="handleSubmit()" class="form">
       <!-- General Error Message -->
       <div v-if="errors.general" class="error-message">
         {{ errors.general }}
@@ -1170,14 +1218,11 @@ onMounted(() => {
         <UiInput
           id="location"
           v-model="formData.location"
-          :class="{ error: errors.location }"
+          :error="errors.location"
           placeholder="City, Province, Country"
           @blur="validateField('location')"
           @input="clearErrors"
         />
-        <div v-if="errors.location" class="field-error">
-          {{ errors.location }}
-        </div>
         <div class="field-help">{{ formData.location.length }}/100 characters</div>
       </div>
 
@@ -1247,12 +1292,11 @@ onMounted(() => {
             <UiInput
               id="geo_coordinates"
               v-model="formData.geo_coordinates"
-              :class="{ error: errors.geo_coordinates }"
+              :error="errors.geo_coordinates"
               placeholder="e.g., 14.5995,120.9842"
               @blur="validateField('geo_coordinates')"
               @input="clearErrors"
             />
-            <div v-if="errors.geo_coordinates" class="field-error">{{ errors.geo_coordinates }}</div>
             <div class="field-help">
               Click the map to set the location, or draw the project boundary.
             </div>
@@ -1267,33 +1311,28 @@ onMounted(() => {
 
           <div class="form-group">
             <label for="barangay" class="form-label"> Barangay * </label>
-            <UiInput id="barangay" v-model="formData.barangay" :class="{ error: errors.barangay }" @blur="validateField('barangay')" />
-            <div v-if="errors.barangay" class="field-error">{{ errors.barangay }}</div>
+            <UiInput id="barangay" v-model="formData.barangay" :error="errors.barangay" @blur="validateField('barangay')" />
           </div>
 
           <div class="form-group">
             <label for="municipality" class="form-label"> Municipality / City * </label>
-            <UiInput id="municipality" v-model="formData.municipality" :class="{ error: errors.municipality }" @blur="validateField('municipality')" />
-            <div v-if="errors.municipality" class="field-error">{{ errors.municipality }}</div>
+            <UiInput id="municipality" v-model="formData.municipality" :error="errors.municipality" @blur="validateField('municipality')" />
           </div>
 
           <div class="form-grid two-columns">
             <div class="form-group">
               <label for="start_date" class="form-label"> Start Date * </label>
-              <UiInput id="start_date" type="date" v-model="formData.start_date" :class="{ error: errors.start_date }" @blur="validateField('start_date')" />
-              <div v-if="errors.start_date" class="field-error">{{ errors.start_date }}</div>
+              <UiInput id="start_date" type="date" v-model="formData.start_date" :error="errors.start_date" @blur="validateField('start_date')" />
             </div>
             <div class="form-group">
               <label for="end_date" class="form-label"> End Date * </label>
-              <UiInput id="end_date" type="date" v-model="formData.end_date" :class="{ error: errors.end_date }" @blur="validateField('end_date')" />
-              <div v-if="errors.end_date" class="field-error">{{ errors.end_date }}</div>
+              <UiInput id="end_date" type="date" v-model="formData.end_date" :error="errors.end_date" @blur="validateField('end_date')" />
             </div>
           </div>
 
           <div class="form-group">
             <label for="host_entity" class="form-label"> Host Entity (LGU / Private / Coop) * </label>
-            <UiInput id="host_entity" v-model="formData.host_entity" :class="{ error: errors.host_entity }" @blur="validateField('host_entity')" />
-            <div v-if="errors.host_entity" class="field-error">{{ errors.host_entity }}</div>
+            <UiInput id="host_entity" v-model="formData.host_entity" :error="errors.host_entity" @blur="validateField('host_entity')" />
           </div>
         </div>
 
@@ -1721,6 +1760,18 @@ onMounted(() => {
         <UiButton type="button" variant="outline" @click="handleCancel" :disabled="loading">
           Cancel
         </UiButton>
+        <!-- Save as draft asks for nothing but a title, so it is NOT gated on
+             isFormValid. Nine required documents in one sitting was the single
+             biggest reason a submission never got finished. -->
+        <UiButton
+          v-if="canSaveAsDraft"
+          type="button"
+          variant="outline"
+          :disabled="loading"
+          @click="handleSubmit({ asDraft: true })"
+        >
+          {{ savingDraft ? 'Saving…' : 'Save as draft' }}
+        </UiButton>
         <UiButton type="submit" :disabled="loading || !isFormValid">
           {{ submitButtonText }}
         </UiButton>
@@ -1752,7 +1803,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f), var(--primary-color, #069e2d));
+  background: linear-gradient(90deg, var(--primary-color, #058526), var(--primary-hover, #04701f), var(--primary-color, #058526));
   background-size: 200% 100%;
   animation: shimmer 3s ease-in-out infinite;
 }
@@ -1763,7 +1814,7 @@ onMounted(() => {
 }
 
 .form-header {
-  padding: 32px 32px 0 32px;
+  padding: 20px 24px 0 24px;
   margin-bottom: 0;
   text-align: center;
   background: var(--bg-primary, #ffffff);
@@ -1772,23 +1823,23 @@ onMounted(() => {
 }
 
 .form-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
+  margin: 0 0 4px 0;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary, #1a202c);
 }
 
 .form-header p {
-  margin: 0 0 24px 0;
+  margin: 0 0 16px 0;
   color: var(--text-secondary, #4a5568);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .form {
   background: var(--bg-primary, #ffffff);
   border: none;
   border-radius: 0;
-  padding: 32px;
+  padding: 20px 24px;
   box-shadow: none;
   flex: 1;
   overflow-y: auto;
@@ -1798,93 +1849,110 @@ onMounted(() => {
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+}
+
+/* Paired short fields (dates, capacity + unit, CAPEX + OPEX) sit side by side
+   instead of each taking a full row. `.form-grid` is global (App.vue). */
+.form-grid {
+  gap: 0.75rem 1rem;
+}
+
+.form-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid .form-group {
+  margin-bottom: 0;
 }
 
 .form-spacer {
   flex: 1;
-  min-height: 2rem;
+  min-height: 0;
 }
 
 .form-label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .form-select {
   width: 100%;
-  padding: 12px 16px;
+  padding: 9px 12px;
   border: 2px solid var(--border-color, #d1e7dd);
   border-radius: var(--radius-md, 0.5rem);
   background: var(--bg-primary, #ffffff);
   color: var(--text-primary, #1a202c);
-  font-size: 16px;
+  font-size: 15px;
   transition: all 0.2s ease;
 }
 
 .form-select:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .form-select.error {
-  border-color: var(--carbonify-error);
+  border-color: var(--error-color, #dc3545);
 }
 
 .form-textarea {
   width: 100%;
-  padding: 12px 16px;
+  padding: 9px 12px;
   border: 2px solid var(--border-color, #d1e7dd);
   border-radius: var(--radius-md, 0.5rem);
   background: var(--bg-primary, #ffffff);
   color: var(--text-primary, #1a202c);
-  font-size: 16px;
+  font-size: 15px;
   font-family: inherit;
-  resize: none;
-  min-height: 120px;
+  resize: vertical;
+  min-height: 84px;
   transition: all 0.2s ease;
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .form-textarea.error {
-  border-color: var(--carbonify-error);
+  border-color: var(--error-color, #dc3545);
 }
 
 .field-error {
   margin-top: 4px;
-  color: var(--carbonify-error);
+  color: var(--error-color, #dc3545);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.45;
 }
 
-.field-help {
-  margin-top: 4px;
-  color: var(--text-muted, #718096);
+.field-help,
+.field-hint {
+  margin: 4px 0 0;
+  color: var(--text-muted, #64748b);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.45;
 }
 
 .sdg-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .sdg-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
   background: #fff;
@@ -1894,11 +1962,11 @@ onMounted(() => {
 }
 
 .sdg-chip:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
 }
 
 .sdg-chip.selected {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: #ecfdf5;
 }
 
@@ -1907,7 +1975,7 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   font-weight: 700;
   font-size: 12px;
@@ -1922,29 +1990,29 @@ onMounted(() => {
 }
 
 .error-message {
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
   padding: 12px 16px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md, 0.5rem);
   margin-bottom: 20px;
   font-size: 14px;
 }
 
 .success-message {
-  background: var(--carbonify-success-bg);
-  color: var(--carbonify-success);
+  background: var(--success-light, #d4edda);
+  color: var(--success-color, #058526);
   padding: 12px 16px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md, 0.5rem);
   margin-bottom: 20px;
   font-size: 14px;
 }
 
 .form-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: flex-end;
   margin-top: auto;
-  padding: 24px 32px 32px 32px;
+  padding: 14px 24px;
   border-top: 2px solid var(--border-light, #e8f5e8);
   background: linear-gradient(to bottom, var(--bg-primary, #ffffff), var(--bg-secondary, #f8fdf8));
   flex-shrink: 0;
@@ -1965,12 +2033,12 @@ onMounted(() => {
 }
 
 .form::-webkit-scrollbar-thumb {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   border-radius: 4px;
 }
 
 .form::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-hover, #058e3f);
+  background: var(--primary-hover, #04701f);
 }
 
 /* File Upload Styles */
@@ -1990,8 +2058,8 @@ onMounted(() => {
 }
 
 .file-upload-area:hover {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
 }
 
 .file-input {
@@ -2031,14 +2099,14 @@ onMounted(() => {
 
 .upload-restrictions {
   font-size: 12px;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .file-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -2125,8 +2193,8 @@ onMounted(() => {
 }
 
 .remove-file-btn:hover {
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
 }
 
 .remove-file-btn:disabled {
@@ -2200,8 +2268,8 @@ onMounted(() => {
 }
 
 .image-upload-area:hover {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
 }
 
 .image-input {
@@ -2242,14 +2310,14 @@ onMounted(() => {
 
 .image-upload-label .upload-restrictions {
   font-size: 11px;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .image-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -2258,8 +2326,8 @@ onMounted(() => {
 .credit-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 8px;
+  gap: 14px;
+  margin-top: 6px;
 }
 
 .credit-field {
@@ -2286,9 +2354,9 @@ onMounted(() => {
 }
 
 .price-input-container-enhanced:focus-within {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-primary, #ffffff);
-  box-shadow: 0 0 0 4px var(--primary-light, rgba(6, 158, 45, 0.1));
+  box-shadow: 0 0 0 4px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .currency-badge {
@@ -2297,12 +2365,12 @@ onMounted(() => {
   justify-content: center;
   min-width: 2.5rem;
   height: 2.5rem;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   color: white;
   font-weight: 700;
   font-size: 1.125rem;
   border-radius: var(--radius-sm, 0.5rem);
-  box-shadow: 0 2px 6px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 2px 6px rgba(5, 133, 38, 0.2);
   flex-shrink: 0;
 }
 
@@ -2315,28 +2383,28 @@ onMounted(() => {
 
 .helper-text {
   font-size: 0.75rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-weight: 500;
 }
 
 .price-field-enhanced {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
 
 .price-field-enhanced:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .price-label-enhanced {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .label-icon {
@@ -2348,11 +2416,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
   border-radius: var(--radius-sm, 0.5rem);
-  border-left: 3px solid var(--primary-color, #069e2d);
+  border-left: 3px solid var(--primary-color, #058526);
 }
 
 .help-icon {
@@ -2366,26 +2434,26 @@ onMounted(() => {
   justify-content: center;
   min-width: 2.5rem;
   height: 2.5rem;
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   color: white;
   font-weight: 700;
   font-size: 1.125rem;
   border-radius: var(--radius-sm, 0.5rem);
-  box-shadow: 0 2px 6px rgba(6, 158, 45, 0.2);
+  box-shadow: 0 2px 6px rgba(5, 133, 38, 0.2);
   flex-shrink: 0;
 }
 
 .credits-field-enhanced {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
 
 .credits-field-enhanced:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .credits-input-container {
@@ -2401,9 +2469,9 @@ onMounted(() => {
 }
 
 .credits-input-container:focus-within {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-primary, #ffffff);
-  box-shadow: 0 0 0 4px var(--primary-light, rgba(6, 158, 45, 0.1));
+  box-shadow: 0 0 0 4px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .currency-symbol {
@@ -2422,16 +2490,30 @@ onMounted(() => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .form-header {
-    padding: 24px 24px 0 24px;
+    padding: 16px 16px 0 16px;
   }
 
   .form {
-    padding: 24px;
+    padding: 16px;
+  }
+
+  /* Paired fields stack once there isn't room for two readable columns. */
+  .form-grid.two-columns,
+  .credibility-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 16px keeps iOS from zooming the viewport on focus. */
+  .form-select,
+  .form-textarea,
+  .credibility-select,
+  .form :deep(.enhanced-input__field) {
+    font-size: 16px;
   }
 
   .form-actions {
     flex-direction: column;
-    padding: 24px;
+    padding: 14px 16px;
   }
 
   .form-actions button {
@@ -2463,21 +2545,21 @@ onMounted(() => {
 .title-field-enhanced {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
 
 .title-field-enhanced:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .title-label-enhanced {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .title-input-wrapper {
@@ -2491,7 +2573,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--primary-color, #069e2d), transparent);
+  background: linear-gradient(90deg, var(--primary-color, #058526), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -2504,8 +2586,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
   background: var(--bg-secondary, #f8fdf8);
   border-radius: var(--radius-sm, 0.5rem);
   position: relative;
@@ -2517,43 +2599,45 @@ onMounted(() => {
   bottom: 0;
   left: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--primary-color, #069e2d), var(--primary-hover, #058e3f));
+  background: linear-gradient(90deg, var(--primary-color, #058526), var(--primary-hover, #04701f));
   transition: width 0.3s ease;
   opacity: 0.3;
 }
 
 .form-subsection {
-  margin-bottom: 24px;
-  padding-bottom: 24px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .subsection-header {
   display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-bottom: 10px;
+  padding-bottom: 7px;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .subsection-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary, #1a202c);
-  margin-left: 8px;
+  margin: 0;
 }
 
 .project-title-card {
   background: linear-gradient(135deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #ffffff) 100%);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 1.25rem;
+  padding: 0.85rem 1rem;
   border: 2px solid var(--border-light, #e8f5e8);
   transition: all 0.3s ease;
 }
 
 .project-title-card:hover {
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 2px 8px rgba(6, 158, 45, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 2px 8px rgba(5, 133, 38, 0.1);
 }
 
 .project-title-label {
@@ -2570,22 +2654,22 @@ onMounted(() => {
   gap: 0.5rem;
   background: rgba(37, 99, 235, 0.08);
   color: #1d4ed8;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   border-radius: 8px;
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
 }
 
 .upload-dropzone {
   position: relative;
   border: 2px dashed var(--border-color, #d1e7dd);
   border-radius: var(--radius-md, 0.5rem);
-  padding: 24px 16px;
+  padding: 12px 16px;
   text-align: center;
   background: var(--bg-secondary, #f8fdf8);
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 150px; /* Ensure a minimum height for the dropzone */
+  min-height: 104px; /* Ensure a minimum height for the dropzone */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2593,14 +2677,14 @@ onMounted(() => {
 }
 
 .upload-dropzone:hover {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.05));
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.05));
 }
 
 .upload-dropzone.dragging {
-  border-color: var(--primary-color, #069e2d);
-  background: var(--primary-light, rgba(6, 158, 45, 0.1));
-  box-shadow: 0 0 10px rgba(6, 158, 45, 0.2);
+  border-color: var(--primary-color, #058526);
+  background: var(--primary-light, rgba(5, 133, 38, 0.1));
+  box-shadow: 0 0 10px rgba(5, 133, 38, 0.2);
 }
 
 .upload-loading {
@@ -2620,7 +2704,7 @@ onMounted(() => {
 
 .loading-spinner {
   border: 4px solid rgba(0, 0, 0, 0.1);
-  border-left-color: var(--primary-color, #069e2d);
+  border-left-color: var(--primary-color, #058526);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -2635,7 +2719,7 @@ onMounted(() => {
 
 .upload-placeholder {
   text-align: center;
-  padding: 2rem 1rem;
+  padding: 0.5rem 1rem;
   color: #6b7280;
 }
 
@@ -2643,9 +2727,9 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
-  margin-bottom: 0.75rem;
-  color: var(--primary-color, #069e2d);
+  font-size: 1.75rem;
+  margin-bottom: 0.35rem;
+  color: var(--primary-color, #058526);
 }
 
 .document-icon {
@@ -2653,7 +2737,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   margin-right: 0.75rem;
 }
 
@@ -2669,8 +2753,8 @@ onMounted(() => {
 }
 
 .remove-file:hover {
-  background: var(--carbonify-error-bg);
-  color: var(--carbonify-error);
+  background: var(--error-light, #f8d7da);
+  color: var(--error-color, #dc3545);
 }
 
 .remove-file:disabled {
@@ -2684,27 +2768,27 @@ onMounted(() => {
 
 /* ── Required Technical & Compliance Documents ── */
 .doc-intro {
-  margin: -4px 0 16px;
-  font-size: 0.875rem;
-  line-height: 1.55;
+  margin: -2px 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
   color: var(--text-secondary, #4a5568);
   background: var(--bg-secondary, #f8fdf8);
   border: 1px solid var(--border-light, #e8f5e8);
   border-radius: var(--radius-md, 0.625rem);
-  padding: 0.75rem 0.9rem;
+  padding: 0.55rem 0.7rem;
 }
 
 .document-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
 }
 
 .doc-card {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.9rem 1rem;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
   background: #fff;
   border: 1.5px solid var(--border-color, #e2e8f0);
   border-radius: var(--radius-md, 0.625rem);
@@ -2714,14 +2798,14 @@ onMounted(() => {
 }
 
 .doc-card:hover {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: var(--bg-secondary, #f8fdf8);
-  box-shadow: 0 6px 16px rgba(6, 158, 45, 0.12);
+  box-shadow: 0 6px 16px rgba(5, 133, 38, 0.12);
   transform: translateY(-1px);
 }
 
 .doc-card.filled {
-  border-color: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #058526);
   background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
 }
 
@@ -2734,15 +2818,15 @@ onMounted(() => {
   flex-shrink: 0;
   border-radius: 0.6rem;
   background: var(--bg-muted, #e8f5e8);
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
 }
 
 .doc-card:hover .doc-card-status {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .doc-card.filled .doc-card-status {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 
@@ -2777,7 +2861,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   background: var(--bg-muted, #eef2f1);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
@@ -2799,7 +2883,7 @@ onMounted(() => {
 }
 
 .doc-complete-hint {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .doc-missing-hint .material-symbols-outlined,
@@ -2817,74 +2901,104 @@ onMounted(() => {
   margin-top: 0.3rem;
   font-size: 0.76rem;
   font-weight: 600;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   word-break: break-word;
 }
 
 .doc-card:not(.filled) .doc-card-file {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-weight: 500;
 }
 
 .credit-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
 }
 
 .subsection-hint {
-  margin: 0.25rem 0 0;
-  color: #6b7280;
-  font-size: 0.85rem;
+  margin: 0;
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .credibility-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 0.75rem 1rem;
+}
+
+/* Grid cells own the spacing; the per-field margin would double it. */
+.credibility-grid .form-group,
+.credit-info-grid .form-group,
+.credit-grid .form-group {
+  margin-bottom: 0;
 }
 
 .credibility-select {
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid #d1d5db;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 8px;
   background: #fff;
-  font-size: 0.95rem;
-  color: #111827;
+  font-size: 15px;
+  color: var(--text-primary, #1a202c);
 }
 
 .credibility-select:focus {
   outline: none;
-  border-color: #069e2d;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
+}
+
+/* UiInput ships a taller, heavier field (0.75rem padding, 2px border, drop
+   shadow) than the native selects next to it, so a select and an input in the
+   same row rendered at different heights. Normalise them inside this form. */
+.form :deep(.enhanced-input) {
+  gap: 4px;
+}
+
+.form :deep(.enhanced-input__field) {
+  padding: 9px 12px;
+  border-width: 1px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.form :deep(.enhanced-input__field:focus) {
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .credit-card {
   background: #ffffff;
   border-radius: 14px;
   border: 1px solid rgba(5, 150, 105, 0.12);
-  box-shadow: 0 10px 30px rgba(6, 158, 45, 0.12);
-  padding: 1.5rem;
+  box-shadow: 0 4px 14px rgba(5, 133, 38, 0.1);
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.65rem;
 }
 
 .credit-card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+  margin-bottom: 0;
 }
 
 .credit-card-icon {
   font-size: 1.6rem;
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .credit-card-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #1f2937;
 }
@@ -2904,7 +3018,7 @@ onMounted(() => {
   height: 2.5rem;
   border-radius: 12px;
   background: rgba(16, 185, 129, 0.12);
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
 }
 
@@ -2912,11 +3026,8 @@ onMounted(() => {
   width: 100%;
 }
 
-.field-hint {
+.credit-field .field-hint {
   grid-column: 1 / -1;
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin-top: -0.25rem;
 }
 
 .help-card {
@@ -2924,8 +3035,8 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   background: rgba(16, 185, 129, 0.12);
-  color: #04773b;
-  padding: 0.75rem 1rem;
+  color: #045c1a;
+  padding: 0.5rem 0.75rem;
   border-radius: 10px;
   font-size: 0.9rem;
   border: 1px solid rgba(5, 150, 105, 0.2);

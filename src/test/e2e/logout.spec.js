@@ -31,12 +31,20 @@ test.describe('Logout Functionality', () => {
 
   test('should handle logout from any page', async ({ page }) => {
     // Try accessing different pages - all should redirect to login when not authenticated
-    const pages = ['/wallet', '/profile', '/dashboard', '/projects']
+    const pages = ['/wallet', '/profile', '/dashboard']
 
     for (const pagePath of pages) {
       await page.goto(pagePath)
       // All protected pages should redirect to login
       await expect(page).toHaveURL(/\/login/)
     }
+  })
+
+  // `/projects` is NOT protected — it is a legacy public alias that redirects to
+  // the marketplace (src/router/index.js). It was in the list above, so this
+  // suite reported an auth-guard failure where the guard was never involved.
+  test('/projects is a public alias for the marketplace, not a guarded route', async ({ page }) => {
+    await page.goto('/projects')
+    await expect(page).toHaveURL(/\/marketplace/)
   })
 })

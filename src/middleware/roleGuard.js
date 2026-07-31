@@ -2,41 +2,15 @@ import { ROLES } from '@/constants/roles'
 import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 
 /**
- * Role-based route guard middleware
- * @param {Object} to - Route being navigated to
- * @param {Object} from - Route being navigated from
- * @param {Object} userStore - User store instance
- * @returns {Object|undefined} Navigation guard result
+ * Role guards for the router.
+ *
+ * A generic createRoleGuard() and createPermissionGuard() used to live here,
+ * backed by roleService.canAccessRoute(). Neither was ever wired into the
+ * router, and both disagreed with the guards below — canAccessRoute matched
+ * routes by `startsWith` over object key order and required 'view_marketplace'
+ * for /marketplace, a permission verifiers do not hold. They have been removed
+ * so there is exactly one answer to "may this role open this route".
  */
-export function createRoleGuard(userStore) {
-  return async (to) => {
-    // If no session, let the auth guard handle it
-    if (!userStore.isAuthenticated) {
-      return undefined
-    }
-
-    // Ensure profile/role is loaded before making decisions
-    if (!userStore.profile) {
-      try {
-        await userStore.fetchUserProfile()
-      } catch { /* profile load failed; continue with current state */ }
-    }
-
-    const userRole = userStore.role
-    const routePath = to.path
-
-    // Check if user can access the route based on their role
-    if (!userStore.canAccessRoute(routePath)) {
-      console.warn(`Access denied: User with role '${userRole}' cannot access '${routePath}'`)
-
-      // Redirect to the user's default route (centralized mapping)
-      const path = getRoleDefaultRoute(userRole)
-      return { path }
-    }
-
-    return undefined
-  }
-}
 
 /**
  * Admin-only route guard
@@ -67,8 +41,6 @@ export function createAdminGuard(userStore) {
       })
       try {
         await userStore.fetchUserProfile()
-        // Give it a moment to update the store
-        await new Promise((resolve) => setTimeout(resolve, 300))
         console.log('[AdminGuard] After fetch:', {
           role: userStore.role,
           profileRole: userStore.profile?.role,
@@ -150,8 +122,6 @@ export function createVerifierGuard(userStore) {
       })
       try {
         await userStore.fetchUserProfile()
-        // Give it a moment to update the store
-        await new Promise((resolve) => setTimeout(resolve, 200))
         console.log('[VerifierGuard] After fetch:', {
           role: userStore.role,
           isVerifier: userStore.isVerifier,
@@ -210,8 +180,6 @@ export function createProjectDeveloperGuard(userStore) {
       })
       try {
         await userStore.fetchUserProfile()
-        // Give it a moment to update the store
-        await new Promise((resolve) => setTimeout(resolve, 200))
         console.log('[ProjectDeveloperGuard] After fetch:', {
           role: userStore.role,
           isProjectDeveloper: userStore.isProjectDeveloper,
@@ -264,7 +232,6 @@ export function createLguGuard(userStore) {
     if (!userStore.profile || !userStore.role || userStore.role === ROLES.GENERAL_USER) {
       try {
         await userStore.fetchUserProfile()
-        await new Promise((resolve) => setTimeout(resolve, 200))
       } catch (error) {
         console.error('Error fetching profile in LGU guard:', error)
       }
@@ -295,7 +262,6 @@ export function createFarmerGuard(userStore) {
     if (!userStore.profile || !userStore.role || userStore.role === ROLES.GENERAL_USER) {
       try {
         await userStore.fetchUserProfile()
-        await new Promise((resolve) => setTimeout(resolve, 200))
       } catch (error) {
         console.error('Error fetching profile in farmer guard:', error)
       }
@@ -310,43 +276,4 @@ export function createFarmerGuard(userStore) {
 
     return undefined
   }
-}
-
-/**
- * Permission-based route guard
- * @param {string|string[]} requiredPermissions - Required permissions
- * @param {Object} userStore - User store instance
- * @returns {Function} Route guard function
- */
-export function createPermissionGuard(requiredPermissions, userStore) {
-  return async (to) => {
-    if (!userStore.isAuthenticated) {
-      return { name: 'login', query: { redirect: to.fullPath } }
-    }
-
-    const permissions = Array.isArray(requiredPermissions)
-      ? requiredPermissions
-      : [requiredPermissions]
-
-    if (!userStore.hasAnyPermission(permissions)) {
-      console.warn(
-        `Permission denied: User with role '${userStore.role}' lacks required permissions:`,
-        permissions,
-      )
-      const path = getRoleDefaultRoute(userStore.role)
-      return { path }
-    }
-
-    return undefined
-  }
-}
-
-/**
- * Role-based redirect helper
- * @param {string} userRole - User role
- * @returns {string} Default route for role
- */
-export function getDefaultRouteForRole(userRole) {
-  // Deprecated: use centralized mapping
-  return getRoleDefaultRoute(userRole)
 }

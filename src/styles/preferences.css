@@ -1,0 +1,139 @@
+/**
+ * User-preference effects.
+ *
+ * WHY THIS FILE EXISTS
+ * `preferencesStore.applyAccessibilitySettings()` has always added
+ * `.high-contrast`, `.large-text` and `.reduced-motion` to <html>. Nothing in
+ * the codebase styled any of them — a search for all three returned zero rules
+ * outside the store itself. So every accessibility toggle on the preferences
+ * page saved a value, persisted it to localStorage, and changed nothing at all.
+ *
+ * That is the same defect class this project has chased everywhere else: a
+ * control that reports a state the system does not actually have. It matters
+ * more here than most, because the person switching on "High contrast" or
+ * "Larger text" is the one user who cannot work around it being a placebo.
+ *
+ * Scoped to `html.<class>` so nothing applies unless the preference is on.
+ */
+
+/* ── Larger text ──────────────────────────────────────────────────────────
+   Scales the root font size. Everything sized in rem follows; anything in px
+   deliberately does not, which keeps icon glyphs and hairline borders from
+   ballooning. */
+html.large-text {
+  font-size: 118.75%; /* 16px → 19px */
+}
+html.large-text .material-symbols-outlined {
+  font-size: 1.1em;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   The app already respects the OS-level `prefers-reduced-motion` in several
+   components. This is the in-app override for someone who wants it here
+   without changing their whole system. `!important` is warranted: it must beat
+   per-component transition rules, which is the entire point. */
+html.reduced-motion *,
+html.reduced-motion *::before,
+html.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── High contrast ────────────────────────────────────────────────────────
+   Darkens text to near-black, strengthens every border, and removes the soft
+   shadows and tinted surfaces that wash out on a low-quality screen or in
+   bright sunlight — which is the realistic condition for a field user. */
+html.high-contrast {
+  --text-muted: #1f2937;
+  --border-color: #111827;
+}
+html.high-contrast body {
+  color: #000;
+}
+html.high-contrast .card,
+html.high-contrast .app-card,
+html.high-contrast .stat-card,
+html.high-contrast .setting-item,
+html.high-contrast .settings-section,
+html.high-contrast table,
+html.high-contrast .modal,
+html.high-contrast .step {
+  border: 2px solid #111827 !important;
+  box-shadow: none !important;
+}
+html.high-contrast input,
+html.high-contrast select,
+html.high-contrast textarea {
+  border: 2px solid #111827 !important;
+  color: #000 !important;
+  background: #fff !important;
+}
+html.high-contrast button,
+html.high-contrast .btn {
+  border-width: 2px !important;
+}
+/* Muted grey text is the first thing to fail in bright light. */
+html.high-contrast .muted,
+html.high-contrast .text-muted,
+html.high-contrast small {
+  color: #1f2937 !important;
+}
+html.high-contrast a {
+  text-decoration: underline;
+}
+
+/* ── Stronger focus indicators ────────────────────────────────────────────
+   A visible focus ring on everything reachable by keyboard. `:focus-visible`
+   rather than `:focus`, so it does not fire on mouse clicks. */
+html.focus-indicators :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #0b57d0 !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+}
+
+/* ── Compact mode ─────────────────────────────────────────────────────────
+   Tightens vertical rhythm for users working through long queues on a small
+   screen. Padding only — never font size, which would undo Larger text if both
+   were on. */
+html.compact-mode .card,
+html.compact-mode .app-card,
+html.compact-mode .settings-section,
+html.compact-mode .setting-item,
+html.compact-mode .step {
+  padding-top: 0.6rem !important;
+  padding-bottom: 0.6rem !important;
+}
+html.compact-mode .container {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+html.compact-mode table :is(td, th) {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+/* ── Colour-blind support ─────────────────────────────────────────────────
+   Status in this app is carried almost entirely by red/amber/green, which is
+   precisely the axis a deuteranope cannot separate. This does not recolour
+   anything — it adds a NON-COLOUR cue, so the meaning survives without it. */
+html.color-blind-support .status-badge,
+html.color-blind-support .badge {
+  border: 2px solid currentColor !important;
+  font-weight: 700 !important;
+}
+html.color-blind-support .status-badge.green::before,
+html.color-blind-support .badge.approved::before,
+html.color-blind-support .badge.settled::before {
+  content: '✓ ';
+}
+html.color-blind-support .status-badge.red::before,
+html.color-blind-support .badge.rejected::before,
+html.color-blind-support .badge.failed::before {
+  content: '✕ ';
+}
+html.color-blind-support .status-badge.yellow::before,
+html.color-blind-support .badge.pending::before {
+  content: '• ';
+}

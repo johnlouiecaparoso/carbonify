@@ -113,7 +113,7 @@ function dismiss() {
   position: relative;
   background: var(--bg-secondary, #f8fdf8);
   border: 1px solid var(--border-color, #d1e7dd);
-  border-left: 4px solid var(--primary-color, #069e2d);
+  border-left: 4px solid var(--primary-color, #058526);
   border-radius: 0.75rem;
   padding: 1.5rem 1.75rem;
 }
@@ -144,7 +144,7 @@ function dismiss() {
 }
 
 .onboarding-title .material-symbols-outlined {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
 }
 
 .onboarding-subtitle {
@@ -172,7 +172,7 @@ function dismiss() {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
   font-size: 0.78rem;
   font-weight: 700;
@@ -194,7 +194,7 @@ function dismiss() {
 }
 
 .step-link {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 600;
   font-size: 0.85rem;
   text-decoration: none;

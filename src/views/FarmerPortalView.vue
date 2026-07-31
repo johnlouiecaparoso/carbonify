@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import {
   getMyParcels,
   createParcel,
@@ -15,9 +16,11 @@ import {
   getMyCarbonParticipation,
   unattributableDeliveries,
   aggregateParcelPerformance,
+  acknowledgeDeliveryPayment,
 } from '@/services/farmerService'
 import { FARM_CROP_TYPES, PARCEL_STATUSES, cropTypeLabel } from '@/constants/farmer'
 import { biomassTypeLabel } from '@/constants/biomass'
+import { peso, shortDate } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
@@ -28,6 +31,7 @@ const acceptedRfqs = ref([])
 const carbon = ref([])
 const busyId = ref(null)
 const actionError = ref('')
+const sectionErrors = ref({ parcels: false, deliveries: false, rfqs: false })
 
 // Parcel form (inline)
 const showParcelForm = ref(false)
@@ -39,6 +43,58 @@ const deliveryRfq = ref(null)
 const deliveryForm = ref(emptyDelivery())
 const savingDelivery = ref(false)
 const uploadingProof = ref(false)
+
+// Payment dispute modal — the farmer's half of the two-sided payment record (#26)
+const disputeDelivery = ref(null)
+const disputeNote = ref('')
+
+const RESOLUTION_LABELS = {
+  paid_confirmed: 'Carbonify established that the payment was made',
+  unpaid_confirmed: 'Carbonify established that the payment was not made',
+  withdrawn: 'the report was withdrawn',
+  other: 'closed with a note',
+}
+
+function resolutionLabel(code) {
+  return RESOLUTION_LABELS[code] || 'closed'
+}
+
+/**
+ * The payment badge reads BOTH sides of the record. `payment_status` alone is
+ * the buyer's assertion, and showing it as "paid" was the #26 defect: the farmer
+ * has no way to tell an agreed payment from a claimed one.
+ */
+function paymentBadge(d) {
+  if (d?.farmer_payment_ack === 'disputed') return { cls: 'disputed', label: 'disputed' }
+  if (d?.farmer_payment_ack === 'confirmed') return { cls: 'paid', label: 'paid' }
+  if (d?.payment_status === 'paid') return { cls: 'claimed', label: 'buyer says paid' }
+  return { cls: 'unpaid', label: 'unpaid' }
+}
+
+function openDispute(d) {
+  disputeDelivery.value = d
+  disputeNote.value = ''
+  actionError.value = ''
+}
+
+/**
+ * Record the farmer's answer to the buyer's assertion. `confirm = false` needs a
+ * reason (the RPC enforces it as well — this is the friendly half).
+ */
+async function answerPayment(d, confirm, note = '') {
+  busyId.value = d.id
+  actionError.value = ''
+  try {
+    const updated = await acknowledgeDeliveryPayment(d, confirm, note)
+    const i = deliveries.value.findIndex((x) => x.id === (updated?.id || d.id))
+    if (i !== -1) deliveries.value[i] = updated || deliveries.value[i]
+    disputeDelivery.value = null
+  } catch (err) {
+    actionError.value = err?.message || 'Could not record your response.'
+  } finally {
+    busyId.value = null
+  }
+}
 
 function emptyParcel() {
   return {
@@ -75,6 +131,18 @@ const totalAttributed = computed(() =>
 )
 const excluded = computed(() => unattributableDeliveries(deliveries.value))
 
+const anySectionFailed = computed(() => Object.values(sectionErrors.value).some(Boolean))
+
+/** "deliveries", "parcels and deliveries", … — named so the warning is specific. */
+const failedSectionLabel = computed(() => {
+  const parts = []
+  if (sectionErrors.value.parcels) parts.push('parcels')
+  if (sectionErrors.value.deliveries) parts.push('deliveries')
+  if (sectionErrors.value.rfqs) parts.push('accepted quotes')
+  if (parts.length <= 1) return parts[0] || 'farm data'
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+})
+
 /** parcelId → { performance, deliveredTrailingYear, … } for the parcel cards. */
 const performanceByParcel = computed(() => {
   const rows = aggregateParcelPerformance(parcels.value, deliveries.value)
@@ -89,16 +157,8 @@ function performanceTone(perf) {
   return 'ok'
 }
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 function qty(n) {
   return Number(n || 0).toLocaleString('en-PH')
-}
-function shortDate(d) {
-  return d
-    ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-    : '—'
 }
 function rfqLabel(rfq) {
   return `${biomassTypeLabel(rfq.product_type)}${rfq.product_title ? ' · ' + rfq.product_title : ''}`
@@ -114,23 +174,44 @@ const deliveryEstimate = computed(() =>
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [p, d, r, c] = await Promise.all([
-      getMyParcels(),
-      getMyDeliveries(),
-      getMyAcceptedRfqs(),
-      getMyCarbonParticipation(),
-    ])
-    parcels.value = p
-    deliveries.value = d
-    acceptedRfqs.value = r
-    carbon.value = c
-  } catch (err) {
-    console.error('Failed to load farmer portal:', err)
-    loadError.value = err?.message || 'We could not load your farm data right now.'
-  } finally {
-    loading.value = false
+
+  // allSettled, not all: these are four independent parts of one farm. A
+  // farmer on a rural connection should not lose their parcels because the
+  // deliveries query timed out, and — more importantly — an empty list must not
+  // be presented as a fact about their farm. Every read below now throws on
+  // failure instead of returning [], so a rejection here is a real failure and
+  // an empty array is a real emptiness.
+  const [p, d, r, c] = await Promise.allSettled([
+    getMyParcels(),
+    getMyDeliveries(),
+    getMyAcceptedRfqs(),
+    getMyCarbonParticipation(),
+  ])
+
+  if (p.status === 'fulfilled') parcels.value = p.value || []
+  if (d.status === 'fulfilled') deliveries.value = d.value || []
+  if (r.status === 'fulfilled') acceptedRfqs.value = r.value || []
+  // Carbon participation degrades to [] inside the service by design (it is
+  // gated on migration #31), so it never rejects and needs no branch here.
+  if (c.status === 'fulfilled') carbon.value = c.value || []
+
+  sectionErrors.value = {
+    parcels: p.status === 'rejected',
+    deliveries: d.status === 'rejected',
+    rfqs: r.status === 'rejected',
   }
+  for (const [label, res] of [['parcels', p], ['deliveries', d], ['accepted quotes', r]]) {
+    if (res.status === 'rejected') console.error(`Failed to load ${label}:`, res.reason)
+  }
+
+  // Only a total failure replaces the page; anything partial is reported in the
+  // section it belongs to, so the rest of the farm stays usable.
+  if (p.status === 'rejected' && d.status === 'rejected' && r.status === 'rejected') {
+    loadError.value =
+      p.reason?.message || 'We could not load your farm data right now.'
+  }
+
+  loading.value = false
 }
 
 async function saveParcel() {
@@ -163,6 +244,24 @@ async function changeParcelStatus(parcel, status) {
 }
 
 async function removeParcel(parcel) {
+  // Deleting a parcel was a single click with no confirmation — on the portal
+  // whose users are least likely to expect an irreversible action to be one tap
+  // away, while the developer dashboard confirms before deleting a project.
+  //
+  // farmer_deliveries.parcel_id is ON DELETE SET NULL, so the delivery and
+  // earnings records survive; what is lost for good is the link between them
+  // and the land they came from, and aggregateParcelPerformance skips any
+  // delivery without a parcel_id. So the yield history for this parcel
+  // disappears. Say that, with the count, rather than just "are you sure?".
+  const linked = deliveries.value.filter((d) => d.parcel_id === parcel.id).length
+  const consequence = linked
+    ? `\n\n${linked} recorded ${linked === 1 ? 'delivery stays' : 'deliveries stay'} in your history, but ${linked === 1 ? 'it' : 'they'} will no longer count towards this parcel's yield performance.`
+    : ''
+
+  if (!window.confirm(`Delete the parcel "${parcel.name}"? This cannot be undone.${consequence}`)) {
+    return
+  }
+
   busyId.value = parcel.id
   actionError.value = ''
   try {
@@ -228,13 +327,12 @@ onMounted(load)
 
 <template>
   <div class="farmer">
-    <header class="page-head">
-      <h1>Farmer Portal</h1>
-      <p>
-        Register your plantation parcels, log feedstock deliveries against accepted quotes, and
-        track what you've been paid.
-      </p>
-    </header>
+    <PageHeader
+      title="Farmer Portal"
+      description="Register your plantation parcels, log feedstock deliveries against accepted quotes, and track what you've been paid."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="loadError" class="notice error">
@@ -243,15 +341,39 @@ onMounted(load)
     </div>
 
     <template v-else>
+      <!-- The stat strip is computed from whatever loaded, so a failed section
+           renders as PHP 0.00 and 0 ha — the most confident-looking numbers on
+           the page, and wrong. The per-section notices further down explain
+           each failure in place, but a farmer reads these figures first, so the
+           warning has to be here too. -->
+      <div v-if="anySectionFailed" class="notice warn" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+        <div>
+          <strong>These totals are incomplete.</strong>
+          We couldn't load your {{ failedSectionLabel }}, so the figures below are lower than your
+          real ones — they are not what you have earned or delivered.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+      </div>
+
       <!-- Headline numbers -->
       <div class="stats">
         <div class="stat">
-          <span class="stat-label">Paid to date</span>
+          <span class="stat-label">Recorded as paid</span>
           <span class="stat-value">{{ peso(summary.totalEarned) }}</span>
-          <span class="stat-sub">{{ summary.paidCount }} settled</span>
+          <!-- "settled" was the wrong word for a buyer's assertion. The sub-line
+               now says how much of this total the farmer has actually agreed to. -->
+          <span class="stat-sub">
+            {{ summary.paidCount }} recorded<span v-if="summary.awaitingAck">
+              · {{ summary.awaitingAck }} awaiting your confirmation</span
+            ><span v-if="summary.disputedCount"> · {{ summary.disputedCount }} disputed</span>
+          </span>
         </div>
         <div class="stat">
-          <span class="stat-label">Awaiting payment</span>
+          <!-- "Owed by buyers", not "Awaiting payment": nothing is queued to
+               pay out here. Carbonify holds no money for the farmer and settles
+               nothing — the buyer pays them directly (backlog #26). -->
+          <span class="stat-label">Owed by buyers</span>
           <span class="stat-value owed">{{ peso(summary.amountOwed) }}</span>
           <span class="stat-sub">{{ summary.confirmedCount - summary.paidCount }} confirmed, unpaid</span>
         </div>
@@ -355,7 +477,13 @@ onMounted(load)
           </div>
         </div>
 
-        <div v-if="!parcels.length && !showParcelForm" class="empty">
+        <div v-if="sectionErrors.parcels" class="notice error sm">
+          We couldn't load your parcels — this is not the same as having none, so please don't
+          re-register land you already have.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!parcels.length && !showParcelForm" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">agriculture</span>
           <p class="muted">No parcels registered yet. Add your first plantation parcel to get started.</p>
           <button class="btn-primary" @click="showParcelForm = true">Add parcel</button>
@@ -453,12 +581,23 @@ onMounted(load)
             <button class="btn-primary sm" @click="openDelivery(rfq)">Log delivery</button>
           </div>
         </div>
+        <div v-else-if="sectionErrors.rfqs" class="notice error sm">
+          We couldn't load your accepted quotes, so logging a delivery is unavailable right now. If a
+          buyer has accepted a quote, it is still there — this is a problem on our side.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
         <div v-else class="notice info sm">
           You have no accepted quotes yet. Deliveries are logged against an accepted quote —
           <router-link to="/biomass/sell">list your feedstock</router-link> so buyers can request one.
         </div>
 
-        <div v-if="!deliveries.length" class="empty">
+        <div v-if="sectionErrors.deliveries" class="notice error sm">
+          We couldn't load your deliveries, so the totals above are incomplete — they are not your
+          real earnings.
+          <button class="link-retry" @click="load">Try again</button>
+        </div>
+
+        <div v-else-if="!deliveries.length" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">local_shipping</span>
           <p class="muted">No deliveries logged yet.</p>
         </div>
@@ -471,8 +610,10 @@ onMounted(load)
             </div>
             <div class="badges">
               <span class="badge" :class="d.status">{{ d.status }}</span>
-              <span v-if="d.status === 'confirmed'" class="badge" :class="d.payment_status">
-                {{ d.payment_status }}
+              <!-- Reads the two-sided state, not payment_status alone: a bare
+                   "paid" badge is the buyer's word presented as the platform's. -->
+              <span v-if="d.status === 'confirmed'" class="badge" :class="paymentBadge(d).cls">
+                {{ paymentBadge(d).label }}
               </span>
             </div>
           </div>
@@ -485,9 +626,79 @@ onMounted(load)
           <div v-if="d.status === 'rejected' && d.decision_note" class="notice error sm inline">
             Buyer rejected: {{ d.decision_note }}
           </div>
-          <div v-else-if="d.payment_status === 'paid'" class="notice ok sm inline">
-            Paid {{ shortDate(d.paid_at) }}<span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>
-          </div>
+          <!-- "Paid" here is the BUYER's assertion, not a settled platform
+               payment: mark_farmer_delivery_paid only sets a flag and stores a
+               reference — no money moves through Carbonify (backlog #26). Saying
+               so plainly is the difference between a record and a receipt, and
+               the farmer is the one who bears the cost of confusing them.
+
+               Since 2026-07-29 the record is two-sided: the buyer asserts, the
+               farmer confirms or disputes. Never render the assertion alone. -->
+          <template v-else-if="d.status === 'confirmed'">
+            <!-- The farmer has already answered. -->
+            <div v-if="d.farmer_payment_ack === 'confirmed'" class="notice ok sm inline">
+              <div>
+                <strong>You confirmed you were paid</strong>
+                <span v-if="d.farmer_payment_ack_at"> on {{ shortDate(d.farmer_payment_ack_at) }}</span>
+                <span v-if="d.payment_reference"> · buyer's ref {{ d.payment_reference }}</span>
+              </div>
+            </div>
+
+            <div v-else-if="d.farmer_payment_ack === 'disputed'" class="notice error sm inline">
+              <div>
+                <strong>You reported that you have not been paid</strong>
+                <span v-if="d.farmer_payment_ack_at"> on {{ shortDate(d.farmer_payment_ack_at) }}</span>.
+                Carbonify has been notified and will look into it.
+              </div>
+              <p v-if="d.farmer_payment_ack_note" class="note">"{{ d.farmer_payment_ack_note }}"</p>
+              <div v-if="d.payment_resolution" class="paid-caveat">
+                <strong>Carbonify's record:</strong> {{ resolutionLabel(d.payment_resolution) }}
+                <span v-if="d.payment_resolved_at"> ({{ shortDate(d.payment_resolved_at) }})</span>.
+                {{ d.payment_resolution_note }}
+              </div>
+              <div class="pay-actions">
+                <button class="btn-primary sm" :disabled="busyId === d.id" @click="answerPayment(d, true)">
+                  I have now been paid
+                </button>
+              </div>
+            </div>
+
+            <!-- The buyer says they paid. Awaiting the farmer's answer. -->
+            <div v-else-if="d.payment_status === 'paid'" class="notice warn sm inline">
+              <div>
+                <strong>The buyer says they paid you</strong>
+                <span v-if="d.paid_at"> on {{ shortDate(d.paid_at) }}</span
+                ><span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>.
+              </div>
+              <div class="paid-caveat">
+                This is what the buyer recorded — Carbonify does not hold or transfer this money.
+                Check your own cash, GCash or bank record, then tell us what actually happened.
+              </div>
+              <div class="pay-actions">
+                <button class="btn-primary sm" :disabled="busyId === d.id" @click="answerPayment(d, true)">
+                  Yes, I received it
+                </button>
+                <button class="btn-ghost sm danger" :disabled="busyId === d.id" @click="openDispute(d)">
+                  No, I was not paid
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirmed but the buyer has not even claimed to have paid. This
+                 is the common real-world failure and the product had no way to
+                 express it at all before #26. -->
+            <div v-else class="notice info sm inline">
+              <div>
+                The buyer confirmed this delivery but has not recorded a payment yet. Payment is
+                arranged directly between you and the buyer.
+              </div>
+              <div class="pay-actions">
+                <button class="btn-ghost sm danger" :disabled="busyId === d.id" @click="openDispute(d)">
+                  I have not been paid
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </section>
 
@@ -558,7 +769,7 @@ onMounted(load)
     </template>
 
     <!-- Log-delivery modal -->
-    <div v-if="deliveryRfq" class="modal-overlay" @click.self="deliveryRfq = null">
+    <div v-if="deliveryRfq" class="modal-overlay" v-modal-a11y="() => (deliveryRfq = null)" @click.self="deliveryRfq = null">
       <div class="modal">
         <h2>Log a delivery</h2>
         <p class="muted small">
@@ -620,13 +831,59 @@ onMounted(load)
         </div>
       </div>
     </div>
+
+    <!-- Report-non-payment modal (#26). A dispute carries a reason: it is a
+         claim against a counterparty, and staff can only act on the record. -->
+    <div
+      v-if="disputeDelivery"
+      class="modal-overlay"
+      v-modal-a11y="() => (disputeDelivery = null)"
+      @click.self="disputeDelivery = null"
+    >
+      <div class="modal">
+        <h2>Report that you have not been paid</h2>
+        <p class="muted small">
+          {{ qty(disputeDelivery.quantity) }} {{ disputeDelivery.unit }} delivered
+          {{ shortDate(disputeDelivery.delivered_on) }}<span v-if="disputeDelivery.total_amount != null">
+            · {{ peso(disputeDelivery.total_amount) }}</span
+          >
+        </p>
+
+        <div class="notice info sm">
+          Carbonify does not hold or transfer feedstock payments — the buyer pays you directly. What
+          we can do is put this on the record, notify the buyer, and escalate it to Carbonify staff.
+        </div>
+
+        <div class="form-row">
+          <label for="dispute-note">What happened?</label>
+          <textarea
+            id="dispute-note"
+            v-model="disputeNote"
+            rows="4"
+            placeholder="e.g. The buyer marked this paid on 12 July but nothing has arrived in my GCash. I have messaged them twice."
+          ></textarea>
+        </div>
+
+        <p v-if="actionError" class="notice error sm">{{ actionError }}</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" @click="disputeDelivery = null">Cancel</button>
+          <button
+            class="btn-primary"
+            :disabled="!disputeNote.trim() || busyId === disputeDelivery.id"
+            @click="answerPayment(disputeDelivery, false, disputeNote)"
+          >
+            {{ busyId === disputeDelivery.id ? 'Sending…' : 'Report non-payment' }}
+          </button>
+        </div>
+      </div>
+    </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.farmer { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; }
+.farmer { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 .opt { font-weight: 400; color: #9ca3af; }
@@ -640,7 +897,7 @@ onMounted(load)
 
 .tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; }
 .tabs button { background: none; border: none; padding: 10px 16px; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-.tabs button.active { color: #069e2d; border-bottom-color: #069e2d; }
+.tabs button.active { color: #058526; border-bottom-color: #058526; }
 .count { background: #e5e7eb; color: #374151; border-radius: 999px; padding: 1px 8px; font-size: 0.75rem; margin-left: 4px; }
 
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -648,14 +905,26 @@ onMounted(load)
 
 .notice { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; }
 .notice.error { background: #fee2e2; color: #991b1b; }
+/* Inherits the notice's colour so it reads as part of the sentence it ends. */
+.link-retry {
+  background: none;
+  border: none;
+  padding: 0 0 0 4px;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-retry:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .notice.info { background: #eff6ff; color: #1e40af; display: flex; gap: 12px; align-items: flex-start; }
 .notice.warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; display: flex; gap: 12px; align-items: flex-start; }
 .excl-list { margin: 6px 0 0; padding-left: 18px; }
 .carbon-badge { background: #d1fae5; color: #065f46; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 0.85rem; white-space: nowrap; height: fit-content; }
 .bar { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin: 12px 0 8px; }
-.bar-fill { height: 100%; background: #069e2d; border-radius: 999px; }
+.bar-fill { height: 100%; background: #058526; border-radius: 999px; }
 .bar-fill.low { background: #d97706; }
-.bar-fill.ok { background: #069e2d; }
+.bar-fill.ok { background: #058526; }
 .bar-fill.good { background: #047857; }
 .perf { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
 .perf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -665,8 +934,12 @@ onMounted(load)
 .perf-value.ok { color: #065f46; }
 .perf-value.good { color: #047857; }
 .notice.ok { background: #ecfdf5; color: #065f46; }
+.paid-caveat { margin-top: 4px; font-size: 0.82rem; opacity: 0.85; }
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; }
-.notice.inline { margin: 10px 0 0; }
+/* `info` and `warn` are flex rows for the icon+text layout used at the top of a
+   section. Inline notices stack a caveat and an action row under their sentence,
+   so they must not inherit that. */
+.notice.inline { margin: 10px 0 0; display: block; }
 .retry-btn { margin-top: 8px; padding: 6px 14px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 8px; font-weight: 600; cursor: pointer; }
 
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
@@ -698,8 +971,14 @@ onMounted(load)
 .badge.retired { background: #f3f4f6; color: #6b7280; }
 .badge.paid { background: #d1fae5; color: #065f46; }
 .badge.unpaid { background: #fef3c7; color: #92400e; }
+/* Deliberately NOT green: the buyer has claimed payment and the farmer has not
+   agreed yet. Only a farmer-confirmed payment gets the settled colour. */
+.badge.claimed { background: #fef3c7; color: #92400e; border: 1px dashed #d97706; }
+.badge.disputed { background: #fee2e2; color: #991b1b; }
 
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+.pay-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 7px 12px; font-size: 0.85rem; }
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
@@ -707,7 +986,7 @@ onMounted(load)
 .btn-ghost.danger { color: #991b1b; border-color: #fecaca; }
 
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty p { margin: 12px auto 18px; max-width: 380px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }

@@ -1,18 +1,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyAssetLedger } from '@/services/assetLedgerService'
+import { peso, num } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
 const rows = ref([])
 const totals = ref(null)
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function num(n) {
-  return Number(n || 0).toLocaleString('en-PH')
-}
 function statusLabel(s) {
   return String(s || '').replace(/_/g, ' ')
 }
@@ -46,10 +42,12 @@ onMounted(load)
 
 <template>
   <div class="asset-ledger">
-    <header class="page-head">
-      <h1>Carbon Asset Management</h1>
-      <p>Track every credit across its lifecycle — issued, sold, retired, and on hand — per project.</p>
-    </header>
+    <PageHeader
+      title="Carbon Asset Management"
+      description="Track every credit across its lifecycle — issued, sold, retired, and on hand — per project."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -93,7 +91,10 @@ onMounted(load)
       <section class="panel">
         <h2>Assets by project</h2>
         <div class="table-scroll">
-          <table class="data-table">
+          <!-- data-label on every cell drives the under-640px card layout
+               (src/styles/responsive-table.css); ten columns is the worst
+               horizontal scroll in the app. -->
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr>
                 <th>Project</th>
@@ -110,33 +111,33 @@ onMounted(load)
             </thead>
             <tbody>
               <tr v-for="row in rows" :key="row.projectId">
-                <td>
+                <td data-label="Project">
                   <router-link :to="`/projects/${row.projectId}`" class="proj-link">
                     {{ row.projectTitle }}
                   </router-link>
                 </td>
-                <td><span class="badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
-                <td class="num">{{ num(row.estimated) }}</td>
-                <td class="num">{{ num(row.issued) }}</td>
-                <td class="num">{{ num(row.pending) }}</td>
-                <td class="num">{{ num(row.sold) }}</td>
-                <td class="num">{{ num(row.retired) }}</td>
-                <td class="num">{{ num(row.inventory) }}</td>
-                <td class="num">{{ peso(row.inventoryValue) }}</td>
-                <td class="num">{{ peso(row.soldValue) }}</td>
+                <td data-label="Status"><span class="badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
+                <td class="num" data-label="Estimated">{{ num(row.estimated) }}</td>
+                <td class="num" data-label="Issued">{{ num(row.issued) }}</td>
+                <td class="num" data-label="Pending">{{ num(row.pending) }}</td>
+                <td class="num" data-label="Sold">{{ num(row.sold) }}</td>
+                <td class="num" data-label="Retired">{{ num(row.retired) }}</td>
+                <td class="num" data-label="Available">{{ num(row.inventory) }}</td>
+                <td class="num" data-label="Inventory value">{{ peso(row.inventoryValue) }}</td>
+                <td class="num" data-label="Sold value">{{ peso(row.soldValue) }}</td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
                 <td colspan="2"><strong>Total</strong></td>
-                <td class="num"><strong>{{ num(totals.estimated) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.issued) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.pending) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.sold) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.retired) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.inventory) }}</strong></td>
-                <td class="num"><strong>{{ peso(totals.inventoryValue) }}</strong></td>
-                <td class="num"><strong>{{ peso(totals.soldValue) }}</strong></td>
+                <td class="num" data-label="Estimated"><strong>{{ num(totals.estimated) }}</strong></td>
+                <td class="num" data-label="Issued"><strong>{{ num(totals.issued) }}</strong></td>
+                <td class="num" data-label="Pending"><strong>{{ num(totals.pending) }}</strong></td>
+                <td class="num" data-label="Sold"><strong>{{ num(totals.sold) }}</strong></td>
+                <td class="num" data-label="Retired"><strong>{{ num(totals.retired) }}</strong></td>
+                <td class="num" data-label="Available"><strong>{{ num(totals.inventory) }}</strong></td>
+                <td class="num" data-label="Inventory value"><strong>{{ peso(totals.inventoryValue) }}</strong></td>
+                <td class="num" data-label="Sold value"><strong>{{ peso(totals.soldValue) }}</strong></td>
               </tr>
             </tfoot>
           </table>
@@ -169,7 +170,7 @@ onMounted(load)
             <span class="muted small">{{ num(row.buyerCount) }} buyer(s) · {{ num(row.sold) }} credits</span>
           </div>
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table stack-on-mobile">
               <thead>
                 <tr>
                   <th>Buyer</th>
@@ -181,14 +182,14 @@ onMounted(load)
               </thead>
               <tbody>
                 <tr v-for="buyer in row.buyers" :key="buyer.buyerId || 'unknown'">
-                  <td>
+                  <td data-label="Buyer">
                     {{ buyer.name }}
                     <span v-if="!buyer.buyerId" class="muted small">(unattributed)</span>
                   </td>
-                  <td class="num">{{ num(buyer.quantity) }}</td>
-                  <td class="num">{{ peso(buyer.value) }}</td>
-                  <td class="num">{{ num(buyer.purchases) }}</td>
-                  <td class="num">{{ shortDate(buyer.lastPurchaseAt) }}</td>
+                  <td class="num" data-label="Credits">{{ num(buyer.quantity) }}</td>
+                  <td class="num" data-label="Value">{{ peso(buyer.value) }}</td>
+                  <td class="num" data-label="Purchases">{{ num(buyer.purchases) }}</td>
+                  <td class="num" data-label="Last purchase">{{ shortDate(buyer.lastPurchaseAt) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -207,18 +208,19 @@ onMounted(load)
       </p>
       <router-link to="/submit-project" class="btn-primary">Submit a project</router-link>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .asset-ledger {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+.page-body {
   max-width: 1100px;
   margin: 0 auto;
   padding: 24px 16px;
-}
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
 }
 .sub { margin: -6px 0 14px; }
 .buyer-block { margin-bottom: 22px; }
@@ -232,12 +234,8 @@ onMounted(load)
   flex-wrap: wrap;
 }
 .empty-inline { text-align: center; padding: 28px 16px; color: #6b7280; }
-.empty-inline .material-symbols-outlined { font-size: 34px; color: #069e2d; }
+.empty-inline .material-symbols-outlined { font-size: 34px; color: #058526; }
 .empty-inline p { margin: 8px 0 0; }
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
-}
 .muted {
   color: #6b7280;
 }
@@ -328,7 +326,7 @@ onMounted(load)
   border-bottom: none;
 }
 .proj-link {
-  color: #069e2d;
+  color: #058526;
   font-weight: 600;
   text-decoration: none;
 }
@@ -366,7 +364,7 @@ onMounted(load)
   margin: 12px 0 0;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -385,7 +383,7 @@ onMounted(load)
 }
 .empty-icon {
   font-size: 48px;
-  color: #069e2d;
+  color: #058526;
 }
 .empty h2 {
   margin: 12px 0 6px;
@@ -398,9 +396,6 @@ onMounted(load)
 @media (max-width: 640px) {
   .asset-ledger {
     padding: 16px 12px;
-  }
-  .page-head h1 {
-    font-size: 1.35rem;
   }
   .cards {
     grid-template-columns: 1fr;

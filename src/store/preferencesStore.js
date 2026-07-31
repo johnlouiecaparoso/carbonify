@@ -8,15 +8,22 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   // Language preferences
   const language = ref(localStorage.getItem('language') || 'en')
-  const availableLanguages = ref([
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
-    { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-    { code: 'pt', name: 'Português', flag: '🇵🇹' },
-    { code: 'zh', name: '中文', flag: '🇨🇳' },
-    { code: 'ja', name: '日本語', flag: '🇯🇵' },
-  ])
+
+  /**
+   * English only, and that is the honest list.
+   *
+   * This used to offer seven languages — Spanish, French, German, Portuguese,
+   * Chinese, Japanese — each with a flag emoji. No i18n library is installed
+   * (DEFERRED_BACKLOG #27) and `loadLanguagePack()` only ever wrote a line to
+   * the console, so choosing any of them changed precisely nothing while
+   * looking like it had worked.
+   *
+   * Filipino was never on that list, which is the part that mattered: the users
+   * for whom English is an actual obstacle — smallholder farmers and LGU staff
+   * — were the ones offered nothing. Offering six languages we do not have,
+   * while missing the one we need, was worse than offering none.
+   */
+  const availableLanguages = ref([{ code: 'en', name: 'English' }])
 
   // Notification preferences
   const notifications = ref({
@@ -132,9 +139,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     savePreferences()
   }
 
-  // Display management
+  // Display management. Re-applies the classes because `animations` and
+  // `compactMode` live here but are rendered by the accessibility class set.
   function updateDisplaySettings(settings) {
     display.value = { ...display.value, ...settings }
+    applyAccessibilitySettings()
     savePreferences()
   }
 
@@ -151,25 +160,39 @@ export const usePreferencesStore = defineStore('preferences', () => {
     savePreferences()
   }
 
+  /**
+   * Put every active preference on <html> as a class. `src/styles/preferences.css`
+   * is what gives those classes meaning — until it existed, all of this ran and
+   * did nothing.
+   *
+   * Two bugs fixed here, both of which made a toggle a placebo:
+   *
+   *  1. It read `accessibility.reducedMotion`, which nothing ever wrote. The
+   *     preferences page has an **Animations** switch under Display, and it
+   *     writes `display.animations`. Two different keys, so switching
+   *     animations off set a value no one read while the class this checked was
+   *     never set by anything. Motion now follows `display.animations`.
+   *  2. `focusIndicators`, `colorBlindSupport` and `compactMode` were saved and
+   *     never applied at all.
+   */
   function applyAccessibilitySettings() {
     const root = document.documentElement
+    const a = accessibility.value
+    const d = display.value
 
-    if (accessibility.value.highContrast) {
-      root.classList.add('high-contrast')
-    } else {
-      root.classList.remove('high-contrast')
+    // Animations OFF means reduced motion ON — the UI states it the positive
+    // way round, so invert here rather than making users think about it.
+    const flags = {
+      'high-contrast': a.highContrast,
+      'large-text': a.largeText,
+      'focus-indicators': a.focusIndicators,
+      'color-blind-support': a.colorBlindSupport,
+      'reduced-motion': d.animations === false,
+      'compact-mode': d.compactMode === true,
     }
 
-    if (accessibility.value.largeText) {
-      root.classList.add('large-text')
-    } else {
-      root.classList.remove('large-text')
-    }
-
-    if (accessibility.value.reducedMotion) {
-      root.classList.add('reduced-motion')
-    } else {
-      root.classList.remove('reduced-motion')
+    for (const [className, on] of Object.entries(flags)) {
+      root.classList.toggle(className, Boolean(on))
     }
   }
 

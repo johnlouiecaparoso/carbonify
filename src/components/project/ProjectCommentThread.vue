@@ -6,6 +6,10 @@
     </h4>
 
     <div v-if="loading" class="thread-state">Loading conversation…</div>
+    <div v-else-if="loadError" class="thread-state thread-error">
+      {{ loadError }}
+      <button type="button" class="thread-retry" @click="load">Try again</button>
+    </div>
     <div v-else-if="comments.length === 0" class="thread-state">
       No messages yet.{{ canPost ? ' Start the conversation below.' : '' }}
     </div>
@@ -71,6 +75,7 @@ const draft = ref('')
 const postInternal = ref(false)
 const posting = ref(false)
 const error = ref('')
+const loadError = ref('')
 
 const currentUserId = computed(() => store.session?.user?.id || null)
 const placeholder = computed(() =>
@@ -90,8 +95,20 @@ function formatTime(value) {
 
 async function load() {
   loading.value = true
-  comments.value = await listProjectComments(props.projectId)
-  loading.value = false
+  loadError.value = ''
+  try {
+    comments.value = await listProjectComments(props.projectId)
+  } catch (err) {
+    // Two bugs in one line before this: a throw left `loading` true forever, so
+    // the thread sat on "Loading conversation…"; and returning [] instead
+    // rendered an empty thread, which reads as "the verifier has asked you
+    // nothing" on the screen where revisions are requested.
+    console.error('Failed to load project comments:', err)
+    comments.value = []
+    loadError.value = 'We could not load this conversation. Please try again.'
+  } finally {
+    loading.value = false
+  }
 }
 
 async function submit() {
@@ -219,7 +236,7 @@ defineExpose({ refresh: load })
   padding: 0.5rem 1.1rem;
   border: none;
   border-radius: 8px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   font-weight: 600;
   font-size: 0.85rem;
@@ -228,6 +245,23 @@ defineExpose({ refresh: load })
 .comment-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.thread-error {
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.thread-retry {
+  background: #fff;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 0.25rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: inherit;
+  cursor: pointer;
 }
 .comment-error {
   color: #dc2626;

@@ -11,6 +11,7 @@
 
 import { generateReceipt } from '@/services/receiptService'
 import { getSetting } from '@/services/settingsService'
+import { pesoCode } from '@/utils/format'
 
 const DEFAULT_VAT_RATE = 12 // % — Philippine VAT
 
@@ -34,14 +35,14 @@ function round2(n) {
   return Math.round((Number(n) || 0) * 100) / 100
 }
 
-function peso(n) {
-  return `PHP ${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+// `pesoCode`, not `peso`: a VAT invoice is a tax document and carries the ISO
+// currency code (`PHP 1,234.50`), not the `₱` glyph the rest of the UI uses.
+const peso = pesoCode
 
 /** Load the platform's tax identity from app_settings (with placeholders). */
 async function getSellerTaxIdentity() {
   const [name, tin, address, businessStyle] = await Promise.all([
-    getSetting('company_name', 'Carbonify (pre-production)'),
+    getSetting('company_name', 'Carbonify'),
     getSetting('company_tin', 'TIN: ___-___-___-___'),
     getSetting('company_address', 'Registered address not yet configured'),
     getSetting('company_business_style', 'Carbon credit marketplace'),

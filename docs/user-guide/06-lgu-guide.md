@@ -16,14 +16,19 @@ The LGU User role is **provisioned by a Carbonify administrator**. Unlike the Pr
 
 ## The LGU dashboard (`/lgu`)
 
-The page is titled **"LGU Tools"** and is organized into four tabs:
+The page is titled **"LGU Tools"** and is organized into six tabs:
 
 | Tab | Purpose |
 |-----|---------|
 | **MSW Calculator** | Estimate landfill emissions and diversion impact |
+| **Land Use** | Estimate annual CO₂e sequestration from restoration (mangrove, reforestation, bamboo, agroforestry) across hectares in your jurisdiction |
 | **Records & Diversion** | Your saved emissions/diversion records |
-| **City ESG** | Aggregated environmental summary + export |
+| **City ESG** | Aggregated environmental summary + export (CSV and PDF) |
+| **Projects in My Area** | Every carbon project hosted in your municipality, at any stage — not only the validated ones you can endorse |
 | **Endorsements** | Endorse validated community projects |
+
+> *This table listed four tabs until 2026-07-26. **Land Use** and **Projects in My Area** had shipped
+> but were never documented here.*
 
 ---
 
@@ -100,3 +105,29 @@ Endorsing signals local-government support for a project hosted in your jurisdic
 ## Where this fits for developers
 
 For project developers, an LGU endorsement is a mark of local support attached to their validated project. See the [Developer Guide](03-developer-guide.md) for the developer's side of the project lifecycle, and the [Verifier Guide](04-verifier-guide.md) for how projects reach validated status in the first place.
+
+---
+
+## Buying credits to offset your own emissions
+
+**New 2026-07-26.** Once you have quantified your municipality's emissions with the MSW calculator,
+the obvious next step is to offset some of them — and an LGU account can. Your sidebar now carries
+the buying path:
+
+| Group | What it gives you |
+|-------|-------------------|
+| **Buying** | Cart, Saved listings, Carbon calculator |
+| **Credits** | Portfolio, Retire credits, Certificates |
+| **Records** | Orders, Receipts, Reported problems |
+
+**Prerequisite:** the same as for any buyer — **KYC Level 1 (Basic)** or higher. Verification is under
+*KYC verification* in the menu under your avatar, alongside *Wallet*.
+
+**Retiring** is the step that matters for a city climate claim: it permanently removes a credit from
+circulation in your name and produces a certificate you can cite in a council or DENR/CCC report. A
+credit you merely *hold* is an asset; only a **retired** credit is an offset.
+
+> **Why this is called out as new.** These routes were always reachable by an LGU account — nothing
+> in the router blocked them — but nothing in the navigation offered them, so a municipality that had
+> just calculated its emissions had no signposted route to acting on them. Only the sidebar changed;
+> no new permission was granted.

@@ -278,19 +278,19 @@ export default {
           title: 'Browse Projects',
           description:
             'Explore verified carbon projects across forestry, renewable energy, and blue carbon initiatives.',
-          color: '#069e2d',
+          color: '#058526',
         },
         {
           title: 'Purchase Credits',
           description:
             'Buy carbon credits from projects that align with your values and sustainability goals.',
-          color: '#058e3f',
+          color: '#04701f',
         },
         {
           title: 'Retire & Impact',
           description:
             'Retire your credits to offset emissions and receive verified certificates of your climate action.',
-          color: '#04773b',
+          color: '#045c1a',
         },
       ],
     }
@@ -376,7 +376,7 @@ export default {
   background-clip: text;
   color: transparent;
   line-height: 1.1;
-  text-shadow: 0 4px 8px rgba(6, 158, 45, 0.2);
+  text-shadow: 0 4px 8px rgba(5, 133, 38, 0.2);
 }
 
 .hero-description {
@@ -511,21 +511,33 @@ export default {
   transform: translateY(-2px);
 }
 
-/* Stats Grid */
+/* Stats Grid
+ *
+ * MOBILE-FIRST, which it was not. The base rule declared `repeat(4, 1fr)` —
+ * applying at EVERY width — so four cards with 2rem of internal padding and
+ * 2rem gaps were forced onto a 390px phone. Measured: the row came out 697px
+ * wide and pushed the whole landing page sideways, on the first screen a
+ * visitor sees.
+ *
+ * The giveaway is the `@media (min-width: 768px)` block below, which sets
+ * `repeat(4, 1fr)` *again*. A redundant override means the base was intended to
+ * be the small-screen case and was never written that way. Two columns on a
+ * phone, four from 768px up.
+ */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
   max-width: 100%;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 1rem;
 }
 
 .stat-card {
   text-align: center;
   background: var(--bg-primary);
   border-radius: var(--radius-xl);
-  padding: 3rem 2rem;
+  padding: 1.25rem 0.75rem;
   box-shadow: var(--shadow-green);
   border: 2px solid var(--border-green-light);
   transition: all 0.3s ease;
@@ -914,8 +926,15 @@ export default {
     min-width: 16rem;
   }
 
+  /* Now a real override rather than a restatement of the base. */
   .stats-grid {
     grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    padding: 0 2rem;
+  }
+
+  .stat-card {
+    padding: 3rem 2rem;
   }
 
   .cta-buttons {

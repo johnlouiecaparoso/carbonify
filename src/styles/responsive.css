@@ -1,0 +1,109 @@
+/* ============================================================================
+ * Global responsive safety net.
+ *
+ * The app is largely responsive already (auto-fit grids, per-view breakpoints,
+ * an off-canvas sidebar, card-stacking tables). What was missing were the
+ * app-wide foundations that prevent whole classes of mobile breakage — most of
+ * all a box-sizing reset. Without it, any `width: 100%` element that also has
+ * padding or a border computes WIDER than its container, and those few extra
+ * pixels are exactly what produces the horizontal scrollbar and the "content
+ * slightly off the right edge" that plague phones.
+ *
+ * Loaded after tokens.css and before component styles (see main.js).
+ * ==========================================================================*/
+
+/* 1) The reset the app never had. Border-box is what nearly every rule here
+ *    already assumes (padded inputs, cards, buttons at width:100%). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 2) Kill horizontal overflow WITHOUT breaking the sticky header/sidebar.
+ *    `overflow-x: clip` (unlike `hidden`) does not create a scroll container,
+ *    so `position: sticky` on the header and rail keeps working. A stray wide
+ *    child is clipped instead of dragging the whole page sideways. */
+html {
+  overflow-x: clip;
+}
+
+body {
+  max-width: 100%;
+  /* Smoother momentum scrolling in the installed PWA on iOS. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 3) Media never overflows its column. height:auto keeps images undistorted. */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+/* Leaflet manages its own tile sizing; the global img cap above would shatter
+ * the map into misaligned tiles, so opt its imagery back out. */
+.leaflet-container img,
+.leaflet-container svg,
+.leaflet-container canvas {
+  max-width: none;
+}
+
+/* 4) Long unbreakable strings — wallet addresses, serials, emails, URLs — are a
+ *    common source of overflow on narrow screens. Give code/monospace runs a
+ *    break hint without forcing it on ordinary prose. */
+code,
+pre,
+.mono,
+.wallet-address,
+.serial {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 5) PWA standalone: respect the notch / status-bar safe areas so sticky
+ *    chrome isn't tucked under the system UI on installed devices. Paired with
+ *    viewport-fit=cover in index.html. Progressive — no effect where unsupported.
+ *
+ *    ⚠️ This block targeted `.app-header`, `header.app-header` and
+ *    `.app-shell-header`. NONE OF THOSE CLASSES EXIST anywhere in the app — the
+ *    header's root class is `.header` and the sidebar's is `.sidebar`. So the
+ *    whole rule had never matched a single element, while `viewport-fit=cover`
+ *    in index.html WAS extending content under the notch. An installed PWA on a
+ *    notched iPhone therefore drew its header beneath the status bar, which is
+ *    precisely the thing this block was written to prevent.
+ *
+ *    The same shape as the router guard and the KYC card: a correct rule
+ *    pointed at something that isn't there. */
+@supports (padding: max(0px)) {
+  @media (display-mode: standalone) {
+    /* Top inset: the header is `position: sticky; top: 0`, so it sits directly
+       under the status bar / notch. */
+    .header {
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .header-container {
+      padding-left: max(var(--spacing-md, 1rem), env(safe-area-inset-left));
+      padding-right: max(var(--spacing-md, 1rem), env(safe-area-inset-right));
+    }
+
+    /* The sidebar is pinned below the header; in landscape on a notched device
+       the left inset is what keeps it off the sensor housing. */
+    .sidebar {
+      padding-left: env(safe-area-inset-left);
+    }
+
+    /* Bottom inset: the iOS home indicator overlaps anything flush to the
+       bottom edge, which on this app is the sticky action bars under forms. */
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+}

@@ -146,7 +146,7 @@ const trust = [
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   display: flex;
   align-items: center;
@@ -175,7 +175,7 @@ const trust = [
   background: #fff;
 }
 .role-icon {
-  color: #069e2d;
+  color: #058526;
   font-size: 1.8rem;
 }
 .role-card h3 {
@@ -203,7 +203,7 @@ const trust = [
   content: '✓';
   position: absolute;
   left: 0;
-  color: #069e2d;
+  color: #058526;
   font-weight: 700;
 }
 .about-cta {
@@ -232,8 +232,8 @@ const trust = [
   background: #fff;
 }
 .cta-btn.primary {
-  background: #069e2d;
-  border-color: #069e2d;
+  background: #058526;
+  border-color: #058526;
   color: #fff;
 }
 .cta-btn.ghost {

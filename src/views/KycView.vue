@@ -216,12 +216,12 @@ load()
 }
 
 .page-header {
-  background: var(--primary-color, #10b981);
-  padding: 2rem 0;
+  background: var(--primary-color, #058526);
+  padding: 1.25rem 0;
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.5rem 0;
@@ -316,25 +316,25 @@ load()
 .form-input:focus,
 .form-select:focus {
   outline: none;
-  border-color: var(--primary-color, #069e2d);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(6, 158, 45, 0.1));
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(5, 133, 38, 0.1));
 }
 
 .upload-hint {
   display: block;
   font-size: 0.75rem;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   margin-top: 0.25rem;
 }
 
 .upload-ok {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-size: 0.85rem;
   margin-top: 0.25rem;
 }
 
 .form-message {
-  color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #058526);
   font-weight: 500;
   margin-bottom: 0.75rem;
 }
@@ -361,7 +361,7 @@ load()
 }
 
 .history-date {
-  color: var(--text-muted, #718096);
+  color: var(--text-muted, #64748b);
   font-size: 0.8rem;
 }
 
@@ -387,7 +387,7 @@ load()
 }
 
 .btn-primary {
-  background: var(--primary-color, #069e2d);
+  background: var(--primary-color, #058526);
   color: #fff;
 }
 

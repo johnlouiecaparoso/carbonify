@@ -17,6 +17,28 @@ function client() {
  * Save a municipal emissions / diversion record. Emission figures are computed
  * from the generated/diverted tonnage so the stored values are consistent.
  */
+/** Max size for a single supporting document (2MB), matching MRV evidence. */
+export const MAX_LGU_DOC_BYTES = 2 * 1024 * 1024
+
+/**
+ * Normalise an attachment list for storage. Keeps only the fields the UI
+ * renders, so an oversized or malformed entry cannot bloat the row.
+ *
+ * Pure — exported for unit testing.
+ */
+export function normalizeDocuments(documents = []) {
+  if (!Array.isArray(documents)) return []
+  return documents
+    .filter((d) => d && typeof d.url === 'string' && d.url)
+    .map((d) => ({
+      name: String(d.name || 'document'),
+      type: d.type || null,
+      size: Number(d.size) || 0,
+      url: d.url,
+      uploaded_at: d.uploaded_at || new Date().toISOString(),
+    }))
+}
+
 export async function saveEmissionsRecord({
   municipality,
   periodLabel,
@@ -24,6 +46,7 @@ export async function saveEmissionsRecord({
   wasteGenerated,
   wasteDiverted,
   notes = '',
+  documents = [],
 }) {
   const supabase = client()
   const uid = await getCurrentUserId()
@@ -37,24 +60,31 @@ export async function saveEmissionsRecord({
     wasteDiverted,
   )
 
-  const { data, error } = await supabase
-    .from('lgu_emissions_records')
-    .insert([
-      {
-        user_id: uid,
-        municipality: municipality || null,
-        period_label: periodLabel || null,
-        population: population ? Number(population) : null,
-        waste_generated_tonnes: generated,
-        waste_diverted_tonnes: diverted,
-        baseline_emissions_tco2e: baseline,
-        avoided_emissions_tco2e: avoided,
-        net_emissions_tco2e: net,
-        notes,
-      },
-    ])
-    .select()
-    .single()
+  const row = {
+    user_id: uid,
+    municipality: municipality || null,
+    period_label: periodLabel || null,
+    population: population ? Number(population) : null,
+    waste_generated_tonnes: generated,
+    waste_diverted_tonnes: diverted,
+    baseline_emissions_tco2e: baseline,
+    avoided_emissions_tco2e: avoided,
+    net_emissions_tco2e: net,
+    notes,
+  }
+
+  const docs = normalizeDocuments(documents)
+  const insert = (payload) =>
+    supabase.from('lgu_emissions_records').insert([payload]).select().single()
+
+  let { data, error } = await insert(docs.length ? { ...row, documents: docs } : row)
+
+  // Schema-drift safety, as the project services do: if the documents column is
+  // not applied on this DB, save the figures rather than losing the whole record.
+  if (error && /column .* does not exist/i.test(error.message || '')) {
+    console.warn('[lgu] documents column missing, saving record without attachments')
+    ;({ data, error } = await insert(row))
+  }
 
   if (error) throw new Error(error.message || 'Failed to save record')
 
@@ -81,8 +111,24 @@ export async function getMyEmissionsRecords(userId = null) {
 
 export async function deleteEmissionsRecord(id) {
   const supabase = client()
-  const { error } = await supabase.from('lgu_emissions_records').delete().eq('id', id)
+  const uid = await getCurrentUserId()
+  if (!uid) throw new Error('User not authenticated')
+
+  // Scoped to the owner and asked to return the deleted row. RLS already
+  // prevents deleting someone else's record, but without these the call
+  // silently affected zero rows and the UI still reported success, then
+  // reloaded showing the record still there.
+  const { data, error } = await supabase
+    .from('lgu_emissions_records')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', uid)
+    .select('id')
+
   if (error) throw new Error(error.message || 'Failed to delete record')
+  if (!data || data.length === 0) {
+    throw new Error('That record could not be deleted — it may already be gone.')
+  }
 }
 
 /**

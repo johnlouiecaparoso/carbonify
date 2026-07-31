@@ -1,7 +1,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getSellerBalance, getMySales, getMySalesByProject, getMyPayouts } from '@/services/payoutService'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import {
+  getSellerBalance,
+  getMySales,
+  getMySalesByProject,
+  getMyPayouts,
+  getMyEscrowHolds,
+  nextEscrowRelease,
+} from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
+import { exportSalesCsv, exportSalesByProjectCsv } from '@/services/sellerExportService'
+import { peso, shortDate } from '@/utils/format'
 import Withdraw from '@/components/wallet/Withdraw.vue'
 import KybForm from '@/components/wallet/KybForm.vue'
 
@@ -12,50 +22,84 @@ const sales = ref([])
 const salesByProject = ref([])
 const payouts = ref([])
 const kyb = ref({ verified: false, application: null })
+const escrowHolds = ref([])
+const sectionErrors = ref({ sales: false, byProject: false, payouts: false })
+const kybUnknown = ref(false)
 const showWithdraw = ref(false)
 const showKyb = ref(false)
 
+const nextRelease = computed(() => nextEscrowRelease(escrowHolds.value))
+
+const completedSales = computed(() => sales.value.filter((s) => s.status === 'completed'))
+
 const totalEarned = computed(() =>
-  sales.value
-    .filter((s) => s.status === 'completed')
-    .reduce((sum, s) => sum + Number(s.total_amount || 0), 0),
+  completedSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0),
 )
+// Gross is what the buyer paid; net is what reaches this seller's balance. The
+// page showed only gross, so a seller could not reconcile "I sold PHP 10,000"
+// against a smaller available balance — the fee was recorded per transaction
+// but never queried or displayed.
+const totalFees = computed(() =>
+  completedSales.value.reduce((sum, s) => sum + Number(s.transaction_fee || 0), 0),
+)
+const totalNet = computed(() => totalEarned.value - totalFees.value)
 const creditsSold = computed(() =>
-  sales.value
-    .filter((s) => s.status === 'completed')
-    .reduce((sum, s) => sum + Number(s.quantity || 0), 0),
+  completedSales.value.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
 )
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-}
 
 async function load() {
   loading.value = true
   loadError.value = ''
-  try {
-    const [b, s, sp, p, k] = await Promise.all([
-      getSellerBalance(),
-      getMySales(),
-      getMySalesByProject(),
-      getMyPayouts(),
-      getMyKyb(),
-    ])
-    balance.value = b
-    sales.value = s
-    salesByProject.value = sp
-    payouts.value = p
-    kyb.value = k
-  } catch (err) {
-    console.error('Failed to load seller earnings:', err)
-    loadError.value =
-      err?.message || 'We could not load your earnings right now. Please try again.'
-  } finally {
-    loading.value = false
+
+  // allSettled, not all: this is the page a seller comes to in order to see
+  // their money and withdraw it. Under Promise.all a failure in any ONE of the
+  // five — the per-project rollup, the payout history, the KYB lookup — threw
+  // away the balance too and left the whole page on an error card. The same
+  // reasoning is spelled out in BuyerDashboardView.
+  const [b, s, sp, p, k, e] = await Promise.allSettled([
+    getSellerBalance(),
+    getMySales(),
+    getMySalesByProject(),
+    getMyPayouts(),
+    getMyKyb(),
+    getMyEscrowHolds(),
+  ])
+
+  if (b.status === 'fulfilled') balance.value = b.value
+  if (s.status === 'fulfilled') sales.value = s.value || []
+  if (sp.status === 'fulfilled') salesByProject.value = sp.value || []
+  if (p.status === 'fulfilled') payouts.value = p.value || []
+  if (k.status === 'fulfilled') kyb.value = k.value
+  if (e.status === 'fulfilled') escrowHolds.value = e.value || []
+
+  // Per-section, because "No sales yet" and "we could not load your sales" are
+  // completely different statements to make to someone about their own money,
+  // and an empty list cannot tell them apart.
+  sectionErrors.value = {
+    sales: s.status === 'rejected',
+    byProject: sp.status === 'rejected',
+    payouts: p.status === 'rejected',
   }
+  // Unknown is its own state, distinct from "not verified". Withdraw stays
+  // disabled either way — the server is the real gate, and refusing on unknown
+  // is the safe direction — but we do not accuse a verified seller of being
+  // unverified because a lookup failed.
+  kybUnknown.value = k.status === 'rejected'
+  for (const [label, r] of [['sales', s], ['earnings by project', sp], ['withdrawals', p], ['escrow', e], ['KYB', k]]) {
+    if (r.status === 'rejected') console.error(`Failed to load ${label}:`, r.reason)
+  }
+
+  // Only the balance is load-bearing enough to replace the page: without it we
+  // cannot honestly show what is withdrawable, and the withdraw action would be
+  // operating on a zero we invented.
+  if (b.status === 'rejected') {
+    console.error('Failed to load seller balance:', b.reason)
+    loadError.value =
+      b.reason?.message || 'We could not load your earnings right now. Please try again.'
+  }
+
+  loading.value = false
 }
 
 function onWithdrawSuccess() {
@@ -73,10 +117,12 @@ onMounted(load)
 
 <template>
   <div class="seller-earnings">
-    <header class="page-head">
-      <h1>Seller Earnings</h1>
-      <p>Your sales, balance, and withdrawals.</p>
-    </header>
+    <PageHeader
+      title="Seller Earnings"
+      description="Your sales, balance, and withdrawals."
+    />
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -90,8 +136,19 @@ onMounted(load)
     </div>
 
     <template v-else>
+      <!-- KYB status could not be read — say so, rather than asserting a status -->
+      <div v-if="kybUnknown" class="notice warn">
+        <span class="material-symbols-outlined" aria-hidden="true">help</span>
+        <div class="notice-body">
+          <strong>We couldn't check your business verification.</strong>
+          Withdrawals stay disabled until we can confirm it. This is a problem on our side, not a
+          decision about your account.
+          <div class="notice-action"><button class="btn-primary sm" @click="load">Try again</button></div>
+        </div>
+      </div>
+
       <!-- KYB gate notice -->
-      <div v-if="!kyb.verified" class="notice warn">
+      <div v-else-if="!kyb.verified" class="notice warn">
         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
         <div class="notice-body">
           <strong>Business verification required.</strong>
@@ -118,7 +175,7 @@ onMounted(load)
           <div class="card-value">{{ peso(balance.available) }}</div>
           <button
             class="btn-primary"
-            :disabled="!kyb.verified || balance.available <= 0"
+            :disabled="!kyb.verified || kybUnknown || balance.available <= 0"
             @click="showWithdraw = true"
           >
             Withdraw
@@ -127,24 +184,37 @@ onMounted(load)
         <div class="card">
           <div class="card-label">Held in escrow</div>
           <div class="card-value">{{ peso(balance.held) }}</div>
-          <div class="muted small">Released after the hold period</div>
+          <!-- "Released after the hold period" was all this said. The date has
+               always been on escrow_holds.hold_until, and sellers have always
+               been able to read their own rows; nothing queried it. -->
+          <div v-if="nextRelease" class="muted small">
+            Next {{ peso(nextRelease.amount) }} releases {{ shortDate(nextRelease.holdUntil) }}
+          </div>
+          <div v-else class="muted small">Released after the hold period</div>
         </div>
         <div class="card">
-          <div class="card-label">Total earned</div>
-          <div class="card-value">{{ peso(totalEarned) }}</div>
-          <div class="muted small">{{ creditsSold }} credits sold</div>
+          <div class="card-label">Net earned</div>
+          <div class="card-value">{{ peso(totalNet) }}</div>
+          <!-- Both figures, because the gap between them is the question a
+               seller asks first. "Total earned" alone read as gross and did not
+               reconcile against the balance beside it. -->
+          <div class="muted small">
+            {{ peso(totalEarned) }} gross
+            <template v-if="totalFees > 0">less {{ peso(totalFees) }} in fees</template>
+            · {{ creditsSold }} credits sold
+          </div>
         </div>
       </section>
 
       <!-- KYB submission modal -->
-      <div v-if="showKyb" class="modal-overlay" @click.self="showKyb = false">
+      <div v-if="showKyb" class="modal-overlay" v-modal-a11y="() => (showKyb = false)" @click.self="showKyb = false">
         <div class="modal">
           <KybForm @success="onKybSuccess" @cancel="showKyb = false" />
         </div>
       </div>
 
       <!-- Withdraw modal -->
-      <div v-if="showWithdraw" class="modal-overlay" @click.self="showWithdraw = false">
+      <div v-if="showWithdraw" class="modal-overlay" v-modal-a11y="() => (showWithdraw = false)" @click.self="showWithdraw = false">
         <div class="modal">
           <Withdraw @success="onWithdrawSuccess" @cancel="showWithdraw = false" />
         </div>
@@ -152,45 +222,94 @@ onMounted(load)
 
       <!-- Earnings by project -->
       <section class="panel">
-        <h2>Earnings by project</h2>
+        <div class="panel-head">
+          <h2>Earnings by project</h2>
+          <button
+            v-if="salesByProject.length"
+            class="export-btn"
+            @click="exportSalesByProjectCsv(salesByProject)"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
+        </div>
         <div v-if="salesByProject.length" class="table-scroll">
-          <table class="data-table">
+          <!-- data-label drives the under-640px card layout; see
+               src/styles/responsive-table.css -->
+          <table class="data-table stack-on-mobile">
             <thead>
-              <tr><th>Project</th><th>Sales</th><th>Credits sold</th><th>Gross earned</th><th>Last sale</th></tr>
+              <tr>
+                <th>Project</th>
+                <th>Sales</th>
+                <th>Credits sold</th>
+                <th>Gross earned</th>
+                <th>Net earned</th>
+                <th>Last sale</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="row in salesByProject" :key="row.projectId">
-                <td>{{ row.projectTitle }}</td>
-                <td>{{ row.salesCount }}</td>
-                <td>{{ row.creditsSold }}</td>
-                <td>{{ peso(row.grossEarnings) }}</td>
-                <td>{{ shortDate(row.lastSaleDate) }}</td>
+                <td data-label="Project">{{ row.projectTitle }}</td>
+                <td data-label="Sales">{{ row.salesCount }}</td>
+                <td data-label="Credits sold">{{ row.creditsSold }}</td>
+                <td data-label="Gross earned">{{ peso(row.grossEarnings) }}</td>
+                <td data-label="Net earned" class="net-cell">{{ peso(row.netEarnings) }}</td>
+                <td data-label="Last sale">{{ shortDate(row.lastSaleDate) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p v-else-if="sectionErrors.byProject" class="load-fail">
+          Couldn't load your earnings by project. <button class="link-retry" @click="load">Retry</button>
+        </p>
         <p v-else class="muted">No completed sales yet.</p>
       </section>
 
       <!-- Recent sales -->
       <section class="panel">
-        <h2>Recent sales</h2>
+        <div class="panel-head">
+          <h2>Recent sales</h2>
+          <button
+            v-if="sales.length"
+            class="export-btn"
+            @click="exportSalesCsv(sales)"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
+        </div>
         <div v-if="sales.length" class="table-scroll">
-          <table class="data-table">
+          <table class="data-table stack-on-mobile">
             <thead>
-              <tr><th>Date</th><th>Credits</th><th>Unit</th><th>Total</th><th>Status</th></tr>
+              <tr>
+                <th>Date</th>
+                <th>Credits</th>
+                <th>Unit</th>
+                <th>Gross</th>
+                <th>Platform fee</th>
+                <th>Net to you</th>
+                <th>Status</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="s in sales" :key="s.id">
-                <td>{{ shortDate(s.created_at) }}</td>
-                <td>{{ s.quantity }}</td>
-                <td>{{ peso(s.price_per_credit) }}</td>
-                <td>{{ peso(s.total_amount) }}</td>
-                <td><span class="badge" :class="s.status">{{ s.status }}</span></td>
+                <td data-label="Date">{{ shortDate(s.created_at) }}</td>
+                <td data-label="Credits">{{ s.quantity }}</td>
+                <td data-label="Unit">{{ peso(s.price_per_credit) }}</td>
+                <td data-label="Gross">{{ peso(s.total_amount) }}</td>
+                <td data-label="Platform fee" class="muted">
+                  {{ Number(s.transaction_fee) > 0 ? '−' + peso(s.transaction_fee) : '—' }}
+                </td>
+                <td data-label="Net to you" class="net-cell">{{ peso(s.net_amount) }}</td>
+                <td data-label="Status"><span class="badge" :class="s.status">{{ s.status }}</span></td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p v-else-if="sectionErrors.sales" class="load-fail">
+          Couldn't load your sales — this is not the same as having none.
+          <button class="link-retry" @click="load">Retry</button>
+        </p>
         <p v-else class="muted">No sales yet.</p>
       </section>
 
@@ -198,39 +317,97 @@ onMounted(load)
       <section class="panel">
         <h2>Withdrawals</h2>
         <div v-if="payouts.length" class="table-scroll">
-          <table class="data-table">
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr><th>Date</th><th>Amount</th><th>Status</th><th>Note</th></tr>
             </thead>
             <tbody>
               <tr v-for="p in payouts" :key="p.id">
-                <td>{{ shortDate(p.created_at) }}</td>
-                <td>{{ peso(p.amount) }}</td>
-                <td><span class="badge" :class="p.status">{{ p.status }}</span></td>
-                <td class="muted small">{{ p.failure_reason || '—' }}</td>
+                <td data-label="Date">{{ shortDate(p.created_at) }}</td>
+                <td data-label="Amount">{{ peso(p.amount) }}</td>
+                <td data-label="Status"><span class="badge" :class="p.status">{{ p.status }}</span></td>
+                <td class="muted small" data-label="Note">{{ p.failure_reason || '—' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p v-else-if="sectionErrors.payouts" class="load-fail">
+          Couldn't load your withdrawals. <button class="link-retry" @click="load">Retry</button>
+        </p>
         <p v-else class="muted">No withdrawals yet.</p>
       </section>
     </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .seller-earnings {
+  min-height: 100vh;
+  background: var(--bg-secondary, #f8fdf8);
+}
+.page-body {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px;
 }
-.page-head h1 {
-  margin: 0;
-  font-size: 1.6rem;
+/* Net is the number a seller actually acts on, so it carries the weight the
+   gross column used to have all to itself. */
+.net-cell {
+  font-weight: 600;
+  color: #0f172a;
 }
-.page-head p {
-  color: #6b7280;
-  margin: 4px 0 20px;
+.load-fail {
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+.link-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #991b1b;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  /* Carries the spacing the h2 used to own, so the heading and the button sit
+     on one baseline. Needs .panel in the selector to outrank `.panel h2`, which
+     is declared later in this block. */
+  margin-bottom: 12px;
+}
+.panel .panel-head h2 {
+  margin: 0;
+}
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.export-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+.export-btn:focus-visible {
+  outline: 2px solid #058526;
+  outline-offset: 2px;
+}
+.export-btn .material-symbols-outlined {
+  font-size: 1.05rem;
 }
 .muted {
   color: #6b7280;
@@ -289,7 +466,7 @@ onMounted(load)
   margin: 6px 0 12px;
 }
 .btn-primary {
-  background: #069e2d;
+  background: #058526;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -385,9 +562,6 @@ onMounted(load)
 @media (max-width: 640px) {
   .seller-earnings {
     padding: 16px 12px;
-  }
-  .page-head h1 {
-    font-size: 1.35rem;
   }
   .cards {
     grid-template-columns: 1fr;

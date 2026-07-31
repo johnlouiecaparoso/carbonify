@@ -61,8 +61,14 @@ Under `src/test/`:
 | Subscription plans | `services/plans.test.js` |
 | Certificate signing | `services/certificateSignature.test.js` |
 | Auth | `services/authService.test.js` |
-| Analytics / reporting | `services/marketStats.test.js`, `services/portfolioAnalytics.test.js`, `services/salesByProject.test.js`, `services/transactionHistoryPage.test.js`, `services/projectCredibility.test.js`, `services/esgReportService.test.js`, `services/savedSearch.test.js` |
+| Analytics / reporting | `services/marketStats.test.js`, `services/portfolioAnalytics.test.js`, `services/salesByProject.test.js`, `services/transactionHistoryPage.test.js`, `services/projectCredibility.test.js`, `services/esgReportService.test.js`, `services/creditOwnershipHistory.test.js`, `services/savedSearch.test.js` |
+| Accessibility | `styles/tokenContrast.test.js` (palette clears WCAG AA), `directives/modalA11y.test.js` (Escape / focus trap / `role="dialog"` on hand-rolled dialogs) |
 | UI primitive | `components/Button.test.js` |
+
+> ⚠️ **`esgReportService.test.js` injects a fake ownership service**, so it does not exercise the code
+> that builds the history it aggregates. That gap hid backlog #11 — the ESG report under-reported
+> retired credits and the suite stayed green. `creditOwnershipHistory.test.js` covers the real
+> function. **When a test injects a dependency, something else has to test the real one.**
 
 Payment/ledger **math** (amounts, VAT, provider settlement, webhook signature verification) is the highest-value unit coverage — the server is authoritative for money, so these tests guard the logic that mirrors the server RPCs.
 

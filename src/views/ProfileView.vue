@@ -57,16 +57,34 @@
                 <div v-if="photoError" class="photo-error">{{ photoError }}</div>
               </div>
               <div class="profile-info">
-                <h2 class="profile-name">
-                  {{ userProfile.fullName }}
-                  <VerifiedBadge v-if="isKycVerified" type="kyc" />
-                  <VerifiedBadge v-if="isKybVerified" type="kyb" />
-                </h2>
+                <h2 class="profile-name">{{ userProfile.fullName }}</h2>
 
-                <!-- Role pill — colour-tinted per role -->
-                <div class="profile-role-pill" :data-role="store.role">
-                  <span class="material-symbols-outlined" aria-hidden="true">{{ roleIcon }}</span>
-                  <span>{{ roleAccess.name }}</span>
+                <!-- Role + verification status. The KYC pill is ALWAYS shown so
+                     its state is clear whether or not the user is verified — a
+                     badge that only appears when verified left everyone else
+                     with no signal at all. KYB shows only where it's relevant. -->
+                <div class="profile-badges">
+                  <span class="profile-role-pill" :data-role="store.role">
+                    <span class="material-symbols-outlined" aria-hidden="true">{{ roleIcon }}</span>
+                    <span>{{ roleAccess.name }}</span>
+                  </span>
+                  <span class="status-pill" :class="kycState.cls" :title="kycState.title">
+                    <span class="material-symbols-outlined" aria-hidden="true">{{
+                      kycState.icon
+                    }}</span>
+                    <span>{{ kycState.label }}</span>
+                  </span>
+                  <span
+                    v-if="showKyb"
+                    class="status-pill"
+                    :class="kybState.cls"
+                    :title="kybState.title"
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">{{
+                      kybState.icon
+                    }}</span>
+                    <span>{{ kybState.label }}</span>
+                  </span>
                 </div>
 
                 <p class="profile-email">{{ userProfile.email }}</p>
@@ -242,6 +260,32 @@
                             placeholder="Office address"
                           />
                         </div>
+                        <!-- Jurisdiction. For an LGU this is not decoration: it
+                             scopes which projects they see and may endorse. -->
+                        <div class="form-group">
+                          <label class="form-label">Municipality / City</label>
+                          <input
+                            v-model="editForm.municipality"
+                            type="text"
+                            class="form-input"
+                            :disabled="!isEditing"
+                            placeholder="e.g., Cabanatuan City"
+                          />
+                          <small class="field-hint">
+                            LGU accounts: this is your jurisdiction. It determines which projects
+                            appear in your dashboard and which you are allowed to endorse.
+                          </small>
+                        </div>
+                        <div class="form-group">
+                          <label class="form-label">Province</label>
+                          <input
+                            v-model="editForm.province"
+                            type="text"
+                            class="form-input"
+                            :disabled="!isEditing"
+                            placeholder="e.g., Nueva Ecija"
+                          />
+                        </div>
                       </template>
                     </div>
 
@@ -289,14 +333,11 @@
                         <p class="role-desc">{{ roleAccess.description }}</p>
                       </div>
                       <div class="role-links">
-                        <router-link
-                          v-for="link in roleAccess.links"
-                          :key="link.to"
-                          :to="link.to"
-                          class="role-link"
-                        >
-                          <span class="material-symbols-outlined" aria-hidden="true">{{ link.icon }}</span>
-                          <span>{{ link.label }}</span>
+                        <router-link :to="roleAccess.workspace.path" class="role-link">
+                          <span class="material-symbols-outlined" aria-hidden="true">
+                            {{ roleAccess.workspace.icon || 'space_dashboard' }}
+                          </span>
+                          <span>Go to {{ roleAccess.workspace.label }}</span>
                         </router-link>
                       </div>
                       <p v-if="roleAccess.showApply" class="role-apply-hint">
@@ -382,15 +423,15 @@ import {
   getLatestRoleApplicationForUser,
 } from '@/services/roleApplicationService'
 import { ROLES, getRoleDisplayName } from '@/constants/roles'
+import { homeDestination } from '@/constants/navigation'
 import { getRoleDescription } from '@/services/roleService'
 import ChangePasswordPanel from '@/components/auth/ChangePasswordPanel.vue'
 import MfaSetupPanel from '@/components/auth/MfaSetupPanel.vue'
 import PrivacyDataPanel from '@/components/account/PrivacyDataPanel.vue'
-import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 
 export default {
   name: 'ProfileView',
-  components: { ChangePasswordPanel, MfaSetupPanel, PrivacyDataPanel, VerifiedBadge },
+  components: { ChangePasswordPanel, MfaSetupPanel, PrivacyDataPanel },
   setup() {
     const store = useUserStore()
     return { store }
@@ -429,6 +470,9 @@ export default {
         organization_name: '',
         organization_type: '',
         organization_address: '',
+        // LGU jurisdiction — scopes which projects they see and may endorse.
+        municipality: '',
+        province: '',
       },
       organizationTypes: [
         'Municipal LGU',
@@ -479,6 +523,55 @@ export default {
       const profile = this.store.profile || this.latestProfile || {}
       return profile?.kyb_verified === true
     },
+    // Compact, ALWAYS-present KYC status for the header. Levels: >=2 verified,
+    // 1 submitted/in-review, else not verified. A badge that only rendered when
+    // verified left every unverified user with no KYC signal at all.
+    kycState() {
+      const profile = this.store.profile || this.latestProfile || {}
+      const lvl = Number(profile?.kyc_level)
+      if (lvl >= 2)
+        return {
+          label: 'KYC Verified',
+          cls: 'ok',
+          icon: 'verified_user',
+          title: 'Identity verified by Carbonify (KYC)',
+        }
+      if (lvl === 1)
+        return {
+          label: 'KYC Pending',
+          cls: 'pending',
+          icon: 'hourglass_top',
+          title: 'KYC submitted — under review',
+        }
+      return {
+        label: 'KYC Not Verified',
+        cls: 'off',
+        icon: 'gpp_maybe',
+        title: 'Identity not yet verified — required to buy or trade',
+      }
+    },
+    // KYB matters only for sellers (project developers) and anyone already
+    // business-verified; hidden for buyers/general users to keep the header lean.
+    showKyb() {
+      const profile = this.store.profile || this.latestProfile || {}
+      return this.store.role === ROLES.PROJECT_DEVELOPER || profile?.kyb_verified === true
+    },
+    kybState() {
+      const profile = this.store.profile || this.latestProfile || {}
+      return profile?.kyb_verified === true
+        ? {
+            label: 'Business Verified',
+            cls: 'ok',
+            icon: 'verified',
+            title: 'Business verified by Carbonify (KYB)',
+          }
+        : {
+            label: 'KYB Required',
+            cls: 'off',
+            icon: 'domain_verification',
+            title: 'Business verification required for seller payouts',
+          }
+    },
     // Material Symbols icon shown in the sidebar role pill, per role.
     roleIcon() {
       const role = this.store.role || ROLES.GENERAL_USER
@@ -497,41 +590,19 @@ export default {
       const p = this.userProfile || {}
       return !p.company && !p.location && !p.phone && !p.website
     },
-    // Role-aware access panel: name, description, and quick links per role.
+    // Role-aware access panel: name, description, and the way back to work.
+    //
+    // This used to hold its own hand-written link list per role — a fourth
+    // navigation surface with a fourth set of names ("My Portfolio", "Saved",
+    // "Browse Marketplace"), and one link (/monitoring, labelled "Monitoring
+    // (MRV)") that no other surface used. It now points at the role's
+    // workspace, which is where every one of those pages is grouped.
     roleAccess() {
       const role = this.store.role || ROLES.GENERAL_USER
-      const linksByRole = {
-        [ROLES.ADMIN]: [
-          { label: 'Admin Dashboard', to: '/admin', icon: 'dashboard' },
-          { label: 'System Configuration', to: '/admin/config', icon: 'tune' },
-          { label: 'User Management', to: '/admin/users', icon: 'group' },
-        ],
-        [ROLES.VERIFIER]: [
-          { label: 'Verifier Panel', to: '/verifier', icon: 'fact_check' },
-        ],
-        [ROLES.PROJECT_DEVELOPER]: [
-          { label: 'My Projects', to: '/developer/projects', icon: 'inventory_2' },
-          { label: 'Submit Project', to: '/submit-project', icon: 'add_circle' },
-          { label: 'Monitoring (MRV)', to: '/monitoring', icon: 'monitoring' },
-        ],
-        [ROLES.LGU_USER]: [
-          { label: 'LGU Tools', to: '/lgu', icon: 'map' },
-        ],
-        [ROLES.BUYER_INVESTOR]: [
-          { label: 'My Portfolio', to: '/credit-portfolio', icon: 'account_balance_wallet' },
-          { label: 'Wallet', to: '/wallet', icon: 'payments' },
-          { label: 'Saved', to: '/watchlist', icon: 'favorite' },
-          { label: 'Cart', to: '/cart', icon: 'shopping_cart' },
-        ],
-        [ROLES.GENERAL_USER]: [
-          { label: 'Browse Marketplace', to: '/marketplace', icon: 'storefront' },
-          { label: 'Apply for a role', to: '/apply', icon: 'badge' },
-        ],
-      }
       return {
         name: getRoleDisplayName(role),
         description: getRoleDescription(role),
-        links: linksByRole[role] || linksByRole[ROLES.GENERAL_USER],
+        workspace: homeDestination(this.store),
         showApply: role === ROLES.GENERAL_USER,
       }
     },
@@ -971,6 +1042,8 @@ export default {
         organization_name: profile.organization_name || '',
         organization_type: profile.organization_type || '',
         organization_address: profile.organization_address || '',
+        municipality: profile.municipality || '',
+        province: profile.province || '',
       }
     },
 
@@ -1261,14 +1334,14 @@ export default {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
   border-bottom: none;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: var(--primary-color, #058526);
   margin-bottom: 2rem;
 }
 
 .page-title {
-  font-size: var(--font-size-4xl, 2rem);
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
@@ -1276,7 +1349,7 @@ export default {
 }
 
 .page-description {
-  font-size: var(--font-size-lg, 1.1rem);
+  font-size: 0.95rem;
   color: #fff;
   text-align: center;
   max-width: 600px;
@@ -1312,7 +1385,7 @@ export default {
   background: var(--bg-primary);
   border: 2px solid var(--border-green-light);
   border-radius: var(--radius-xl);
-  padding: 3rem;
+  padding: 1.75rem;
   box-shadow: var(--shadow-green);
   transition: all 0.3s ease;
 }
@@ -1324,12 +1397,12 @@ export default {
 
 .profile-avatar {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .avatar-circle {
-  width: 7rem;
-  height: 7rem;
+  width: 5rem;
+  height: 5rem;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
   display: flex;
@@ -1361,7 +1434,7 @@ export default {
 }
 
 .avatar-initials {
-  font-size: var(--font-size-4xl);
+  font-size: var(--font-size-2xl);
   font-weight: 800;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -1423,10 +1496,10 @@ export default {
 }
 
 .profile-name {
-  font-size: var(--font-size-4xl);
+  font-size: var(--font-size-2xl);
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 1rem;
+  margin-bottom: 0.6rem;
   text-align: center;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
   -webkit-background-clip: text;
@@ -1436,26 +1509,71 @@ export default {
 
 .profile-email {
   color: var(--text-secondary);
-  margin-bottom: 1.25rem;
+  font-size: var(--font-size-sm);
+  margin-bottom: 0.85rem;
   text-align: center;
   word-break: break-word;
 }
 
-/* Role pill in the sidebar — colour-tinted per role via [data-role] */
+/* Role + verification pills, wrapped and centred under the name. */
+.profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+/* Role pill — colour-tinted per role via [data-role] */
 .profile-role-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  margin: 0 auto 1rem;
-  padding: 0.3rem 0.8rem;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   background: var(--primary-light);
   color: var(--primary-dark);
   border: 1px solid var(--border-green-light);
   text-align: center;
+}
+
+/* Verification status pill — always shown so KYC state is never a mystery.
+   .ok = verified (green), .pending = under review (amber), .off = not yet (grey). */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.status-pill .material-symbols-outlined {
+  font-size: 0.95rem;
+}
+
+.status-pill.ok {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.status-pill.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.status-pill.off {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
 }
 
 .profile-info {
@@ -1465,7 +1583,7 @@ export default {
 }
 
 .profile-role-pill .material-symbols-outlined {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 
 .profile-role-pill[data-role='admin'] {
@@ -1497,8 +1615,8 @@ export default {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
 }
 
 .profile-detail {
@@ -1599,11 +1717,11 @@ export default {
 }
 
 .tab-content {
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 .settings-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .settings-section:last-child {
@@ -1611,10 +1729,10 @@ export default {
 }
 
 .section-title {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .section-subtitle {
@@ -1627,8 +1745,8 @@ export default {
 .form-grid {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 1.5rem;
-  margin-bottom: 1.5rem;
+  gap: 0.85rem 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .form-group {
@@ -1646,17 +1764,17 @@ export default {
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 1rem 1.25rem;
+  padding: 0.6rem 0.85rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
   background: var(--bg-primary);
   line-height: 1.5;
@@ -1667,7 +1785,7 @@ export default {
 .form-input:focus,
 .form-textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.1);
 }
 
 .form-input:disabled,
@@ -1847,19 +1965,24 @@ export default {
   color: var(--primary-color);
 }
 
+/* These deliberately do NOT use the --warning/--info/--error tokens. Those are
+   solid signal colours (--warning-color is #ffc107); as badge text on a pale
+   background they measure ~1.5:1. The literals below are tuned light-bg/dark-text
+   pairs at 4.5:1+. They previously read from --color-* names that no stylesheet
+   ever defined, so the fallbacks were doing all the work — now made explicit. */
 .status-badge.pending {
-  background: var(--color-warning-light, #fef3c7);
-  color: var(--color-warning, #b45309);
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .status-badge.in-progress {
-  background: var(--color-info-light, #dbeafe);
-  color: var(--color-info, #1d4ed8);
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-badge.failed {
-  background: var(--color-error-light, #fee2e2);
-  color: var(--color-error, #b91c1c);
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 /* Notification Settings */
@@ -2006,7 +2129,21 @@ export default {
   }
 
   .page-title {
-    font-size: var(--font-size-3xl);
+    font-size: 1.35rem;
+  }
+
+  /* Keep the identity card compact on phones. */
+  .profile-card {
+    padding: 1.25rem;
+  }
+
+  .profile-name {
+    font-size: var(--font-size-xl);
+  }
+
+  .avatar-circle {
+    width: 4.5rem;
+    height: 4.5rem;
   }
 
   .settings-tabs {

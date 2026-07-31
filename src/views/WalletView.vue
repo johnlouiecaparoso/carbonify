@@ -116,7 +116,7 @@ function formatDate(dateString) {
 function getTransactionStatusColor(status) {
   switch (status) {
     case 'completed':
-      return '#10b981'
+      return '#058526'
     case 'pending':
       return '#f59e0b'
     case 'failed':
@@ -247,14 +247,14 @@ onMounted(() => {
     </main>
 
     <!-- Top Up Modal -->
-    <div v-if="showTopUp" class="modal-overlay" @click="onTopUpCancel">
+    <div v-if="showTopUp" class="modal-overlay" v-modal-a11y="onTopUpCancel" @click="onTopUpCancel">
       <div class="modal-content" @click.stop>
         <TopUp @success="onTopUpSuccess" @cancel="onTopUpCancel" />
       </div>
     </div>
 
     <!-- Withdraw Modal -->
-    <div v-if="showWithdraw" class="modal-overlay" @click="onWithdrawCancel">
+    <div v-if="showWithdraw" class="modal-overlay" v-modal-a11y="onWithdrawCancel" @click="onWithdrawCancel">
       <div class="modal-content" @click.stop>
         <Withdraw @success="onWithdrawSuccess" @cancel="onWithdrawCancel" />
       </div>
@@ -273,8 +273,8 @@ onMounted(() => {
 }
 
 .page-header {
-  padding: 2rem 0;
-  background: var(--primary-color, #10b981);
+  padding: 1.25rem 0;
+  background: var(--primary-color, #058526);
   border-bottom: none;
 }
 
@@ -285,14 +285,14 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: #fff;
 }
 
@@ -306,11 +306,11 @@ onMounted(() => {
 
 /* Balance Card */
 .balance-card {
-  background: linear-gradient(135deg, var(--primary-color, #069e2d), var(--primary-dark, #04773b));
+  background: linear-gradient(135deg, var(--primary-color, #058526), var(--primary-dark, #045c1a));
   color: white;
   border-radius: var(--radius-lg, 0.75rem);
   padding: 32px;
-  box-shadow: var(--shadow-green, 0 4px 12px rgba(6, 158, 45, 0.3));
+  box-shadow: var(--shadow-green, 0 4px 12px rgba(5, 133, 38, 0.3));
 }
 
 .balance-header {
@@ -351,9 +351,9 @@ onMounted(() => {
 /* Error and Loading States */
 .error-card,
 .loading-card {
-  background: var(--carbonify-surface);
-  border: 1px solid var(--carbonify-border);
-  border-radius: var(--radius);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: var(--radius-xl, 0.75rem);
   padding: 40px;
   text-align: center;
   box-shadow: var(--shadow-md);
@@ -378,15 +378,15 @@ onMounted(() => {
 
 .error-message {
   font-size: 16px;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
   margin-bottom: 20px;
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid var(--carbonify-border);
-  border-top: 4px solid var(--carbonify-primary-500);
+  border: 4px solid var(--border-color, #d1e7dd);
+  border-top: 4px solid var(--primary-color, #058526);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -402,15 +402,15 @@ onMounted(() => {
 }
 
 .loading-text {
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
   font-size: 16px;
 }
 
 /* Transactions Section */
 .transactions-section {
-  background: var(--carbonify-surface);
-  border: 1px solid var(--carbonify-border);
-  border-radius: var(--radius);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: var(--radius-xl, 0.75rem);
   padding: 24px;
   box-shadow: var(--shadow-md);
 }
@@ -427,7 +427,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .empty-transactions {
@@ -454,12 +454,12 @@ onMounted(() => {
 
 .empty-transactions h3 {
   margin: 0 0 8px 0;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
 }
 
 .empty-transactions p {
   margin: 0 0 20px 0;
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
 }
 
 /* Transaction List */
@@ -494,15 +494,15 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: var(--carbonify-bg);
-  border: 1px solid var(--carbonify-border);
+  background: var(--bg-secondary, #f8fdf8);
+  border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 12px;
   transition: all 120ms ease;
 }
 
 .transaction-item:hover {
-  background: var(--carbonify-primary-50);
-  border-color: var(--carbonify-primary-200);
+  background: var(--primary-lightest, #f8fdf8);
+  border-color: var(--border-green-light, #d4edda);
 }
 
 .transaction-icon {
@@ -511,7 +511,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--carbonify-surface);
+  background: var(--bg-primary, #ffffff);
   border-radius: 50%;
 }
 
@@ -525,7 +525,7 @@ onMounted(() => {
 
 .transaction-description {
   font-weight: 600;
-  color: var(--carbonify-text);
+  color: var(--text-primary, #1a1a1a);
   margin-bottom: 4px;
 }
 
@@ -533,7 +533,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: var(--carbonify-muted);
+  color: var(--text-muted, #64748b);
 }
 
 .transaction-status {
@@ -547,7 +547,7 @@ onMounted(() => {
 }
 
 .amount-topup {
-  color: var(--carbonify-primary-600);
+  color: var(--primary-hover, #04701f);
 }
 
 .amount-withdrawal {
@@ -592,16 +592,12 @@ onMounted(() => {
   }
 
   .page-header {
-    padding: 1.5rem 0;
+    padding: 1.25rem 0;
   }
 
-  .page-title {
-    font-size: 1.5rem;
-  }
 
-  .page-description {
-    font-size: 0.95rem;
-  }
+
+
 
   .container {
     padding: 0 1rem;
@@ -661,9 +657,7 @@ onMounted(() => {
     padding: 12px;
   }
 
-  .page-title {
-    font-size: 1.25rem;
-  }
+
 
   .wallet-content {
     padding: 16px 12px;

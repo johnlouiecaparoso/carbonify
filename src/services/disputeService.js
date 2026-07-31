@@ -21,10 +21,16 @@ export async function openDispute({ transactionId, reason } = {}) {
   return data
 }
 
-/** The caller's disputes (RLS returns own + admin sees all), most recent first. */
+/**
+ * The caller's disputes (RLS returns own + admin sees all), most recent first.
+ *
+ * Throws rather than returning []. "You have reported no problems" is a claim
+ * about the user; a failed query is not evidence for it. MyDisputesView already
+ * has the catch that renders the difference.
+ */
 export async function getMyDisputes(limit = 20) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   const { data, error } = await supabase
     .from('disputes')
@@ -34,7 +40,7 @@ export async function getMyDisputes(limit = 20) {
 
   if (error) {
     console.error('Error fetching disputes:', error)
-    return []
+    throw new Error(error.message || 'Failed to load your reported problems')
   }
   return data || []
 }
@@ -45,7 +51,7 @@ export async function getMyDisputes(limit = 20) {
  */
 export async function listAllDisputes(status = null, limit = 100) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   let query = supabase
     .from('disputes')
@@ -57,7 +63,7 @@ export async function listAllDisputes(status = null, limit = 100) {
   const { data, error } = await query
   if (error) {
     console.error('Error fetching disputes:', error)
-    return []
+    throw new Error(error.message || 'Failed to load disputes')
   }
   return data || []
 }
@@ -65,12 +71,12 @@ export async function listAllDisputes(status = null, limit = 100) {
 /** Admin: recent transactions (via the admin-gated RPC) for the refund console. */
 export async function listRecentTransactions(limit = 50) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   const { data, error } = await supabase.rpc('admin_recent_transactions', { p_limit: limit })
   if (error) {
     console.error('Error fetching recent transactions:', error)
-    return []
+    throw new Error(error.message || 'Failed to load recent transactions')
   }
   return data || []
 }

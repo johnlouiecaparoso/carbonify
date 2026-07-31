@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getSupabase } from '@/services/supabaseClient'
+import { peso, num, shortDate } from '@/utils/format'
 import {
   getMyOfftakes,
   createOfftake,
@@ -48,15 +50,6 @@ function emptyForm() {
   }
 }
 
-function peso(n) {
-  return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-function num(n) {
-  return Number(n || 0).toLocaleString('en-PH')
-}
-function shortDate(d) {
-  return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-}
 function projectTitle(id) {
   return projects.value.find((p) => p.id === id)?.title || 'Unknown project'
 }
@@ -160,13 +153,14 @@ onMounted(load)
 
 <template>
   <div class="offtakes">
-    <header class="page-head">
-      <h1>Offtake Agreements</h1>
-      <p>
+    <PageHeader title="Offtake Agreements">
+      <template #description>
         Record the ERPAs that commit a buyer to your credits. Signed and active agreements are shown
         to investors as <strong>contracted revenue</strong> — everything else stays speculative.
-      </p>
-    </header>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="loadError" class="notice error">
@@ -364,13 +358,13 @@ onMounted(load)
         </div>
       </div>
     </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.offtakes { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 20px; }
+.offtakes { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 .opt { font-weight: 400; color: #9ca3af; }
@@ -418,7 +412,7 @@ onMounted(load)
 .badge.terminated { background: #fee2e2; color: #991b1b; }
 .badge.completed { background: #f3f4f6; color: #6b7280; }
 
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 7px 12px; font-size: 0.85rem; }
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
@@ -426,7 +420,7 @@ onMounted(load)
 .btn-ghost.danger { color: #991b1b; border-color: #fecaca; }
 
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty p { margin: 12px auto 18px; max-width: 420px; }
 
 @media (max-width: 640px) {

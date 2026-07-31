@@ -129,8 +129,10 @@ test.describe('Marketplace Flow', () => {
     // Wait for the page to load completely
     await page.waitForLoadState('networkidle')
 
-    // Look for sort dropdown in the actual implementation
-    await page.selectOption('.sort-select', 'price-low')
+    // The sort control is one of the `.filter-select` dropdowns, identified by
+    // its aria-label. There has never been a `.sort-select` class — the
+    // 2026-07-26 filter-bar rebuild is not what broke this.
+    await page.selectOption('select[aria-label="Sort listings"]', 'price-low')
 
     // Should show sorted results
     await expect(page.locator('.projects-grid, .empty-state, .loading-state')).toBeVisible()

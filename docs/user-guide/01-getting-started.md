@@ -164,9 +164,9 @@ The header appears on every page.
 - **Profile menu** (your avatar, top-right) — opens a dropdown with **Profile Settings** plus grouped links: your workspace, **Account** (KYC, Wallet), **Shopping** (Cart, Saved), **Credits** (Portfolio, Retire Credits), **Records** (Receipts, Certificates), **More** (Upgrade plan, About), and **Logout**.
 - **Mobile:** tap the **hamburger menu** (top-left) for the same navigation and account links.
 
-## 11. The six roles
+## 11. The seven roles
 
-Carbonify has six roles. Everyone starts as a **General User**.
+Carbonify has seven roles. Everyone starts as a **General User**.
 
 | Role (display name) | What it does |
 |---------------------|--------------|
@@ -175,6 +175,10 @@ Carbonify has six roles. Everyone starts as a **General User**.
 | Project Developer | Create and manage carbon-credit projects. |
 | Verifier | Review and approve/reject carbon-credit projects. |
 | LGU User | Upload LGU emissions and manage community projects. |
+| Farmer | Supply biomass feedstock, log deliveries, and track estimated carbon participation. |
 | Administrator | Full system access to manage every aspect of the platform. |
+
+**Project Developer, Verifier and Farmer** are specialist roles — you apply from your profile, and
+the role stays restricted until an administrator approves your application.
 
 Next: head to the guide for your role — most new users want the **[Buyer Guide](02-buyer-guide.md)**.

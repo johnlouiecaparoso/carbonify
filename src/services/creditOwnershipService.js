@@ -84,8 +84,14 @@ export class CreditOwnershipService {
 
       return portfolio
     } catch (error) {
+      // Rethrow — do NOT return []. An empty portfolio is a claim about the
+      // user ("you own nothing"), and returning it on a failed read renders a
+      // database error as that claim. Every caller already handles a rejection:
+      // CreditPortfolioView and RetireView catch and show an error banner, and
+      // BuyerDashboardView explicitly tests `holdingsRes.status === 'rejected'`
+      // — code that could never run while this swallowed.
       console.error('❌ Error in getUserCreditPortfolio:', error)
-      return []
+      throw error
     }
   }
 
@@ -141,10 +147,26 @@ export class CreditOwnershipService {
   }
 
   /**
-   * Get user's transaction history
+   * Get user's transaction history (purchases + retirements, newest first).
+   *
+   * `limit` caps each transaction type SEPARATELY, not the combined result — so
+   * the return can hold up to 2 × limit rows. That is deliberate: this used to
+   * `.slice(0, limit)` the merged list, which silently dropped whichever type
+   * sorted later. A user with `limit` purchases newer than their oldest
+   * retirement lost EVERY retirement.
+   *
+   * That mattered because the only caller is `esgReportService.buildEsgDataset`,
+   * which derives `retiredCredits` / `retiredTco2e` and the by-project and
+   * by-category groupings from exactly these retirement rows. A dropped
+   * retirement understates the offset claim the ESG report exists to state —
+   * the report would under-report, with no error and nothing missing on screen.
+   *
+   * Do not re-add a cross-type slice. If a caller needs a true "most recent N
+   * overall", slice at the call site where the semantics are visible.
+   *
    * @param {string} userId - User ID
-   * @param {number} limit - Number of transactions to fetch
-   * @returns {Promise<Array>} Transaction history
+   * @param {number} limit - Max rows fetched PER TYPE (purchases, retirements)
+   * @returns {Promise<Array>} Combined history, newest first, up to 2 × limit
    */
   async getUserTransactionHistory(userId, limit = 50) {
     if (!this.supabase) {
@@ -170,8 +192,15 @@ export class CreditOwnershipService {
         .order('created_at', { ascending: false })
         .limit(limit)
 
+      // Throw, don't log-and-continue. A failed purchases query used to fall
+      // through with `purchases` undefined, and the caller
+      // (esgReportService.buildEsgDataset) would report the resulting 0 as the
+      // user's actual purchased total on an exported ESG report. That is #11's
+      // failure mode — a wrong number on a document someone discloses — arriving
+      // by a different route than the slice that fix addressed.
       if (purchasesError) {
         console.error('❌ Error fetching purchases:', purchasesError)
+        throw purchasesError
       }
 
       // Get credit retirements
@@ -192,8 +221,11 @@ export class CreditOwnershipService {
         .order('retired_at', { ascending: false })
         .limit(limit)
 
+      // Same reasoning as purchases above, and worse here: retirements are the
+      // OFFSET side of the report, so swallowing this reports zero offsets.
       if (retirementsError) {
         console.error('❌ Error fetching retirements:', retirementsError)
+        throw retirementsError
       }
 
       // Combine and sort transactions
@@ -226,10 +258,17 @@ export class CreditOwnershipService {
         })),
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
-      return transactions.slice(0, limit)
+      // No cross-type slice here — see the JSDoc. Each query is already capped
+      // at `limit`, so this is bounded; slicing the merged list is what dropped
+      // retirements out of the ESG report.
+      return transactions
     } catch (error) {
+      // Rethrow for the same reason as getUserCreditPortfolio: "no transactions"
+      // is an assertion, and the ESG export caller (CreditPortfolioView
+      // .downloadEsg) already catches and surfaces the failure instead of
+      // handing the user a report that reads "no credits to disclose yet".
       console.error('❌ Error fetching transaction history:', error)
-      return []
+      throw error
     }
   }
 }

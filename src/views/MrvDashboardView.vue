@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyMrvDashboard } from '@/services/mrvDashboardService'
 import { REPORT_STATUS_META } from '@/constants/mrv'
 import PortfolioChart from '@/components/charts/PortfolioChart.vue'
@@ -61,8 +62,8 @@ const trendData = computed(() => ({
     {
       label: 'Verified tCO₂e',
       data: data.value?.trend.verified || [],
-      borderColor: '#069e2d',
-      backgroundColor: 'rgba(6, 158, 45, 0.12)',
+      borderColor: '#058526',
+      backgroundColor: 'rgba(5, 133, 38, 0.12)',
       fill: true,
     },
   ],
@@ -71,7 +72,7 @@ const trendOptions = {
   plugins: { title: { display: true, text: 'Emission reductions over time' } },
 }
 
-const STATUS_COLORS = { draft: '#9ca3af', submitted: '#f59e0b', under_review: '#3b82f6', approved: '#069e2d', rejected: '#ef4444' }
+const STATUS_COLORS = { draft: '#9ca3af', submitted: '#f59e0b', under_review: '#3b82f6', approved: '#058526', rejected: '#ef4444' }
 const statusData = computed(() => {
   const by = data.value?.totals.byStatus || {}
   const keys = Object.keys(by).filter((k) => by[k] > 0)
@@ -102,13 +103,17 @@ onMounted(load)
 
 <template>
   <div class="mrv-dash">
-    <header class="page-head">
-      <div>
-        <h1>MRV Dashboard</h1>
-        <p>Monitoring, reporting &amp; verification across your projects — emission reductions, activity, and reporting compliance.</p>
-      </div>
-      <router-link to="/monitoring" class="btn-ghost">Open report editor</router-link>
-    </header>
+    <PageHeader title="MRV Dashboard">
+      <template #description>
+        Monitoring, reporting &amp; verification across your projects — emission reductions,
+        activity, and reporting compliance.
+      </template>
+      <template #actions>
+        <router-link to="/monitoring" class="btn-ghost">Open report editor</router-link>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
 
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -227,7 +232,9 @@ onMounted(load)
       <section class="panel">
         <h2>Projects &amp; reporting status</h2>
         <div class="table-scroll">
-          <table class="data-table">
+          <!-- data-label drives the under-640px card layout; see
+               src/styles/responsive-table.css -->
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr>
                 <th>Project</th>
@@ -240,18 +247,18 @@ onMounted(load)
             </thead>
             <tbody>
               <tr v-for="p in data.perProject" :key="p.projectId">
-                <td>
+                <td data-label="Project">
                   <router-link :to="`/projects/${p.projectId}`" class="proj-link">{{ p.title }}</router-link>
                   <div v-if="p.category" class="muted small">{{ p.category }}</div>
                 </td>
-                <td class="num">{{ num(p.reportsCount) }}</td>
-                <td>
+                <td class="num" data-label="Reports">{{ num(p.reportsCount) }}</td>
+                <td data-label="Latest report">
                   <span v-if="p.latestStatus" class="badge" :class="p.latestStatus">{{ statusLabel(p.latestStatus) }}</span>
                   <span v-else class="muted small">None yet</span>
                 </td>
-                <td>{{ shortDate(p.lastPeriodEnd) }}</td>
-                <td class="num">{{ num(p.verifiedVers) }}</td>
-                <td>
+                <td data-label="Last period">{{ shortDate(p.lastPeriodEnd) }}</td>
+                <td class="num" data-label="Verified">{{ num(p.verifiedVers) }}</td>
+                <td data-label="Reporting">
                   <span class="badge" :class="p.compliance.state">
                     {{ complianceLabel(p.compliance.state, p.compliance.daysUntil) }}
                   </span>
@@ -276,14 +283,13 @@ onMounted(load)
       </p>
       <router-link to="/monitoring" class="btn-primary">Go to reports</router-link>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.mrv-dash { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
-.page-head h1 { margin: 0; font-size: 1.6rem; }
-.page-head p { color: #6b7280; margin: 4px 0 0; max-width: 640px; }
+.mrv-dash { min-height: 100vh; background: var(--bg-secondary, #f8fdf8); }
+.page-body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .muted { color: #6b7280; }
 .small { font-size: 0.8rem; }
 .notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; }
@@ -298,7 +304,7 @@ onMounted(load)
 .split { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; }
 .split-item { display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 600; color: #4b5563; }
 .split-item .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.split-item.removal .dot { background: #069e2d; }
+.split-item.removal .dot { background: #058526; }
 .split-item.avoidance .dot { background: #2563eb; }
 .split-item.unclassified .dot { background: #d1d5db; }
 .split-item.unclassified { color: #9ca3af; }
@@ -315,7 +321,7 @@ onMounted(load)
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; white-space: nowrap; }
 .data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.proj-link { color: #069e2d; font-weight: 600; text-decoration: none; }
+.proj-link { color: #058526; font-weight: 600; text-decoration: none; }
 .proj-link:hover { text-decoration: underline; }
 .badge { padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; text-transform: capitalize; background: #e5e7eb; color: #374151; }
 .badge.approved, .badge.on_track { background: #d1fae5; color: #065f46; }
@@ -325,14 +331,13 @@ onMounted(load)
 .badge.rejected, .badge.overdue { background: #fee2e2; color: #991b1b; }
 .badge.due_soon { background: #fef3c7; color: #92400e; }
 .legend { margin: 12px 0 0; }
-.btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+.btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .empty { text-align: center; padding: 48px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-.empty-icon { font-size: 48px; color: #069e2d; }
+.empty-icon { font-size: 48px; color: #058526; }
 .empty h2 { margin: 12px 0 6px; font-size: 1.2rem; }
 .empty p { max-width: 460px; margin: 0 auto 18px; }
 @media (max-width: 720px) {
   .charts { grid-template-columns: 1fr; }
-  .page-head { flex-direction: column; }
 }
 </style>
