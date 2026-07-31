@@ -286,7 +286,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
-import { getUserCreditPortfolio, retireCredits } from '@/services/marketplaceService'
+import { retireCredits } from '@/services/marketplaceService'
+// Portfolio comes from creditOwnershipService, NOT marketplaceService. Both
+// exported a `getUserCreditPortfolio` reading the same `credit_ownership` rows;
+// only this one rethrows. The marketplaceService copy swallowed the error and
+// returned [], which rendered here as "you own no credits to retire" and left
+// the error banner below as dead code. Same shape, same table, one fix — see
+// the note on the duplicate's removal in marketplaceService.
+import { creditOwnershipService } from '@/services/creditOwnershipService'
 import {
   getUserPurchaseHistoryPage,
   getUserRetirementHistory,
@@ -398,7 +405,7 @@ const loadUserCredits = async () => {
 
   try {
     const credits = await Promise.race([
-      getUserCreditPortfolio(userId),
+      creditOwnershipService.getUserCreditPortfolio(userId),
       timeoutPromise,
     ])
 

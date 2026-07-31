@@ -42,6 +42,17 @@
 > work. It does not — recording the disagreement on the delivery, where it happens, closes it without
 > touching the credit-side dispute table at all. An entry that names a specific blocking change is
 > still only one proposed route to the outcome.
+>
+> **Reconciled 2026-08-01:** §2a steps **4** and **4b** still read 🔴 *"Not confirmed done"* — the
+> payout worker scheduling and the three edge-function redeploys. **Both were completed and verified
+> on 2026-07-30**, and both HANDOFF and YOUR_ACTION_ITEMS recorded them that day; only this page
+> carried the stale 🔴. Corrected, and split out the part that genuinely *is* still open — the
+> **frontend deploy**, now step 4c.
+>
+> This page states it holds routing rather than status, and the two rows above are what that rule
+> exists to prevent: a routing doc that names a red blocker is read as status whatever its header
+> says. **A row that says "not confirmed done" is itself a claim that needs re-measuring** — the same
+> class as every other defect on this project, reached from the doc side.
 
 ---
 
@@ -72,6 +83,7 @@
 | 🆕 | ~~**Six more `[]`-on-error reads, all with a caller already waiting to catch**~~ — ✅ **fixed 2026-07-31.** `listKybApplications` (*"No pending applications"* while a seller's withdrawals stay locked), `listAllDisputes`, `listRecentTransactions`, `getMyDisputes`, `getMyOrders`, `getUserCertificates` (*"you have retired nothing"* — and it triggered `generateMissingCertificates()` for a user who had them). Four of the six callers had catch branches that were **dead code**, same as `BuyerDashboardView`'s was | [#15](DEFERRED_BACKLOG.md) |
 | 🆕 | ~~**The register page had no link to the Terms at all**~~ — ✅ **fixed 2026-08-01.** Zero mentions of "Terms", "agree" or "legal" in 483 lines, while the Terms say *"by creating an account you agree to these Terms, the Privacy Policy, and the Carbon Credits Policy"*. The footer carrying those links is `v-if="showHeader"`, which **excludes** `login`/`register`/`role-application` — so people agreed by signing up to documents the page gave them no way to open. Now three links dispatching `OPEN_POLICY_EVENT` into the one modal `App.vue` already renders. **Not** a checkbox: the first-sign-in gate is what records consent against a version | code |
 | 🆕 | ~~**A failed portfolio read rendered as "you own nothing"**~~ — ✅ **fixed 2026-07-30.** `getUserCreditPortfolio` / `getUserTransactionHistory` swallowed errors and returned `[]`. Worst case was the ESG export: a failed retirements query produced a downloaded report stating **zero offsets**. All three callers already handled rejection — `BuyerDashboardView`'s `holdingsRes.status === 'rejected'` branch was dead code | [#15](DEFERRED_BACKLOG.md) |
+| 🆕 | ~~**…and the fix missed RetireView, while claiming to cover it**~~ — ✅ **fixed 2026-08-01.** `getUserCreditPortfolio` existed **twice**, reading the same `credit_ownership` rows; the 2026-07-30 fix landed on the `creditOwnershipService` copy and its comment named RetireView as already covered. RetireView imported the **marketplaceService** copy, which still returned `[]` — so a database outage read as *"you own no credits to retire"* and that view's error banner was dead code. Duplicate deleted; wiring pinned by `duplicateServiceReads.test.js` (mutation-checked). **A fix's own claim about its callers is not a measurement of them** | [#11](DEFERRED_BACKLOG.md) |
 
 ### 1b. Cleanups and hardening
 
@@ -157,18 +169,22 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
    read PASS (**`UNPROVEN` is not a pass** — it means nothing existed to attack)
 2. Dashboard checks **1c–1g by hand**: **8** edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed — all of it is `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1 if you want it as tick-boxes
 3. ~~Apply escrow `20260725000200`~~ · ~~feedstock `20260729000100`~~ · ~~`20260718001100`~~ — ✅ **all applied 2026-07-29**, reconcile = 0 after each
-4. 🔴 **Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts` (~15 min)** — escrow is LIVE and `release_matured_escrow()` is the only releaser. **Not a one-click schedule:** the worker 401s without the `x-worker-secret` header, so a naive schedule fails silently. See [`schedule_payout_worker.sql`](../supabase/cutover/schedule_payout_worker.sql). **Not confirmed done.**
-4b. 🔴 🆕 **Redeploy three edge functions (2026-07-30 fixes) — they are inert until you do.**
-   Same shape as the migration lesson: built ≠ live.
-   ```
-   supabase functions deploy paymongo-webhook
-   supabase functions deploy paymongo-checkout
-   supabase functions deploy account-deletion
-   ```
-   `paymongo-webhook` carries the **double-subscription** fix and `paymongo-checkout` the
-   **unauthenticated `verify`** fix. Until deployed, both defects are live. Deploy
-   `paymongo-checkout` **and** the frontend together — the callback page now sends its auth token
-   to that action.
+4. ~~Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts`~~ — ✅ **done 2026-07-30.**
+   On `pg_cron` (`carbonify-process-payouts`, jobid 1, `*/15`, active) and **proven succeeding**, not
+   merely scheduled: `net._http_response` row 1 is `200`. Verified three ways — correct secret → 200,
+   wrong secret → 401, `GET` → 405. Its first run settled an 18-day-old payout that had been sitting
+   in `requested` since 2026-07-12.
+4b. ~~Redeploy three edge functions (2026-07-30 fixes)~~ — ✅ **done 2026-07-30.**
+   `paymongo-webhook` (double-subscription), `paymongo-checkout` (unauthenticated `verify`) and
+   `account-deletion` (erasure recorded pending forever) are deployed. The security fix was confirmed
+   **against the running function**, using the public anon key as an outsider would:
+   `POST {"action":"verify","sessionId":"cs_someoneElsesSessionId123"}` → `401 Authentication
+   required`. `ACCOUNT_DELETION_SECRET` was also set under the correct name the same day.
+   ⚠️ **The frontend half of this is still owed** — see step 4c.
+4c. 🔴 🆕 **Deploy the frontend.** Live runs `main`, ~151 commits stale, so every fix since 2026-07-11
+   is inert in production — including the router guard bypass (a farmer can still reach `/admin` by
+   URL on live), the consent gate, the onboarding guides, the KYC document viewer, the PWA fixes and
+   the provider-button fix. This is the last "built ≠ live" gap on the board.
 5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary

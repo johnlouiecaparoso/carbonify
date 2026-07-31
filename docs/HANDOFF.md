@@ -12,13 +12,58 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **920 unit tests green** (re-verified 2026-08-01,
-> 79 files), plus a new **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **924 unit tests green** (re-verified 2026-08-01,
+> 80 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🆕 2026-08-01 (latest) — 🐛 the portfolio fix named RetireView as covered. RetireView imported the other copy.
+>
+> Suite **920 → 924** (80 files). Build green, lint 0. **No migration, no function deploy** — one
+> import, one deletion, one new test.
+>
+> **`getUserCreditPortfolio` existed twice**, in `creditOwnershipService` and in
+> [`marketplaceService`](../src/services/marketplaceService.js), both reading the same
+> `credit_ownership` rows through the same `projects!inner` embed. The 2026-07-30 pass fixed the first
+> to rethrow instead of returning `[]`, and **its own comment recorded the coverage it believed it
+> had**: *"every caller already handles a rejection: CreditPortfolioView and **RetireView** catch and
+> show an error banner."*
+>
+> [`RetireView.vue`](../src/views/RetireView.vue) did not call it. It imported the **marketplaceService**
+> copy, which still swallowed the error and returned `[]`. So on the retirement screen a database
+> outage rendered as **"you own no credits to retire"**, and the error banner in that view's `catch`
+> — `'Failed to load your credits. Please try again.'` — was **dead code that could never run**,
+> exactly as `BuyerDashboardView`'s rejected branch had been before it was fixed.
+>
+> The duplicate is deleted rather than patched. Two exported reads under one name is the precondition
+> for the whole class: it makes *"is this the fixed one?"* unanswerable at the import site. This is the
+> `getUserCreditPortfolio` sibling of the dual-source half of **#11** (`creditOwnershipService` vs
+> `transactionHistoryService`, both exporting `getUserTransactionHistory`), which remains open.
+>
+> > **The lesson, and it is a sharper version of an old one: a fix's own claim about its callers is
+> > not a measurement of them.** `creditOwnershipErrors.test.js` asserts the surviving copy rejects —
+> > true the whole time, and it caught nothing, because the defect was never in the function. It was in
+> > *which function the view imported*. Same shape as `routerGuardBypass.test.js`: the route metadata
+> > was correct; nothing asserted the guard read it.
+>
+> So [`duplicateServiceReads.test.js`](../src/test/services/duplicateServiceReads.test.js) asserts the
+> **wiring**, not the function: no two service modules may export the same function name (allowlist of
+> one — `exportFilename`, which touches no database), RetireView reads the portfolio from the service
+> that rethrows, and `marketplaceService` no longer exports a second copy. **Mutation-checked** —
+> restoring the old import turns it red.
+>
+> **Verified this pass, by running rather than reading:** unit **924/924** (80 files) · Playwright
+> `responsive.spec.js` + `runtime-smoke.spec.js` **46/46** · `pilot-readiness.spec.js` **2/2 against
+> live** (`disable_signup=false`, `mailer_autoconfirm=true` — still matching what the docs claim) ·
+> lint 0 · build green.
+>
+> **Also corrected:** [OPEN_WORK_REGISTER](OPEN_WORK_REGISTER.md) §2a steps 4 and 4b still read 🔴
+> *"Not confirmed done"* for the payout-worker schedule and the three edge-function redeploys — both
+> done and verified 2026-07-30. The genuinely-open part is split out as step 4c, **the frontend
+> deploy**. A routing doc that names a red blocker is read as status whatever its header says.
 >
 > ### 🆕 2026-08-01 (late) — 🐛 the consent gate asked forever, because it asked as nobody
 >

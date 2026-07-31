@@ -565,69 +565,14 @@ export async function getMarketplaceStats() {
   }
 }
 
-/**
- * Get user's credit portfolio (owned credits)
- */
-export async function getUserCreditPortfolio(userId) {
-  const supabase = getSupabase()
-
-  if (!supabase) {
-    console.warn('Supabase client not initialized')
-    return []
-  }
-
-  try {
-    // Use projects directly since credit_ownership has project_id
-    // This avoids the ambiguous relationship error with project_credits
-    const { data, error } = await supabase
-      .from('credit_ownership')
-      .select(
-        `
-        *,
-        projects!inner(
-          id,
-          title,
-          description,
-          category,
-          location,
-          project_image,
-          image_name,
-          image_type
-        )
-      `,
-      )
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching user credit portfolio:', error)
-      throw error
-    }
-
-    // Transform the data to match expected format
-    const portfolio = (data || []).map((record) => ({
-      id: record.id,
-      project_id: record.project_id,
-      project_title: record.projects?.title || 'Unknown Project',
-      project_description: record.projects?.description || '',
-      project_category: record.projects?.category || 'Unknown',
-      project_location: record.projects?.location || 'Unknown',
-      project_image: record.projects?.project_image,
-      image_name: record.projects?.image_name,
-      image_type: record.projects?.image_type,
-      quantity: record.quantity,
-      ownership_type: record.ownership_type,
-      created_at: record.created_at,
-      updated_at: record.updated_at,
-      ownership_status: record.ownership_type === 'retired' ? 'retired' : 'owned',
-    }))
-
-    return portfolio
-  } catch (error) {
-    console.error('Error in getUserCreditPortfolio:', error)
-    return []
-  }
-}
+// `getUserCreditPortfolio` used to live here as well, reading the same
+// `credit_ownership` rows as `creditOwnershipService.getUserCreditPortfolio`.
+// It was removed 2026-08-01: the two copies had drifted, and the surviving one
+// rethrows while this one swallowed the error and returned [] -- which rendered
+// on RetireView as "you own no credits to retire" and made that view's error
+// banner dead code. The 2026-07-30 fix named RetireView as already covered; it
+// was not, because RetireView imported this copy. Import from
+// `creditOwnershipService` instead.
 
 /**
  * Purchase credits from marketplace listing
