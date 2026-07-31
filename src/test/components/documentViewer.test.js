@@ -1,5 +1,26 @@
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+
+// The panel calls load() during setup. Give it one pending application so the
+// review workflow actually renders.
+vi.mock('@/services/kycService', () => ({
+  getKycApplications: vi.fn(async () => [
+    {
+      id: 'kyc-1',
+      user_id: 'user-1',
+      full_name: 'Louie Caparoso',
+      applicant_email: 'louie@example.com',
+      id_document_type: 'Philippine National ID (PhilSys)',
+      id_document_url: 'data:image/png;base64,AAAA',
+      organization: 'CSU',
+      level_requested: 1,
+      status: 'pending',
+      submitted_at: '2026-07-31T00:00:00Z',
+    },
+  ]),
+  reviewKycApplication: vi.fn(async () => ({})),
+}))
+
 import DocumentViewerModal from '@/components/admin/DocumentViewerModal.vue'
 import KycReviewPanel from '@/components/admin/KycReviewPanel.vue'
 
@@ -117,5 +138,58 @@ describe('KycReviewPanel — the link that was broken', () => {
     // document. That construction is the bug.
     const html = wrapper.html()
     expect(html).not.toContain('target="_blank"')
+  })
+})
+
+describe('KycReviewPanel — the layout that was confusing', () => {
+  /**
+   * `.app-card` was `display: flex` with three children (identity, AML row,
+   * actions), so they laid out as three COLUMNS: the screening button sat
+   * marooned in the middle with no explanation, and the notes input was
+   * squeezed until its own placeholder was cut off mid-word. Nothing said what
+   * to do first.
+   *
+   * The AML row was added later as a third sibling without the container being
+   * updated — the same shape as the router bug earlier this week: a correct
+   * structure that a later addition quietly invalidated.
+   */
+  async function mountWithPendingApp() {
+    const wrapper = mount(KycReviewPanel, { global })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('presents the review as three numbered steps, in order', async () => {
+    const wrapper = await mountWithPendingApp()
+
+    const steps = wrapper.findAll('.step-title').map((s) => s.text())
+    expect(steps).toHaveLength(3)
+    expect(steps[0]).toMatch(/1.*ID document/i)
+    expect(steps[1]).toMatch(/2.*watchlist/i)
+    expect(steps[2]).toMatch(/3.*decision/i)
+  })
+
+  it('gives the notes field a real label instead of a truncated placeholder', async () => {
+    const wrapper = await mountWithPendingApp()
+
+    // The old placeholder carried the "required to reject" rule and was cut off
+    // mid-word by the squeezed column, so the rule was invisible.
+    const label = wrapper.find('.notes-label')
+    expect(label.exists()).toBe(true)
+    expect(label.text().toLowerCase()).toContain('required to reject')
+    expect(wrapper.find('textarea.notes-input').exists()).toBe(true)
+  })
+
+  it('says the applicant has not been screened yet, rather than showing nothing', async () => {
+    const wrapper = await mountWithPendingApp()
+    expect(wrapper.text().toLowerCase()).toContain('not screened yet')
+  })
+
+  it('drops the three-column classes entirely', async () => {
+    // If any of these return, the row layout has probably returned with them.
+    const html = (await mountWithPendingApp()).html()
+    for (const dead of ['app-main', 'app-actions', 'aml-row']) {
+      expect(html.includes(dead), `${dead} belonged to the broken row layout`).toBe(false)
+    }
   })
 })

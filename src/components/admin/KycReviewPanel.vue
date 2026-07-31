@@ -27,69 +27,142 @@
         <div v-else-if="apps.length === 0" class="state">No applications.</div>
 
         <div v-else class="app-list">
+          <!--
+            Laid out as an ordered TOP-TO-BOTTOM workflow: who → evidence →
+            decision. It used to be a `display: flex` row with three children
+            (identity, AML, actions), so they rendered as three columns: the
+            screening button floated in the middle with no explanation, the
+            notes field was squeezed until its placeholder was cut off mid-word,
+            and nothing indicated what to do first. Reviewing an identity is a
+            sequence, so it now reads as one.
+          -->
           <div v-for="app in apps" :key="app.id" class="app-card">
-            <div class="app-main">
-              <div class="app-head">
+            <!-- ── Who ── -->
+            <header class="app-head">
+              <div class="app-head-main">
                 <span class="app-name">{{ app.full_name || app.applicant_name || 'Applicant' }}</span>
                 <span class="status-badge" :class="badgeClass(app.status)">{{ app.status }}</span>
               </div>
-              <div class="app-meta">
-                <span>{{ app.applicant_email }}</span>
-                <span>· {{ app.id_document_type || 'No document type' }}</span>
-                <span>· Level {{ app.level_requested }}</span>
-                <span>· {{ formatDate(app.submitted_at) }}</span>
+              <span class="app-level">Requesting level {{ app.level_requested }}</span>
+            </header>
+
+            <dl class="app-facts">
+              <div class="fact">
+                <dt>Email</dt>
+                <dd>{{ app.applicant_email || '—' }}</dd>
               </div>
-              <div v-if="app.organization" class="app-org">Org: {{ app.organization }}</div>
-              <!-- Was an <a href target="_blank">. `id_document_url` holds a
-                   `data:` URI (KycView uploads via readAsDataURL), and browsers
-                   BLOCK top-level navigation to data: URIs — hence the blank
-                   tab. Rendered in-place instead, where data: URIs work fine. -->
-              <button
-                v-if="app.id_document_url"
-                type="button"
-                class="doc-link"
-                @click="viewing = app"
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
-                View ID document
-              </button>
-              <span v-else class="muted">No document uploaded</span>
-              <div v-if="app.review_notes" class="review-notes">Notes: {{ app.review_notes }}</div>
+              <div class="fact">
+                <dt>Document type</dt>
+                <dd>{{ app.id_document_type || 'Not stated' }}</dd>
+              </div>
+              <div class="fact">
+                <dt>Organization</dt>
+                <dd>{{ app.organization || '—' }}</dd>
+              </div>
+              <div class="fact">
+                <dt>Submitted</dt>
+                <dd>{{ formatDate(app.submitted_at) }}</dd>
+              </div>
+            </dl>
+
+            <div v-if="app.review_notes" class="review-notes">
+              <strong>Previous notes:</strong> {{ app.review_notes }}
             </div>
 
-            <!-- AML screening at the point of review. Approving identity without
-                 ever checking a sanctions list is the gap this closes, and the
-                 recorded 'clear' is the evidence an examiner asks for. -->
-            <div v-if="app.status === 'pending'" class="aml-row">
-              <button
-                class="btn btn-sm btn-outline"
-                :disabled="screeningId === app.id"
-                @click="runScreening(app)"
-              >
-                {{ screeningId === app.id ? 'Screening…' : 'Run AML screening' }}
-              </button>
-              <span v-if="screeningResult[app.id]" class="aml-result" :class="screeningResult[app.id].status">
-                {{ amlLabel(screeningResult[app.id]) }}
-              </span>
-              <router-link v-if="screeningResult[app.id]?.status === 'potential_match'" to="/admin/aml" class="aml-link">
-                Review in AML queue
-              </router-link>
-            </div>
+            <!-- ── Evidence, then decision. Only for applications still open. ── -->
+            <div v-if="app.status === 'pending'" class="steps">
+              <!-- Step 1 -->
+              <section class="step">
+                <h3 class="step-title"><span class="step-num">1</span> Check the ID document</h3>
+                <p class="step-hint">
+                  Confirm the name and photo match the application above, and that the document has
+                  not expired.
+                </p>
+                <button
+                  v-if="app.id_document_url"
+                  type="button"
+                  class="doc-link"
+                  @click="viewing = app"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                  View ID document
+                </button>
+                <p v-else class="step-warn">
+                  <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                  No document was uploaded. There is nothing to verify this identity against.
+                </p>
+              </section>
 
-            <div v-if="app.status === 'pending'" class="app-actions">
-              <input
-                v-model="notesById[app.id]"
-                class="notes-input"
-                placeholder="Review notes (optional for approve, required for reject)"
-              />
-              <div class="action-buttons">
-                <button class="btn btn-danger btn-sm" @click="review(app, false)" :disabled="busyId === app.id">
-                  Reject
-                </button>
-                <button class="btn btn-primary btn-sm" @click="review(app, true)" :disabled="busyId === app.id">
-                  {{ busyId === app.id ? 'Saving…' : 'Approve' }}
-                </button>
-              </div>
+              <!-- Step 2. AML screening at the point of review. Approving an
+                   identity without ever checking a sanctions list is the gap
+                   this closes, and the recorded 'clear' is the evidence an
+                   examiner asks for. -->
+              <section class="step">
+                <h3 class="step-title"><span class="step-num">2</span> Screen against the watchlist</h3>
+                <p class="step-hint">
+                  Records the check either way — a recorded “no match” is the evidence, not just a
+                  hit.
+                </p>
+                <div class="step-row">
+                  <button
+                    class="btn btn-sm btn-outline"
+                    :disabled="screeningId === app.id"
+                    @click="runScreening(app)"
+                  >
+                    {{ screeningId === app.id ? 'Screening…' : 'Run AML screening' }}
+                  </button>
+                  <span
+                    v-if="screeningResult[app.id]"
+                    class="aml-result"
+                    :class="screeningResult[app.id].status"
+                  >
+                    {{ amlLabel(screeningResult[app.id]) }}
+                  </span>
+                  <span v-else class="step-todo">Not screened yet</span>
+                </div>
+                <p
+                  v-if="screeningResult[app.id]?.status === 'potential_match'"
+                  class="step-warn"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">gpp_maybe</span>
+                  <span>
+                    Potential sanctions/PEP match — resolve this before approving.
+                    <router-link to="/admin/aml" class="aml-link">Review in AML queue</router-link>
+                  </span>
+                </p>
+              </section>
+
+              <!-- Step 3 -->
+              <section class="step">
+                <h3 class="step-title"><span class="step-num">3</span> Record your decision</h3>
+                <label class="notes-label" :for="`notes-${app.id}`">
+                  Review notes
+                  <span class="notes-req">— required to reject (at least 5 characters)</span>
+                </label>
+                <textarea
+                  :id="`notes-${app.id}`"
+                  v-model="notesById[app.id]"
+                  class="notes-input"
+                  rows="2"
+                  placeholder="What did you check, and what did you find?"
+                ></textarea>
+                <div class="action-buttons">
+                  <button
+                    class="btn btn-danger btn-sm"
+                    @click="review(app, false)"
+                    :disabled="busyId === app.id"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    @click="review(app, true)"
+                    :disabled="busyId === app.id"
+                  >
+                    {{ busyId === app.id ? 'Saving…' : 'Approve level ' + app.level_requested }}
+                  </button>
+                </div>
+              </section>
             </div>
           </div>
         </div>
@@ -295,38 +368,151 @@ load()
   gap: 1rem;
 }
 
+/* A COLUMN, not a row. As a row its three children became three columns —
+   that is why the screening button sat marooned in the middle and the notes
+   field was crushed to the point of truncating its own placeholder. */
 .app-card {
   display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
+  flex-direction: column;
+  gap: 0.85rem;
   border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 0.75rem;
-  padding: 1.1rem;
+  padding: 1.1rem 1.25rem;
   background: #fff;
 }
 
 .app-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.app-head-main {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
 }
 
 .app-name {
   font-weight: 700;
+  font-size: 1.02rem;
 }
 
-.app-meta {
-  font-size: 0.82rem;
+.app-level {
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--text-muted, #6b7280);
+  white-space: nowrap;
+}
+
+/* Labelled facts beat a run-on "·" separated line: an admin is comparing these
+   against a document, so each one needs to be findable at a glance. */
+.app-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem 1rem;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-secondary, #f8fdf8);
+  border-radius: 0.5rem;
+}
+.fact {
+  min-width: 0;
+}
+.fact dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #6b7280);
+  font-weight: 700;
+  margin-bottom: 1px;
+}
+.fact dd {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #111827;
+  word-break: break-word;
+}
+
+/* ── The three review steps ── */
+.steps {
+  display: grid;
+  gap: 0.7rem;
+}
+.step {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.6rem;
+  padding: 0.8rem 0.9rem;
+}
+.step-title {
   display: flex;
-  gap: 0.35rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.step-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.79rem;
+  color: var(--text-muted, #6b7280);
+  line-height: 1.5;
+}
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
-
-.app-org {
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
+.step-todo {
+  font-size: 0.79rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+.step-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  color: #78350f;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.step-warn .material-symbols-outlined {
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+.notes-label {
+  display: block;
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.3rem;
+}
+.notes-req {
+  font-weight: 400;
+  color: var(--text-muted, #6b7280);
 }
 
 /* Now a <button>, so it needs the browser's button chrome stripped and the
@@ -368,25 +554,27 @@ load()
   color: #92400e;
 }
 
-.app-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 260px;
-}
-
 .notes-input {
   width: 100%;
   padding: 8px 10px;
   border: 2px solid var(--border-color, #d1e7dd);
   border-radius: 0.5rem;
-  font-size: 13px;
+  /* 16px on mobile stops iOS zooming the page on focus. */
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 52px;
+}
+.notes-input:focus {
+  outline: none;
+  border-color: var(--primary-color, #058526);
 }
 
 .action-buttons {
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+  margin-top: 0.6rem;
 }
 
 .status-badge {
@@ -448,16 +636,14 @@ load()
 
 @media (max-width: 768px) {
   .container { padding: 0 1rem; }
-  .app-card { flex-direction: column; }
-  .app-actions { min-width: 0; }
-}
-
-.aml-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.5rem;
+  /* `.app-card { flex-direction: column }` used to live here — it was the only
+     place the card was readable, because the desktop rule made three columns.
+     The card is a column at every width now, so this override is gone along
+     with `.app-actions`, `.aml-row` and `.app-main`, which no longer exist. */
+  .app-card { padding: 0.9rem; }
+  .action-buttons { flex-direction: column-reverse; }
+  .action-buttons .btn { width: 100%; }
+  .notes-input { font-size: 16px; }
 }
 .aml-result {
   font-size: 0.8rem;
