@@ -1,0 +1,34 @@
+{
+  "$comment": [
+    "Lighthouse CI had NEVER run successfully in this repo's history — every CI run on main",
+    "has failed since 2026-02-12, all 20 of them, and this file is why it could not.",
+    "`lhci autorun` errored with 'Unable to automatically determine the location of static",
+    "site files' because no config existed and it cannot guess Vite's `dist/`.",
+    "",
+    "That matters beyond a red badge: the `deploy` job in .github/workflows/ci.yml declares",
+    "`needs: [test, build, lighthouse]`, so a job that can never pass has been gating the",
+    "production deploy step. The deploy job has therefore never executed once. Production has",
+    "been shipping via the Vercel GitHub integration the whole time — a second, undeclared",
+    "path nobody wrote down. Same 'built != live' class as the unscheduled payout worker and",
+    "the misnamed ACCOUNT_DELETION_SECRET, reached from CI instead of from the dashboard.",
+    "",
+    "No assertions are configured on purpose. Adding score thresholds here would convert a",
+    "reporting job into a NEW release gate, and this repo has just finished learning what an",
+    "unverified gate costs. Collect first, decide thresholds later against real numbers.",
+    "",
+    "Upload target is the filesystem rather than temporary-public-storage: the latter",
+    "publishes rendered pages to a public URL, which is not something a CI default should do",
+    "on a platform handling payments and KYC documents."
+  ],
+  "ci": {
+    "collect": {
+      "staticDistDir": "dist",
+      "numberOfRuns": 1,
+      "url": ["http://localhost/index.html"]
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci/reports"
+    }
+  }
+}
