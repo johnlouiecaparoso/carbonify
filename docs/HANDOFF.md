@@ -12,13 +12,68 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **908 unit tests green** (re-verified 2026-07-31,
-> 78 files), plus a new **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **916 unit tests green** (re-verified 2026-08-01,
+> 79 files), plus a new **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
-> five were stale selectors and are fixed. Unit-test history: (820 and 801 earlier on 2026-07-31, 786
+> five were stale selectors and are fixed. Unit-test history: (908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🆕 2026-08-01 — the consent gate, verified rather than asserted; and the doc set caught up with the backend
+>
+> Suite **908 → 916** (79 files). Build green, lint 0. **No migration, no function deploy** — one
+> frontend change and one new diagnostic, so nothing here is inert waiting on a deploy.
+>
+> **1. "Will the policy box show only once?" is now a test, not a claim.** `policyConsent.test.js`
+> already covered the read and the write *in isolation*; nothing asserted the **sequence** —
+> no row → box → accept → reload → no box. [`policyShownOnce.test.js`](../src/test/services/policyShownOnce.test.js)
+> runs that lifecycle against an in-memory table that enforces the same
+> `UNIQUE (user_id, policy_version)` index the migration creates, because that constraint is half of
+> why re-accepting is a no-op. It pins: shown once and not again across 25 reloads · two tabs
+> accepting at once leave **one** row · one user accepting does **not** clear the box for anyone else ·
+> all six roles behave identically (a role is not a parameter of the gate at all) · a version bump
+> re-asks and **keeps the old row** · a failed read does **not** bring the box back.
+>
+> **The test was mutation-checked**, because a check that cannot go red proves nothing — the payout
+> worker's lesson. Removing `.eq('user_id', userId)` from the service turned exactly the two isolation
+> tests red; reverted, `git diff` clean.
+>
+> This is the same shape as `routerGuardBypass.test.js`: **an assertion about the parts is not an
+> assertion about the behaviour.**
+>
+> **2. 🐛 The register page had no link to the Terms at all.** Zero mentions of "Terms", "agree" or
+> "legal" in 483 lines — while the Terms themselves say *"by creating an account you agree to these
+> Terms, the Privacy Policy, and the Carbon Credits Policy"*. The footer that normally carries those
+> links is `v-if="showHeader"`, which **excludes** `login`, `register` and `role-application`. So
+> people were agreeing, by signing up, to documents the page gave them no way to open. Now a line
+> above "Already have an account?" whose three links dispatch `OPEN_POLICY_EVENT` — opening the **one**
+> modal `App.vue` already renders, not a second copy of the legal text.
+>
+> Deliberately **not** a checkbox there. The blocking gate on first sign-in is what records consent
+> against a version; a tick on the register form would record nothing and only imply it had.
+>
+> **3. [`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql)** —
+> the owner-side half of the same question, read-only. §1 is the one that answers it: no user has more
+> than one row for the same version. It also checks the UNIQUE index still exists, because "at most
+> once" is enforced by the database, not the frontend — drop that index and the guarantee quietly
+> becomes a frontend convention.
+>
+> **4. The doc set said signups were disabled and confirmation required. Both had been false since
+> 2026-07-31.** Four files still carried it *after* the reconciliation commit, because that pass fixed
+> the status boxes at the top of each page and not the instructions further down:
+> `YOUR_ACTION_ITEMS` Step 4 (the invite warning, the `OWN-08` gate line, the pilot brief, Step 6b),
+> `UAT_TEST_SCRIPT` (`OWN-08` "red today", and `BUY-01` telling testers to click a confirmation email
+> and check spam), `GO_LIVE_ROADMAP` (a row that had claimed three different values over three
+> revisions — now leads with the measurement and the date).
+>
+> **The lesson, and it is the same one as the `ACCOUNT_DELETION_SECRET`:** a page can be corrected at
+> the top and still be wrong where somebody actually reads it. `BUY-01` is handed to pilot users —
+> a tester following it would have sat waiting for mail that is never sent.
+>
+> **5. [TESTING_PLAN.md](TESTING_PLAN.md) now opens with the complete list of test types** — 18 of
+> them across 4 tiers, plus the 98 UAT tests by block. The content was already there, spread across
+> §1.1–§1.9 and §2; there was no single answer to "what kinds of testing does this system have?".
 >
 > ### ✅ 2026-07-31 (late) — SIGNUPS ARE ON. The pilot's front door is open.
 >

@@ -60,12 +60,12 @@ SQL Editor, run it, and **read the LAST table it prints**.
 | ☐ OWN-05 | PayMongo is in **test** mode | Dashboard → the deployed secrets | Keys start `sk_test_…` |
 | ☐ OWN-06 | The PayMongo webhook is **enabled** | PayMongo dashboard | Shows enabled, points at the Supabase functions URL, event `checkout_session.payment.paid`. *It auto-disables after repeated failures — confirm, don't assume* |
 | ☐ OWN-07 | The payout worker is alive | `select * from net._http_response order by id desc limit 5;` | Recent rows show `status_code 200` |
-| ☐ OWN-08 | Signups actually work | `npx playwright test src/test/e2e/pilot-readiness.spec.js` | *"the backend accepts new signups"* is **green**. 🔴 It is red today |
+| ☐ OWN-08 | Signups actually work | `npx playwright test src/test/e2e/pilot-readiness.spec.js` | *"the backend accepts new signups"* is **green**. ✅ Went green 2026-07-31 — re-run it anyway, a setting can be changed back |
 | ☐ OWN-09 | The frontend is the current build | Load the site | You are testing this branch, not last month's deploy |
 | ☐ OWN-10 | Errors are being recorded | Trigger one handled error | It lands in Sentry |
 
-> **OWN-08 is the gate.** While it is red, no invited person can create an account, so no test below
-> `BUY-01` can be run by anyone new.
+> **OWN-08 used to be the gate** — while it was red, no invited person could create an account. It
+> went green on 2026-07-31. **The gate is now Part 2 (`ESC-01…06`)**, which has never been run.
 
 ---
 
@@ -95,7 +95,7 @@ a credit listed.
 
 | ID | Test name | Steps | Pass when |
 |---|---|---|---|
-| ☐ BUY-01 | Create account | Register → fill the form → Create Account | You get a confirmation email, click the link, and can sign in. **Check your spam folder** |
+| ☐ BUY-01 | Create account | Register → fill the form → Create Account | You are signed in **immediately — there is no confirmation email**, and that is expected during the pilot. Then a **policy consent box** appears: Terms, Privacy and Carbon Credits, one tick. It is shown once, on your first sign-in |
 | ☐ BUY-02 | Identity check (KYC) | Profile → complete KYC | KYC shows verified; you can buy |
 | ☐ BUY-03 | Browse the marketplace | Marketplace → click a project | Detail page opens with map, documents, price |
 | ☐ BUY-04 | Top up wallet | Wallet → Top up → test card | Wallet balance goes up by the right amount |

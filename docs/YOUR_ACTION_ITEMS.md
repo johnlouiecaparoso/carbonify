@@ -10,11 +10,18 @@
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) owns the real-money gate,
 > [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) owns who-can-do-what.
 
-> ## 🧭 2026-07-31 — where this stands, in one box
+> ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **908 green** across 78 files
-> (was 801 at the start of the day), plus a new 37-test responsive spec. Lint 0, build green. One
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **916 green** across 79 files
+> (908 on 2026-07-31, 801 the morning before), plus a 37-test responsive spec. Lint 0, build green. One
 > migration, **already applied**; everything else is frontend and ships with the deploy you owe.
+>
+> **2026-08-01 added no work for you.** One frontend fix (the register page had no link to the Terms —
+> people were agreeing by signing up to documents the page gave them no way to open), one new test file
+> proving the consent box appears **once**, one new read-only diagnostic
+> ([`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql)), and a
+> correction pass over four docs that still told you signups were disabled. Your three items below are
+> unchanged.
 >
 > ### ✅ Two things came OFF this list on 2026-07-31
 >
@@ -79,6 +86,7 @@ Every SQL check is a **file in the repo**. You never need to copy code out of a 
 | [`supabase/diagnostics/daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql) | Every morning during the pilot |
 | [`supabase/diagnostics/money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) | Pre-flight, and after any RLS change |
 | [`supabase/diagnostics/rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) | 🆕 Pre-flight, and before the pentest — **tries the attacks** rather than reading the policies |
+| [`supabase/diagnostics/policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql) | 🆕 Any time you want to confirm the consent box is shown **once per user per version** — and that the UNIQUE index enforcing that is still there |
 
 ---
 
@@ -421,17 +429,17 @@ Full procedure: [SOFT_LAUNCH_RUNBOOK.md §3](SOFT_LAUNCH_RUNBOOK.md). **Hand out
 [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) (what they send back).
 
 > **Before you invite anyone, run `OWN-01…10` yourself** — Part 1 of the test script. It is the same
-> pre-flight as Step 2 above, in tick-box form, and **`OWN-08` is the gate**: while signups are
-> disabled, not one invited person can create an account. **Then run `ESC-01…06`** (Part 2) — escrow is
-> live and promising sellers a hold window that nobody has yet watched behave on a real purchase. A
-> pilot seller whose money is stuck permanently is the worst outcome this beta could produce.
+> pre-flight as Step 2 above, in tick-box form. **`OWN-08` (signups accepted) went green on
+> 2026-07-31**, so the gate is now **`ESC-01…06`** (Part 2) — escrow is live and promising sellers a
+> hold window that nobody has yet watched behave on a real purchase. A pilot seller whose money is
+> stuck permanently is the worst outcome this beta could produce.
 >
 > `TEST_REPORT_FORM.md` §F is yours, not the testers' — it records which diagnostics you ran, and
 > **whether the `escrow_hold_days_card` value you lower for `ESC-03` was put back**.
 
 - Invite **8–15 people covering all seven roles**, including at least one real farmer and one LGU
-- ⚠️ **Signups are disabled and email confirmation is ON** — resolve Step 2's red box first, or not one
-  of these invites can create an account
+- ✅ **Signups are ON and email confirmation is OFF** (measured 2026-07-31) — an invited person
+  registers and is signed straight in, with no email in the loop. Nothing here blocks the invites.
 
 ### Brief every pilot user on these four things
 
@@ -441,9 +449,11 @@ Full procedure: [SOFT_LAUNCH_RUNBOOK.md §3](SOFT_LAUNCH_RUNBOOK.md). **Hand out
    Verra / Gold Standard registry receipt. Not usable for compliance or statutory ESG reporting.
 3. **VAT invoices are provisional** — not BIR-accredited, and they carry **no buyer TIN**, so a company
    cannot claim input VAT on them.
-4. **Email confirmation is ON** (corrected 2026-07-29 — this page previously said "off"). They must
-   click a link before signing in, and until the sender domain is verified that mail comes from
-   Supabase's shared default SMTP, so **tell them to check spam**.
+4. **There is no confirmation email — that is expected.** `mailer_autoconfirm` is on, so registering
+   signs them in immediately. Tell them so, or someone will sit waiting for a link and report it as a
+   bug. The flip side is worth saying out loud to *you*, not to them: **an address nobody verified can
+   register**, so only invite people you actually know. Confirmation goes back on before public
+   launch, once the sender domain is verified (Step 6b).
 
 ### Two role briefings that will otherwise be reported as bugs
 
@@ -495,9 +505,11 @@ emails are `console.log` stubs — only the approval email really sends.
 1. Buy a domain (~₱600–900/yr)
 2. Add it in **Resend** → add the DNS records it gives you (SPF, DKIM, return-path CNAME)
 3. Wait for verification, then set the sender in your Supabase edge-function secrets
-4. ~~**Turn email confirmation ON** in Supabase Auth~~ — ✅ **already on** (`mailer_autoconfirm=false`,
-   measured 2026-07-29). This step is what makes it *usable*: right now confirmation is enforced
-   against Supabase's shared default SMTP.
+4. **Then turn email confirmation back ON** in Supabase Auth (`mailer_autoconfirm` → `false`). It is
+   deliberately **off** today (measured 2026-07-31) so the pilot does not depend on mail that has no
+   verified sender. Turning it on before the domain is verified puts every new user behind Supabase's
+   shared default SMTP — rate-limited and spam-filed — which is the worst of the three states. Domain
+   first, then this.
 5. Tell me it's done — I'll wire the remaining 8 emails through the Resend function
 
 ### 6c. The commercial / legal track

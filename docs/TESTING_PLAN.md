@@ -5,11 +5,84 @@
 > **what-to-test map**: the layers of testing Carbonify needs before and during launch, what already
 > exists, and what to add.
 
+## The complete list — every test type in the system
+
+> **Added 2026-08-01.** The detail was already here, spread across §1.1–§1.9 and §2. This is the same
+> content as one list, because "what kinds of testing does this system have?" had no single answer to
+> point at. **Each row links to its section; the section stays authoritative.**
+
+### Tier 1 — Automated, on every change
+
+| # | Type | Status | What it covers |
+|---|---|---|---|
+| 1 | **Regression gate** ([§1.1](#11-regression-gate-run-on-every-change-)) | 🔴 mandatory | build green · eslint 0 · vitest green · `reconcile_financials()` = 0 after any money change |
+| 2 | **Unit (Vitest)** | ✅ **916 / 79 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
+| 3 | **Component** | ✅ | Vue components in isolation, incl. `modalA11y` (15 dialogs) and `tokenContrast` (fails the suite on a contrast regression) |
+| 4 | **End-to-end (Playwright)** ([§1.3](#13-end-to-end-playwright-on-a-seeded-backend-)) | 🟡 **46/47** | 8 specs. **Not required in CI, not seeded** — the job is `continue-on-error`, which is how 6 failures sat unseen |
+| 5 | **Responsive / layout** | ✅ **37/37** | Real element geometry at 320/390/768/1024/1440 + tap targets + the 16px input floor. ⚠️ **public routes only** |
+| 6 | **Guard behaviour** | ✅ | `routerGuardBypass.test.js` drives the real router with a cold store. **Configuration is not enforcement** — see the note below |
+| 7 | **Backend configuration** ([§1.9](#19-backend-configuration-tests--)) | ✅ | *Is the deployment configured so the beta can happen at all?* Found two auth settings set against the pilot |
+| 8 | **Consent lifecycle** | ✅ **8 tests** | `policyShownOnce.test.js` — the box appears once, on first sign-in, for every role, and what does/does not bring it back |
+
+### Tier 2 — Database & money (owner-run)
+
+| # | Type | Status | What it covers |
+|---|---|---|---|
+| 9 | **Negative RLS / privilege suite** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | ✅ **5 PASS · 3 UNPROVEN · 0 FAIL** | *Performs* the attacks, not reads the policies. Re-run against a victim **with data** during the pilot |
+| 10 | **Integration (positive RPC path)** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | ❌ **none automated** | The highest-value thing left to add |
+| 11 | **Payment & reconciliation** ([§1.4](#14-payment--reconciliation-testing-money-specific-)) | 🔴 | All 6 flows on test keys + **failure injection**: double-fired webhook, expired intent, forced error healing via `paymongo-resettle` |
+| 12 | **Escrow behaviour** (`ESC-01…06`) | 🔴 **never run — the current gate** | Escrow is live and the Terms promise sellers a hold window nobody has watched behave |
+| 13 | **Diagnostics / operational health** | ✅ 6 files | `pilot_preflight` · `escrow_verification` · `feedstock_verification` · `daily_beta_health` · `money_table_rls_audit` · `policy_consent_verification` |
+
+### Tier 3 — Human (the closed beta)
+
+| # | Type | Status | What it covers |
+|---|---|---|---|
+| 14 | **User Acceptance Testing** | 🟠 ready to hand out | **98 tests, 13 blocks** — see the table in §2 |
+| 15 | **Closed beta / pilot** ([§2](#2-beta-test-plan-the-invited-pilot)) | 🟠 next step | 8–15 invited users, all seven roles, test keys, 2–4 weeks |
+
+### Tier 4 — Specialist & external
+
+| # | Type | Status | What it covers |
+|---|---|---|---|
+| 16 | **Independent penetration test** ([§1.5](#15-security-testing-)) | 🔴 **the last P0** | External firm. Auth, RBAC, payment flow, RLS. Weeks of lead time — blocks live payment keys |
+| 17 | **Accessibility** ([§1.8](#18-accessibility-)) | 🟡 partial | ✅ contrast · ✅ dialog keyboard access · ✅ preference toggles made real. ⬜ `for`/`id` on MRV/LGU forms, focus outside dialogs, screen-reader pass |
+| 18 | **Load / performance** ([§1.7](#17-load--performance-testing--before-scaling-not-before-soft-launch)) | ❌ not done | *Before scaling, not before soft launch* |
+
+### UAT blocks at a glance — 98 tests
+
+| Block | # | Who | Block | # | Who |
+|---|---|---|---|---|---|
+| `OWN` | 10 | Owner pre-flight | `LGU` | 7 | LGU |
+| `ESC` | 6 | 🔴 Money safety | `VER` | 6 | Verifier |
+| `BUY` | 13 | Buyer | `FEED` | 6 | Admin feedstock *(never tested)* |
+| `DEV` | 11 | Project developer | `KEY` | 6 | Keyboard & clarity |
+| `FARM` | 11 | Farmer | `PUB` | 6 | Public, no login |
+| `ADMIN` | 8 | Admin | `PRIV` | 4 | Privacy rights *(never tested)* |
+| | | | `INV` | 4 | Investor |
+
+### Two things this list should not let you misread
+
+> ⚠️ **A green suite is not evidence on the money path.** ~40 tests **overstate** it (#21): the
+> `services/credits|payments|payouts` provider layer is imported **only by tests**.
+> `paymongoWebhookSignature.test.js` verifies signatures against `PayMongoProvider`, while the code
+> that actually guards live money is inside `supabase/functions/paymongo-webhook`.
+
+> ⚠️ **An assertion about configuration is not an assertion about enforcement.**
+> `routeAccess.test.js` asserted that `/admin` *carries* `requiresAdmin` and stayed green for months
+> while a whole branch of the router guard never *read* it. Tests 6, 7 and 8 above all exist because
+> of that shape. When adding a test, ask which of the two it is.
+
+**Where the gaps actually are:** ① positive-path integration tests (none) · ② e2e not required in CI
+and not seeded · ③ authenticated pages unmeasured for layout · ④ load testing · ⑤ the pentest.
+
+---
+
 ## Where testing stands today
 
 | Layer | State |
 |---|---|
-| Unit tests | ✅ **908 passing** across 78 files (Vitest) — re-run 2026-07-31. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
+| Unit tests | ✅ **916 passing** across 79 files (Vitest) — re-run 2026-08-01. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
 | Live-DB security verification | ✅ done 2026-07-20 — RLS lockdown + money-table policies verified; `reconcile_financials()` = 0. |
 | Integration tests (RPC/RLS on a real DB) | 🟡 **the negative half is now written** — [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) impersonates a real authenticated user and *attempts* 8 attacks. Owner-run (needs the live DB); not yet executed. The positive RPC half is still unautomated. |
 | End-to-end (Playwright) | 🟡 **46/47 passing** (2026-07-29) and still not required in CI. Was **38/44 with 6 silent failures** — see the box below. The one red (`pilot-readiness`) was correct and is **resolved on the backend 2026-07-31**. |
