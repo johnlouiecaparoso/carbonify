@@ -80,8 +80,16 @@ export async function loginWithEmail({ email, password }) {
   if (blockingApplication) {
     await supabase.auth.signOut({ scope: 'global' })
 
-    const roleLabel =
-      blockingApplication.role_requested === 'verifier' ? 'Verifier' : 'Project Developer'
+    // `getBlockingRoleApplicationForUser` queries every role in
+    // ROLE_APPLICATION_ROLES, which includes FARMER — so a farmer with a
+    // pending application was told their "Project Developer account" was
+    // awaiting approval. Three roles can be applied for; name the right one.
+    const ROLE_LABELS = {
+      verifier: 'Verifier',
+      project_developer: 'Project Developer',
+      farmer: 'Farmer',
+    }
+    const roleLabel = ROLE_LABELS[blockingApplication.role_requested] || 'Specialist'
     const statusLabel = getRoleApplicationStatusLabel(blockingApplication.status).toLowerCase()
 
     await logUserAction('LOGIN_BLOCKED_UNVERIFIED_ROLE', 'user', data.user?.id, null, {

@@ -10,6 +10,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
+import FirstRunGuide from '@/components/onboarding/FirstRunGuide.vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { useCartStore } from '@/store/cartStore'
@@ -50,6 +51,30 @@ const firstName = computed(() => {
   const full = userStore.profile?.full_name || ''
   return full.trim().split(/\s+/)[0] || 'there'
 })
+
+/**
+ * Is this account brand new?
+ *
+ * Deliberately measured from ACTIVITY rather than from a timestamp alone. An
+ * account created three weeks ago that still has no holdings, no orders and no
+ * watchlist has not started — and telling that person "welcome back" over an
+ * empty dashboard is exactly the confusing state this is meant to fix. A
+ * recent `created_at` is a supporting signal, not the whole test.
+ *
+ * Waits for `loading` to finish: mid-load every list is legitimately empty, so
+ * deciding early would greet a returning user as new for a second and then
+ * swap the heading under them.
+ */
+const hasActivity = computed(
+  () =>
+    holdings.value.length > 0 ||
+    unfinishedOrders.value.length > 0 ||
+    watchlist.value.length > 0 ||
+    (creditStats.value?.total_credits || 0) > 0 ||
+    (creditStats.value?.total_retired || 0) > 0,
+)
+
+const isNewAccount = computed(() => !loading.value && !hasActivity.value)
 
 // ── Money / number formatting (₱ everywhere; this platform is PHP-denominated) ──
 
@@ -208,8 +233,12 @@ onMounted(load)
 <template>
   <div class="buyer-dashboard">
     <PageHeader
-      :title="`Welcome back, ${firstName}`"
-      description="Your carbon portfolio, purchases and impact at a glance."
+      :title="isNewAccount ? `Welcome to Carbonify, ${firstName}` : `Welcome back, ${firstName}`"
+      :description="
+        isNewAccount
+          ? 'Your account is ready — here is how to get started.'
+          : 'Your carbon portfolio, purchases and impact at a glance.'
+      "
     >
       <template #actions>
         <button class="header-cta" @click="router.push('/marketplace')">
@@ -220,6 +249,16 @@ onMounted(load)
     </PageHeader>
 
     <div class="container">
+
+      <!-- First-run guide. Sits ABOVE the KYC banner deliberately: to someone
+           who has never used the platform, "verify your identity" out of
+           context reads as an obstacle rather than as step one of something. -->
+      <FirstRunGuide
+        v-if="isNewAccount"
+        :name="firstName"
+        :role="userStore.role || 'general_user'"
+        :user-id="userId || ''"
+      />
 
       <!-- KYC gate: shown BEFORE the buyer invests effort in a purchase, not
            after they've picked a quantity and payment method. -->
