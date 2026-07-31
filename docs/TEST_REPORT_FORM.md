@@ -185,9 +185,15 @@ production is the same class of defect as everything else this project has been 
 ### F3. Deploys and config done during this round
 
 - [ ] Frontend deployed from `feature-user-onboarding-ux` — date: ______
+      *(carries the router access-control fix, the consent gate, the onboarding guides, the KYC
+      document viewer and the PWA fixes — until it ships, none of those are live)*
 - [ ] All 8 edge functions confirmed deployed
-- [ ] Signups enabled (`disable_signup` = `false`) — date: ______
-- [ ] Sender domain verified in Resend — date: ______
+- [x] ✅ Signups enabled (`disable_signup` = `false`) — **2026-07-31**
+- [x] ✅ Email confirmation OFF (`mailer_autoconfirm` = `true`) — **2026-07-31**, taken instead of
+      buying the domain first
+- [x] ✅ `20260731000100_policy_acceptances.sql` applied — **2026-07-31**, confirmed by REST probe
+- [ ] Sender domain verified in Resend — date: ______ *(no longer blocks the beta; still blocks the
+      8 stub emails, the MRV reminders, and turning confirmation back on)*
 - [ ] `pilot-readiness.spec.js` green
 - [ ] Test/seed data purged or clearly labelled
 - [ ] The mock-settled ₱3,123 payout row (`d63ce676…`) removed

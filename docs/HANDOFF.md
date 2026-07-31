@@ -12,11 +12,149 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **820 unit tests green** (re-verified 2026-07-31,
-> 71 files), and **Playwright 46/47** — the one red is `pilot-readiness.spec.js` correctly reporting
-> that signups are disabled on live (see the box below). The e2e suite was **38/44 with 6 failures
-> nobody had seen**, because CI runs that job `continue-on-error: true`; five were stale selectors and
-> are fixed. Unit-test history: (770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> **Current build state:** build green, lint green, **908 unit tests green** (re-verified 2026-07-31,
+> 78 files), plus a new **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
+> were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
+> was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
+> five were stale selectors and are fixed. Unit-test history: (820 and 801 earlier on 2026-07-31, 786
+> before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### ✅ 2026-07-31 (late) — SIGNUPS ARE ON. The pilot's front door is open.
+>
+> **Measured, not assumed** — `GET /auth/v1/settings` on the live project:
+>
+> | Setting | Was | Now |
+> |---|---|---|
+> | `disable_signup` | `true` | **`false`** |
+> | `mailer_autoconfirm` | `false` | **`true`** |
+>
+> Anyone can register and is signed in immediately, with no email involved. That is the correct state
+> while there is no verified sender domain: it sidesteps the "worst of the three states" the runbook
+> warns about (signups on, confirmation required, no sender). The domain is still worth buying — the
+> other 8 transactional emails and the MRV reminders remain stubs — but it no longer blocks the beta.
+>
+> ⚠️ **The trade-off, stated plainly: anyone can now register with an address they do not control.**
+> Fine for a closed pilot with people you invited. **Turn confirmation back on before any public
+> launch.**
+>
+> **Also applied to live: `20260731000100_policy_acceptances.sql`** — confirmed by probe, not by the
+> dashboard (`/rest/v1/policy_acceptances` returns `200 []` where a non-existent table returns `404`,
+> and RLS correctly returns nothing to `anon`).
+>
+> ### 🆕 2026-07-31 (late) — onboarding, consent, and three screens that did not work
+>
+> Nine commits after the security pass below. Suite **820 → 908** (78 files). Build green, lint 0.
+> **One migration, already applied.** Everything else is frontend.
+>
+> **1. A new account landed on "Welcome back" over an empty dashboard.** Now three onboarding surfaces,
+> each for a different moment: `WelcomeTour` (one-shot modal, unchanged), **`FirstRunGuide`** (dashboard
+> panel, until the account is used), and **`/guide`** (the page you come back to in week three, linked
+> directly below "Take a tour" in both the account menu and the sidebar). New-ness is measured from
+> **activity, not a timestamp** — an account created three weeks ago with no holdings and no orders has
+> not started, and greeting that person "welcome back" is the confusion being fixed.
+>
+> The guide states the beta limits on the page rather than leaving them to be discovered, and it warns
+> that **a pending farmer / developer / verifier application blocks sign-in** — which users currently
+> learn by being locked out of an account that worked five minutes earlier. LGU is deliberately *not*
+> offered as an application: it is absent from `ROLE_APPLICATION_ROLES` because staff assign it, so an
+> "Apply as an LGU" button would submit into a role the service rejects.
+>
+> *Found while writing it:* a pending **farmer** application told the user their **"Project Developer
+> account"** was awaiting approval — the message was a binary `=== 'verifier' ? … : 'Project Developer'`
+> over a lookup that queries all three roles.
+>
+> **2. 🔴 Policy consent is now blocking, and recorded per version.** Terms + Privacy + Carbon Credits,
+> one checkbox, no close button, no Escape; declining signs the user out globally. The gate holds **no
+> legal text** — it opens the same modal `App.vue` already renders, because two copies of the Terms
+> drift the first time one is edited and the one a user consented to would be whichever component
+> happened to render.
+>
+> A **table, not a boolean on `profiles`**: a flag answers "did they agree?", but the question actually
+> asked is "what did they agree to, and when?". Policies change, and a flag silently retconning every
+> historical acceptance is not evidence. No UPDATE or DELETE policy exists.
+>
+> > ⚠️ **The read FAILS OPEN, deliberately.** If the table is missing or the read errors, users are let
+> > through rather than locked out — matching `App.vue`, where a missing `is_active` column must read as
+> > ACTIVE. An owner-applied migration must never brick the platform, including for the admin who would
+> > have to fix it. The consequence: **before the migration was applied the gate did nothing, silently.**
+> > It is applied now. The **write** is the opposite and throws — a user who ticked the box and was let
+> > in without a record is the case that leaves us with no evidence at all.
+>
+> **3. 🐛 An admin could not view a KYC ID document at all.** Clicking "View ID document" opened a new
+> tab and a blank white page, with nothing in the console — on the screen whose entire job is reviewing
+> them. `KycView` uploads via `FileReader.readAsDataURL`, so `id_document_url` holds a **`data:` URI**,
+> and **every modern browser blocks top-level navigation to `data:`** (Chrome and Firefox since 2017,
+> anti-phishing). The link was a shape browsers stopped honouring. The block is on *navigation only* —
+> the same URI renders fine as an `<img>` `src`, so it now opens in-place with zoom, rotate and reset.
+>
+> **4. The KYC review card was three columns.** `.app-card` was `display: flex` with three children, so
+> identity, the AML row and the actions block laid out side by side: the screening button marooned in
+> the middle with no explanation, and the notes input squeezed until its own placeholder was cut off
+> mid-word — taking the rule that **rejection requires notes** with it. The AML row had been added later
+> as a third sibling without the container being updated. Now an ordered top-to-bottom workflow: who →
+> ① check the document → ② screen → ③ decide.
+>
+> **5. The preferences page was almost entirely placebo.** `applyAccessibilitySettings()` added
+> `.high-contrast`, `.large-text` and `.reduced-motion` to `<html>`; **searching the codebase for those
+> three class names returned zero rules outside the store itself.** Every accessibility toggle saved a
+> value and changed nothing — and the user switching on "High contrast" is the one who cannot work
+> around it being fake. Worse, it read `accessibility.reducedMotion`, which **nothing ever wrote**: the
+> visible switch is "Animations", writing `display.animations`. Two keys that could never meet.
+>
+> `src/styles/preferences.css` makes six settings real. **Removed** rather than left doing nothing:
+> Theme (tokens.css says the app is *"NOT dark-mode aware, deliberately"*), **Currency** — the dangerous
+> one, offering USD/EUR/GBP/JPY while **nothing converts**, so selecting USD would relabel ₱1,000 as
+> $1,000 — date/time format, items-per-page, "Screen reader support" (not a mode you switch on) and
+> "Enhanced keyboard navigation" (a toggle implying keyboard access can be turned *off*).
+>
+> **6. Emoji → Material Symbols** across the preferences tabs, the seven flag emoji, PaymentCallback,
+> SubmitProject's `1️⃣2️⃣3️⃣` keycaps, ProjectDetail, CertificateView, FinanceConsole and the payment
+> icons. *Still emoji: ~388 in `console.log` across 60 files — developer-facing, deliberately left.*
+>
+> **7. `/apply` was several screens tall.** `row-gap: 2.75rem` between every pair of fields, 140px
+> textareas, 2.5rem card padding, a 4rem hero. Roughly halved. **The `@media` blocks still held the
+> pre-shrink values** — every one now larger than the new desktop rule, so the form would have been
+> *more* spacious on a phone than a laptop. That is the 2026-07-26 header-shrink trap exactly, which
+> shipped once and had to be come back for.
+>
+> ### 🆕 2026-07-31 (late) — PWA + responsive audit. Two dead rules and a landing-page overflow
+>
+> **1. The safe-area rule had never matched anything.** `responsive.css` guarded the notch with
+> `.app-header`, `header.app-header` and `.app-shell-header`. **None of those classes exist** — the
+> header's root is `.header`, the sidebar's is `.sidebar`. So the block never applied, while
+> `viewport-fit=cover` in `index.html` *was* extending content under the notch: an installed PWA on a
+> notched iPhone drew its header beneath the status bar, the exact thing the block existed to prevent.
+> Same shape as the router guard and the KYC card — a correct rule pointed at something that is not
+> there. Now covers top (header), left (sidebar in landscape) and bottom (iOS home indicator).
+>
+> **2. Offline, every icon became a word.** The UI is Material Symbols, which renders by **ligature**,
+> and the service worker never cached cross-origin — so with no font the icons degraded not to blank but
+> to the literal words *"check_circle"*, *"menu_book"*, *"visibility"*. Sharper after the emoji sweep
+> moved more of the UI onto that font. Fixed with `&display=block` (glyph invisible until the font
+> arrives, rather than flashing its own name) **and** a cache-first strategy for the two Google Fonts
+> origins — the single cross-origin exception, which must accept **opaque** responses because the
+> `<link>` carries no `crossorigin`. `CACHE_VERSION → v4`.
+>
+> **3. `/home` overflowed on every phone.** `.stats-grid` declared `repeat(4, 1fr)` in its **base** rule,
+> so four cards with 2rem padding and 2rem gaps were forced onto a 390px screen — **measured at 697px
+> wide**, pushing the landing page sideways on the first screen a visitor sees. The giveaway was the
+> `@media (min-width: 768px)` block setting `repeat(4, 1fr)` *again*: a redundant override means the base
+> was meant to be the small-screen case and was never written that way.
+>
+> **Why a Playwright spec rather than more CSS reading:** `html { overflow-x: clip }` prevents the
+> scrollbar but **hides what overflowed**, so `scrollWidth` would have passed while a table's last
+> columns were unreachable. `responsive.spec.js` measures element geometry at five widths, ignores
+> anything inside a legitimate scroll container, and checks tap-target height and the 16px input floor.
+> **It found #3; reading the CSS had not.**
+>
+> ✅ Clean on inspection: all six icons are genuine PNGs, every manifest icon exists, the SW registers
+> exactly once, the CSP already permits both font origins, and the 720px tables in `AuditLogsView` and
+> `RegistryView` both sit in proper scroll containers.
+>
+> ⚠️ **The responsive spec covers PUBLIC routes only.** Authenticated pages — dashboards, admin queues,
+> the rebuilt KYC card — are unmeasured, and they are the widest layouts in the app, so they are the
+> likeliest remaining offenders. Closing that needs a seeded test account and a login helper.
 >
 > ### 🔒 2026-07-31 — the role guards were skipped on one of two paths into the app
 >
@@ -272,7 +410,7 @@
 > differently from one validated today — worth saying to any pilot developer before they report it as
 > a bug.
 >
-> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-31**, so the PR reflects everything below. `main` is **141 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
+> **Open PR:** [#14 → main](https://github.com/johnlouiecaparoso/carbonify13/pull/14) carries this whole branch for review. **Pushed and in sync with `origin/feature-user-onboarding-ux` as of 2026-07-31**, so the PR reflects everything below. `main` is **151 commits behind** (git-verified; the PR page's own commit list is API-capped at 100 and understates it). **Not merged yet — merging is an owner decision.**
 >
 > ⚠️ **"Pushed and in sync as of 2026-07-28" was wrong when written.** The 2026-07-30 push moved the
 > remote `b8cdab8 → ee9fd6d`, i.e. **five** commits — three from that day's audit *plus* `344b9de`
@@ -310,7 +448,12 @@
 > escrow does to a real purchase is not. **Do not invite a pilot seller until it is.** This is now
 > the single largest untested surface in the money path.
 >
-> ### 🔴 URGENT — nobody can sign up, and this doc set said the opposite
+> ### ✅ RESOLVED 2026-07-31 — nobody could sign up, and this doc set said the opposite
+>
+> **Fixed on the backend 2026-07-31**: `disable_signup: false`, `mailer_autoconfirm: true`. Kept in
+> full below because the lesson outlives the defect — this doc set asserted the opposite of live for
+> weeks, and nothing re-measured it. The fix took two dashboard toggles; *finding* it took running a
+> test suite nobody had run to completion.
 >
 > Found 2026-07-29 by running the Playwright suite, which had never been run to completion in this
 > project's history. Measured off the live project's public `GET /auth/v1/settings`:

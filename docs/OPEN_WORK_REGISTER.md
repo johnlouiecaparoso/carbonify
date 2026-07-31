@@ -60,6 +60,12 @@
 | 🆕 | ~~**One payment could activate two subscription periods**~~ — ✅ **fixed 2026-07-30.** The webhook's subscription branch guarded with a read-then-act `status === 'paid'` check while `activate_subscription()` is *additive*. PayMongo delivers both `checkout_session.payment.paid` and `payment.paid` (distinct event ids → both clear event-level dedup), so two deliveries granted two periods. Now uses the same atomic claim the wallet branch already had | code |
 | 🆕 | ~~**`verify` accepted any checkout session id, unauthenticated**~~ — ✅ **fixed 2026-07-30.** `paymongo-checkout`'s `action:'verify'` ran before any auth check and returned the raw PayMongo session — payer billing name/email/phone, amounts, line items. Session ids travel in redirect URLs and history, so they are not secrets. Now requires a JWT, checks the caller owns the intent, is rate-limited, and no longer returns the raw session blob | code |
 | 🆕 | ~~**A completed erasure could be recorded as still pending, forever**~~ — ✅ **fixed 2026-07-30.** `account-deletion` claimed rows with an unconditional UPDATE, so two overlapping runs both called `deleteUser()`; the loser's "User not found" reset the row to `pending`. Now an atomic claim, matching `mark_payout_processing()` | code |
+| 🆕 | ~~**An admin could not view a KYC ID document at all**~~ — ✅ **fixed 2026-07-31.** "View ID document" opened a blank tab with nothing in the console, on the screen whose job is reviewing them. `id_document_url` holds a **`data:` URI** (`KycView` uploads via `readAsDataURL`) and browsers **block top-level navigation to `data:`** — anti-phishing, since 2017. Now rendered in-place, where the same URI works, with zoom/rotate | code |
+| 🆕 | ~~**The KYC review card was three columns**~~ — ✅ **fixed 2026-07-31.** `.app-card` was `display: flex` with three children, so the AML button sat marooned mid-card and the notes input was squeezed until its placeholder truncated — taking the *"rejection requires notes"* rule with it. The AML row was added later as a third sibling without updating the container. Now an ordered ①②③ workflow | code |
+| 🆕 | ~~**Every accessibility toggle was a placebo**~~ — ✅ **fixed 2026-07-31.** `applyAccessibilitySettings()` added `.high-contrast` / `.large-text` / `.reduced-motion`; **zero rules styled any of them.** It also read `accessibility.reducedMotion`, which nothing ever wrote — the visible switch is "Animations", writing `display.animations`. Six settings are now real; Theme, **Currency** (offered USD/EUR/GBP/JPY while nothing converts), date/time format, items-per-page and two fake a11y toggles were removed | code |
+| 🆕 | ~~**The PWA safe-area rule had never matched an element**~~ — ✅ **fixed 2026-07-31.** It targeted `.app-header` / `.app-shell-header`, neither of which exists — the real classes are `.header` and `.sidebar`. Meanwhile `viewport-fit=cover` *was* extending content under the notch, so an installed PWA drew its header beneath the status bar. Same shape as the router guard | code |
+| 🆕 | ~~**Offline, every icon rendered as a word**~~ — ✅ **fixed 2026-07-31.** Material Symbols renders by ligature and the SW never cached cross-origin, so with no font the UI showed the literal words *"check_circle"*, *"menu_book"*. Now `&display=block` plus a cache-first strategy for the two font origins, accepting opaque responses | code |
+| 🆕 | ~~**`/home` overflowed on every phone**~~ — ✅ **fixed 2026-07-31.** `.stats-grid` declared `repeat(4, 1fr)` in its BASE rule — measured **697px wide on a 390px screen**. The `@media (min-width: 768px)` block restating the same value is what gave the intent away. Found by `responsive.spec.js`, not by reading CSS | code |
 | 🆕 | ~~**Any signed-in account could open `/admin` by URL**~~ — ✅ **fixed 2026-07-31.** `router.beforeEach` has two paths into an authenticated navigation; the second — restore the session straight from Supabase when the store is cold (hard refresh on a deep link, or `fetchSession()` throwing) — called a bare `next()`, skipping the MFA check, all five role guards, `disallowedRoles` and the plan gate. Reproduced: a farmer lands on `/admin`. Both paths now call one `enforceAuthenticatedAccess()`. **Client-side gate only — RLS still stood behind it**, so this is broken access control, not a data breach | code |
 | 🆕 | ~~**A failed marketplace read rendered as "no credits available"**~~ — ✅ **fixed 2026-07-31.** `getMarketplaceListings` returned `[]` on error, on the buyer's primary surface. Three callers already had error states, all dead code. `OrdersView` is the counter-example worth keeping: it opts out **explicitly** with `.catch(() => [])` because there listings are only title enrichment — the caller decides an absence is tolerable, not the service | [#15](DEFERRED_BACKLOG.md) |
 | 🆕 | ~~**The `[]`-on-error class in the two compliance queues**~~ — ✅ **fixed 2026-07-31.** `listScreenings` (AML) returned `[]` for a failed read, and with `status:'open'` that renders as *"no subject awaits a compliance decision"*; `getWatchlist` did the same, so screening ran against a silently-empty list and **matched nobody**. `listDataSubjectRequests` did it to the **DPA erasure queue**, where every row has a statutory clock — the same shape as the misnamed `ACCOUNT_DELETION_SECRET`, reached from the frontend. Plus `getMyDataRequests`, `getMyOfftakes`, `getMyDataRoomActivity`, `listProjectComments` | [#15](DEFERRED_BACKLOG.md) |
@@ -91,6 +97,8 @@
 | Playwright **required in CI on a seeded backend** | 🟡 **46/47 green** (was 38/44 with 6 failures nobody saw — the CI job is `continue-on-error`). Still not required, still not seeded | [TESTING_PLAN](TESTING_PLAN.md) intro box |
 | **Backend-configuration checks** | ✅ **new layer 2026-07-29** — `pilot-readiness.spec.js`. Found two beta-blocking auth settings | [TESTING_PLAN §1.9](TESTING_PLAN.md) |
 | **Guard *behaviour*, not guard metadata** | ✅ **new layer 2026-07-31** — `routerGuardBypass.test.js` drives the real router with a cold store. `routeAccess.test.js` asserts that `/admin` carries `requiresAdmin`; nothing asserted the guard **reads** it, which is how a whole branch that checked nothing survived. **Generalise this**: an assertion about configuration is not an assertion about enforcement | [TESTING_PLAN §1.2](TESTING_PLAN.md) |
+| **Responsive layout, MEASURED** | ✅ **new layer 2026-07-31** — `responsive.spec.js`, 37 tests at 320/390/768/1024/1440. Found the `/home` overflow that reading the CSS had not. `html { overflow-x: clip }` hides overflow rather than scrolling it, so `scrollWidth` would have passed while content was unreachable — it measures element geometry instead. **Public routes only**; authenticated pages are the widest layouts and remain unmeasured | [TESTING_PLAN](TESTING_PLAN.md) |
+| **`localStorage` in unit tests is a no-op** | ⚠️ **found 2026-07-31.** `src/test/setup.js` mocks it with `vi.fn()` stubs that store nothing, so `getItem` always returns `undefined` — any test that appears to verify persistence does not. `preferencesEffects.test.js` installs a real in-memory version locally rather than changing the shared mock | [TESTING_PLAN](TESTING_PLAN.md) |
 | **Load / performance** | ❌ not done | before scaling, not before soft launch |
 | **Accessibility** | 🟡 partial | contrast closed (#19); full pass outstanding |
 
@@ -136,10 +144,12 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 
 Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 
-0. 🔴 **Enable signups, and settle the sender domain first.** `disable_signup=true` and
-   `mailer_autoconfirm=false` on live — nobody can register, and confirmation is enforced with no
-   verified sender. Both were documented the other way round. [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md)
-   Step 2.
+0. ✅ ~~**Enable signups, and settle the sender domain first.**~~ — **done 2026-07-31.**
+   `disable_signup=false`, `mailer_autoconfirm=true` (measured). Registration works and signs the user
+   straight in with no email involved — the route taken instead of buying the domain first, and it
+   avoids the worst combination of the three. ⚠️ Anyone can now register with an address they do not
+   control; re-enable confirmation before any public launch.
+   [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md) Step 2.
 1. Run [`pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) → read the `verdict` column
    · then [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) → every row must
    read PASS (**`UNPROVEN` is not a pass** — it means nothing existed to attack)
@@ -169,7 +179,7 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 
 ### 2c. Repo and infrastructure
 
-Decide on merging **PR #14** — **141 commits** ahead of `origin/main`, pushed and in sync as of
+Decide on merging **PR #14** — **151 commits** ahead of `origin/main`, pushed and in sync as of
 2026-07-31 (the PR page's commit list is API-capped at 100 and understates it) · buy + verify the
 **email-confirmation domain** · adopt CLI migration tracking (#7) so live stops drifting from
 `supabase/migrations/` · hold all keys and secrets.

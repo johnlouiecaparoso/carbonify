@@ -12,49 +12,49 @@
 
 > ## 🧭 2026-07-31 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **820 green** (was 801),
-> lint 0, build green. Today's pass was frontend-only: **no migration to apply, no edge function to
-> redeploy**, so nothing is sitting inert this time. It ships with the frontend deploy you already
-> owe from the 2026-07-30 provider-buttons change.
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **908 green** across 78 files
+> (was 801 at the start of the day), plus a new 37-test responsive spec. Lint 0, build green. One
+> migration, **already applied**; everything else is frontend and ships with the deploy you owe.
 >
-> **You have exactly four things to do:**
+> ### ✅ Two things came OFF this list on 2026-07-31
+>
+> **Signups are ON** — measured, not assumed: `disable_signup: false`, `mailer_autoconfirm: true`.
+> Anyone can register and is signed in immediately, with no email involved. That is the right state
+> while there is no verified sender domain, because it sidesteps the worst combination (signups on,
+> confirmation required, no sender). ⚠️ **A person can now register with an address they do not
+> control** — fine for a closed pilot with invited people, **turn confirmation back on before any
+> public launch.**
+>
+> **`20260731000100_policy_acceptances.sql` is applied** — confirmed by probing the REST endpoint
+> rather than trusting the dashboard: `/rest/v1/policy_acceptances` returns `200 []` where a
+> non-existent table returns `404`, and RLS correctly shows `anon` nothing. The consent gate is
+> therefore live: new users must accept the Terms, Privacy Policy and Carbon Credits Policy before
+> they can use the platform, and the acceptance is recorded with the policy version.
+>
+> > 🔎 **Worth knowing about that gate:** its read **fails open**. If the table were dropped or the
+> > read errored, users would be let through rather than locked out — deliberate, because an
+> > owner-applied migration must never brick the platform, including for the admin who would fix it.
+> > The only signal would be a console error beginning `[policy] Could not read policy_acceptances`.
+> > Now that it is applied, run the `VERIFY` block at the bottom of the migration if you want the
+> > four PASS rows on record.
+>
+> **You have three things left:**
 >
 > | # | Do this | Blocks |
 > |---|---|---|
-> | 1 | 🔴 **Apply `20260731000100_policy_acceptances.sql`** | The consent gate. **Until you do, it silently does nothing** — see below |
-> | 2 | **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
-> | 3 | **Deploy the frontend + purge test data** — Step 2 / Step 3 | The pilot |
-> | 4 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
+> | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
+> | 2 | **Deploy the frontend + purge test data** — Step 2 / Step 3 | The pilot |
+> | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 >
-> ✅ **Signups are ON as of 2026-07-31** — measured, not assumed: `disable_signup: false`,
-> `mailer_autoconfirm: true`. Anyone can register and is signed in immediately, with no email
-> involved. That is the correct state while there is no verified sender domain. **Turn confirmation
-> back on before any public launch** — right now a person can register with an address they do not
-> control.
+> **#2 now carries real security value.** Until you deploy, the router fix is not live — a farmer or
+> general user can still reach `/admin` and `/verifier` by typing the URL. RLS means they see no admin
+> *data*, but they see admin *screens*. The same deploy carries the consent gate, the onboarding
+> guides, the KYC document viewer and the PWA fixes.
 >
-> ### 🔴 The one that will bite you: the consent gate fails OPEN
->
-> New users are shown a blocking screen with the Terms, Privacy Policy and Carbon Credits Policy and
-> must tick a box before they can use the platform. Their acceptance — and **which version** they
-> accepted — is written to `policy_acceptances`.
->
-> **That table does not exist until you apply the migration.** The gate deliberately lets users
-> through when it cannot read the table, rather than locking everyone out of the platform including
-> the admin who would have to fix it. So the failure mode is silent: no error, no warning, every user
-> sailing past a consent screen that never appears, and **no record of anyone agreeing to anything**.
->
-> The one signal is a console error beginning `[policy] Could not read policy_acceptances`. After
-> applying, run the `VERIFY` block at the bottom of the migration — all four rows must read PASS.
->
-> This is the same "built ≠ live" shape as the payout worker and the misnamed secret, and it is
-> called out here specifically because it is *designed* not to complain.
->
-> **Order matters on 1 and 2.** Enabling signups while confirmation is required and no sender is
-> verified is the worst of the three states — see the red box in Step 2.
->
-> **#3 is the one people skip.** Escrow is live and the Terms already promise sellers a hold window.
-> The *releaser* is proven; what escrow does to a real purchase is not. A pilot seller whose money is
-> stuck permanently is the worst outcome this beta can produce.
+> **#1 is the one people skip, and it is the one that can strand a pilot seller's money.** Escrow is
+> live and the Terms already promise sellers a hold window. The *releaser* is proven; what escrow does
+> to a real purchase is not. A pilot seller whose money is stuck permanently is the worst outcome this
+> beta can produce.
 >
 > Anything still open on the build side is quality and product work, routed in
 > [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) Lane 1 — **none of it gates go-live.** The long pole
@@ -249,6 +249,20 @@ Two accounts, about five minutes:
 
 # Step 2 — Dashboard checks (no SQL can do these)
 
+> ## ✅ RESOLVED 2026-07-31 — both auth settings are now correct
+>
+> Re-measured off `GET /auth/v1/settings`: **`disable_signup: false`**, **`mailer_autoconfirm: true`**.
+> Registration works and signs the user straight in, with no email in the loop. The historical record
+> of the problem is kept below because the *lesson* is the point — the settings were documented the
+> opposite way round for weeks and nothing re-measured them.
+>
+> ⚠️ The remaining trade-off: with confirmation off, **anyone can register with an address they do not
+> control.** Acceptable for a closed pilot with invited people. Re-enable confirmation — which needs
+> the verified sender domain, Step 6b — before any public launch.
+>
+> <details>
+> <summary>The original 2026-07-29 finding (kept for the lesson)</summary>
+>
 > ## 🔴 2026-07-29 — TWO AUTH SETTINGS BLOCK THE BETA, and this page had both backwards
 >
 > Measured directly off the live project's public `GET /auth/v1/settings` (read-only, creates
@@ -274,6 +288,8 @@ Two accounts, about five minutes:
 >
 > **One correction in your favour:** the go/no-go gate lists *"email confirmation re-enabled"* as an
 > open P0. It is already **on**. Only the verified sender domain half is outstanding.
+>
+> </details>
 >
 > ### ✅ Two providers were advertised in the UI and disabled on the backend — fixed 2026-07-30
 >
@@ -314,13 +330,12 @@ Two accounts, about five minutes:
 - [ ] **8 edge functions deployed**: `account-deletion` · `paymongo-checkout` · `paymongo-reconcile` ·
       `paymongo-resettle` · `paymongo-webhook` · `process-payouts` · `public-registry` ·
       `send-approval-email`
-- [ ] ⏸️ **BLOCKED 2026-07-30 — owner has not bought the domain yet.** Signups + sender domain are
-      deferred together, deliberately. Do **not** enable signups before deciding which route below;
-      turning them on with confirmation required and no verified sender is the worst of the three
-      states. Everything else in this runbook (Steps 0, 1, 4, 5) can proceed meanwhile — none of it
-      needs a second user.
-- [ ] 🔴 **Signups enabled** (`disable_signup` = `false`) — see the box above
-- [ ] 🔴 **Sender domain verified** before signups are enabled, or invite in small batches knowingly
+- [x] ✅ **Signups enabled** (`disable_signup` = `false`) — measured 2026-07-31
+- [x] ✅ **Email confirmation turned OFF** (`mailer_autoconfirm` = `true`) — the route taken instead of
+      buying the domain first. New users are signed in immediately with no email involved, which
+      avoids the worst combination (signups on + confirmation required + no verified sender).
+- [ ] **Sender domain verified** — no longer blocks the beta, but still blocks the 8 stub emails and
+      the MRV reminders, and is what would let confirmation be turned back on. Step 6b.
 > ### 🐛 2026-07-30 — `account-deletion` had never been able to run. Found by reading `secrets list`.
 >
 > The function reads **`ACCOUNT_DELETION_SECRET`**. The project had a secret named **`account-deletion`**
@@ -514,7 +529,7 @@ None of these block the beta. Each one unblocks work that is otherwise held.
 | Decision | Why it's yours |
 |---|---|
 | **Is a farmer a buyer?** | They can reach checkout by URL today but aren't offered it in the sidebar (#31). Either give them the buying nav or block the routes — the contradiction is the problem. |
-| **Merge PR #14?** | 141 commits. Everything ships from a feature branch right now. |
+| **Merge PR #14?** | 151 commits. Everything ships from a feature branch right now. |
 | **Provider layer: route through it, or delete it?** | ~40 tests currently overstate money-path coverage (#21). |
 | **Organization accounts: go/no-go?** | Phase 1 is safe to build now. Phase 2 must wait until after the beta — it rewrites the same RPC as escrow. |
 | **Public API: expose it, and to whom?** | Key-gating and rate limits — the edge function has neither. |

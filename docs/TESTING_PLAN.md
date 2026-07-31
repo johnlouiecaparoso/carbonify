@@ -9,14 +9,15 @@
 
 | Layer | State |
 |---|---|
-| Unit tests | ✅ **786 passing** across 65 files (Vitest) — re-run 2026-07-29. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
+| Unit tests | ✅ **908 passing** across 78 files (Vitest) — re-run 2026-07-31. Pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
 | Live-DB security verification | ✅ done 2026-07-20 — RLS lockdown + money-table policies verified; `reconcile_financials()` = 0. |
 | Integration tests (RPC/RLS on a real DB) | 🟡 **the negative half is now written** — [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) impersonates a real authenticated user and *attempts* 8 attacks. Owner-run (needs the live DB); not yet executed. The positive RPC half is still unautomated. |
-| End-to-end (Playwright) | 🟡 **46/47 passing** (2026-07-29) and still not required in CI. Was **38/44 with 6 silent failures** — see the box below. |
+| End-to-end (Playwright) | 🟡 **46/47 passing** (2026-07-29) and still not required in CI. Was **38/44 with 6 silent failures** — see the box below. The one red (`pilot-readiness`) was correct and is **resolved on the backend 2026-07-31**. |
+| Responsive layout | ✅ **new 2026-07-31** — [`responsive.spec.js`](../src/test/e2e/responsive.spec.js), **37/37**, measuring real element geometry at 320/390/768/1024/1440 plus tap-target height and the 16px input floor. Found a `/home` overflow (a stats row 697px wide on a 390px screen) that reading the CSS had not. **Public routes only** — authenticated pages are the widest layouts and remain unmeasured. |
 | Manual role click-through | 🟡 partially done live; formalized in the runbook §3. |
 | Security / penetration test | ❌ not done — the last P0 before live payment keys. |
 | Load / performance | ❌ not done. |
-| Accessibility | 🟡 partial (`for`/`id` pass started 2026-07-07; colour contrast closed 2026-07-26 with a token test; **modal keyboard access closed 2026-07-28** — Escape / focus trap / `role="dialog"` on all 15 dialogs, 9 tests). Remaining: the `for`/`id` pass on MRV/assessment/LGU forms, and focus states outside dialogs. |
+| Accessibility | 🟡 partial (`for`/`id` pass started 2026-07-07; colour contrast closed 2026-07-26 with a token test; **modal keyboard access closed 2026-07-28** — Escape / focus trap / `role="dialog"` on all 15 dialogs, 9 tests; **the preference toggles were made real 2026-07-31** — high contrast, larger text, reduced motion, focus outline and colour-blind cues had been adding classes no stylesheet answered). Remaining: the `for`/`id` pass on MRV/assessment/LGU forms, and focus states outside dialogs. |
 
 **The gap is not unit coverage — it's everything that unit tests can't prove:** RLS policies, RPC grants,
 real payment settlement, and real human usage. The plan below is ordered by that gap.
@@ -143,7 +144,8 @@ check was covering.
 backend accepts signups.
 
 **It found both auth settings set against the pilot, and both documented backwards** — `disable_signup`
-is `true` and `mailer_autoconfirm` is `false`. Detail and the fix order:
+was `true` and `mailer_autoconfirm` was `false`. ✅ **Both corrected 2026-07-31**: now `false` and
+`true` respectively, so the spec passes and registration works. Detail:
 [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) Step 2.
 
 > **Why it reads a settings endpoint instead of registering.** The old `auth.spec.js` registration test
