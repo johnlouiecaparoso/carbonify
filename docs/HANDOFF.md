@@ -28,10 +28,10 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1121 unit tests green across 94 files**
+> **Current build state:** build green, lint 0, **1131 unit tests green across 95 files**
 > (re-verified 2026-08-02).
 >
-> *1121 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
+> *1131 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
 >
 > **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
@@ -39,14 +39,78 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — the test `localStorage` was not merely empty, it was mis-shaped
+> ### 🆕 2026-08-02 (latest) — dead code led to a live spoofing surface
+>
+> Suite **1121 → 1131** (95 files). Build green, lint 0. **No migration** — the frontend half ships
+> with the next deploy; the database half is [#36](DEFERRED_BACKLOG.md) and is **not** fixed.
+>
+> Started as **#30** (dead exports, 62 candidates). Verifying whether seven dead `notify*` functions
+> were safe to delete meant reading the triggers that replaced them — and that is where the real find
+> was.
+>
+> **1. 🔒 Any signed-in user can write a notification into anyone else's bell.**
+> `system_notifications`' INSERT policy is:
+>
+> ```sql
+> with check (auth.uid() is not null)
+> ```
+>
+> That is *"any logged-in user, for any recipient"* — not *"for yourself"*. And
+> `createNotificationsForUsers()` inserts **client-side** with a caller-supplied `user_id`, `title`,
+> `message` and `link`. So a row can be planted in any chosen user's feed — an admin's, a verifier's,
+> a seller's — with arbitrary text, rendered by the product's own trusted UI.
+>
+> **🐛 And the bell was an open redirect on top of it.** `Header.vue` navigated with
+> `window.location.assign(notification.link)`, which accepts an **absolute URL**. Forged
+> notification, arbitrary destination: *"Payout on hold — reconfirm your bank details"*, pointing
+> anywhere. **Fixed** by [`safeInternalPath`](../src/utils/safeInternalPath.js) — a link out of the
+> app is no longer reachable from a database row, whatever wrote it.
+>
+> > **Severity, stated honestly:** medium, now medium-low. It needs an authenticated account, and
+> > signups are open with autoconfirm right now, so that is a low bar during the pilot. It grants **no**
+> > read access to anyone else's notifications, moves no money and escalates no privilege. It is a
+> > spoofing surface — and precisely what a pentest files.
+>
+> **The RLS half is not a one-line tightening**, which is why it is backlogged rather than fixed:
+> `auth.uid() = user_id` would immediately break every *legitimate* cross-user notification (feedstock
+> deliveries, biomass quotes, price-drop alerts, admin escalations — ~18 call sites). The route is the
+> one the five triggers already model: a `SECURITY DEFINER` RPC that resolves recipients server-side,
+> then tighten the policy. Steps 1–2 land safely ahead of step 3.
+>
+> ⚠️ **Derived from `supabase/migrations/`, not measured live** — confirming it needs an authenticated
+> session on the live project, which is not something to create unilaterally. #36 carries the one-line
+> query that settles it.
+>
+> **2. 🧹 #30, the part that was worth doing.** Seven exported `notify*` functions deleted — they
+> duplicated five live database triggers (`trg_notify_project_submission`, `…_submitted`,
+> `…_project_status`, `…_role_application`, `…_marketplace_listing`). **Not merely dead:**
+> `20260626000200`'s own header records why the trigger exists — *the client-side version was rejected
+> by RLS and the bell never rang*. So the trap cut both ways: call one and you got either nothing, or
+> a second notification on top of the trigger's. 62 → 55 candidates.
+>
+> **The other 55 are deliberately left**, and the reason matters: the detector counts a symbol used
+> only *inside* its own module as a candidate, so most of them want the `export` keyword removed
+> rather than the function deleted. Vite already tree-shakes unused exports, so there is no bundle
+> win — and the 08-02 `.bind()` outage is what deleting dead code costs when it goes wrong.
+> **Comprehension is the only benefit, and it does not outrank that risk at pilot time.**
+>
+> **3. 📐 Mutation testing found dead code in my own fix, within the hour.** `safeInternalPath`
+> shipped its first draft with four guards. Mutating each one showed **two could not fire**: anything
+> reaching the scheme check already starts with `/`, so `'/x'.split(/[/?#]/)[0]` is always empty, and
+> the control-character scan was likewise unreachable for off-site navigation. Both deleted rather
+> than kept as "belt and braces" — **a guard that cannot fire is dead code wearing a safety label**,
+> the same pattern as the placebo accessibility toggles and the safe-area CSS rule that matched no
+> element. The tests still assert every one of those inputs is refused, because the outcome is what
+> matters, not which line produces it. Both remaining branches are mutation-verified load-bearing.
+>
+> ### 🆕 2026-08-02 — the test `localStorage` was not merely empty, it was mis-shaped
 >
 > Suite **1104 → 1121** (94 files). Build green, lint 0. **No migration, no function deploy** — test
 > infrastructure and two new test files, so nothing here is inert waiting on anything.

@@ -338,6 +338,7 @@ import { getRoleDisplayName } from '@/constants/roles'
 import { buildGuestNav, buildAccountMenu, homeDestination } from '@/constants/navigation'
 import { useSidebar } from '@/composables/useSidebar'
 import { performLogout } from '@/utils/logout'
+import { safeInternalPath } from '@/utils/safeInternalPath'
 import { getUserInitials } from '@/services/profileService'
 import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 import { getSupabase } from '@/services/supabaseClient'
@@ -579,7 +580,12 @@ async function openNotification(notification) {
     }
 
     showNotificationMenu.value = false
-    const targetPath = notification.link || '/'
+    // `link` is stored data, and system_notifications' INSERT policy lets any
+    // signed-in user write a row addressed to anyone else — so an absolute URL
+    // here would be an in-product phishing link aimed at whoever opens the bell.
+    // Constrain it to a path inside the app. See DEFERRED_BACKLOG #36 for the
+    // RLS half, which is the actual fix.
+    const targetPath = safeInternalPath(notification.link, '/')
     if (route.path !== targetPath) {
       window.location.assign(targetPath)
     }

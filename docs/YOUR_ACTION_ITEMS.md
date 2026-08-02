@@ -12,7 +12,36 @@
 
 > ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **1104 green** across 92 files
+> ### 🔒 One thing found 2026-08-02 that you should know about before the pilot
+>
+> **Any signed-in user can write a notification into any other user's bell** — including yours.
+> `system_notifications`' INSERT policy is `with check (auth.uid() is not null)`, which means "any
+> logged-in user, for any recipient" rather than "for yourself", and the client inserts those rows
+> directly. Someone with an account could plant *"Payout on hold — reconfirm your bank details"* in an
+> admin's notification feed, rendered by Carbonify's own UI.
+>
+> **The worst half is fixed today:** the bell used to navigate with
+> `window.location.assign(notification.link)`, which accepted an **absolute URL**, so a forged
+> notification could send you off-site. Links are now restricted to paths inside the app.
+>
+> **The database half is not fixed** — it is [#36](DEFERRED_BACKLOG.md), and it needs a migration plus
+> ~18 call sites moved behind an RPC, because simply tightening the policy would break every
+> legitimate notification the platform sends to somebody else. **It is not urgent and it does not gate
+> the pilot** — no money moves, nobody else's notifications become readable, no privilege is gained —
+> but it belongs on the pentest brief, and it is worth knowing while signups are open to anyone.
+>
+> I derived this from the migrations rather than measuring it, because confirming it needs a real
+> account on the live project. One query settles it:
+>
+> ```sql
+> select polname, pg_get_expr(polwithcheck, polrelid) as with_check
+> from pg_policy
+> where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
+> ```
+>
+> If `with_check` reads `(auth.uid() IS NOT NULL)`, it is live as described.
+>
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1131 green** across 95 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
 > spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
 > — `20260801000100_transaction_counterparty_name.sql`, item 4 below; everything else is frontend and

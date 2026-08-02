@@ -1412,3 +1412,70 @@ roughly an afternoon: it fixes the shared-device case without punishing the sing
 Current behaviour is pinned by
 [`cartPersistence.test.js`](../src/test/store/cartPersistence.test.js) so that it stays a decision
 rather than drifting back into an accident.
+
+---
+
+### 36. Any signed-in user can write a notification into anyone else's bell 🟠
+**Found 2026-08-02**, while verifying whether the dead `notify*` twins in
+`notificationService` were safe to delete (#30). They were — but reading the trigger migration that
+replaced them led here.
+
+**The policy.** `20260326000100_create_system_notifications.sql`:
+
+```sql
+create policy "Authenticated can insert notifications"
+  on public.system_notifications for insert
+  to authenticated
+  with check (auth.uid() is not null);
+```
+
+`with check (auth.uid() is not null)` is **"any logged-in user, for any recipient"**, not
+"for yourself". `createNotificationsForUsers()` inserts client-side with a caller-supplied
+`user_id`, `title`, `message`, `link` and `metadata`, so this is reachable from the browser
+console with the public anon key and any account.
+
+**What it buys an attacker.** A row in any chosen user's notification bell — including an admin's,
+a verifier's or a seller's — with arbitrary text, rendered by the product's own trusted UI.
+*"Payout on hold — reconfirm your bank details"* is the obvious one. It also makes the bell
+worthless as an audit signal, because nothing distinguishes a system notification from a forged one.
+
+⚠️ **The reach was worse until today.** `Header.vue` navigated with
+`window.location.assign(notification.link)`, which accepts an **absolute URL** — so the forged
+notification could point off-site. That half is **fixed 2026-08-02** by
+[`safeInternalPath`](../src/utils/safeInternalPath.js): a link out of the app is no longer reachable
+from a database row. That is defence in depth, not the fix.
+
+**Severity, stated honestly.** Medium, now medium-low. It needs an authenticated account — and
+signups are currently open with `mailer_autoconfirm`, so that is a low bar during the pilot. It does
+**not** grant read access to anyone else's notifications (SELECT is `auth.uid() = user_id`), moves no
+money, and escalates no privilege. It is a spoofing / social-engineering surface, and exactly the
+kind of finding an independent pentest files.
+
+**Why it is here and not fixed.** The fix is not a one-line policy tightening: `with check (auth.uid()
+= user_id)` would immediately break every legitimate cross-user notification — the feedstock delivery
+alerts, biomass quotes, price-drop alerts, admin escalations. Those are ~18 call sites, and they are
+legitimate; the platform genuinely needs to notify people other than the caller.
+
+**The route, and the pattern already exists in this repo.** The five notification **triggers** solve
+exactly this problem the right way: a `SECURITY DEFINER` function that decides recipients server-side
+via `resolve_notification_recipient_ids()`. So:
+
+1. Add a `SECURITY DEFINER` RPC that takes a notification *intent* (an event, not a recipient list)
+   and resolves recipients itself. Grant hygiene per [#12](#12-grant-hygiene-on-10-39-security-definer-rpcs--closed--applied-2026-08-02).
+2. Move the cross-user call sites onto it.
+3. Only then tighten the INSERT policy to `auth.uid() = user_id`, leaving the client able to write
+   notifications to itself and nothing else.
+
+Steps 1–2 are inert and safe to land ahead of 3, which is the one that closes the hole.
+
+⚠️ **Derived from `supabase/migrations/`, not measured against live.** Confirming it needs an
+authenticated session, which needs an account on the live project — not something to create
+unilaterally. The owner can settle it in one query:
+
+```sql
+select polname, pg_get_expr(polwithcheck, polrelid) as with_check
+from pg_policy
+where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
+```
+
+If `with_check` reads `(auth.uid() IS NOT NULL)`, this entry is live as written.
