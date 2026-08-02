@@ -22,32 +22,35 @@ function normalizePoint(row) {
   }
 }
 
-/** Market-wide daily price series for the trailing `days`. Empty on failure. */
+/**
+ * Market-wide daily price series for the trailing `days`.
+ *
+ * Throws on failure. An empty series is already meaningful on a price chart —
+ * it says "nothing has traded" — so a failed read returning [] does not hide
+ * the chart, it draws a false one. ProjectDetailView opts out of the failure
+ * explicitly with `.catch(() => [])`, which is the caller taking that decision
+ * where a reader can see it.
+ */
 export async function getMarketPriceHistory(days = 90) {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
 
   const { data, error } = await supabase.rpc('public_price_history', { p_days: days })
-  if (error) {
-    console.warn('[price-history] market series failed:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Failed to load the market price history')
   return (data || []).map(normalizePoint)
 }
 
-/** Daily price series for a single project. Empty on failure or if never traded. */
+/** Daily price series for a single project. Throws on failure; empty if never traded. */
 export async function getProjectPriceHistory(projectId, days = 90) {
   const supabase = getSupabase()
-  if (!supabase || !projectId) return []
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!projectId) return []
 
   const { data, error } = await supabase.rpc('project_price_history', {
     p_project_id: projectId,
     p_days: days,
   })
-  if (error) {
-    console.warn('[price-history] project series failed:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Failed to load the project price history')
   return (data || []).map(normalizePoint)
 }
 

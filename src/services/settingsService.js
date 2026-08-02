@@ -9,21 +9,36 @@
 import { getSupabase } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
 
-/** Fetch all settings as a plain { key: value } map. */
+/**
+ * Fetch all settings as a plain { key: value } map.
+ *
+ * THROWS on a failed read. This one is not a preference: SystemConfigView binds
+ * the result straight into editable inputs, so an empty map renders as
+ * "platform fee 0%, minimum KYC level 0, both project fees ₱0" — and the admin
+ * looking at that screen can press Save and write those zeros into live
+ * configuration. The view already builds a "Do not save those sections" banner
+ * from a rejected settle; returning {} is what made that branch unreachable.
+ */
 export async function getAllSettings() {
   const supabase = getSupabase()
-  if (!supabase) return {}
+  if (!supabase) throw new Error('Supabase client not available')
   const { data, error } = await supabase.from('app_settings').select('key, value, description')
-  if (error) {
-    console.warn('Failed to load app settings:', error.message)
-    return {}
-  }
+  if (error) throw new Error(error.message || 'Failed to load app settings')
   const map = {}
   for (const row of data || []) map[row.key] = row.value
   return map
 }
 
-/** Fetch a single setting value (JSON-decoded), or the provided fallback. */
+/**
+ * Fetch a single setting value (JSON-decoded), or the provided fallback.
+ *
+ * The fallback stands, deliberately — every caller passes one explicitly, which
+ * is the caller deciding an absence is tolerable rather than the service
+ * deciding for it. What does NOT stand is the two cases being indistinguishable:
+ * `.maybeSingle()` reports "no such key" as `data: null, error: null`, so an
+ * `error` here is a real failure and is now said out loud rather than absorbed
+ * into the default.
+ */
 export async function getSetting(key, fallback = null) {
   const supabase = getSupabase()
   if (!supabase) return fallback
@@ -32,7 +47,11 @@ export async function getSetting(key, fallback = null) {
     .select('value')
     .eq('key', key)
     .maybeSingle()
-  if (error || !data) return fallback
+  if (error) {
+    console.error(`[settings] read of "${key}" failed, using fallback:`, error.message)
+    return fallback
+  }
+  if (!data) return fallback
   return data.value
 }
 
@@ -99,19 +118,23 @@ export async function getProjectFees() {
 
 // ── Emission factors (methodology_factors) ────────────────────────────────
 
-/** List emission factors, grouped-friendly (ordered by project type then label). */
+/**
+ * List emission factors, grouped-friendly (ordered by project type then label).
+ *
+ * Throws for the same reason as `getAllSettings`: these rows are rendered as an
+ * editable admin table, and the server-side VER arithmetic reads this table. An
+ * empty list on a failed read says "no emission factors are configured" to the
+ * one person who would respond by configuring them again.
+ */
 export async function listMethodologyFactors() {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
   const { data, error } = await supabase
     .from('methodology_factors')
     .select('id, project_type, metric_key, label, unit, factor, description')
     .order('project_type', { ascending: true })
     .order('label', { ascending: true })
-  if (error) {
-    console.warn('Failed to load methodology factors:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Failed to load methodology factors')
   return data || []
 }
 

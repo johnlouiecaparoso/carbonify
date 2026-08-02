@@ -312,10 +312,13 @@ export async function findDuplicateEvidence(contentHash, excludeReportId = null)
   if (excludeReportId) query = query.neq('report_id', excludeReportId)
 
   const { data, error } = await query.limit(20)
-  if (error) {
-    console.warn('[mrv] duplicate evidence lookup unavailable:', error.message)
-    return []
-  }
+  // Throws rather than degrading to []. This is a fraud check, and an empty
+  // result is not neutral here — it is the assertion "these bytes have not been
+  // submitted against another report", which is what suppresses the `alert`
+  // flag on the verifier's integrity panel. A failed lookup rendered as a clean
+  // check, on the screen where credits get approved. The caller decides what to
+  // do with the failure; what it may not do is read it as a pass.
+  if (error) throw new Error(error.message || 'Duplicate-evidence lookup failed')
   return data || []
 }
 

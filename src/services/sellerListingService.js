@@ -148,10 +148,11 @@ export async function getMyListings() {
     )
     .eq('seller_id', user.id)
 
-  if (error) {
-    console.warn('[sellerListings] unavailable:', error.message)
-    return []
-  }
+  // Throws: these are the seller's own listings, so [] renders their inventory
+  // as unlisted and hides the "Manage listing" affordance for a project that is
+  // in fact on sale. The dashboard already settles this independently of the
+  // project list, so a rejection hides the tile rather than breaking the page.
+  if (error) throw new Error(error.message || 'Failed to load your listings')
 
   return (data || []).map(normalizeListingRow).filter(Boolean)
 }

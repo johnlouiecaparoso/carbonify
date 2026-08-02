@@ -968,9 +968,22 @@ const currentCriteria = computed(() => ({
   maxPrice: priceRange.value?.max || '',
 }))
 
+/**
+ * The saved-search chips are decoration on a page whose job is listings, so this
+ * view opts out of the failure explicitly — the service throws, and the decision
+ * that an absence is tolerable is taken here rather than inside the read.
+ *
+ * It must not reject: one call site is a bare fire-and-forget on mount, and the
+ * other is the refresh after a successful save, where a rejection would report
+ * a save that worked as "Could not save search".
+ */
 async function loadSavedSearches() {
   if (!userStore.session?.user?.id) return
-  savedSearches.value = await listMySavedSearches()
+  try {
+    savedSearches.value = await listMySavedSearches()
+  } catch (err) {
+    console.warn('Failed to load saved searches:', err?.message)
+  }
 }
 
 async function handleSaveSearch() {
