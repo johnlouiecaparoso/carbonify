@@ -376,12 +376,99 @@ onMounted(() => {
   .cart-layout {
     grid-template-columns: 1fr;
   }
+
+  /* Two rows, placed explicitly.
+   *
+   * The row had five children fed into three columns, so the browser
+   * auto-placed them: thumbnail, title and stepper on line one, then the total
+   * and the remove button orphaned on line two under the title. Nothing lined
+   * up with anything, and the price — the number you are actually checking —
+   * ended up in the middle of the card.
+   *
+   * Now:  [ thumb ][ name .......... ]
+   *       [ price ][ − n + ][ × ]
+   *
+   * Every child is positioned by hand rather than left to auto-placement,
+   * which is what let the previous layout drift as soon as one element wrapped. */
   .cart-item {
-    grid-template-columns: 56px 1fr auto;
+    grid-template-columns: 44px 1fr auto auto;
+    column-gap: 0.6rem;
+    row-gap: 0.6rem;
+    padding: 0.7rem;
   }
+
+  .cart-thumb {
+    grid-column: 1;
+    grid-row: 1;
+    width: 44px;
+    height: 44px;
+  }
+
+  .cart-info {
+    grid-column: 2 / -1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .cart-item-title {
+    font-size: 0.92rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  /* Bottom-left, and left-aligned — it is the anchor of the second row. */
   .cart-line-total {
-    grid-column: 2 / 3;
+    grid-column: 1 / 3;
+    grid-row: 2;
+    min-width: 0;
     text-align: left;
+    align-self: center;
+    font-size: 1rem;
+  }
+
+  .cart-qty {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .cart-remove {
+    grid-column: 4;
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 32px, not 28px: these sit next to each other and are the two easiest
+     controls in the app to mis-tap. The number field shrinks to pay for it. */
+  .cart-qty .step {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Wide enough for five digits. At 44px a realistic bulk quantity (12,000
+     credits) rendered as "120(" — the buyer could not read the number they were
+     about to pay for. The total beside it carries `min-width: 0`, so this
+     column takes the space it needs and the price ellipsises instead. */
+  .cart-qty input {
+    width: 54px;
+    padding: 0.3rem 0.15rem;
+    font-size: 0.85rem;
+  }
+
+  /* Drop the native number spinners on the phone layout. They consume ~15px
+     inside the field — which is what still clipped "12000" to "1200" at 320px
+     even after widening it — and they are redundant here: the − and + buttons
+     either side of the field do the same job with a far bigger tap target. */
+  .cart-qty input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .cart-qty input[type='number']::-webkit-outer-spin-button,
+  .cart-qty input[type='number']::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
   }
 }
 </style>
