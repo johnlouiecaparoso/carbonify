@@ -10,7 +10,7 @@
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) owns the real-money gate,
 > [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) owns who-can-do-what.
 
-> ## 🧭 2026-08-01 — where this stands, in one box
+> ## 🧭 2026-08-02 — where this stands, in one box
 >
 > ### 🔒 One thing found 2026-08-02 that you should know about before the pilot
 >
@@ -44,8 +44,8 @@
 > **The in-repo lane is clear of everything that gates the pilot.** Suite **1131 green** across 95 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
 > spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
-> — `20260801000100_transaction_counterparty_name.sql`, item 4 below; everything else is frontend and
-> already live.
+> — `20260802000200` (item 7 below). `20260801000100` and `20260802000100` are both applied and were
+> both verified by probe; everything else is frontend and ships with your next deploy.
 >
 > ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
 >
@@ -117,7 +117,7 @@
 > > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
 > > migration if you want the four PASS rows on record.
 >
-> **You have four things left** (one closed today, one new):
+> **You have five things left** (two closed 2026-08-02, one new):
 >
 > | # | Do this | Blocks |
 > |---|---|---|
