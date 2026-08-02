@@ -606,11 +606,15 @@ onMounted(() => {
 
 .search-input {
   flex: 2;
-  min-width: 240px;
+  /* `min(240px, 100%)`, not a bare 240px. A flex item's min-width is a hard
+     floor, so a 240px search box beside a 180px select could not fit the ~288px
+     a 320px phone leaves after page padding — measured at right: 326px.
+     The same idiom fixes the `minmax(320px, 1fr)` grids on the dashboards. */
+  min-width: min(240px, 100%);
 }
 
 .filter-select {
-  min-width: 180px;
+  min-width: min(180px, 100%);
 }
 
 .filter-button {

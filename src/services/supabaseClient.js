@@ -2,7 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 
 // Singleton pattern to prevent multiple instances
 let supabase = null
-let isInitializing = false
+// `isInitializing` was removed 2026-08-01. It existed so getSupabase() could
+// tell "not built yet" from "being built", which only mattered while building
+// was asynchronous. It is now synchronous, so the flag had no reader left.
 // The in-flight initialization. Concurrent callers await THIS rather than being
 // handed `null`: init is async, so the old "already in progress → return null"
 // branch meant whoever asked during that window got no client and had to treat
@@ -30,84 +32,91 @@ export async function initSupabase() {
   }
 }
 
+/**
+ * Build the client. SYNCHRONOUS on purpose — see `getSupabase()`.
+ *
+ * `createClient()` does no I/O, so there was never a reason for obtaining a
+ * client to be an async operation. The only await in the old path was the
+ * legacy-session migration below, which now runs as a background side effect.
+ *
+ * @throws when the environment is genuinely misconfigured.
+ */
+function buildClient() {
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+  if (!url || url === 'your_supabase_project_url_here' || !url.startsWith('http')) {
+    throw new Error('Invalid Supabase URL. Please set VITE_SUPABASE_URL to a valid URL (e.g., https://your-project.supabase.co)')
+  }
+  if (!key || key === 'your_supabase_anon_key_here') {
+    throw new Error('Invalid Supabase key. Please set VITE_SUPABASE_ANON_KEY to your actual anon key')
+  }
+
+  // DO NOT clear localStorage here - Supabase manages its own session storage.
+  const client = createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage,
+      // Default Supabase storage key format: sb-<project-ref>-auth-token
+    },
+  })
+
+  client.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+      console.log('Auth state changed:', event)
+    }
+  })
+
+  return client
+}
+
+/**
+ * Migrate a session stored under the pre-2026 custom key.
+ *
+ * Deliberately NOT awaited by `getSupabase()`. This is the only asynchronous
+ * step in start-up, and making every caller wait for it — or handing them
+ * `null` while it ran — is what produced the nullable-client race that ~125
+ * hand-written guards across the services exist to absorb.
+ *
+ * Nobody is harmed by it finishing late: it only upgrades where a session is
+ * stored. A user whose session is still in the old format sees the normal
+ * signed-out state for the moment it takes, exactly as they would have anyway.
+ */
+async function migrateLegacySession(client) {
+  const oldSessionKey = 'ecolink-supabase-auth-token'
+  let existingSession = null
+  try {
+    const oldSessionData = localStorage.getItem(oldSessionKey)
+    if (!oldSessionData) return
+    existingSession = JSON.parse(oldSessionData)
+  } catch {
+    return
+  }
+
+  if (!existingSession?.access_token) return
+
+  try {
+    const { data, error } = await client.auth.setSession({
+      access_token: existingSession.access_token,
+      refresh_token: existingSession.refresh_token,
+    })
+    if (!error && data.session) {
+      localStorage.removeItem(oldSessionKey)
+    } else {
+      console.warn('⚠️ Could not restore session from old format:', error)
+    }
+  } catch (migrationError) {
+    console.warn('Error migrating session:', migrationError)
+  }
+}
+
 async function doInitSupabase() {
   try {
-    isInitializing = true
-    // Use direct env access instead of requireEnv to prevent build-time failures
-    // The validation below will catch missing/invalid values at runtime
-    const url = import.meta.env.VITE_SUPABASE_URL
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-    
-    // Validate URL format and presence before creating client
-    if (!url || url === 'your_supabase_project_url_here' || !url.startsWith('http')) {
-      throw new Error('Invalid Supabase URL. Please set VITE_SUPABASE_URL to a valid URL (e.g., https://your-project.supabase.co)')
-    }
-    
-    if (!key || key === 'your_supabase_anon_key_here') {
-      throw new Error('Invalid Supabase key. Please set VITE_SUPABASE_ANON_KEY to your actual anon key')
-    }
-
-    // DO NOT clear localStorage here - Supabase manages its own session storage
-    // Clearing it would delete valid auth tokens on every page refresh!
-    // Supabase's createClient will automatically handle session persistence
-
-    // Check for session in old custom key format (backward compatibility)
-    const oldSessionKey = 'ecolink-supabase-auth-token'
-    let existingSession = null
-
-    try {
-      const oldSessionData = localStorage.getItem(oldSessionKey)
-      if (oldSessionData) {
-        try {
-          existingSession = JSON.parse(oldSessionData)
-          console.log('📦 Found session in old format, will migrate to default format')
-        } catch (e) {
-          console.warn('Could not parse old session data:', e)
-        }
-      }
-    } catch {
-      // Ignore localStorage access errors
-    }
-
-    supabase = createClient(url, key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage,
-        // Use default Supabase storage key format: sb-<project-ref>-auth-token
-        // This is more reliable and standard
-      },
-    })
-
-    // If we found a session in the old format, restore it to the new format
-    if (existingSession && existingSession.access_token) {
-      try {
-        // Set the session using Supabase's method
-        const { data, error } = await supabase.auth.setSession({
-          access_token: existingSession.access_token,
-          refresh_token: existingSession.refresh_token,
-        })
-
-        if (!error && data.session) {
-          console.log('✅ Successfully migrated session from old format')
-          // Clear old session key
-          localStorage.removeItem(oldSessionKey)
-        } else {
-          console.warn('⚠️ Could not restore session from old format:', error)
-        }
-      } catch (migrationError) {
-        console.warn('Error migrating session:', migrationError)
-      }
-    }
-
-    // Add error handler for auth state changes
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        console.log('Auth state changed:', event)
-      }
-    })
-
+    supabase = buildClient()
+    // Fire-and-forget: see migrateLegacySession's note on why this is not awaited.
+    migrateLegacySession(supabase)
     console.log('✅ Supabase client initialized successfully')
     return supabase
   } catch (error) {
@@ -135,22 +144,49 @@ async function doInitSupabase() {
     }
     supabase = null
     return null
-  } finally {
-    isInitializing = false
   }
 }
 
+/**
+ * The client, or `null` only when the environment is genuinely misconfigured.
+ *
+ * ── WHY THIS CHANGED (2026-08-01) ──
+ * This used to kick off an async init and return whatever `supabase` happened to
+ * be — `null` while that was in flight. So the answer to "is Supabase available?"
+ * depended on **when you asked**, and roughly 125 hand-written guards across the
+ * services exist to absorb that (94 `throw`, 31 `return []`).
+ *
+ * Those two shapes are the problem, not the guard count: the same transient
+ * race surfaced as a hard error in one service and as an empty list in the next
+ * — and an empty list renders as a fact about the user. That is the defect class
+ * this repo has been chasing all week, with a startup race as its source.
+ *
+ * `createClient()` performs no I/O, so a client can simply be built on demand.
+ * The only asynchronous step was the legacy-session migration, which is now a
+ * background side effect. **A null return therefore now means one thing:
+ * VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are missing or invalid.** It is a
+ * real, persistent state a guard should handle, not a timing artefact.
+ *
+ * The existing guards are consequently left in place and are now correct. Ripping
+ * out 125 call sites across ~60 files to save a branch that can still legitimately
+ * fire would be churn with a real regression budget and no user-visible gain.
+ */
 export function getSupabase() {
-  if (!supabase && !isInitializing) {
-    // Start initialization but don't block
-    // Errors are already handled in initSupabase, no need to log again
-    initSupabase().catch(() => {
-      // Error already logged in initSupabase
-    })
+  if (supabase) return supabase
+
+  try {
+    supabase = buildClient()
+    migrateLegacySession(supabase)
+    return supabase
+  } catch (error) {
+    // Same one-shot diagnostics as initSupabase; misconfiguration is a
+    // deployment problem, and repeating it once per call helps nobody.
+    if (!window._supabaseErrorLogged) {
+      console.error('Failed to initialize Supabase client:', error)
+      window._supabaseErrorLogged = true
+    }
+    return null
   }
-  // Return existing instance (might be null if still initializing)
-  // Callers should check for null and retry if needed
-  return supabase
 }
 
 // Async version for cases where you need to wait for initialization
@@ -164,5 +200,4 @@ export async function getSupabaseAsync() {
 // Reset function for testing
 export function resetSupabase() {
   supabase = null
-  isInitializing = false
 }

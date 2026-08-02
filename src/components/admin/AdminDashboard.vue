@@ -368,6 +368,11 @@ async function loadStats() {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  /* Wrap, because `.section-link` below is `flex-shrink: 0`. A non-shrinking
+     pill beside a text block on a 320px screen has nowhere to go: measured at
+     right: 385px on a 320px viewport, i.e. 65px off the edge. Wrapping drops
+     the link onto its own line instead of pushing the page sideways. */
+  flex-wrap: wrap;
   margin-bottom: 1.5rem;
 }
 

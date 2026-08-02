@@ -283,11 +283,11 @@ onMounted(() => {
 
 .search-input {
   flex: 2;
-  min-width: 200px;
+  min-width: min(200px, 100%);
 }
 
 .filter-select {
-  min-width: 150px;
+  min-width: min(150px, 100%);
 }
 
 .refresh-btn {

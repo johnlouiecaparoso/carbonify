@@ -2,49 +2,20 @@
  * Image optimization utilities
  */
 
-/**
- * Lazy load images with intersection observer
- */
-export function setupLazyLoading() {
-  if (typeof window === 'undefined') return
-
-  const imageObserver = new IntersectionObserver(
-    (entries, observer) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const img = entry.target
-          const src = img.dataset.src
-          const srcset = img.dataset.srcset
-
-          if (src) {
-            img.src = src
-            img.removeAttribute('data-src')
-          }
-
-          if (srcset) {
-            img.srcset = srcset
-            img.removeAttribute('data-srcset')
-          }
-
-          img.classList.remove('lazy')
-          img.classList.add('loaded')
-          observer.unobserve(img)
-        }
-      })
-    },
-    {
-      rootMargin: '50px 0px',
-      threshold: 0.01,
-    },
-  )
-
-  // Observe all lazy images
-  document.querySelectorAll('img[data-src]').forEach((img) => {
-    imageObserver.observe(img)
-  })
-
-  return imageObserver
-}
+// `setupLazyLoading()` was REMOVED 2026-08-01.
+//
+// It ran an IntersectionObserver over `img[data-src]` and swapped in the real
+// src, adding a `.loaded` class on the way. Two problems, both silent:
+//
+//   · **No template in this project uses `data-src`.** The observer was handed
+//     an empty NodeList on every page load, so it never swapped anything in.
+//     Images that need deferring use the native `loading="lazy"` attribute
+//     instead, which the browser handles without any of this.
+//   · **`.loaded` is styled by nothing.** Searching the stylesheets for it
+//     returns zero rules, so even had it fired, it changed no pixel.
+//
+// Same shape as the accessibility toggles fixed on 2026-07-31: machinery that
+// runs, costs something, and cannot possibly have an effect.
 
 /**
  * Preload critical images
@@ -79,21 +50,9 @@ export function preloadCriticalImages(imageUrls) {
 export function optimizeImageLoading() {
   if (typeof window === 'undefined') return
 
-  // Check for WebP support
-  const supportsWebP = () => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 1
-    canvas.height = 1
-    return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0
-  }
-
-  // Add WebP class to body if supported
-  if (supportsWebP()) {
-    document.body.classList.add('webp')
-  }
-
-  // Setup lazy loading
-  setupLazyLoading()
+  // The WebP-detection block that used to sit here added a `.webp` class to
+  // <body> — styled by ZERO rules anywhere in the project. It ran a canvas
+  // encode on every page load to set a flag nothing read. Removed 2026-08-01.
 
   // Only preload images if they're actually used on the current page
   // Check if there are any img elements that reference these Unsplash images

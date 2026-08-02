@@ -480,7 +480,7 @@ onMounted(() => {
 }
 
 .filter-select {
-  min-width: 150px;
+  min-width: min(150px, 100%);
 }
 
 .users-table {

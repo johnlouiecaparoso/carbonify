@@ -231,13 +231,10 @@ export async function getPurchaseAndRetirementHistory(userId) {
   }
 }
 
-/**
- * Get purchase history only
- */
-export async function getUserPurchaseHistory(userId) {
-  const history = await getPurchaseAndRetirementHistory(userId)
-  return history.purchases
-}
+// `getUserPurchaseHistory` was REMOVED 2026-08-01 (DEFERRED_BACKLOG #30).
+// Nothing imported it. Callers that want a page of purchases use
+// `getUserPurchaseHistoryPage`, which orders and pages in SQL against the
+// composite index rather than loading everything and slicing in the client.
 
 /**
  * Server-side paginated purchase history (Phase 3 — scale).
