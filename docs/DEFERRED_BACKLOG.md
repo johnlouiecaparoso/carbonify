@@ -1458,7 +1458,7 @@ rather than drifting back into an accident.
 
 ---
 
-### 36. Any signed-in user can write a notification into anyone else's bell 🟠
+### 36. Any signed-in user can write a notification into anyone else's bell 🟠 — CONFIRMED, fix staged
 **Found 2026-08-02**, while verifying whether the dead `notify*` twins in
 `notificationService` were safe to delete (#30). They were — but reading the trigger migration that
 replaced them led here.
@@ -1511,9 +1511,42 @@ via `resolve_notification_recipient_ids()`. So:
 
 Steps 1–2 are inert and safe to land ahead of 3, which is the one that closes the hole.
 
-⚠️ **Derived from `supabase/migrations/`, not measured against live.** Confirming it needs an
-authenticated session, which needs an account on the live project — not something to create
-unilaterally. The owner can settle it in one query:
+✅ **CONFIRMED ON LIVE 2026-08-02.** The owner ran the query below and it returned
+`"Authenticated can insert notifications" : (auth.uid() IS NOT NULL)`. The entry is live as written.
+
+### The fix, staged in three steps — steps 1 and 2 are landed
+
+| Step | What | State |
+|---|---|---|
+| 1 | `20260802000300_notify_counterparty_rpc.sql` — a `SECURITY DEFINER` RPC that derives the recipient from the subject row | ⚠️ **owner applies.** Additive; changes no behaviour |
+| 2 | All **ten** cross-user call sites ported onto it | ✅ landed, ships with the next frontend deploy |
+| 3 | `20260802000400_tighten_notification_insert.sql` — `with check (auth.uid() = user_id)` | 🔴 **owner applies ONLY after step 2 is live** |
+
+**The order is load-bearing and the failure mode is silent.** Every cross-user notification in the
+client is wrapped in a non-fatal `try/catch`, so applying step 3 before the frontend deploy raises
+nothing a user sees — a farmer simply stops being told their delivery was confirmed. That is this
+project's signature defect shape, so it is written into both migration headers, and step 3 refuses to
+run at all if step 1 is missing.
+
+**What the RPC enforces:** the recipient is read from a `biomass_rfq` or `farmer_delivery` row the
+caller is a party to — there is no "notify user X" entry point, so a stranger cannot be reached and
+an admin can only be reached by escalation out of a real trade. It also refuses a `link` that is not
+root-relative, so the open-redirect rule exists in the database and not only in the browser. Returns
+0 rather than erroring for a non-party, so it is not an existence oracle.
+
+**The three remaining direct client inserts are all self-addressed** — MRV reminders, saved-search
+matches, watchlist price drops — which is what makes step 3 possible at all. Pinned by
+[`notifyCounterparty.test.js`](../src/test/services/notifyCounterparty.test.js): a fourth service
+calling the raw helpers fails the suite. Mutation-checked.
+
+⚠️ **What this deliberately does NOT fix:** the message *text* is still composed by the client.
+Between two parties already trading — who can write to each other through quote and delivery notes
+anyway — that is a much smaller thing than reaching arbitrary users, but it is not nothing. The
+honest end state is composing text server-side from an event vocabulary, the way the five `notify_*`
+triggers do. That means editing functions that move money and state, on a database these migrations
+cannot be tested against, days before a pilot. Not worth it now; recorded here instead.
+
+<details><summary>The query that confirmed it</summary>
 
 ```sql
 select polname, pg_get_expr(polwithcheck, polrelid) as with_check
@@ -1521,4 +1554,5 @@ from pg_policy
 where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
 ```
 
-If `with_check` reads `(auth.uid() IS NOT NULL)`, this entry is live as written.
+It read `(auth.uid() IS NOT NULL)`.
+</details>

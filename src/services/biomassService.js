@@ -1,5 +1,5 @@
 import { getSupabase } from '@/services/supabaseClient'
-import { createNotificationsForUsers } from '@/services/notificationService'
+import { notifyCounterparty } from '@/services/notificationService'
 
 /**
  * Biomass Marketplace service (expansion feature #3).
@@ -191,7 +191,7 @@ export async function submitRfq({ product, quantity, unit, delivery_location, ne
   if (error) throw new Error(error.message || 'Failed to submit request')
 
   try {
-    await createNotificationsForUsers([product.seller_id], {
+    await notifyCounterparty('biomass_rfq', data.id, 'counterparty', {
       type: 'biomass_rfq_received',
       title: 'New feedstock quote request',
       message: `A buyer requested a quote for ${row.quantity} ${row.unit} of ${row.product_title || 'biomass'}.`,
@@ -244,7 +244,7 @@ export async function submitQuote(rfq, pricePerUnit, message) {
   if (error) throw new Error(error.message || 'Failed to submit quote')
 
   try {
-    await createNotificationsForUsers([rfq.buyer_id], {
+    await notifyCounterparty('biomass_rfq', rfq.id, 'counterparty', {
       type: 'biomass_rfq_quoted',
       title: 'You received a feedstock quote',
       message: `Your request for ${rfq.quantity} ${rfq.unit} of ${rfq.product_title || 'biomass'} was quoted.`,
@@ -268,7 +268,7 @@ export async function respondToQuote(rfq, accept) {
   if (error) throw new Error(error.message || 'Failed to respond to quote')
 
   try {
-    await createNotificationsForUsers([rfq.seller_id], {
+    await notifyCounterparty('biomass_rfq', rfq.id, 'counterparty', {
       type: 'biomass_rfq_response',
       title: accept ? 'Your quote was accepted' : 'Your quote was declined',
       message: `The buyer ${accept ? 'accepted' : 'declined'} your quote for ${rfq.product_title || 'biomass'}.`,

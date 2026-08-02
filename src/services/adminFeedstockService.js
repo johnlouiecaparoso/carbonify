@@ -19,7 +19,7 @@
 // because `profiles` SELECT is deliberately hardened (20260703000300).
 
 import { getSupabase } from '@/services/supabaseClient'
-import { createNotificationsForUsers } from '@/services/notificationService'
+import { notifyCounterparty } from '@/services/notificationService'
 
 function friendlyError(error, fallback) {
   const msg = String(error?.message || '')
@@ -162,7 +162,9 @@ export async function resolveDeliveryPayment(delivery, resolution, note) {
   try {
     const label =
       RESOLUTION_OPTIONS.find((o) => o.value === resolution)?.label || 'reviewed by Carbonify'
-    await createNotificationsForUsers([delivery.farmer_id, delivery.buyer_id].filter(Boolean), {
+    // An admin is not a party to the delivery, so they address both sides
+    // explicitly; `counterparty` has no meaning for them.
+    await notifyCounterparty('farmer_delivery', delivery.id, 'both_parties', {
       type: 'feedstock_payment_resolved',
       title: 'Feedstock payment record updated',
       message: `Carbonify reviewed the payment record for a delivery of ${delivery.quantity} ${delivery.unit}: ${label}.`,

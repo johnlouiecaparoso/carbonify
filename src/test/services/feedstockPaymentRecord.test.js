@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/services/supabaseClient', () => ({ getSupabase: vi.fn() }))
 vi.mock('@/services/notificationService', () => ({
-  createNotificationsForUsers: vi.fn(),
-  createNotificationsForRoles: vi.fn(),
+  notifyCounterparty: vi.fn(),
 }))
 vi.mock('@/services/storageService', () => ({ uploadProjectDocument: vi.fn() }))
 
@@ -11,8 +10,7 @@ import { acknowledgeDeliveryPayment, aggregateFarmerDeliveries } from '@/service
 import { paymentState, resolveDeliveryPayment } from '@/services/adminFeedstockService'
 import { getSupabase } from '@/services/supabaseClient'
 import {
-  createNotificationsForUsers,
-  createNotificationsForRoles,
+  notifyCounterparty,
 } from '@/services/notificationService'
 
 /**
@@ -65,12 +63,22 @@ describe('acknowledgeDeliveryPayment', () => {
       p_note: null,
     })
     expect(out.farmer_payment_ack).toBe('confirmed')
-    expect(createNotificationsForUsers).toHaveBeenCalledWith(
-      ['buyer-1'],
+    // The recipient is no longer named by the caller -- it is derived
+    // server-side from the delivery (#36). What is asserted here is the
+    // SUBJECT and the AUDIENCE, which is what now determines who is told.
+    expect(notifyCounterparty).toHaveBeenCalledWith(
+      'farmer_delivery',
+      'd-1',
+      'counterparty',
       expect.objectContaining({ type: 'farmer_payment_confirmed' }),
     )
     // A confirmation is not staff business.
-    expect(createNotificationsForRoles).not.toHaveBeenCalled()
+    expect(notifyCounterparty).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'admins',
+      expect.anything(),
+    )
   })
 
   it('escalates a dispute to admins as well as the buyer', async () => {
@@ -86,9 +94,18 @@ describe('acknowledgeDeliveryPayment', () => {
     })
     // Without this, a dispute has nowhere to go: the farmer's only counterparty
     // is the person they are disputing with.
-    expect(createNotificationsForRoles).toHaveBeenCalledWith(
-      ['admin'],
+    expect(notifyCounterparty).toHaveBeenCalledWith(
+      'farmer_delivery',
+      'd-1',
+      'admins',
       expect.objectContaining({ link: '/admin/feedstock' }),
+    )
+    // ...and the buyer is still told, on the same delivery.
+    expect(notifyCounterparty).toHaveBeenCalledWith(
+      'farmer_delivery',
+      'd-1',
+      'counterparty',
+      expect.objectContaining({ type: 'farmer_payment_disputed' }),
     )
   })
 
@@ -102,7 +119,7 @@ describe('acknowledgeDeliveryPayment', () => {
 
   it('does not fail the acknowledgement when the notification fails', async () => {
     getSupabase.mockReturnValue(clientReturning({ ...DELIVERY, farmer_payment_ack: 'confirmed' }))
-    createNotificationsForUsers.mockRejectedValueOnce(new Error('notify down'))
+    notifyCounterparty.mockRejectedValueOnce(new Error('notify down'))
 
     await expect(acknowledgeDeliveryPayment(DELIVERY, true)).resolves.toBeTruthy()
   })
@@ -217,8 +234,13 @@ describe('resolveDeliveryPayment', () => {
 
     await resolveDeliveryPayment(DELIVERY, 'unpaid_confirmed', 'Buyer produced no reference.')
 
-    expect(createNotificationsForUsers).toHaveBeenCalledWith(
-      ['farmer-1', 'buyer-1'],
+    // `both_parties` is what carries "the outcome is a finding about both of
+    // them" now. An admin is not a party to the delivery, so `counterparty`
+    // would resolve to nobody for them — this is the audience that means both.
+    expect(notifyCounterparty).toHaveBeenCalledWith(
+      'farmer_delivery',
+      'd-1',
+      'both_parties',
       expect.objectContaining({ type: 'feedstock_payment_resolved' }),
     )
   })

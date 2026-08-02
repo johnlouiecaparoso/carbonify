@@ -34,10 +34,10 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1131 unit tests green across 95 files**
+> **Current build state:** build green, lint 0, **1138 unit tests green across 96 files**
 > (re-verified 2026-08-02).
 >
-> *1131 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
+> *1138 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
 >
 > **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
@@ -45,14 +45,78 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — #4 and #5 closed, and both were mis-stated
+> ### 🆕 2026-08-02 (latest) — #36 confirmed on live, and the fix is staged
+>
+> Suite **1131 → 1138** (96 files). Build green, lint 0. **Two migrations, NEITHER applied**, and
+> **the order between them is load-bearing.**
+>
+> **The owner ran the query and it came back `(auth.uid() IS NOT NULL)`.** The notification-spoofing
+> hole is real: any signed-in user can insert a row into any other user's bell.
+>
+> **The one-line fix would have been wrong.** `with check (auth.uid() = user_id)` closes it and
+> breaks every legitimate cross-user notification — a farmer told their delivery was confirmed, a
+> supplier told their quote was accepted, an admin told a payment is disputed. Ten call sites, all
+> proper. The three that remain direct inserts are all **self-addressed** (MRV reminders,
+> saved-search matches, watchlist price drops), and that is precisely what makes the tightening
+> possible.
+>
+> **So the recipient stops being something the client can name at all.**
+> `notify_counterparty(subject_type, subject_id, audience, payload)` reads the parties off a
+> `biomass_rfq` or `farmer_delivery` row and works out who to tell. There is no "notify user X" entry
+> point — a stranger cannot be reached, and an admin can only be reached by **escalation out of a
+> trade you are actually in**. It also refuses a non-root-relative `link`, so the open-redirect rule
+> now exists in the database and not only in the browser, and it returns 0 rather than erroring for a
+> non-party so it is not an existence oracle.
+>
+> > **The structural insight that made this tractable:** every one of those ten notifications fires
+> > immediately after an RPC that *already* did the authorised work — `respond_biomass_quote`,
+> > `resolve_farmer_delivery_payment`, `confirm_farmer_delivery`. The server already knew the row,
+> > the caller's right to act on it, and who the counterparty was. The client was re-supplying
+> > information the database was in a better position to know.
+>
+> **🔴 Three steps, and the order is the whole risk:**
+>
+> | | | |
+> |---|---|---|
+> | 1 | apply `20260802000300` | additive, changes nothing |
+> | 2 | deploy the frontend | starts calling the RPC |
+> | 3 | apply `20260802000400` | tightens the policy |
+>
+> **Running 3 before 2 fails silently.** Every one of these calls is wrapped in a non-fatal catch, so
+> nothing raises — a farmer just stops being told. That is this project's signature defect shape, so
+> it is shouted about in both migration headers, and step 3 **refuses to run** if step 1 is missing.
+> It cannot detect whether the frontend is deployed; that check is the owner's.
+>
+> **🐛 And a smaller one found in passing.** The dispute escalation carried the comment *"Notified
+> separately so a failure to reach the buyer cannot also silence staff"* — while sitting in the
+> **same `try` block** as the buyer notification, so a failure there skipped the admin escalation
+> entirely. Genuinely separated now, and staff go first: if only one can land, it should be the one
+> that gets a human involved. *A comment describing a separation the code does not implement is the
+> same class as a handler for a rejection the service cannot produce.*
+>
+> ✅ **Two ratchets, both mutation-checked.**
+> [`notifyCounterparty.test.js`](../src/test/services/notifyCounterparty.test.js) fails if a fourth
+> service calls the raw insert helpers, and asserts the ported services **call** the new path rather
+> than merely having stopped calling the old one — deleting the notification entirely would satisfy
+> the weaker check. And the #12 grant-hygiene ratchet **caught the new RPC**: removing its `revoke`
+> turned `securityDefinerGrants.test.js` red. A guard written yesterday policing code written today
+> is the whole point of a ratchet.
+>
+> ⚠️ **What this deliberately does not fix:** the message *text* is still client-composed. Between two
+> parties already trading — who can write to each other through quote and delivery notes anyway —
+> that is far smaller than reaching arbitrary users, but it is not nothing. The honest end state is
+> server-composed text from an event vocabulary, like the five `notify_*` triggers. That means
+> rewriting functions that move money, on a database these migrations cannot be tested against, days
+> before a pilot. Recorded in #36 rather than half-done.
+>
+> ### 🆕 2026-08-02 — #4 and #5 closed, and both were mis-stated
 >
 > Suite unchanged at **1131** (95 files). Build green, lint 0. **One migration, NOT applied** —
 > `20260802000200`. The frontend half is a 21-line refactor.

@@ -1,8 +1,5 @@
 import { getSupabase } from '@/services/supabaseClient'
-import {
-  createNotificationsForUsers,
-  createNotificationsForRoles,
-} from '@/services/notificationService'
+import { notifyCounterparty } from '@/services/notificationService'
 import { uploadProjectDocument } from '@/services/storageService'
 
 /**
@@ -515,7 +512,7 @@ export async function recordDelivery({
   if (error) throw new Error(error.message || 'Failed to record delivery')
 
   try {
-    await createNotificationsForUsers([rfq.buyer_id], {
+    await notifyCounterparty('biomass_rfq', rfq.id, 'counterparty', {
       type: 'farmer_delivery_recorded',
       title: 'Feedstock delivery logged',
       message: `A supplier logged a delivery of ${Number(quantity)} ${unit || rfq.unit || 'tonnes'} of ${rfq.product_title || 'biomass'}. Confirm receipt to proceed.`,
@@ -547,7 +544,7 @@ export async function confirmDelivery(delivery, accept, note, projectId = null) 
   if (error) throw new Error(error.message || 'Failed to update delivery')
 
   try {
-    await createNotificationsForUsers([delivery.farmer_id], {
+    await notifyCounterparty('farmer_delivery', delivery.id, 'counterparty', {
       type: 'farmer_delivery_reviewed',
       title: accept ? 'Delivery confirmed' : 'Delivery rejected',
       message: `The buyer ${accept ? 'confirmed' : 'rejected'} your delivery of ${delivery.quantity} ${delivery.unit}.`,
@@ -576,7 +573,7 @@ export async function markDeliveryPaid(delivery, reference) {
   if (error) throw new Error(error.message || 'Failed to record payment')
 
   try {
-    await createNotificationsForUsers([delivery.farmer_id], {
+    await notifyCounterparty('farmer_delivery', delivery.id, 'counterparty', {
       type: 'farmer_delivery_paid',
       title: 'Buyer says they paid you',
       message:
@@ -622,7 +619,7 @@ export async function acknowledgeDeliveryPayment(delivery, confirm, note = '') {
   const qty = `${delivery.quantity} ${delivery.unit}`
   try {
     if (confirm) {
-      await createNotificationsForUsers([delivery.buyer_id], {
+      await notifyCounterparty('farmer_delivery', delivery.id, 'counterparty', {
         type: 'farmer_payment_confirmed',
         title: 'Farmer confirmed your payment',
         message: `The farmer confirmed they received payment for the delivery of ${qty}.`,
@@ -630,20 +627,28 @@ export async function acknowledgeDeliveryPayment(delivery, confirm, note = '') {
         metadata: { delivery_id: delivery.id },
       })
     } else {
-      await createNotificationsForUsers([delivery.buyer_id], {
+      // The escalation point (#29). These are now genuinely separate: the
+      // comment used to say a failure to reach the buyer could not silence
+      // staff, while both sat in ONE try block, so it could. Staff first --
+      // if only one of the two can land, it should be the one that gets a
+      // human involved.
+      try {
+        await notifyCounterparty('farmer_delivery', delivery.id, 'admins', {
+          type: 'farmer_payment_disputed',
+          title: 'Feedstock payment disputed',
+          message: `A farmer says they have not been paid for a confirmed delivery of ${qty}.`,
+          link: '/admin/feedstock',
+          metadata: { delivery_id: delivery.id },
+        })
+      } catch (e) {
+        console.warn('Dispute escalation notify failed (non-fatal):', e?.message)
+      }
+
+      await notifyCounterparty('farmer_delivery', delivery.id, 'counterparty', {
         type: 'farmer_payment_disputed',
         title: 'Farmer disputes a payment record',
         message: `The farmer says they have not been paid for the delivery of ${qty}.`,
         link: '/biomass/buy',
-        metadata: { delivery_id: delivery.id },
-      })
-      // The escalation point (#29). Notified separately so a failure to reach
-      // the buyer cannot also silence staff.
-      await createNotificationsForRoles(['admin'], {
-        type: 'farmer_payment_disputed',
-        title: 'Feedstock payment disputed',
-        message: `A farmer says they have not been paid for a confirmed delivery of ${qty}.`,
-        link: '/admin/feedstock',
         metadata: { delivery_id: delivery.id },
       })
     }

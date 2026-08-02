@@ -345,6 +345,69 @@ async function getUserIdsByRoles(roles = [], excludedUserIds = []) {
     .filter((id) => id && !excluded.has(String(id)))
 }
 
+/**
+ * Notify the other party on a row you are actually a party to.
+ *
+ * WHY THIS EXISTS — DEFERRED_BACKLOG #36. `system_notifications`' INSERT policy
+ * is `with check (auth.uid() is not null)`: any signed-in user may insert a row
+ * for ANY `user_id`. Confirmed against live on 2026-08-02. So every
+ * `createNotificationsForUsers([someoneElse], …)` call below was also the
+ * mechanism by which anyone could plant a message in anyone else's bell.
+ *
+ * This routes those through a `SECURITY DEFINER` RPC that derives the recipient
+ * from the subject row instead of taking it from the caller. There is no
+ * "notify user X" entry point: you can reach the counterparty of a biomass RFQ
+ * or a feedstock delivery you are on, both parties, or — by escalation from a
+ * trade you are in — the admins. Nothing else.
+ *
+ * Self-addressed notifications do NOT come through here; they stay on the
+ * direct insert, which is what the tightened policy will still allow.
+ *
+ * Non-fatal by contract, like the calls it replaces: a notification that fails
+ * must never fail the action that earned it. It returns the number of rows
+ * created so a caller can tell "sent" from "silently nothing", which the old
+ * fire-and-forget could not.
+ *
+ * @param {'biomass_rfq'|'farmer_delivery'} subjectType
+ * @param {string} subjectId
+ * @param {'counterparty'|'both_parties'|'admins'} audience
+ * @returns {Promise<number>} notifications created (0 if the RPC is absent)
+ */
+export async function notifyCounterparty(subjectType, subjectId, audience, payload = {}) {
+  const supabase = getSupabase()
+  if (!supabase || !subjectId) return 0
+
+  const title = payload.title?.trim()
+  const message = payload.message?.trim()
+  if (!title || !message) return 0
+
+  const { data, error } = await supabase.rpc('notify_counterparty', {
+    p_subject_type: subjectType,
+    p_subject_id: subjectId,
+    p_audience: audience,
+    p_type: payload.type || 'system',
+    p_title: title,
+    p_message: message,
+    p_link: payload.link || null,
+    p_metadata: payload.metadata || {},
+  })
+
+  if (error) {
+    // Degrades to 0 while 20260802000300 is unapplied, so the frontend can ship
+    // ahead of the migration — the same "inert rather than broken" shape the
+    // counterparty-name RPC used. Said out loud, because a notification that
+    // silently stops arriving is the failure this whole change is about.
+    if (isMissingRpcFunctionError(error, 'notify_counterparty')) {
+      console.warn('[notify] notify_counterparty RPC is not applied yet — notification not sent')
+      return 0
+    }
+    console.error('[notify] notify_counterparty failed:', error.message)
+    return 0
+  }
+
+  return Number(data) || 0
+}
+
 export async function createNotificationsForUsers(userIds = [], payload = {}) {
   const supabase = getSupabase()
   const recipients = normalizeIds(userIds)

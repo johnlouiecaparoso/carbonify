@@ -12,9 +12,10 @@
 
 > ## 🧭 2026-08-02 — where this stands, in one box
 >
-> ### 🔒 One thing found 2026-08-02 that you should know about before the pilot
+> ### 🔒 CONFIRMED 2026-08-02 — and the fix is staged in three steps
 >
 > **Any signed-in user can write a notification into any other user's bell** — including yours.
+> You ran the query and it came back `(auth.uid() IS NOT NULL)`, so this is real.
 > `system_notifications`' INSERT policy is `with check (auth.uid() is not null)`, which means "any
 > logged-in user, for any recipient" rather than "for yourself", and the client inserts those rows
 > directly. Someone with an account could plant *"Payout on hold — reconfirm your bank details"* in an
@@ -24,22 +25,24 @@
 > `window.location.assign(notification.link)`, which accepted an **absolute URL**, so a forged
 > notification could send you off-site. Links are now restricted to paths inside the app.
 >
-> **The database half is not fixed** — it is [#36](DEFERRED_BACKLOG.md), and it needs a migration plus
-> ~18 call sites moved behind an RPC, because simply tightening the policy would break every
-> legitimate notification the platform sends to somebody else. **It is not urgent and it does not gate
-> the pilot** — no money moves, nobody else's notifications become readable, no privilege is gained —
-> but it belongs on the pentest brief, and it is worth knowing while signups are open to anyone.
+> **The database half is now built, in three steps — and the ORDER MATTERS MORE THAN THE SPEED.**
 >
-> I derived this from the migrations rather than measuring it, because confirming it needs a real
-> account on the live project. One query settles it:
+> | Step | You do | When |
+> |---|---|---|
+> | 1 | Apply `20260802000300_notify_counterparty_rpc.sql` | Any time. Additive, changes nothing |
+> | 2 | Deploy the frontend | After step 1 |
+> | 3 | Apply `20260802000400_tighten_notification_insert.sql` | **Only once step 2 is live** |
 >
-> ```sql
-> select polname, pg_get_expr(polwithcheck, polrelid) as with_check
-> from pg_policy
-> where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
-> ```
+> 🔴 **Do not run step 3 early.** It would not throw an error you could see — every one of these
+> notifications is wrapped in a non-fatal catch, so a farmer would simply stop being told their
+> delivery was confirmed, silently, with nothing in the console. Step 3 refuses to run if step 1 is
+> missing, but it cannot detect whether your frontend is deployed. **That check is yours.**
 >
-> If `with_check` reads `(auth.uid() IS NOT NULL)`, it is live as described.
+> Both are reversible: step 3's header carries the two statements that put the old policy back.
+>
+> **Still not urgent and it does not gate the pilot** — no money moves, nobody else's notifications
+> become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
+> closing while signups are open to anyone.
 >
 > **The in-repo lane is clear of everything that gates the pilot.** Suite **1131 green** across 95 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
@@ -117,7 +120,7 @@
 > > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
 > > migration if you want the four PASS rows on record.
 >
-> **You have five things left** (two closed 2026-08-02, one new):
+> **You have six things left** (two closed 2026-08-02, two new):
 >
 > | # | Do this | Blocks |
 > |---|---|---|
@@ -128,6 +131,7 @@
 > | 5 | 🔴 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
 > | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
 > | 7 | 🆕 **Apply `20260802000200_validate_not_valid_constraints.sql`** — backlog #4 | Nothing. But it answers a question nobody has asked |
+> | 8 | 🆕 **Apply `20260802000300`, deploy the frontend, then apply `20260802000400`** — backlog #36, **in that order** | The notification spoofing hole |
 
 **#7 is not urgent, and it is the most interesting thing on this list.** Four constraints on live
 were added `NOT VALID`, which means Postgres enforces them on every new write but **skipped the check
