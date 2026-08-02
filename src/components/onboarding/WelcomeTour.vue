@@ -39,48 +39,44 @@
 
 <script setup>
 /**
- * First-run guided walkthrough. Auto-opens once per user+role (tracked in
- * localStorage, versioned via TOUR_VERSION) and can be reopened by dispatching
- * a `carbonify:open-tour` window event — the sidebar's "Take a tour" does this.
+ * First-run guided walkthrough. Auto-opens ONCE per account — the first time
+ * that account signs in — and can be reopened on demand by dispatching a
+ * `carbonify:open-tour` window event (the sidebar's "Take a tour" does this).
+ *
+ * "Once per account" is the whole point, and it is why the seen-flag is not
+ * read from localStorage here any more. See services/onboardingService.js: the
+ * flag now lives on the profile, with localStorage as a cache in front of it.
+ * The old key fell back to the literal 'anon' when the session had not resolved
+ * yet, so a tour dismissed during a slow profile load was recorded against
+ * nobody and reappeared on the next load.
  *
  * Deliberately self-contained and not element-anchored, so it never breaks when
  * a page's markup changes.
  */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useUserStore } from '@/store/userStore'
-import { tourStepsForRole, TOUR_VERSION } from '@/constants/onboarding'
+import { tourStepsForRole } from '@/constants/onboarding'
+import { hasSeenTour, markTourSeen } from '@/services/onboardingService'
 
 const userStore = useUserStore()
 
 const open = ref(false)
 const index = ref(0)
+// Set once the auto-open decision has been made for this session, so a second
+// trigger (mount + the auth watcher both firing) cannot re-ask or re-open.
+const autoOpenResolved = ref(false)
 
 const role = computed(() => userStore.role || 'general_user')
 const steps = computed(() => tourStepsForRole(role.value))
 const current = computed(() => steps.value[index.value] || { title: '', body: '' })
 const isLast = computed(() => index.value === steps.value.length - 1)
 
-// Per-user, per-version key so a returning user isn't re-shown the same tour,
-// but a genuinely new set of steps (bumped TOUR_VERSION) shows again.
-const storageKey = computed(() => {
-  const uid = userStore.session?.user?.id || 'anon'
-  return `carbonify_tour_seen_v${TOUR_VERSION}_${uid}`
-})
-
-function hasSeen() {
-  try {
-    return localStorage.getItem(storageKey.value) === '1'
-  } catch {
-    return false
-  }
-}
+const userId = computed(() => userStore.session?.user?.id || '')
 
 function markSeen() {
-  try {
-    localStorage.setItem(storageKey.value, '1')
-  } catch {
-    /* private mode / storage disabled — the tour simply shows again next time */
-  }
+  // Fire-and-forget: the service never throws, and closing the tour must not
+  // wait on a network round trip.
+  markTourSeen(userId.value)
 }
 
 function start() {
@@ -109,17 +105,33 @@ function onKeydown(e) {
   else if (e.key === 'ArrowLeft') prev()
 }
 
-// Auto-open on first visit once the user is authenticated with a resolved role.
-function maybeAutoOpen() {
-  if (userStore.isAuthenticated && !hasSeen()) start()
+/**
+ * Auto-open on the account's first sign-in only.
+ *
+ * Gated on a resolved user id, not just `isAuthenticated`: the two are not the
+ * same instant, and acting on the earlier one is what used to record the
+ * dismissal against 'anon'.
+ */
+async function maybeAutoOpen() {
+  if (autoOpenResolved.value) return
+  if (!userStore.isAuthenticated || !userId.value) return
+
+  // Claim the decision before awaiting, so mount and the watcher firing in the
+  // same tick cannot both open the tour.
+  autoOpenResolved.value = true
+
+  if (await hasSeenTour(userId.value)) return
+  start()
+  // Recorded on OPEN, not on close. "Show it once" has to survive the user
+  // closing the tab, reloading, or navigating away mid-tour — none of which
+  // reach dismiss(). They can always reopen it from "Take a tour".
+  markSeen()
 }
 
-watch(
-  () => userStore.isAuthenticated,
-  (auth) => {
-    if (auth) maybeAutoOpen()
-  },
-)
+// The id arrives after `isAuthenticated` flips, so watch the id.
+watch(userId, (id) => {
+  if (id) maybeAutoOpen()
+})
 
 // Reopen on demand (sidebar "Take a tour").
 function openFromEvent() {

@@ -7,25 +7,16 @@
  * all.
  *
  * `toCsv` from esgReportService is the canonical serialiser in this codebase;
- * this module follows the same convention as lguReportService (import toCsv,
- * keep a local triggerDownload).
+ * the download itself is `downloadBlob` from utils/download.js. This module
+ * used to keep its own copy of that, as did four others — all eight copies
+ * revoked the object URL in the same tick as the click, which can cancel the
+ * download before the browser has read the blob.
  *
  * The row builders are pure so the shape of an exported file can be asserted in
  * tests without a DOM.
  */
 import { toCsv } from '@/services/esgReportService'
-
-function triggerDownload(blob, filename) {
-  if (typeof document === 'undefined') return
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
+import { downloadBlob } from '@/utils/download'
 
 /** `carbonify-<kind>-YYYY-MM-DD.csv` */
 export function exportFilename(kind, now = new Date()) {
@@ -67,7 +58,7 @@ export function auditLogsToRows(logs = []) {
 /** Download the given audit rows as CSV. */
 export function exportAuditLogsCsv(logs = []) {
   const csv = toCsv(auditLogsToRows(logs), AUDIT_COLUMNS)
-  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), exportFilename('audit-logs'))
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), exportFilename('audit-logs'))
   return logs.length
 }
 
@@ -115,7 +106,7 @@ export function transactionsToRows(transactions = []) {
 /** Download the given transactions as CSV. */
 export function exportTransactionsCsv(transactions = []) {
   const csv = toCsv(transactionsToRows(transactions), TRANSACTION_COLUMNS)
-  triggerDownload(
+  downloadBlob(
     new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
     exportFilename('transactions'),
   )

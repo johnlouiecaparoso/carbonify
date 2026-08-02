@@ -1,0 +1,86 @@
+/* ============================================================================
+ * Global form-control baseline — dropdowns and checkboxes.
+ *
+ * WHY THIS FILE EXISTS
+ * Two complaints repeated across almost every role: "the dropdown content is
+ * larger than the dropdown box" and "the checkbox is too large".
+ *
+ * ── Dropdowns ──
+ * Every <select> in this app is a NATIVE select (nothing sets `appearance:
+ * none`, verified across all 51 of them). A native select's popup is drawn by
+ * the browser at *at least* the control's width and grows to fit the longest
+ * <option>. So a narrow control with long labels — "All Roles" in a 150px box
+ * next to "Project Developer" — opens a list visibly wider than the box it
+ * came from. That is the misalignment being reported; it is a sizing problem,
+ * not a styling one, and the fix is to let the control be as wide as the
+ * content it will show. The per-view rules do that; what belongs here is the
+ * part that is genuinely global:
+ *
+ *   - `font-family: inherit` — a bare <select> otherwise renders in the UA font
+ *     while everything around it is Roboto.
+ *   - `font-size: 1em` on <option> — pins every popup row to the *control's own*
+ *     computed size. Because it is relative it survives per-component overrides
+ *     (scoped styles beat a global `select` selector on specificity, so an
+ *     absolute value here would re-introduce the mismatch it was added to fix).
+ *   - `min-width: 0` — selects are flex/grid items in most toolbars here, and
+ *     the automatic minimum size is what makes them refuse to shrink and push
+ *     the row sideways on a phone.
+ *
+ * ── Checkboxes ──
+ * Unstyled checkboxes render at the OS default, which on Windows 11 at this
+ * app's 0.84–0.9rem body copy reads as oversized — it is the biggest thing in
+ * the row it labels. 15px sits right against that text. `flex: 0 0 auto` stops
+ * the box being stretched by the flex rows it almost always sits in, which is
+ * the other half of "too large".
+ *
+ * Loaded after responsive.css and before preferences.css (see main.js) so the
+ * accessibility overrides still win.
+ * ==========================================================================*/
+
+/* ── Native selects ─────────────────────────────────────────────────────── */
+
+select {
+  font-family: inherit;
+  /* Never wider than the column it sits in, and never immune to shrinking. */
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Pin popup rows to the control's own size. `em` (not rem, not a fixed px)
+   is deliberate — see the header. */
+select option,
+select optgroup {
+  font-family: inherit;
+  font-size: 1em;
+}
+
+/* A select that has been given its full column is the one whose popup lines up
+   with it. Applied by the views where the control sits in a filter toolbar. */
+.select-aligned {
+  width: 100%;
+}
+
+/* ── Checkboxes and radios ──────────────────────────────────────────────── */
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: 15px;
+  height: 15px;
+  /* Flex rows are the norm for "[x] label" here; without this the box is
+     stretched to the row's height on wrapping labels. */
+  flex: 0 0 auto;
+  accent-color: var(--primary-color, #058526);
+  cursor: pointer;
+}
+
+/* Touch targets: the *hit area* still needs to clear ~44px on a phone even
+   though the drawn box is 15px. Padding on the control would resize it, so the
+   label row carries the height instead — views that use a bare checkbox with no
+   label wrapper opt in with this class. */
+@media (max-width: 768px) {
+  .tap-target {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}

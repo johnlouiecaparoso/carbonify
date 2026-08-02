@@ -121,5 +121,15 @@ defineProps({
   .container {
     padding: 0 1rem;
   }
+
+  /* `flex-shrink: 0` is right on a desktop row and wrong once the row wraps: a
+     wide actions slot (the three stat cards on Role Applications) then refused
+     to compress and shoved the title out of view. Once wrapped it owns the full
+     width and can lay itself out, so callers can make it compact. */
+  .page-header__actions {
+    flex-shrink: 1;
+    width: 100%;
+    min-width: 0;
+  }
 }
 </style>

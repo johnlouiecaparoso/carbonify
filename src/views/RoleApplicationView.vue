@@ -210,6 +210,20 @@ function sanitizeNumericField(fieldName) {
   form[fieldName] = String(form[fieldName] || '').replace(/\D+/g, '')
 }
 
+/**
+ * Strip non-digits AND clear the field's validation error, as one handler.
+ *
+ * Seven `@input` bindings used to do this inline as two statements separated by
+ * a semicolon. That is what blocked DEFERRED_BACKLOG #5: `npm run format`
+ * reformats a multi-statement inline handler across lines and drops the `;`,
+ * which the Vue template compiler then rejects — so Prettier could not be run
+ * on this repo at all, over seven attribute values.
+ */
+function onNumericInput(fieldName) {
+  sanitizeNumericField(fieldName)
+  errors[fieldName] = ''
+}
+
 function isValidHttpUrl(value) {
   try {
     const parsed = new URL(value)
@@ -796,7 +810,7 @@ function goBackHome() {
                     inputmode="numeric"
                     pattern="[0-9]*"
                     required
-                    @input="sanitizeNumericField('businessRegistrationNumber'); errors.businessRegistrationNumber = ''"
+                    @input="onNumericInput('businessRegistrationNumber')"
                   />
                   <p v-if="errors.businessRegistrationNumber" class="form__error">{{ errors.businessRegistrationNumber }}</p>
                 </div>
@@ -868,7 +882,7 @@ function goBackHome() {
                     inputmode="numeric"
                     pattern="[0-9]*"
                     required
-                    @input="sanitizeNumericField('contactPersonPhone'); errors.contactPersonPhone = ''"
+                    @input="onNumericInput('contactPersonPhone')"
                   />
                   <p v-if="errors.contactPersonPhone" class="form__error">{{ errors.contactPersonPhone }}</p>
                 </div>
@@ -912,7 +926,7 @@ function goBackHome() {
                     inputmode="numeric"
                     pattern="[0-9]*"
                     required
-                    @input="sanitizeNumericField('tin'); errors.tin = ''"
+                    @input="onNumericInput('tin')"
                   />
                   <p v-if="errors.tin" class="form__error">{{ errors.tin }}</p>
                 </div>
@@ -956,7 +970,7 @@ function goBackHome() {
                     inputmode="numeric"
                     pattern="[0-9]*"
                     required
-                    @input="sanitizeNumericField('yearsOfOperation'); errors.yearsOfOperation = ''"
+                    @input="onNumericInput('yearsOfOperation')"
                   />
                   <p v-if="errors.yearsOfOperation" class="form__error">{{ errors.yearsOfOperation }}</p>
                 </div>
@@ -1063,7 +1077,7 @@ function goBackHome() {
                       inputmode="numeric"
                       pattern="[0-9]*"
                       required
-                      @input="sanitizeNumericField('verifierAccreditationNumber'); errors.verifierAccreditationNumber = ''"
+                      @input="onNumericInput('verifierAccreditationNumber')"
                     />
                     <p v-if="errors.verifierAccreditationNumber" class="form__error">{{ errors.verifierAccreditationNumber }}</p>
                   </div>
@@ -1079,7 +1093,7 @@ function goBackHome() {
                       inputmode="numeric"
                       pattern="[0-9]*"
                       required
-                      @input="sanitizeNumericField('verifierYearsExperience'); errors.verifierYearsExperience = ''"
+                      @input="onNumericInput('verifierYearsExperience')"
                     />
                     <p v-if="errors.verifierYearsExperience" class="form__error">{{ errors.verifierYearsExperience }}</p>
                   </div>
@@ -1095,7 +1109,7 @@ function goBackHome() {
                       inputmode="numeric"
                       pattern="[0-9]*"
                       required
-                      @input="sanitizeNumericField('verifierContactPhone'); errors.verifierContactPhone = ''"
+                      @input="onNumericInput('verifierContactPhone')"
                     />
                     <p v-if="errors.verifierContactPhone" class="form__error">{{ errors.verifierContactPhone }}</p>
                   </div>

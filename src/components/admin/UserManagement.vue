@@ -24,6 +24,7 @@
             <option value="verifier">Verifier</option>
             <option value="project_developer">Project Developer</option>
             <option value="farmer">Farmer</option>
+            <option value="lgu_user">LGU User</option>
             <option value="general_user">General User</option>
           </select>
         </div>
@@ -125,9 +126,48 @@
                 <option value="buyer_investor">Buyer/Investor</option>
                 <option value="project_developer">Project Developer</option>
                 <option value="farmer">Farmer</option>
+                <!-- LGU was missing from this list entirely. There is no LGU
+                     application flow, so this console is the ONLY way the role
+                     can be granted — and it could not grant it. -->
+                <option value="lgu_user">LGU User</option>
                 <option value="verifier">Verifier</option>
                 <option value="admin">Admin</option>
               </select>
+            </div>
+
+            <!-- Jurisdiction. Only meaningful for an LGU, and for an LGU it is
+                 not optional: "Projects in My Area", the endorsable list and
+                 the SQL endorsement guard all FAIL OPEN on a null municipality,
+                 so an LGU account without one can see and endorse projects
+                 anywhere in the country. This is the moment to capture it —
+                 the role is being granted right here. -->
+            <div v-if="selectedUser && selectedUser.role === 'lgu_user'" class="form-group">
+              <label for="um-municipality">Municipality / City</label>
+              <input
+                id="um-municipality"
+                v-model="selectedUser.municipality"
+                type="text"
+                placeholder="e.g. Cabanatuan City"
+              />
+              <small class="hint" :class="{ warn: !selectedUser.municipality }">
+                <template v-if="selectedUser.municipality">
+                  This LGU will only see and endorse projects in
+                  {{ selectedUser.municipality }}.
+                </template>
+                <template v-else>
+                  Without this, the account sees and can endorse projects in every
+                  municipality in the country.
+                </template>
+              </small>
+            </div>
+            <div v-if="selectedUser && selectedUser.role === 'lgu_user'" class="form-group">
+              <label for="um-province">Province</label>
+              <input
+                id="um-province"
+                v-model="selectedUser.province"
+                type="text"
+                placeholder="e.g. Nueva Ecija"
+              />
             </div>
             <div v-if="selectedUser" class="form-group">
               <label for="um-kyc">KYC Level</label>
@@ -228,7 +268,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
-import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
+import {
+  KYC_LEVELS,
+  kycLevelLabel,
+  adminSetUserProfile,
+  adminSetUserJurisdiction,
+} from '@/services/kycService'
 import { adminSetKybVerified } from '@/services/kybService'
 import { setUserSuspended, isSuspendedProfile } from '@/services/roleService'
 import { useUserStore } from '@/store/userStore'
@@ -401,12 +446,36 @@ async function saveUser() {
       })
     }
 
-    // Reflect the server's saved values locally.
+    // Jurisdiction, likewise its own RPC. Sent only for LGU accounts and only
+    // when it actually changed — every other role ignores these columns, and
+    // writing them for a buyer would put a municipality on a profile that has
+    // no business carrying one.
+    let jurisdictionProfile = null
+    const municipality = (selectedUser.value.municipality || '').trim()
+    const province = (selectedUser.value.province || '').trim()
+    const jurisdictionChanged =
+      municipality !== (original?.municipality || '').trim() ||
+      province !== (original?.province || '').trim()
+    if (selectedUser.value.role === 'lgu_user' && jurisdictionChanged) {
+      jurisdictionProfile = await adminSetUserJurisdiction({
+        userId: selectedUser.value.id,
+        // '' rather than null: an admin clearing the field means "remove it",
+        // and null is the RPC's "leave unchanged".
+        municipality,
+        province,
+      })
+    }
+
+    // Reflect the server's saved values locally. The jurisdiction RPC returns
+    // the whole profile, so prefer its copy where it ran — it is the newest.
     const index = users.value.findIndex((u) => u.id === selectedUser.value.id)
     if (index !== -1) {
+      const newest = jurisdictionProfile || updated || selectedUser.value
       users.value[index] = {
         ...users.value[index],
         ...(updated || selectedUser.value),
+        municipality: newest.municipality ?? null,
+        province: newest.province ?? null,
         kyb_verified: (kybProfile || updated || selectedUser.value).kyb_verified,
       }
     }
@@ -479,8 +548,13 @@ onMounted(() => {
   flex: 1;
 }
 
+/* Wide enough for "Project Developer", the longest option. A native select's
+   popup grows to fit its longest <option> but never shrinks below the control,
+   so a 150px box here opened a list visibly wider than the box — the
+   "dropdown content is larger than the dropdown" report. Sizing the control to
+   its content is what lines the two up. */
 .filter-select {
-  min-width: min(150px, 100%);
+  min-width: min(210px, 100%);
 }
 
 .users-table {
@@ -685,6 +759,13 @@ th {
   color: #6b7280;
   font-size: 0.78rem;
   line-height: 1.3;
+}
+
+/* An LGU with no municipality is unscoped — that is a permissions fact, not a
+   nicety, so it does not get to look like ordinary help text. */
+.form-group .hint.warn {
+  color: #b45309;
+  font-weight: 600;
 }
 
 .modal-actions {

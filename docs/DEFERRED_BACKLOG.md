@@ -128,17 +128,60 @@ counterparty's name still won't show on a receipt (a buyer can't read the seller
 receipts should display it, add a `SECURITY DEFINER` RPC returning name-only for a transaction the caller is
 party to. Do NOT loosen `profiles` SELECT RLS (hardened against role/KYC escalation, `20260703000300`).
 
-### 4. VALIDATE the `NOT VALID` foreign keys 🟢
+### 4. VALIDATE the `NOT VALID` constraints ✅ WRITTEN 2026-08-02 (owner applies)
 `credit_transactions_buyer_id_fkey` / `_seller_id_fkey` were added `NOT VALID` for safety. Once the
 orphan check (in `20260606000100_*.sql`) confirms zero orphans, run `VALIDATE CONSTRAINT`. (Not required for
 PostgREST embedding — a stale schema cache was the actual cause of the receipt 400, fixed by
 `20260718001100`; validating is cleanup/integrity only.)
 
-### 5. Prettier formatting pass — blocked 🟢
-`npm run format` (Prettier) **breaks the build**: it reformats multi-statement inline Vue handlers
+**It is not two foreign keys, it is four constraints — and the two this entry omitted are the
+interesting ones.** Measured across `supabase/migrations/`:
+
+| Constraint | Kind | From |
+|---|---|---|
+| `credit_transactions_buyer_id_fkey` | FK → `profiles(id)` | `20260718001100` |
+| `credit_transactions_seller_id_fkey` | FK → `profiles(id)` | `20260718001100` |
+| **`credit_ownership_qty_nonneg`** | CHECK `quantity >= 0` | `20260604020100` |
+| **`kyc_level_requested_range`** | CHECK `level_requested between 1 and 3` | `20260718000400` |
+
+`credit_ownership_qty_nonneg` is described in its own migration as the backstop that stops the same
+carbon unit being retired or sold twice. `NOT VALID` means it has been enforced on new writes and
+**never checked against the rows that already existed** — so "has any pre-existing holding ever gone
+negative?" is a question about whether the ledger is sound, and nothing has ever asked it.
+`20260802000200_validate_not_valid_constraints.sql` is the first thing to ask.
+
+*The fourth entry in this file whose stated count did not survive measurement, after #30, #27 and
+#12.*
+
+**The migration reports rather than merely running.** A bare `validate constraint` aborts on the
+first violation and tells you nothing about the rest, so each is validated independently: a failure
+is caught, named, and reported with the reason while the others still run. Nothing is skipped
+silently. If one fails, the read-only QUERIES block at the bottom of the file lists the offending
+rows.
+
+⚠️ **Not executed anywhere** — owner applies. `VALIDATE CONSTRAINT` takes only a
+SHARE UPDATE EXCLUSIVE lock, so reads and writes continue during the scan.
+
+### 5. Prettier formatting pass — ✅ UNBLOCKED 2026-08-02 (enabling it is your call)
+`npm run format` (Prettier) **broke the build**: it reformats multi-statement inline Vue handlers
 (e.g. `@input="fn(); errors.x = ''"`) across lines and drops the `;`, which the Vue template parser
 rejects. ESLint uses `skipFormatting`, so Prettier isn't enforced anyway. To enable Prettier safely,
 first refactor those inline handlers into named methods, then add the format step.
+
+**The blocker was seven attribute values in one file.** Every multi-statement inline handler in the
+repo lived in `RoleApplicationView.vue`, all of the same shape
+— `sanitizeNumericField('x'); errors.x = ''` — and all seven now call one named
+`onNumericInput(field)`. A repo-wide scan confirms **zero** multi-statement template handlers remain.
+
+**Verified by running it, not by reasoning about it:** `npx prettier --write` on that file, then
+`npm run build` — green, and no broken handler reintroduced.
+
+⚠️ **Prettier was NOT enabled, and that is deliberate.** Running it over one file produced a
+**3383-line** diff (it normalises line endings and reflows everything), so applying it repo-wide is a
+formatting-policy decision with an enormous, unreviewable diff — the owner's call, not a side
+effect of unblocking it. The Prettier run above was reverted; only the 21-line handler refactor
+landed. When you do want it: run `npm run format` on its own commit, touching nothing else, so the
+noise never mixes with a behaviour change.
 
 ### 6. Playwright **E2E green in CI** 🟢
 `.github/workflows/ci.yml` runs E2E as a separate `continue-on-error` job. It needs a live backend
@@ -362,10 +405,47 @@ one fails it until the entry is deleted from the list. The count can only go dow
 **Evidence to gather before deciding:** whether the fallbacks have ever actually fired in production.
 If path 1 always succeeds, paths 2 and 3 are dead code and this is a deletion, not a refactor.
 
-### 12. Grant hygiene on ~10 SECURITY DEFINER RPCs 🟠
+### 12. Grant hygiene on ~~~10~~ **39** SECURITY DEFINER RPCs ✅ CLOSED — applied 2026-08-02
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
 exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
 RPCs and one regression away from being a hole. One migration.
+
+**The count was wrong, and that is the first finding.** Measured against `supabase/migrations/`:
+**89 SECURITY DEFINER functions, 39 with no revoke anywhere.** The third entry in this file this week
+whose number did not survive measurement — #30's hand-count became a script (63), #27's estimate
+became 375 strings, and "~10" here is 39. *These entries are reliable about the shape of a problem
+and unreliable about its size.*
+
+**Split, and only one half is a reachable surface.** 15 of the 39 return `trigger`: they take no
+arguments, PostgREST will not expose a `trigger` return type, and a direct call raises. The PUBLIC
+grant on them is not reachable, and the runtime privilege semantics of trigger execution are not
+worth risking a table-wide INSERT failure to tidy — `20260802000100` skips them **structurally**
+(`prorettype <> 'pg_catalog.trigger'::regtype`) rather than by list, so it cannot be got wrong by
+editing names. The other **24 are covered**.
+
+**Why the migration carries a role list per function rather than one blanket rule:**
+
+| Group | Roles kept | Why |
+|---|---|---|
+| RLS policy helpers — `is_admin`, `is_lgu`, `is_mrv_staff`, `is_verifier_or_admin`, `owns_project`, `owns_report_project`, `current_user_role` | anon + authenticated + service_role | They appear inside `create policy` expressions (13 files for `is_admin` alone), and **a policy is evaluated as the querying role**. Revoking `anon` breaks anonymous reads of every table whose policy calls one. This group's access is unchanged — the value is that an implicit default becomes an explicit, reviewable grant |
+| Internal helpers — `get_setting`, `insert_system_notification`, `current_plan` | **none** | Called only from other SECURITY DEFINER functions, which execute as the owner. Verified call site by call site. The real hygiene win |
+| Client RPCs — 8, incl. `review_kyc_application`, `resolve_dispute` | authenticated | Called from `src/` as a signed-in user, and by **no** edge function (all 11 edge-function RPC calls were enumerated). `anon` removed |
+| Public by design — `search_public_registry`, `public_registry_stats`, `public_market_stats`, `verify_certificate_public` | anon + authenticated | `/registry` and `/verify` work signed out. A revoke here would be a regression wearing the costume of a security fix |
+
+✅ **Applied to live 2026-08-02 and verified by probing it, not by trusting the run.** As `anon`:
+`review_kyc_application`, `review_kyb_application` and `resolve_dispute` return
+**`401 42501 permission denied for function`** — refused at the privilege layer rather than admitted
+and failed inside the body. The four public reads still return `200` with rows. Eight anonymous table
+reads (`projects`, `credit_listings`, `app_settings`, `methodology_factors`, `profiles`,
+`policy_acceptances`, `monitoring_reports`, `project_comments`) all return `200` with **no**
+`permission denied for function` — the failure mode that actually mattered, because seven of these
+helpers are evaluated inside RLS policies as the querying role.
+
+**Ratcheted, not just closed.** [`securityDefinerGrants.test.js`](../src/test/services/securityDefinerGrants.test.js)
+re-derives the inventory from `supabase/migrations/` on every run and fails, **naming the function**,
+if any client-callable SECURITY DEFINER function lacks a revoke. Mutation-checked: deleting one entry
+from the migration turned it red and printed `open_dispute`. This drifted for months precisely
+because nothing checked.
 
 ---
 
@@ -452,7 +532,7 @@ chargeback hold** — on the card rail this is a fraud path (list → self-buy w
 before the chargeback lands, loss lands on the platform). **Decide before live keys:** instant-payout by
 design (document it, drop the dead escrow table/RPC) **or** restore the hold window through settlement.
 
-### 15. Root-cause cleanups behind the review symptoms 🟢 — 3 of 4 CLOSED 2026-08-01/02
+### 15. Root-cause cleanups behind the review symptoms ✅ — ALL 4 CLOSED 2026-08-01/02
 
 > **Every one of these turned out to be wrong about the system in some way**, which is the finding
 > worth carrying from this entry. The nullable-client row prescribed deleting 162 guards (wrong fix —
@@ -519,8 +599,36 @@ Recorded so they aren't re-discovered each audit:
   a *local* `useErrorStore()` const that nothing needed; they are deleted.
 
   This row asserted a system was off for weeks while it was on — the doc-side twin of everything else
-  on this page. What genuinely remains is the inconsistent swallow/throw contract in the services,
-  and 2026-07-30 → 08-01 closed most of that surface read by read.
+  on this page.
+
+  ✅ **The swallow/throw half is CLOSED 2026-08-02**, and closed by *scanning* rather than by waiting
+  for the next bug report: every `catch` and `if (error)` in `src/services` was enumerated — **40
+  candidates** — and triaged one at a time. Seven were fixed; the rest degrade an **optional section**
+  that is simply absent when it fails, which is a different thing from making a claim about the user.
+
+  **The sharpest was not on any list.** `settingsService.getAllSettings` returned `{}` on a failed
+  read, and `SystemConfigView` binds it straight into editable inputs — so a database problem rendered
+  as **platform fee 0%, minimum KYC level to trade 0, both project fees ₱0**, next to an enabled Save
+  button. `saveKyc()` writes `Number(minKyc.value)`, so one click turns off the KYC gate on trading
+  and records it as a deliberate admin decision. That view **already** builds a *"Could not load…
+  Do not save those sections until this resolves"* banner from a rejected `Promise.allSettled`, and
+  carries a comment explaining exactly why — it had simply never been reachable.
+
+  > **The fifth view in one week whose error handling was written and could never run** (after
+  > BuyerDashboardView, RetireView, WalletView and the three on 07-31). The pattern is stable enough
+  > to be a rule now: **when a view handles a rejection, check that its service can produce one.** A
+  > handler is evidence of intent, not of behaviour.
+
+  Second sharpest: `findDuplicateEvidence` degraded to `[]`, and `[]` there is not neutral — it is
+  the input that *suppresses* the duplicate-file alert on the verifier's evidence panel. A failed
+  fraud check rendered as a passed one, on the screen where credits are approved. It throws now, and
+  the component counts and reports the failures.
+
+  Pinned by [`swallowedReadErrors.test.js`](../src/test/services/swallowedReadErrors.test.js), which
+  asserts **rejection rather than shape** — a `[]` is indistinguishable from a real empty result,
+  which is the whole defect — plus a non-vacuity case that a successful read still resolves.
+  Mutation-checked: restoring the two original `return {}` / `return []` turned exactly three tests
+  red.
 
 ---
 
@@ -1315,3 +1423,228 @@ authenticate) and delete the mock path entirely, which makes localhost behave li
 
 **(a) is the better answer.** Every workaround the mock path needs is a place where localhost and
 production diverge, and each one hides a class of bug until it reaches a real user.
+
+---
+
+### 35. The cart survives sign-out, so a shared device hands it to the next person 🟢
+**Found 2026-08-02**, while making the cart testable for the first time (`localStorage` in unit tests
+had been a no-op that stored nothing, so nothing about persistence could be asserted).
+
+`userStore.clearLocalStorage()` deliberately removes **only** keys matching `isAuthStorageKey`
+(`sb-*`, `supabase.*`). The cart lives under `ecolink_cart` and therefore survives. **That is the
+correct fix for the older, worse bug** — `performLogout()` used to call `localStorage.clear()`
+outright, wiping the user's theme, language, accessibility settings and sidebar width every time they
+signed out. Signing out should discard the session, not the application.
+
+The consequence nobody chose: on a **shared device** — a co-op office, an LGU desk, an internet café,
+all realistic for this platform — user A leaves credits in the basket, signs out, and user B signs in
+to find them there.
+
+**Severity, stated honestly: low.** The stored items are public listing data (title, price,
+availability) with no payment detail, and checkout is authorised server-side against the signed-in
+buyer, so B cannot buy anything as A. It is a privacy wrinkle and a confusing-UX bug, not a money
+defect.
+
+**Why it is here rather than fixed:** "clear the cart on sign-out" is a product decision with a real
+cost on the other side — a buyer who signs out mid-basket on their own laptop loses their work, which
+is the same class of complaint the `localStorage.clear()` fix existed to stop. The two candidate
+answers are (a) clear `ecolink_cart` plus the two `CART_*` checkout-coordination keys on sign-out, or
+(b) namespace the cart per user id and load only the signed-in user's. **(b) is better** and is
+roughly an afternoon: it fixes the shared-device case without punishing the single-user case.
+
+Current behaviour is pinned by
+[`cartPersistence.test.js`](../src/test/store/cartPersistence.test.js) so that it stays a decision
+rather than drifting back into an accident.
+
+---
+
+### 36. Any signed-in user can write a notification into anyone else's bell 🟠 — CONFIRMED, fix staged
+**Found 2026-08-02**, while verifying whether the dead `notify*` twins in
+`notificationService` were safe to delete (#30). They were — but reading the trigger migration that
+replaced them led here.
+
+**The policy.** `20260326000100_create_system_notifications.sql`:
+
+```sql
+create policy "Authenticated can insert notifications"
+  on public.system_notifications for insert
+  to authenticated
+  with check (auth.uid() is not null);
+```
+
+`with check (auth.uid() is not null)` is **"any logged-in user, for any recipient"**, not
+"for yourself". `createNotificationsForUsers()` inserts client-side with a caller-supplied
+`user_id`, `title`, `message`, `link` and `metadata`, so this is reachable from the browser
+console with the public anon key and any account.
+
+**What it buys an attacker.** A row in any chosen user's notification bell — including an admin's,
+a verifier's or a seller's — with arbitrary text, rendered by the product's own trusted UI.
+*"Payout on hold — reconfirm your bank details"* is the obvious one. It also makes the bell
+worthless as an audit signal, because nothing distinguishes a system notification from a forged one.
+
+⚠️ **The reach was worse until today.** `Header.vue` navigated with
+`window.location.assign(notification.link)`, which accepts an **absolute URL** — so the forged
+notification could point off-site. That half is **fixed 2026-08-02** by
+[`safeInternalPath`](../src/utils/safeInternalPath.js): a link out of the app is no longer reachable
+from a database row. That is defence in depth, not the fix.
+
+**Severity, stated honestly.** Medium, now medium-low. It needs an authenticated account — and
+signups are currently open with `mailer_autoconfirm`, so that is a low bar during the pilot. It does
+**not** grant read access to anyone else's notifications (SELECT is `auth.uid() = user_id`), moves no
+money, and escalates no privilege. It is a spoofing / social-engineering surface, and exactly the
+kind of finding an independent pentest files.
+
+**Why it is here and not fixed.** The fix is not a one-line policy tightening: `with check (auth.uid()
+= user_id)` would immediately break every legitimate cross-user notification — the feedstock delivery
+alerts, biomass quotes, price-drop alerts, admin escalations. Those are ~18 call sites, and they are
+legitimate; the platform genuinely needs to notify people other than the caller.
+
+**The route, and the pattern already exists in this repo.** The five notification **triggers** solve
+exactly this problem the right way: a `SECURITY DEFINER` function that decides recipients server-side
+via `resolve_notification_recipient_ids()`. So:
+
+1. Add a `SECURITY DEFINER` RPC that takes a notification *intent* (an event, not a recipient list)
+   and resolves recipients itself. Grant hygiene per [#12](#12-grant-hygiene-on-10-39-security-definer-rpcs--closed--applied-2026-08-02).
+2. Move the cross-user call sites onto it.
+3. Only then tighten the INSERT policy to `auth.uid() = user_id`, leaving the client able to write
+   notifications to itself and nothing else.
+
+Steps 1–2 are inert and safe to land ahead of 3, which is the one that closes the hole.
+
+✅ **CONFIRMED ON LIVE 2026-08-02.** The owner ran the query below and it returned
+`"Authenticated can insert notifications" : (auth.uid() IS NOT NULL)`. The entry is live as written.
+
+### The fix, staged in three steps — steps 1 and 2 are landed
+
+| Step | What | State |
+|---|---|---|
+| 1 | `20260802000300_notify_counterparty_rpc.sql` — a `SECURITY DEFINER` RPC that derives the recipient from the subject row | ⚠️ **owner applies.** Additive; changes no behaviour |
+| 2 | All **ten** cross-user call sites ported onto it | ✅ landed, ships with the next frontend deploy |
+| 3 | `20260802000400_tighten_notification_insert.sql` — `with check (auth.uid() = user_id)` | 🔴 **owner applies ONLY after step 2 is live** |
+
+**The order is load-bearing and the failure mode is silent.** Every cross-user notification in the
+client is wrapped in a non-fatal `try/catch`, so applying step 3 before the frontend deploy raises
+nothing a user sees — a farmer simply stops being told their delivery was confirmed. That is this
+project's signature defect shape, so it is written into both migration headers, and step 3 refuses to
+run at all if step 1 is missing.
+
+**What the RPC enforces:** the recipient is read from a `biomass_rfq` or `farmer_delivery` row the
+caller is a party to — there is no "notify user X" entry point, so a stranger cannot be reached and
+an admin can only be reached by escalation out of a real trade. It also refuses a `link` that is not
+root-relative, so the open-redirect rule exists in the database and not only in the browser. Returns
+0 rather than erroring for a non-party, so it is not an existence oracle.
+
+**The three remaining direct client inserts are all self-addressed** — MRV reminders, saved-search
+matches, watchlist price drops — which is what makes step 3 possible at all. Pinned by
+[`notifyCounterparty.test.js`](../src/test/services/notifyCounterparty.test.js): a fourth service
+calling the raw helpers fails the suite. Mutation-checked.
+
+⚠️ **What this deliberately does NOT fix:** the message *text* is still composed by the client.
+Between two parties already trading — who can write to each other through quote and delivery notes
+anyway — that is a much smaller thing than reaching arbitrary users, but it is not nothing. The
+honest end state is composing text server-side from an event vocabulary, the way the five `notify_*`
+triggers do. That means editing functions that move money and state, on a database these migrations
+cannot be tested against, days before a pilot. Not worth it now; recorded here instead.
+
+<details><summary>The query that confirmed it</summary>
+
+```sql
+select polname, pg_get_expr(polwithcheck, polrelid) as with_check
+from pg_policy
+where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
+```
+
+It read `(auth.uid() IS NOT NULL)`.
+</details>
+
+## From the 2026-08-02 cross-role UX pass
+
+> **Update, same day — both of these were subsequently built.** The two gaps the scan named as
+> mattering most now exist: the verifier's decision record (`MyDecisionsPanel`, a fourth tab on the
+> verifier workbench, plus `getMyVerificationDecisions` / `summariseDecisions` and a CSV export) and
+> the LGU's endorsement record (`getMyEndorsementHistory` / `summariseEndorsements`, its own tab
+> beside Endorsements). Neither needed a migration — both read tables their role could already see,
+> asked by actor instead of by subject. For analytics, **concentration** shipped
+> (`computeConcentration` + the panel), and the fabricated placeholder data described below was
+> removed. What remains open is listed at the end of each section.
+
+Both were requests to *design a feature*, not to fix a defect, and both span every role — which is
+why they were recorded here first rather than shipped thin.
+
+### 1. A "history" surface for the roles that have none
+
+**The scan.** Six roles, and what each can currently see of its own past:
+
+| Role | Has | Missing |
+|---|---|---|
+| Buyer / general user | Receipts, Orders, Retire → Transaction History, Portfolio, Certificates, Reported problems | — |
+| Project developer | Carbon asset ledger (incl. buyer history), Seller earnings, per-project verification timeline | No single "what happened to my projects" feed; the timeline is per project and only inside the review panel |
+| Admin | Audit logs (`/admin/audit-logs`), role applications, refunds, AML screenings | — |
+| Verifier | The verification timeline of whichever project is open | **No record of their own past decisions.** A verifier cannot answer "what did I validate last month", which is the first question an accreditation body asks |
+| Farmer | Deliveries and RFQ quotes in the portal | No payment/earnings history separate from the delivery list |
+| LGU | Emissions records they filed | **No endorsement history.** An endorsement is a credibility signal attached to a carbon project; the body that gave it cannot list what it has given |
+
+**The two that matter** are the verifier's decision log and the LGU's endorsement log, for the same
+reason: both roles put their name on something, and neither can enumerate what they have put their
+name on. Both are reads over tables that already exist (`verification_timeline`, the endorsement
+table from 20260722000500) filtered by actor — the work is a service function, a view, and a nav
+entry each, not new schema.
+
+**Do not** solve this with one generic "History" page per role. Five of the six already have
+purpose-built records views and a sixth generic feed would be a seventh place to look.
+
+**Built (2026-08-02).** Both. The verifier's is a "My Decisions" tab reading `audit_logs` filtered
+to `user_id = me` and the five decision actions — the read policy from 20260722000300 already
+allowed it; nobody had asked the table by actor. The LGU's reads `project_endorsements` filtered to
+`lgu_user_id = me`, and surfaces `created_at` vs `updated_at` so a **reversed** endorsement is
+visible rather than silently replaced. Both throw rather than returning `[]`, because "you have
+decided nothing" is a claim about a professional's record and a failed read is not evidence for it.
+
+**Still open:** the developer's cross-project feed and the farmer's payment history. Lower value —
+neither role puts its name on a third party's document the way the two above do.
+
+### 2. Making the subscription's analytics worth paying for
+
+`/analytics` is gated behind the paid plan (`FeatureGate`), and what it shows today is a restatement
+of the portfolio: totals owned, totals retired, a category split. A buyer can read all of that off
+the portfolio page for free, which makes the gate feel like a paywall over their own data rather
+than over insight.
+
+What would change that, roughly in order of value per unit of work:
+
+- **Price basis vs market, over time.** `computePortfolioPnl` already exists and
+  `priceHistoryService` already records marks — the unrealized position is computed and then not
+  charted.
+- **Retirement pacing against a target.** The carbon calculator produces an offset target and hands
+  it to the marketplace; nothing tracks progress against it afterwards.
+- **Concentration risk.** How much of a portfolio sits in one project, one category, one developer.
+  Cheap to compute, and the single most useful thing a disclosure reviewer asks.
+- **Vintage ageing.** Which credits are getting old, which matters for what a buyer can claim.
+
+None of this needs new tables. It needs the existing series to be charted rather than summed. Load
+the `dataviz` skill before building any of it — the app has `chart.js` and two chart components
+(`CategoryChart`, `PortfolioChart`) already, and a third style of chart would be the thing that makes
+the page look assembled rather than designed.
+
+**Built (2026-08-02): concentration**, as `computeConcentration` (pure, 11 tests) plus a panel —
+largest-project share, top-3 share, project and category counts, HHI mapped to a plain-language
+verdict, and a labelled horizontal bar per holding. Repeat purchases of one project are summed
+before any share is taken; without that, five buys of the same project read as a diversified
+portfolio, which is the failure mode the whole figure exists to catch.
+
+⚠️ **A real defect was found and fixed while doing it.** `categoryChartData` was *seeded with
+invented data* — five hard-coded category names at shares `[35, 25, 15, 15, 10]`. Those rendered as
+a finished doughnut before any fetch resolved, and **stayed on screen if the load failed or the
+account had never bought anything**. A buyer on a paid plan could be shown a confident breakdown of
+a portfolio they do not own and export a disclosure decision from it. The chart now starts empty and
+has an empty state. Worth a general rule: *placeholder data that is visually indistinguishable from
+real data is worse than an empty state, and this codebase should not ship any more of it.*
+
+The category palette was also re-picked while there. The old one included the same red used for
+error/critical status elsewhere, so a "Waste Management" slice looked like a failed payment; the
+replacement is the validated categorical order (worst adjacent CVD ΔE 9.1, normal-vision ΔE 19.6 on
+white). Three slots fall under 3:1 contrast, so the chart carries a table view — which is also its
+accessible view.
+
+**Still open:** P&L vs market over time, retirement pacing against the calculator's target, and
+vintage ageing. All three are the same shape as concentration — existing data, not yet charted.

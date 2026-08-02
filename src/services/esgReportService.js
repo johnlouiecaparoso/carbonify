@@ -1,4 +1,5 @@
 import { creditOwnershipService } from '@/services/creditOwnershipService'
+import { downloadBlob } from '@/utils/download'
 
 /**
  * ESG / offset report (Phase 3).
@@ -76,17 +77,9 @@ export function toCsv(rows, columns) {
   return body ? `${header}\r\n${body}` : header
 }
 
-function triggerDownload(blob, filename) {
-  if (typeof document === 'undefined') return
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
+// The download itself now lives in utils/download.js — this file had the first
+// copy of it, and seven more had grown alongside, all revoking the object URL
+// in the same tick as the click. See that file's header.
 
 /** Download the ESG report as CSV (one row per project). */
 export async function exportEsgReportCsv(userId, deps) {
@@ -96,7 +89,7 @@ export async function exportEsgReportCsv(userId, deps) {
     { key: 'credits', header: 'Credits' },
     { key: 'tco2e', header: 'tCO2e' },
   ])
-  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `carbonify-esg-report-${userId}.csv`)
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `carbonify-esg-report-${userId}.csv`)
   return data
 }
 

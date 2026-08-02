@@ -1,16 +1,31 @@
 <script setup>
 /**
- * Buyer's view of the problems they've reported. Pairs with DisputeModal (which
- * opens them) and the admin refund console (which resolves them).
+ * Everything the user has reported, of both kinds:
+ *
+ *   - DISPUTES — raised against a specific purchase, resolved by the refund
+ *     console, and capable of moving money (DisputeModal opens these).
+ *   - SUPPORT REPORTS — everything else, from any role, opened from the header
+ *     avatar menu (ReportProblemModal).
+ *
+ * They are separate tables for good reasons (see the support_reports
+ * migration), but from the user's side "problems I have reported" is one
+ * question, and this page is where they come to ask it. A report that files
+ * successfully and then appears nowhere reads as a report that vanished.
  */
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyDisputes } from '@/services/disputeService'
+import { getMySupportReports } from '@/services/supportReportService'
+import { SUPPORT_CATEGORY_LABELS, openReportProblem } from '@/constants/support'
 import { formatDate } from '@/utils/formatDate'
 
 const disputes = ref([])
+const reports = ref([])
 const loading = ref(true)
 const error = ref('')
+// Separate from `error`: a working disputes list plus a broken reports list
+// must not render as "we could not load anything".
+const reportsError = ref('')
 
 const openCount = computed(() => disputes.value.filter((d) => d.status === 'open').length)
 
@@ -25,17 +40,50 @@ function statusFor(dispute) {
   return STATUS_COPY[dispute.status] || { label: dispute.status || 'Unknown', tone: 'pending' }
 }
 
+/** Status → what the reporter should understand from it. */
+const REPORT_STATUS_COPY = {
+  open: { label: 'Received', tone: 'pending' },
+  in_progress: { label: 'Being looked at', tone: 'pending' },
+  resolved: { label: 'Resolved', tone: 'good' },
+  wont_fix: { label: 'Closed', tone: 'bad' },
+}
+
+function reportStatusFor(report) {
+  return REPORT_STATUS_COPY[report.status] || { label: report.status || 'Unknown', tone: 'pending' }
+}
+
+function categoryLabel(value) {
+  return SUPPORT_CATEGORY_LABELS[value] || 'Problem report'
+}
+
+const nothingReported = computed(() => disputes.value.length === 0 && reports.value.length === 0)
+
 async function load() {
   loading.value = true
   error.value = ''
-  try {
-    disputes.value = await getMyDisputes(50)
-  } catch (err) {
-    console.error('Failed to load disputes:', err)
-    error.value = 'We could not load your reports. Please try again.'
-  } finally {
-    loading.value = false
+  reportsError.value = ''
+  // allSettled: the two lists are independent, and one failing must not hide
+  // the other. Same reasoning as the AML and finance consoles.
+  const [disputeRes, reportRes] = await Promise.allSettled([
+    getMyDisputes(50),
+    getMySupportReports(50),
+  ])
+
+  if (disputeRes.status === 'fulfilled') {
+    disputes.value = disputeRes.value
+  } else {
+    console.error('Failed to load disputes:', disputeRes.reason)
+    error.value = 'We could not load your purchase disputes. Please try again.'
   }
+
+  if (reportRes.status === 'fulfilled') {
+    reports.value = reportRes.value
+  } else {
+    console.error('Failed to load support reports:', reportRes.reason)
+    reportsError.value = 'We could not load your other reports. Please try again.'
+  }
+
+  loading.value = false
 }
 
 onMounted(load)
@@ -52,24 +100,68 @@ onMounted(load)
 
       <div v-if="loading" class="state-card">Loading your reports…</div>
 
-      <div v-else-if="error" class="state-card error">
-        <p>{{ error }}</p>
-        <button class="btn" @click="load">Try again</button>
-      </div>
-
-      <div v-else-if="disputes.length === 0" class="state-card">
-        <p>You haven't reported any problems.</p>
-        <router-link to="/receipts" class="browse-link">
-          Go to your receipts to report an issue →
-        </router-link>
-      </div>
-
       <template v-else>
-        <p v-if="openCount > 0" class="open-summary">
-          {{ openCount }} report{{ openCount === 1 ? '' : 's' }} awaiting review.
-        </p>
+        <div v-if="error" class="state-card error">
+          <p>{{ error }}</p>
+          <button class="btn" @click="load">Try again</button>
+        </div>
 
-        <ul class="dispute-list">
+        <div v-if="nothingReported && !error && !reportsError" class="state-card">
+          <p>You haven't reported any problems.</p>
+          <button type="button" class="btn" @click="openReportProblem()">Report a problem</button>
+        </div>
+
+        <!-- General reports first: any role can file one, whereas disputes only
+             exist for someone who has bought credits. -->
+        <section v-if="reports.length || reportsError" class="report-section">
+          <h2 class="section-title">Problem reports</h2>
+
+          <div v-if="reportsError" class="state-card error">
+            <p>{{ reportsError }}</p>
+            <button class="btn" @click="load">Try again</button>
+          </div>
+
+          <ul v-else class="dispute-list">
+            <li v-for="report in reports" :key="report.id" class="dispute-card">
+              <div class="dispute-card__head">
+                <span class="status-pill" :class="reportStatusFor(report).tone">
+                  {{ reportStatusFor(report).label }}
+                </span>
+                <span class="dispute-date">Reported {{ formatDate(report.created_at) }}</span>
+              </div>
+
+              <p class="dispute-reason">{{ report.subject }}</p>
+
+              <dl class="dispute-meta">
+                <div>
+                  <dt>About</dt>
+                  <dd>{{ categoryLabel(report.category) }}</dd>
+                </div>
+                <div v-if="report.page_path">
+                  <dt>Page</dt>
+                  <dd class="mono">{{ report.page_path }}</dd>
+                </div>
+                <div v-if="report.resolved_at">
+                  <dt>Closed</dt>
+                  <dd>{{ formatDate(report.resolved_at) }}</dd>
+                </div>
+              </dl>
+
+              <p v-if="report.admin_notes" class="resolution-note">
+                <strong>Our response:</strong> {{ report.admin_notes }}
+              </p>
+            </li>
+          </ul>
+        </section>
+
+        <section v-if="disputes.length" class="report-section">
+          <h2 class="section-title">Purchase disputes</h2>
+
+          <p v-if="openCount > 0" class="open-summary">
+            {{ openCount }} dispute{{ openCount === 1 ? '' : 's' }} awaiting review.
+          </p>
+
+          <ul class="dispute-list">
           <li v-for="dispute in disputes" :key="dispute.id" class="dispute-card">
             <div class="dispute-card__head">
               <span class="status-pill" :class="statusFor(dispute).tone">
@@ -95,7 +187,14 @@ onMounted(load)
               <strong>Our response:</strong> {{ dispute.resolution_notes }}
             </p>
           </li>
-        </ul>
+          </ul>
+        </section>
+
+        <div v-if="!nothingReported" class="report-again">
+          <button type="button" class="btn" @click="openReportProblem()">
+            Report another problem
+          </button>
+        </div>
       </template>
     </div>
   </div>
@@ -111,6 +210,22 @@ onMounted(load)
   max-width: 900px;
   margin: 0 auto;
   padding: 1.5rem 1rem 0;
+}
+
+.report-section + .report-section {
+  margin-top: 2rem;
+}
+
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.report-again {
+  margin-top: 1.5rem;
+  text-align: center;
 }
 
 .state-card {

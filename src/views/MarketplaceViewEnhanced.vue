@@ -8,47 +8,60 @@
           Discover and purchase verified carbon credits from projects worldwide
         </p>
 
-        <!-- Search and Action Controls -->
+        <!-- Search + filters. The five selects used to sit in a row beside this
+             box; they are inside the bar's own panel now — see SmartSearch. -->
         <div class="search-controls">
-          <div class="search-input-wrap">
-            <span class="material-symbols-outlined search-icon" aria-hidden="true">search</span>
-            <input
-              v-model="searchQuery"
-              type="search"
-              class="search-input"
-              placeholder="Search projects"
-              aria-label="Search projects"
-            />
-          </div>
-          <select v-model="selectedCategory" class="filter-select" aria-label="Filter by category">
-            <option value="">All Categories</option>
-            <option v-for="category in categoryOptions" :key="category" :value="category">
-              {{ category }}
-            </option>
-          </select>
-          <select v-model="selectedSource" class="filter-select" aria-label="Filter by credit source">
-            <option value="all">All Sources</option>
-            <option value="local">Local</option>
-            <option value="supplier">Registry</option>
-          </select>
-          <select v-model="selectedSdg" class="filter-select" aria-label="Filter by Sustainable Development Goal">
-            <option value="">All SDGs</option>
-            <option v-for="tag in SDG_TAGS" :key="tag" :value="tag">{{ tag }}</option>
-          </select>
-          <select
-            v-model="availabilityFilter"
-            class="filter-select"
-            aria-label="Filter by availability"
+          <SmartSearch
+            v-model="searchQuery"
+            storage-key="marketplace"
+            placeholder="Search projects"
+            :suggestions="searchSuggestions"
+            :active-filter-count="activeFilterCount"
+            @clear-filters="resetFilters"
           >
-            <option value="all">All Availability</option>
-            <option value="available">Available</option>
-            <option value="unavailable">Not Available</option>
-          </select>
-          <select v-model="sortBy" class="filter-select" aria-label="Sort listings">
-            <option value="name">Name (A-Z)</option>
-            <option value="price-low">Cheapest to Expensive</option>
-            <option value="price-high">Expensive to Cheapest</option>
-          </select>
+            <template #filters>
+              <div>
+                <label for="mk-category">Category</label>
+                <select id="mk-category" v-model="selectedCategory">
+                  <option value="">All Categories</option>
+                  <option v-for="category in categoryOptions" :key="category" :value="category">
+                    {{ category }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label for="mk-source">Source</label>
+                <select id="mk-source" v-model="selectedSource">
+                  <option value="all">All Sources</option>
+                  <option value="local">Local</option>
+                  <option value="supplier">Registry</option>
+                </select>
+              </div>
+              <div>
+                <label for="mk-sdg">SDG</label>
+                <select id="mk-sdg" v-model="selectedSdg">
+                  <option value="">All SDGs</option>
+                  <option v-for="tag in SDG_TAGS" :key="tag" :value="tag">{{ tag }}</option>
+                </select>
+              </div>
+              <div>
+                <label for="mk-availability">Availability</label>
+                <select id="mk-availability" v-model="availabilityFilter">
+                  <option value="all">All Availability</option>
+                  <option value="available">Available</option>
+                  <option value="unavailable">Not Available</option>
+                </select>
+              </div>
+              <div>
+                <label for="mk-sort">Sort by</label>
+                <select id="mk-sort" v-model="sortBy">
+                  <option value="name">Name (A-Z)</option>
+                  <option value="price-low">Cheapest to Expensive</option>
+                  <option value="price-high">Expensive to Cheapest</option>
+                </select>
+              </div>
+            </template>
+          </SmartSearch>
         </div>
 
         <!-- Actions kept on their own row so the filter grid stays aligned -->
@@ -609,7 +622,9 @@ import {
   describeCriteria,
 } from '@/services/savedSearchService'
 import { useCartStore } from '@/store/cartStore'
+import { useToastStore } from '@/store/toastStore'
 import { useModernPrompt } from '@/composables/useModernPrompt'
+import SmartSearch from '@/components/ui/SmartSearch.vue'
 import UiButton from '@/components/ui/Button.vue'
 import Pagination from '@/components/ui/Pagination.vue'
 import AccessibleModal from '@/components/ui/AccessibleModal.vue'
@@ -680,6 +695,7 @@ const isUserAdmin = computed(() => {
 })
 
 const cart = useCartStore()
+const toastStore = useToastStore()
 
 // State
 const listings = ref([])
@@ -746,6 +762,47 @@ const categoryOptions = computed(() => {
   )
   return Array.from(categories).sort((a, b) => a.localeCompare(b))
 })
+
+/**
+ * What the search panel recommends before anything is typed.
+ *
+ * Drawn from what is actually listed right now — project titles first, then
+ * categories and locations — so every suggestion is guaranteed to return at
+ * least one result. A recommendation that leads to an empty page is worse than
+ * no recommendation.
+ */
+const searchSuggestions = computed(() => {
+  const out = []
+  const seen = new Set()
+  const add = (value) => {
+    const v = String(value || '').trim()
+    if (!v || seen.has(v.toLowerCase())) return
+    seen.add(v.toLowerCase())
+    out.push(v)
+  }
+  for (const l of listings.value || []) add(l.project_title)
+  for (const c of categoryOptions.value) add(c)
+  for (const l of listings.value || []) add(l.location)
+  return out
+})
+
+/** Non-default filters, for the badge on the Filters button. */
+const activeFilterCount = computed(
+  () =>
+    (selectedCategory.value ? 1 : 0) +
+    (selectedSource.value !== 'all' ? 1 : 0) +
+    (selectedSdg.value ? 1 : 0) +
+    (availabilityFilter.value !== 'all' ? 1 : 0) +
+    (sortBy.value !== 'name' ? 1 : 0),
+)
+
+function resetFilters() {
+  selectedCategory.value = ''
+  selectedSource.value = 'all'
+  selectedSdg.value = ''
+  availabilityFilter.value = 'all'
+  sortBy.value = 'name'
+}
 
 // Computed properties
 const filteredListings = computed(() => {
@@ -968,9 +1025,22 @@ const currentCriteria = computed(() => ({
   maxPrice: priceRange.value?.max || '',
 }))
 
+/**
+ * The saved-search chips are decoration on a page whose job is listings, so this
+ * view opts out of the failure explicitly — the service throws, and the decision
+ * that an absence is tolerable is taken here rather than inside the read.
+ *
+ * It must not reject: one call site is a bare fire-and-forget on mount, and the
+ * other is the refresh after a successful save, where a rejection would report
+ * a save that worked as "Could not save search".
+ */
 async function loadSavedSearches() {
   if (!userStore.session?.user?.id) return
-  savedSearches.value = await listMySavedSearches()
+  try {
+    savedSearches.value = await listMySavedSearches()
+  } catch (err) {
+    console.warn('Failed to load saved searches:', err?.message)
+  }
 }
 
 async function handleSaveSearch() {
@@ -1374,12 +1444,14 @@ async function toggleWatch(listing) {
     return
   }
   const id = listing.listing_id
+  const title = listing.project_title || 'Project'
   const next = new Set(watchedIds.value)
   try {
     if (next.has(id)) {
       next.delete(id)
       watchedIds.value = next // optimistic
       await removeFromWatchlist(id)
+      toastStore.push({ message: `Removed from saved — ${title}`, type: 'info', icon: 'bookmark_remove' })
     } else {
       next.add(id)
       watchedIds.value = next
@@ -1389,9 +1461,18 @@ async function toggleWatch(listing) {
         projectId: listing.project_id,
         pricePerCredit: listing.price_per_credit,
       })
+      // Confirmed only after the write lands. The heart flips optimistically so
+      // the tap feels instant, but a toast that says "Saved" before the server
+      // agreed is the kind of reassurance this app has been bitten by before.
+      toastStore.push({
+        message: `Saved — ${title}`,
+        icon: 'bookmark_added',
+        action: { label: 'View saved', to: '/watchlist' },
+      })
     }
   } catch (err) {
     console.error('Watchlist toggle failed:', err?.message)
+    toastStore.push({ message: "Couldn't update your saved list. Please try again.", type: 'error' })
     await loadWatchlist() // resync on failure
   }
 }
@@ -1451,10 +1532,11 @@ onUnmounted(() => {
 
 /* Six filters on a fixed 3-column grid: every box is the same width and the
    rows always line up, instead of wrapping raggedly at arbitrary widths. */
+/* One centred control, not a 3-column grid of six. The filters moved inside
+   the search bar's panel (SmartSearch), so this row holds a single child. */
 .search-controls {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  display: flex;
+  justify-content: center;
   max-width: 960px;
   margin: 0 auto;
 }
@@ -1468,54 +1550,10 @@ onUnmounted(() => {
   margin: 0.75rem auto 0;
 }
 
-.search-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.search-icon {
-  position: absolute;
-  left: 0.65rem;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1.15rem;
-}
-
-.search-input {
-  width: 100%;
-  min-width: 0;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 0.6rem 0.75rem 0.6rem 2.25rem;
-}
-
-.search-input::placeholder {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.search-input:focus {
-  outline: none;
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.filter-select {
-  width: 100%;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 0 0.75rem;
-  min-width: 0;
-}
-
-.filter-select option {
-  color: #111827;
-}
+/* .search-input-wrap / .search-icon / .search-input / .filter-select lived
+   here. All four described the old inline search-plus-five-selects row and had
+   no elements left once SmartSearch took over; the bar draws itself on a white
+   surface rather than as translucent panels on the green banner. */
 
 .submit-project-button {
   height: 42px;
@@ -2263,7 +2301,6 @@ onUnmounted(() => {
 /* Responsive Design */
 @media (max-width: 1024px) {
   .search-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     max-width: 640px;
   }
 }

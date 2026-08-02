@@ -299,6 +299,13 @@ onMounted(load)
   margin-bottom: 0.85rem;
   cursor: pointer;
 }
+/* The label is 0.78rem; the OS-default box sat well above that and made the
+   toggle the loudest thing on a saved-project card. 14px matches the text. */
+.alert-toggle input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
 .alert-toggle input:disabled + span {
   opacity: 0.5;
 }

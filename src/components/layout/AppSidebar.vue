@@ -18,9 +18,6 @@ import { useUserStore } from '@/store/userStore'
 import { useCartStore } from '@/store/cartStore'
 import { useSidebar } from '@/composables/useSidebar'
 import { buildSidebar, buildAccountMenu } from '@/constants/navigation'
-import { getRoleDisplayName } from '@/constants/roles'
-import { getUserInitials } from '@/services/profileService'
-import { performLogout } from '@/utils/logout'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -34,28 +31,11 @@ const previouslyFocused = ref(null)
 
 const sections = computed(() => buildSidebar(userStore, { cartCount: cartStore.count }))
 
-// Account block, rendered only in the mobile drawer (see the media query): the
-// mobile header has no room for an avatar, so without this there is no way to
-// reach profile settings or sign out on a phone. On desktop the avatar dropdown
-// owns these and this block is hidden.
+// Not rendered here any more — the header's avatar dropdown owns the account
+// menu at every width. Still needed for `navPaths` below: standing on /profile
+// must not leave a *product* link lit, so those paths have to be candidates
+// when resolving which single item owns the highlight.
 const accountItems = computed(() => buildAccountMenu(userStore))
-
-const displayName = computed(() => userStore.profile?.full_name || 'User')
-const roleName = computed(() => getRoleDisplayName(userStore.role))
-const initials = computed(() =>
-  getUserInitials(userStore.profile?.full_name || userStore.session?.user?.email || 'User'),
-)
-
-function handleLogout() {
-  closeDrawer()
-  performLogout(userStore)
-}
-
-// WelcomeTour listens for this on the window (it's mounted at the app root).
-function startTour() {
-  closeDrawer()
-  window.dispatchEvent(new Event('carbonify:open-tour'))
-}
 
 /**
  * Every nav path that could claim the "current" highlight. Used to resolve
@@ -66,7 +46,13 @@ function startTour() {
 const navPaths = computed(() => [
   ...sections.value.flatMap((section) => section.items.map((item) => item.path)),
   ...accountItems.value.map((item) => item.path),
+  // These two are rendered as literal links in the account block below rather
+  // than coming from accountItems, so they have to be listed by hand. '/guide'
+  // was missing: `activePath` could never resolve to a path it had never been
+  // told about, so the User guide link was the one item in the drawer that
+  // stayed unhighlighted while you were standing on it.
   '/about',
+  '/guide',
 ])
 
 /**
@@ -158,60 +144,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         </ul>
       </div>
 
-      <!-- Mobile only — see .account-block in the styles below. Guarded on
-           auth so the component is safe to mount anywhere: without this a
-           signed-out visitor gets an About link and a Logout button. -->
-      <div v-if="userStore.isAuthenticated" class="account-block">
-        <div class="account-identity">
-          <span class="account-avatar">{{ initials }}</span>
-          <span class="account-meta">
-            <span class="account-name">{{ displayName }}</span>
-            <span class="account-role">{{ roleName }}</span>
-          </span>
-        </div>
-
-        <ul class="nav-list">
-          <li v-for="item in accountItems" :key="item.path">
-            <router-link
-              :to="item.path"
-              class="nav-item"
-              :class="{ current: isCurrent(item.path) }"
-              :aria-current="isCurrent(item.path) ? 'page' : undefined"
-            >
-              <span class="material-symbols-outlined nav-icon" aria-hidden="true">
-                {{ item.icon }}
-              </span>
-              <span class="nav-label">{{ item.label }}</span>
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/about" class="nav-item" :class="{ current: isCurrent('/about') }">
-              <span class="material-symbols-outlined nav-icon" aria-hidden="true">info</span>
-              <span class="nav-label">About</span>
-            </router-link>
-          </li>
-          <li>
-            <button class="nav-item" type="button" @click="startTour">
-              <span class="material-symbols-outlined nav-icon" aria-hidden="true">tour</span>
-              <span class="nav-label">Take a tour</span>
-            </button>
-          </li>
-          <li>
-            <!-- Below the tour on purpose: the tour is a one-shot modal, this
-                 is the page you come back to. -->
-            <router-link to="/guide" class="nav-item" :class="{ current: isCurrent('/guide') }">
-              <span class="material-symbols-outlined nav-icon" aria-hidden="true">menu_book</span>
-              <span class="nav-label">User guide</span>
-            </router-link>
-          </li>
-          <li>
-            <button class="nav-item nav-item--logout" type="button" @click="handleLogout">
-              <span class="material-symbols-outlined nav-icon" aria-hidden="true">logout</span>
-              <span class="nav-label">Logout</span>
-            </button>
-          </li>
-        </ul>
-      </div>
+      <!-- The account block that used to live here — identity, profile,
+           preferences, KYC, wallet, About, Take a tour, User guide, Logout —
+           has moved to the header's avatar dropdown, which is now present at
+           every width. It was only ever rendered on mobile, to make up for a
+           mobile header that had no avatar menu, and it made this drawer long
+           enough that signing out meant scrolling past every feature. -->
     </nav>
   </aside>
 </template>
@@ -352,20 +290,30 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   margin-inline: 0.4rem;
 }
 
-/* Desktop hides the account block entirely — the avatar dropdown owns it there,
-   and two logout buttons on one screen is a question the user shouldn't have
-   to answer. */
+/* The account block is gone at every width now, not just on desktop.
+   It existed because the mobile header had no avatar menu, so profile,
+   preferences, KYC, wallet, the tour and the user guide were reachable on a
+   phone only by scrolling to the very bottom of this drawer. The header is one
+   row at all widths now and carries the avatar dropdown beside the cart, so
+   this was a second copy of that menu — and the reason the mobile drawer was
+   long enough to need scrolling past every feature to sign out. */
 .account-block {
   display: none;
 }
 
-.nav-item--logout {
+/* Two nav rows are <button>, not <a>: "Take a tour" and "Logout". A button
+   carries a UA border and background, so without this it draws a boxed outline
+   the links around it do not have — which is the "Take a tour is highlighted in
+   a border" report. This used to be scoped to .nav-item--logout, so only the
+   logout button was reset and the tour button kept its box. */
+button.nav-item {
   width: 100%;
   border: none;
   background: none;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
+  font-size: var(--font-size-sm);
 }
 
 .nav-item--logout:hover {
@@ -419,58 +367,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
   .sidebar--open {
     transform: translateX(0);
-  }
-
-  .account-block {
-    display: block;
-    margin-top: 1.25rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border-light);
-  }
-
-  .account-identity {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.35rem 0.65rem 0.7rem;
-  }
-
-  .account-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 50%;
-    background: var(--primary-color);
-    color: var(--text-light);
-    font-weight: 700;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    flex-shrink: 0;
-  }
-
-  .account-meta {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  .account-name {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .account-role {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
   }
 
   .sidebar-scrim {

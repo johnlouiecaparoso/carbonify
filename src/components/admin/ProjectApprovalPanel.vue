@@ -1527,8 +1527,12 @@ async function openVerificationModal(project, newStatus) {
   border-radius: 10px;
 }
 
+/* Lines up with the first line of the project title beside it. The offset was
+   tuned for the old 16px row padding and a full-size OS checkbox; both have
+   shrunk (see src/styles/form-controls.css). */
 .project-select {
-  margin-top: 0.9rem;
+  margin-top: 0.85rem;
+  margin-left: 0.6rem;
   flex: 0 0 auto;
 }
 
@@ -1590,16 +1594,22 @@ async function openVerificationModal(project, newStatus) {
   color: #166534;
 }
 
+/* Compact. Six status pills at 0.9rem/1.1rem padding formed a band across the
+   panel that competed with the queue underneath — and the queue is the thing
+   the verifier came for. */
 .filter-tab {
-  padding: 0.55rem 1.1rem;
+  padding: 0.3rem 0.7rem;
   border: 1px solid var(--carbonify-border, #e5e7eb);
   background: white;
   border-radius: 999px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--carbonify-text, #111827);
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .filter-tab:hover {
@@ -1826,9 +1836,14 @@ async function openVerificationModal(project, newStatus) {
   font-size: 1.9rem;
 }
 
+/* The project being reviewed is on the LEFT and the queue is on the RIGHT.
+   The detail pane is where a verifier reads, annotates and decides; the queue
+   is a picker they glance at between projects. DOM order is unchanged so the
+   queue still comes first for keyboard and screen-reader users — only the
+   columns are swapped, via `order` below. */
 .projects-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) 1fr;
+  grid-template-columns: 1fr minmax(260px, 320px);
   gap: 24px;
   align-items: flex-start;
   width: 100%;
@@ -1836,6 +1851,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .project-list {
+  order: 2;
   display: flex;
   flex-direction: column;
   background: var(--carbonify-surface, #ffffff);
@@ -1846,12 +1862,15 @@ async function openVerificationModal(project, newStatus) {
   overflow-y: auto;
 }
 
+/* Title first, status underneath. These shared a row via `space-between`, so
+   a long project name squeezed the badges into a ragged column beside it and
+   "Pending"/"Validated" read as part of the title. */
 .project-list-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
   background: transparent;
   border: none;
   text-align: left;
@@ -1869,20 +1888,28 @@ async function openVerificationModal(project, newStatus) {
   background: rgba(16, 185, 129, 0.08);
 }
 
+/* The project under review has to be unmistakable in a queue of twenty. A
+   0.16-alpha tint alone was not doing it — this adds a solid left rule and
+   darker fill so the selected row reads at a glance. */
 .project-list-item.active {
-  background: rgba(16, 185, 129, 0.16);
-  border-left: 3px solid var(--primary-color, #058526);
+  background: rgba(16, 185, 129, 0.2);
+  box-shadow: inset 3px 0 0 var(--primary-color, #058526);
+}
+
+.project-list-item.active .project-list-title {
+  color: var(--primary-dark, #045c1a);
 }
 
 .project-list-title {
-  flex: 1;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .project-list-badges {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   flex-wrap: wrap;
 }
 
@@ -1957,6 +1984,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .project-detail {
+  order: 1;
   position: relative;
   background: var(--carbonify-surface, #ffffff);
   border: 1px solid var(--carbonify-border, #e5e7eb);
@@ -2186,12 +2214,19 @@ async function openVerificationModal(project, newStatus) {
     grid-template-columns: 1fr;
   }
 
+  /* Single column: the queue goes back above the detail, since side-by-side
+     no longer applies and picking has to come before reading. */
   .project-list {
+    order: 1;
     flex-direction: row;
     overflow-x: auto;
     border-radius: 16px 16px 0 0;
     max-height: none;
     overflow-y: visible;
+  }
+
+  .project-detail {
+    order: 2;
   }
 
   .project-list-item,
@@ -2214,9 +2249,22 @@ async function openVerificationModal(project, newStatus) {
 }
 
 @media (max-width: 768px) {
+  /* Three on the left, three on the right. `flex-direction: column` stacked all
+     six status filters into a full-height list you had to scroll past before
+     reaching a single project — on the one screen where vertical space is
+     scarcest. A 2-column grid fits them in three rows. */
   .filter-tabs {
-    flex-direction: column;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    align-items: stretch;
+  }
+
+  .filter-tab {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.74rem;
+    text-align: center;
   }
 
   .project-list {
@@ -2227,6 +2275,26 @@ async function openVerificationModal(project, newStatus) {
   .project-list-item + .project-list-item {
     border-right: none;
     border-top: 1px solid var(--carbonify-border, #e5e7eb);
+    min-width: 0;
+  }
+
+  /* Every section of the detail pane gets a visible header. On a phone the
+     pane is one long column, and without a rule between sections the project
+     summary, the assessment and the checklist ran together as one wall of
+     text — the "projects in mobile view are confusing" report. */
+  .project-detail :is(h3, h4) {
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--carbonify-border, #e5e7eb);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-dark, #045c1a);
+    text-transform: none;
+  }
+
+  .project-detail {
+    padding: 1rem;
+    gap: 1rem;
   }
 
   .detail-actions {

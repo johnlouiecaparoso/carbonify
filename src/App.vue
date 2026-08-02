@@ -14,6 +14,8 @@ import Header from '@/components/layout/Header.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import WelcomeTour from '@/components/onboarding/WelcomeTour.vue'
+import ToastHost from '@/components/ui/ToastHost.vue'
+import ReportProblemModal from '@/components/support/ReportProblemModal.vue'
 import PolicyConsentGate from '@/components/legal/PolicyConsentGate.vue'
 import { hasAcceptedCurrentPolicy } from '@/services/policyService'
 import { OPEN_POLICY_EVENT } from '@/constants/policy'
@@ -323,6 +325,17 @@ onMounted(async () => {
 
       <!-- First-run guided walkthrough; self-gates on auth + first visit. -->
       <WelcomeTour v-if="isAppReady" />
+
+      <!-- Floating confirmations (added to cart, saved a project, …) for every
+           role. Outside the ErrorBoundary and the auth gates on purpose: it is
+           chrome, and it must survive a view that fails to render. -->
+      <ToastHost />
+
+      <!-- "Report a problem", reachable from every role and every page. Opened
+           by dispatching `carbonify:report-problem` — see constants/support.js.
+           It used to exist only as a button on a receipt card, which left every
+           role without receipts unable to report anything at all. -->
+      <ReportProblemModal v-if="userStore.isAuthenticated" />
 
       <!-- Blocking until accepted. Rendered before the policy modal below so
            that modal's higher z-index puts the documents ON TOP of this. -->

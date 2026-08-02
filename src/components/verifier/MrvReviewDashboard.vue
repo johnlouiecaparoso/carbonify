@@ -123,6 +123,15 @@
             submission or a capture date outside this reporting period. Resolve before approving.
           </p>
 
+          <!-- A duplicate check that could not run is not a duplicate check that
+               passed. Without this line the integrity panel above looks clean. -->
+          <p v-if="duplicateCheckFailures" class="calc-warning" role="alert">
+            <span class="material-symbols-outlined" aria-hidden="true">gpp_maybe</span>
+            The duplicate-file check could not run for
+            {{ duplicateCheckFailures }} evidence item(s), so none of them have been cleared of
+            being re-submitted from another report. Retry before approving.
+          </p>
+
           <div v-if="selected.notes" class="dev-notes">
             <strong>Developer notes:</strong> {{ selected.notes }}
           </div>
@@ -261,6 +270,8 @@ const factors = ref([])
 
 // evidence id → other reports carrying the identical file.
 const duplicatesByEvidence = ref({})
+// How many of those lookups could not run. Not the same as "found none".
+const duplicateCheckFailures = ref(0)
 
 function integrityFor(evidence) {
   return evidenceIntegrity(evidence, duplicatesByEvidence.value[evidence.id] || [], selected.value)
@@ -274,15 +285,28 @@ const suspiciousEvidenceCount = computed(
   () => (selected.value?.evidence || []).filter((ev) => integrityFor(ev).suspicious).length,
 )
 
-/** Look up duplicates for every hashed evidence item on the open report. */
+/**
+ * Look up duplicates for every hashed evidence item on the open report.
+ *
+ * A lookup that fails must not read as "no duplicate found" — that is the
+ * difference between an unanswered question and a clean result, on the screen
+ * where credits are approved. The failure is surfaced instead.
+ */
 async function loadEvidenceDuplicates(report) {
   const found = {}
+  let failed = 0
   for (const ev of report?.evidence || []) {
     if (!ev.content_hash) continue
-    const dupes = await findDuplicateEvidence(ev.content_hash, report.id)
-    if (dupes.length) found[ev.id] = dupes
+    try {
+      const dupes = await findDuplicateEvidence(ev.content_hash, report.id)
+      if (dupes.length) found[ev.id] = dupes
+    } catch (err) {
+      failed += 1
+      console.error('[mrv] duplicate-evidence lookup failed:', err?.message)
+    }
   }
   duplicatesByEvidence.value = found
+  duplicateCheckFailures.value = failed
 }
 
 /**
@@ -347,6 +371,7 @@ async function select(reportId) {
     // Same factors the server-side calculation joins against.
     factors.value = await getMethodologyFactors(category)
     duplicatesByEvidence.value = {}
+    duplicateCheckFailures.value = 0
     loadEvidenceDuplicates(selected.value).catch(() => {})
     notes.value = ''
   } catch (err) {

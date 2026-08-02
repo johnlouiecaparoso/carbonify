@@ -15,10 +15,20 @@ import { createNotificationsForUsers } from '@/services/notificationService'
  */
 export const MIN_DROP_PERCENT = 5
 
-/** Full watchlist rows for the current user (newest first). */
+/**
+ * Full watchlist rows for the current user (newest first).
+ *
+ * Throws on a failed read. `[]` here meant a database problem rendered on
+ * WatchlistView as "your watchlist is empty" — a statement about the user, made
+ * out of an error — and it left that view's own
+ * `error.value = 'Failed to load your watchlist.'` unreachable. The two
+ * tolerant callers stay tolerant on purpose: BuyerDashboardView settles it with
+ * `Promise.allSettled` and Marketplace catches it, because there the watchlist
+ * only decorates cards that render fine without it.
+ */
 export async function getMyWatchlist() {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
   const uid = await getCurrentUserId()
   if (!uid) return []
   const { data, error } = await supabase
@@ -28,10 +38,7 @@ export async function getMyWatchlist() {
     )
     .eq('user_id', uid)
     .order('created_at', { ascending: false })
-  if (error) {
-    console.warn('Failed to load watchlist:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Failed to load your watchlist')
   return data || []
 }
 

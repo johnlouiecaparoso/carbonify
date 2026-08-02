@@ -24,18 +24,28 @@
     </div>
 
     <div class="container content">
+      <!-- Same compact bar as the marketplace: recent searches and suggestions
+           on focus, and the category filter inside it rather than beside it. -->
       <div class="toolbar">
-        <input
+        <SmartSearch
           v-model="search"
-          class="search-input"
-          type="search"
+          storage-key="registry"
           placeholder="Search by project, certificate no., beneficiary, or location"
-          @keyup.enter="runSearch"
-        />
-        <select v-model="category" class="filter-select" @change="runSearch">
-          <option value="">All Categories</option>
-          <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-        </select>
+          :suggestions="searchSuggestions"
+          :active-filter-count="category ? 1 : 0"
+          @search="runSearch"
+          @clear-filters="resetFilters"
+        >
+          <template #filters>
+            <div>
+              <label for="reg-category">Category</label>
+              <select id="reg-category" v-model="category" @change="runSearch">
+                <option value="">All Categories</option>
+                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+          </template>
+        </SmartSearch>
         <button class="btn" :disabled="loading" @click="runSearch">
           {{ loading ? 'Searching…' : 'Search' }}
         </button>
@@ -115,6 +125,7 @@
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { searchRegistry, getRegistryStats } from '@/services/registryService'
 import { PROJECT_TYPES } from '@/constants/projectTypes'
+import SmartSearch from '@/components/ui/SmartSearch.vue'
 
 const categories = PROJECT_TYPES.map((t) => t.value)
 
@@ -137,6 +148,31 @@ const theadRef = ref(null)
 const tbodyRef = ref(null)
 
 const isCollapsed = computed(() => !expanded.value && rows.value.length > VISIBLE_ROWS)
+
+/**
+ * Suggestions for the search panel, drawn from the rows currently loaded —
+ * project titles first, then beneficiaries and locations. Every one of them is
+ * therefore known to match something.
+ */
+const searchSuggestions = computed(() => {
+  const out = []
+  const seen = new Set()
+  const add = (value) => {
+    const v = String(value || '').trim()
+    if (!v || v === '—' || seen.has(v.toLowerCase())) return
+    seen.add(v.toLowerCase())
+    out.push(v)
+  }
+  for (const r of rows.value) add(r.project_title)
+  for (const r of rows.value) add(r.beneficiary_name)
+  for (const r of rows.value) add(r.project_location)
+  return out
+})
+
+function resetFilters() {
+  category.value = ''
+  runSearch()
+}
 
 // Height of the header + the first VISIBLE_ROWS rows, so exactly four
 // certificates are visible and the rest scroll inside the box.
@@ -258,23 +294,21 @@ onMounted(async () => {
 }
 .toolbar {
   display: flex;
+  align-items: flex-start;
   gap: 0.6rem;
   margin-bottom: 1.25rem;
   flex-wrap: wrap;
 }
-.search-input {
-  flex: 1;
-  min-width: 240px;
-  padding: 0.6rem 0.9rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.9rem;
+/* SmartSearch caps itself at 640px; here it should take the row. */
+.toolbar > .smart-search {
+  flex: 1 1 260px;
+  max-width: none;
 }
-.filter-select {
-  padding: 0.6rem 0.9rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
+/* .search-input and .filter-select were removed with the old inline toolbar —
+   the input and the category select are inside SmartSearch now. */
+.toolbar .btn {
+  height: 38px;
+  padding-block: 0;
 }
 .btn {
   padding: 0.6rem 1.1rem;

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useToastStore } from '@/store/toastStore'
 
 /**
  * Shopping cart for marketplace listings. Device-local (localStorage) — carts
@@ -49,13 +50,14 @@ export const useCartStore = defineStore('cart', () => {
     if (!listingId) return
     const max = Number(listing.available_quantity ?? listing.maxQuantity ?? Infinity)
     const existing = items.value.find((i) => i.listingId === listingId)
+    const title = listing.project_title || listing.title || 'Carbon credits'
     if (existing) {
       existing.quantity = Math.min(max, (Number(existing.quantity) || 0) + qty)
     } else {
       items.value.push({
         listingId,
         projectId: listing.project_id || listing.projectId || null,
-        title: listing.project_title || listing.title || 'Carbon credits',
+        title,
         pricePerCredit: Number(listing.price_per_credit ?? listing.pricePerCredit) || 0,
         currency: listing.currency || 'PHP',
         image: listing.project_image || listing.image || null,
@@ -64,6 +66,16 @@ export const useCartStore = defineStore('cart', () => {
       })
     }
     persist()
+
+    // Raised here rather than at each call site so every "add to cart" in the
+    // app confirms itself the same way. Until now the only feedback was the
+    // header cart badge, which on a phone is off-screen the moment you have
+    // scrolled far enough to reach the button you just pressed.
+    useToastStore().push({
+      message: `Added to cart — ${title}`,
+      icon: 'shopping_cart',
+      action: { label: 'View cart', to: '/cart' },
+    })
   }
 
   function setQuantity(listingId, qty) {

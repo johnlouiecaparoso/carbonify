@@ -378,6 +378,14 @@ onMounted(load)
   color: #334155;
   cursor: pointer;
 }
+/* The radio is the "circle box" in the status filters. At the OS default it was
+   taller than the 0.85rem label beside it and sat off its centre line; 13px
+   matches the cap height of the text so the pair reads as one control. */
+.filter-chip input[type='radio'] {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
 .filter-chip:has(input:checked) {
   border-color: var(--primary-color, #058526);
   background: #ecfdf5;
@@ -460,14 +468,23 @@ onMounted(load)
   font-size: 0.78rem;
 }
 
-.row-actions,
-.watch-form {
+.row-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
 }
+
+/* The watchlist form was a wrapping flex row of five controls with different
+   intrinsic heights — a text input, a native select and a button do not agree
+   on a baseline — so nothing in it lined up and the wrap points were ragged.
+   A grid gives every control the same column width and `stretch` gives them all
+   the same height, which is what "align them" means here. */
 .watch-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+  align-items: stretch;
   margin-bottom: 1rem;
 }
 .note-input {
@@ -476,6 +493,13 @@ onMounted(load)
   padding: 0.35rem 0.55rem;
   font-size: 0.82rem;
   min-width: 150px;
+}
+/* Inside the grid the column already sets the width; a 150px floor would only
+   stop the last column collapsing on a phone. */
+.watch-form .note-input {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
 }
 .note-input.country {
   min-width: 90px;
@@ -489,6 +513,9 @@ onMounted(load)
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
+}
+.watch-form .act {
+  height: 34px;
 }
 .act.primary {
   border-color: var(--primary-color, #058526);

@@ -18,6 +18,7 @@
 import { getSupabase } from '@/services/supabaseClient'
 import { getSession } from '@/services/authService'
 import { logUserAction } from '@/services/auditService'
+import { downloadBlob } from '@/utils/download'
 
 const REQUESTS_TABLE = 'data_subject_requests'
 
@@ -141,18 +142,13 @@ export async function exportMyData() {
 export async function downloadMyData() {
   const payload = await exportMyData()
 
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const stamp = new Date().toISOString().slice(0, 10)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `carbonify-my-data-${stamp}.json`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-  }
+  // downloadBlob is a no-op without a DOM, so the caller still gets the payload
+  // back in a test or a non-browser context.
+  const stamp = new Date().toISOString().slice(0, 10)
+  downloadBlob(
+    new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+    `carbonify-my-data-${stamp}.json`,
+  )
 
   return payload
 }

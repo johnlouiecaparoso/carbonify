@@ -10,13 +10,45 @@
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) owns the real-money gate,
 > [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) owns who-can-do-what.
 
-> ## 🧭 2026-08-01 — where this stands, in one box
+> ## 🧭 2026-08-02 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **1086 green** across 90 files
+> ### 🔒 CONFIRMED 2026-08-02 — and the fix is staged in three steps
+>
+> **Any signed-in user can write a notification into any other user's bell** — including yours.
+> You ran the query and it came back `(auth.uid() IS NOT NULL)`, so this is real.
+> `system_notifications`' INSERT policy is `with check (auth.uid() is not null)`, which means "any
+> logged-in user, for any recipient" rather than "for yourself", and the client inserts those rows
+> directly. Someone with an account could plant *"Payout on hold — reconfirm your bank details"* in an
+> admin's notification feed, rendered by Carbonify's own UI.
+>
+> **The worst half is fixed today:** the bell used to navigate with
+> `window.location.assign(notification.link)`, which accepted an **absolute URL**, so a forged
+> notification could send you off-site. Links are now restricted to paths inside the app.
+>
+> **The database half is now built, in three steps — and the ORDER MATTERS MORE THAN THE SPEED.**
+>
+> | Step | You do | When |
+> |---|---|---|
+> | 1 | Apply `20260802000300_notify_counterparty_rpc.sql` | Any time. Additive, changes nothing |
+> | 2 | Deploy the frontend | After step 1 |
+> | 3 | Apply `20260802000400_tighten_notification_insert.sql` | **Only once step 2 is live** |
+>
+> 🔴 **Do not run step 3 early.** It would not throw an error you could see — every one of these
+> notifications is wrapped in a non-fatal catch, so a farmer would simply stop being told their
+> delivery was confirmed, silently, with nothing in the console. Step 3 refuses to run if step 1 is
+> missing, but it cannot detect whether your frontend is deployed. **That check is yours.**
+>
+> Both are reversible: step 3's header carries the two statements that put the old policy back.
+>
+> **Still not urgent and it does not gate the pilot** — no money moves, nobody else's notifications
+> become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
+> closing while signups are open to anyone.
+>
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1131 green** across 95 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
 > spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
-> — `20260801000100_transaction_counterparty_name.sql`, item 4 below; everything else is frontend and
-> already live.
+> — `20260802000200` (item 7 below). `20260801000100` and `20260802000100` are both applied and were
+> both verified by probe; everything else is frontend and ships with your next deploy.
 >
 > ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
 >
@@ -88,7 +120,7 @@
 > > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
 > > migration if you want the four PASS rows on record.
 >
-> **You have four things left** (one closed today, one new):
+> **You have six things left** (two closed 2026-08-02, two new):
 >
 > | # | Do this | Blocks |
 > |---|---|---|
@@ -96,7 +128,39 @@
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
-> | 5 | 🔴 🆕 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
+> | 5 | 🔴 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
+> | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
+> | 7 | 🆕 **Apply `20260802000200_validate_not_valid_constraints.sql`** — backlog #4 | Nothing. But it answers a question nobody has asked |
+> | 8 | 🆕 **Apply `20260802000300`, deploy the frontend, then apply `20260802000400`** — backlog #36, **in that order** | The notification spoofing hole |
+
+**#7 is not urgent, and it is the most interesting thing on this list.** Four constraints on live
+were added `NOT VALID`, which means Postgres enforces them on every new write but **skipped the check
+against rows that already existed**. One of them is `credit_ownership_qty_nonneg` — `quantity >= 0` —
+described in its own migration as the backstop that stops the same carbon unit being **retired or
+sold twice**.
+
+So *"has any holding in the ledger ever gone negative?"* has never been asked. This migration asks
+it. Most likely the answer is a clean four PASS rows and it is pure cleanup. If it is not, you want
+to know before a pilot, and the file's read-only QUERIES block will show you the exact rows.
+
+It validates each constraint independently and **reports** failures by name instead of aborting on
+the first, so one bad constraint cannot hide the state of the other three. `VALIDATE CONSTRAINT`
+takes only a SHARE UPDATE EXCLUSIVE lock — reads and writes continue while it scans. Re-runnable.
+>
+> **#6 is done, and it was checked by measuring rather than by reading a green result.** As `anon`
+> against live: `review_kyc_application`, `review_kyb_application` and `resolve_dispute` now return
+> **`401 42501 permission denied for function`** — refused at the privilege layer instead of being
+> admitted and failing an `is_admin()` check inside the body. The four public reads still return
+> `200` with real rows, and eight anonymous table reads came back `200` with no
+> `permission denied for function` anywhere.
+>
+> That last check is the one that mattered. Seven of these functions are called from **inside RLS
+> policies**, and a policy is evaluated as the *querying* role — so a careless revoke there would have
+> broken anonymous reads across the site. They were granted rather than revoked for exactly that
+> reason, and the probe is what proves it.
+>
+> Nothing was exploitable before this; each function checks `is_admin()` or `auth.uid()` in its body.
+> It closes the gap between *"safe because the body checks"* and *"safe because you cannot call it"*.
 >
 > **#5 is new and it is the only red item that was not there yesterday.** The fulfillment saga exists
 > twice — a JS copy that **nothing imports except its own test**, and the TS port inside

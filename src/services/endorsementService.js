@@ -214,6 +214,87 @@ export async function endorseProject(projectId, decision, notes = '') {
 }
 
 /**
+ * Every endorsement decision this LGU has made, newest first.
+ *
+ * WHY THIS EXISTS
+ * An endorsement is a credibility signal attached to a carbon project — one of
+ * the nine required submission documents. The body that grants it could see
+ * whether it had endorsed the project currently in front of it, and nothing
+ * else: there was no way to answer "what have we endorsed?", which is the
+ * question a council, an auditor or a successor officer asks first.
+ *
+ * No migration needed. `endorsements_select` (20260604040000) already lets any
+ * LGU read the table; filtering by `lgu_user_id = me` narrows within that
+ * rather than reaching past it.
+ *
+ * The project is embedded through the existing FK, so a decision is never shown
+ * as a bare id. `!inner` is deliberately NOT used: an endorsement whose project
+ * was later deleted should still appear in the record — losing the row would
+ * quietly rewrite the history this function exists to preserve. (In practice
+ * the FK cascades, but the query should not depend on that to be honest.)
+ *
+ * THROWS rather than returning []. "This LGU has endorsed nothing" is a claim
+ * about a public body's record; a failed read is not evidence for it.
+ *
+ * @param {{limit?: number}} [opts]
+ */
+export async function getMyEndorsementHistory({ limit = 200 } = {}) {
+  const supabase = client()
+  const uid = await getCurrentUserId()
+  if (!uid) throw new Error('Please sign in again to see your endorsement history')
+
+  const { data, error } = await supabase
+    .from('project_endorsements')
+    .select(
+      `id, decision, notes, created_at, updated_at, project_id,
+       projects(id, title, category, location, municipality, status)`,
+    )
+    .eq('lgu_user_id', uid)
+    .order('updated_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message || 'Could not load your endorsement history')
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    decision: row.decision,
+    notes: row.notes || null,
+    decidedAt: row.created_at,
+    // An endorsement is upserted, so these differ when a decision was revised.
+    // Showing only one of them would hide a reversal, which is the single most
+    // interesting thing that can happen to an endorsement.
+    updatedAt: row.updated_at,
+    revised: Boolean(
+      row.updated_at && row.created_at && new Date(row.updated_at) - new Date(row.created_at) > 1000,
+    ),
+    projectId: row.project_id,
+    projectTitle: row.projects?.title || `Project ${String(row.project_id || '').slice(0, 8)}`,
+    projectCategory: row.projects?.category || null,
+    projectLocation: row.projects?.location || row.projects?.municipality || null,
+    projectStatus: row.projects?.status || null,
+  }))
+}
+
+/**
+ * Roll an endorsement history into the numbers an LGU is asked to report.
+ * Pure — exported for unit testing.
+ *
+ * @param {Array<Object>} history
+ */
+export function summariseEndorsements(history = []) {
+  const list = history || []
+  const times = list.map((e) => e.decidedAt).filter(Boolean).sort()
+  return {
+    total: list.length,
+    endorsed: list.filter((e) => e.decision === 'endorsed').length,
+    declined: list.filter((e) => e.decision === 'declined').length,
+    revised: list.filter((e) => e.revised).length,
+    firstAt: times[0] || null,
+    lastAt: times[times.length - 1] || null,
+  }
+}
+
+/**
  * Endorsements for a single project (e.g. shown to the project owner).
  */
 export async function getProjectEndorsements(projectId) {

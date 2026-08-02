@@ -438,6 +438,83 @@
             </div>
           </template>
         </section>
+
+        <!-- Endorsement record — decisions already made -->
+        <section v-else-if="activeTab === 'record'" class="panel">
+          <h2>Endorsement Record</h2>
+          <p class="panel-sub">
+            Every project this office has endorsed or declined. An endorsement is one of the nine
+            documents a carbon project submits, so this is the list your council or an auditor will
+            ask you for.
+          </p>
+
+          <div v-if="loadingHistory" class="muted">Loading your endorsement record…</div>
+
+          <div v-else-if="historyError" class="load-error">
+            {{ historyError }}
+            <button class="link-btn" @click="loadEndorsementHistory">Retry</button>
+          </div>
+
+          <div v-else-if="!endorsementHistory.length" class="muted">
+            This office has not endorsed or declined any project yet. Decisions you make under
+            <strong>Endorsements</strong> appear here.
+          </div>
+
+          <template v-else>
+            <div class="record-cards">
+              <div class="record-card">
+                <span class="record-label">Decisions</span>
+                <span class="record-value">{{ endorsementSummary.total }}</span>
+              </div>
+              <div class="record-card">
+                <span class="record-label">Endorsed</span>
+                <span class="record-value good">{{ endorsementSummary.endorsed }}</span>
+              </div>
+              <div class="record-card">
+                <span class="record-label">Declined</span>
+                <span class="record-value bad">{{ endorsementSummary.declined }}</span>
+              </div>
+              <div class="record-card">
+                <span class="record-label">Later revised</span>
+                <span class="record-value warn">{{ endorsementSummary.revised }}</span>
+              </div>
+            </div>
+
+            <p class="record-range">
+              {{ formatDecisionDate(endorsementSummary.firstAt) }} —
+              {{ formatDecisionDate(endorsementSummary.lastAt) }}
+            </p>
+
+            <CollapsibleList
+              :count="endorsementHistory.length"
+              :visible="6"
+              row-selector=".record-row"
+            >
+              <ul class="record-list">
+                <li v-for="e in endorsementHistory" :key="e.id" class="record-row">
+                  <span class="record-pill" :class="e.decision">{{ e.decision }}</span>
+                  <div class="record-body">
+                    <router-link :to="`/projects/${e.projectId}`" class="record-title">
+                      {{ e.projectTitle }}
+                    </router-link>
+                    <span class="record-meta">
+                      <template v-if="e.projectCategory">{{ e.projectCategory }} · </template>
+                      <template v-if="e.projectLocation">{{ e.projectLocation }} · </template>
+                      {{ formatDecisionDate(e.decidedAt) }}
+                      <!-- A reversed endorsement is the most consequential thing
+                           that can happen to one; showing only one timestamp
+                           would hide it. -->
+                      <template v-if="e.revised">
+                        · revised {{ formatDecisionDate(e.updatedAt) }}
+                      </template>
+                    </span>
+                    <p v-if="e.notes" class="record-note">{{ e.notes }}</p>
+                  </div>
+                </li>
+              </ul>
+            </CollapsibleList>
+          </template>
+        </section>
       </div>
     </div>
 
@@ -483,7 +560,10 @@ import {
   getMyJurisdiction,
   getJurisdictionProjects,
   summariseJurisdictionProjects,
+  getMyEndorsementHistory,
+  summariseEndorsements,
 } from '@/services/endorsementService'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import PortfolioChart from '@/components/charts/PortfolioChart.vue'
@@ -497,6 +577,11 @@ const tabs = [
   { id: 'esg', label: 'City ESG' },
   { id: 'projects', label: 'Projects in My Area' },
   { id: 'endorsements', label: 'Endorsements' },
+  // Separate from the tab above on purpose. "Endorsements" is a queue — projects
+  // awaiting a decision. This is the record of decisions already made, which is
+  // what a council, an auditor or an incoming officer asks for. Merging them
+  // would bury the record under the work.
+  { id: 'record', label: 'Endorsement Record' },
 ]
 const activeTab = ref('calculator')
 
@@ -820,11 +905,50 @@ async function decide(project, decision) {
   }
 }
 
+// ── Endorsement record ─────────────────────────────────────────────────────
+// Every decision this LGU has already made. Read-only, and deliberately NOT
+// scoped to the current jurisdiction: an officer whose municipality was later
+// changed still endorsed what they endorsed, and hiding those rows would edit
+// history rather than describe it.
+const endorsementHistory = ref([])
+const historyLoaded = ref(false)
+const loadingHistory = ref(false)
+// Distinct from an empty list: "this body has endorsed nothing" is a claim
+// about a public record, and a failed read is not evidence for it.
+const historyError = ref('')
+
+const endorsementSummary = computed(() => summariseEndorsements(endorsementHistory.value))
+
+async function loadEndorsementHistory() {
+  loadingHistory.value = true
+  historyError.value = ''
+  try {
+    endorsementHistory.value = await getMyEndorsementHistory()
+    historyLoaded.value = true
+  } catch (err) {
+    console.error('Failed to load endorsement history:', err)
+    endorsementHistory.value = []
+    historyError.value = err?.message || 'We could not load your endorsement record.'
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+function formatDecisionDate(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 // Lazy-load data when switching to a tab that needs it
 watch(activeTab, (tab) => {
   if ((tab === 'records' || tab === 'esg') && !recordsLoaded.value) loadRecords()
   if (tab === 'endorsements' && !projectsLoaded.value) loadProjects()
   if (tab === 'projects' && !areaLoaded.value) loadAreaProjects()
+  if (tab === 'record' && !historyLoaded.value) loadEndorsementHistory()
 })
 
 loadJurisdiction()
@@ -1330,6 +1454,122 @@ loadRecords()
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
+}
+
+/* ── Endorsement record ──────────────────────────────────────────────────── */
+.record-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.record-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.record-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.record-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.record-value.good {
+  color: #047857;
+}
+.record-value.bad {
+  color: #b91c1c;
+}
+.record-value.warn {
+  color: #b45309;
+}
+
+.record-range {
+  margin: 0 0 1rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.record-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.record-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid #f1f5f9;
+}
+.record-row:first-child {
+  border-top: none;
+}
+
+.record-pill {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: #f1f5f9;
+  color: #475569;
+}
+.record-pill.endorsed {
+  background: #dcfce7;
+  color: #166534;
+}
+.record-pill.declined {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.record-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.record-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.record-title:hover {
+  color: var(--primary-color, #058526);
+  text-decoration: underline;
+}
+
+.record-meta {
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.record-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #475569;
+  overflow-wrap: anywhere;
 }
 
 .my-decision {

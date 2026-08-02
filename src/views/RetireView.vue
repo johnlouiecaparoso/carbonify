@@ -39,12 +39,18 @@
                   <label class="form-label">Select Project</label>
                   <select v-model="selectedProject" class="form-select" required>
                     <option value="">Choose a project...</option>
+                    <!-- Label kept short on purpose. It used to read
+                         "<name> - <n> credits available", and a native select's
+                         popup grows to fit its longest option — so the open list
+                         ran far wider than the closed control. The count now
+                         lives in .input-help below, where it is legible without
+                         stretching the dropdown. -->
                     <option
                       v-for="project in availableProjects"
                       :key="project.id"
                       :value="project.id"
                     >
-                      {{ project.name }} - {{ project.credits }} credits available
+                      {{ project.name }}
                     </option>
                   </select>
                 </div>
@@ -166,36 +172,42 @@
                   :key="purchase.id"
                   class="history-item purchase-item"
                 >
-                  <div class="history-header">
-                    <div class="history-project-info">
-                      <span class="history-type-badge purchase-badge">Purchase</span>
-                      <span class="history-project">{{ purchase.project_title }}</span>
-                    </div>
-                    <span class="history-date">{{ formatDate(purchase.date) }}</span>
-                  </div>
-                  <div class="history-details">
-                    <div class="detail-group">
-                      <span class="history-credits">{{ purchase.credits_quantity }} credits</span>
-                      <span class="history-amount">{{ purchase.currency }} {{ purchase.total_amount.toLocaleString() }}</span>
-                    </div>
-                    <div class="detail-group">
-                      <span class="history-payment">{{ purchase.payment_method.toUpperCase() }}</span>
-                      <span v-if="purchase.certificate_number" class="cert-badge">
-                        Cert: {{ purchase.certificate_number }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="history-actions">
+                  <!-- A purchase row is the title and the certificate button,
+                       nothing else. Credits, amount, payment method and the
+                       certificate number are still here but folded away — the
+                       list is for finding a purchase, not for reading one. -->
+                  <div class="history-row">
+                    <span class="history-project">{{ purchase.project_title }}</span>
                     <button
                       v-if="purchase.certificate"
-                      @click="viewCertificate(purchase.certificate)"
                       class="action-btn view-cert-btn"
+                      @click="viewCertificate(purchase.certificate)"
                     >
                       <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                       </svg>
                       View Certificate
                     </button>
+                  </div>
+                  <button
+                    class="details-toggle"
+                    :aria-expanded="expandedPurchases.has(purchase.id)"
+                    @click="togglePurchase(purchase.id)"
+                  >
+                    {{ expandedPurchases.has(purchase.id) ? 'Hide details' : 'See more information' }}
+                  </button>
+                  <div v-if="expandedPurchases.has(purchase.id)" class="history-details">
+                    <div class="detail-group">
+                      <span class="history-credits">{{ purchase.credits_quantity }} credits</span>
+                      <span class="history-amount">{{ purchase.currency }} {{ purchase.total_amount.toLocaleString() }}</span>
+                    </div>
+                    <div class="detail-group">
+                      <span class="history-date">{{ formatDate(purchase.date) }}</span>
+                      <span class="history-payment">{{ purchase.payment_method.toUpperCase() }}</span>
+                      <span v-if="purchase.certificate_number" class="cert-badge">
+                        Cert: {{ purchase.certificate_number }}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -338,6 +350,19 @@ const loadingPurchases = ref(false)
 const loading = ref(false)
 const error = ref('')
 const generatingCerts = ref(false)
+
+// Purchase rows show the project title and the certificate button only; the
+// numbers behind them are opened one row at a time. A Set keeps that per-row
+// rather than a single "expanded" flag, so opening one does not close another.
+const expandedPurchases = ref(new Set())
+function togglePurchase(id) {
+  // Reassigned rather than mutated: Vue tracks Set.add/delete, but replacing
+  // keeps this readable and cheap at a page size of 10.
+  const next = new Set(expandedPurchases.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedPurchases.value = next
+}
 
 // Computed properties
 const selectedProjectCredits = computed(() => {
@@ -636,28 +661,35 @@ onMounted(() => {
   padding: 0 var(--spacing-md);
 }
 
-/* Page Header */
+/* Page Header
+   Tighter than the shared PageHeader banner. This page puts a form directly
+   under it, so every row the banner takes is a row the form loses — the
+   reported "header is taking too much space". Left-aligned, which is the
+   house rule the certificate and receipt pages now follow too. */
 .page-header {
-  padding: 1.25rem 0;
+  padding: 0.85rem 0;
   background: var(--primary-color, #058526);
   border-bottom: none;
+  text-align: left;
 }
 
 .page-title {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.15rem;
+  line-height: 1.2;
 }
 
 .page-description {
-  font-size: 0.95rem;
-  color: #fff;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0;
 }
 
 /* Main Content */
 .retire-content {
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .content-layout {
@@ -671,7 +703,7 @@ onMounted(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 2rem;
+  padding: 1.25rem;
   box-shadow: var(--shadow-sm);
 }
 
@@ -683,10 +715,10 @@ onMounted(() => {
 }
 
 .card-title {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.25rem;
 }
 
 .card-subtitle {
@@ -719,18 +751,19 @@ onMounted(() => {
 
 .card-description {
   color: var(--text-muted);
-  margin-bottom: 2rem;
-  line-height: 1.5;
+  font-size: var(--font-size-sm);
+  margin: 0 0 1rem;
+  line-height: 1.45;
 }
 
 .retire-form {
   display: grid;
-  gap: 1.5rem;
+  gap: 0.9rem;
 }
 
 .form-group {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .form-label {
@@ -743,10 +776,14 @@ onMounted(() => {
 .form-select,
 .form-textarea {
   width: 100%;
-  padding: 0.75rem;
+  /* Was 0.75rem/1rem. Two full-width 48px-tall controls at body size dominated
+     a form whose whole job is three short answers; this is the "dropdown is too
+     large" report. The control now matches the label scale, and because it
+     fills its column the popup opens at the same width as the box. */
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
   background: var(--bg-primary);
   outline: none;
@@ -768,21 +805,23 @@ onMounted(() => {
 .retirement-summary {
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
-  padding: 1.5rem;
-  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  margin: 0.25rem 0;
+  font-size: var(--font-size-sm);
 }
 
 .summary-title {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 1rem;
+  margin: 0 0 0.5rem;
 }
 
 .summary-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
 }
 
 .summary-label {
@@ -799,7 +838,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1rem;
+  padding: 0.7rem 1rem;
   background: var(--primary-color);
   color: white;
   border: none;
@@ -1002,6 +1041,42 @@ onMounted(() => {
   margin-bottom: 0.5rem;
 }
 
+/* Purchase rows: title on the left, certificate button on the right, one line.
+   `min-width: 0` on the title is what lets a long project name ellipsis instead
+   of pushing the button off the card. */
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.history-row .history-project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row .action-btn {
+  flex: 0 0 auto;
+}
+
+.details-toggle {
+  margin-top: 0.4rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.details-toggle:hover {
+  text-decoration: underline;
+}
+
 .history-project {
   font-weight: 500;
   color: var(--text-primary);
@@ -1016,6 +1091,14 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 0.75rem;
+}
+
+/* On a purchase the details sit *under* the toggle, not above the actions. */
+.purchase-item .history-details {
+  margin: 0.5rem 0 0;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: var(--font-size-sm);
 }
 
 .history-credits {
@@ -1083,6 +1166,25 @@ onMounted(() => {
   .history-details {
     flex-direction: column;
     gap: 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Below this the title and the button cannot share a line without the title
+     ellipsising to a few characters, which defeats the point of a title-only
+     row. Stack, and let the button span so it stays an easy tap target. */
+  .history-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .history-row .history-project {
+    white-space: normal;
+  }
+
+  .history-row .action-btn {
+    justify-content: center;
   }
 }
 

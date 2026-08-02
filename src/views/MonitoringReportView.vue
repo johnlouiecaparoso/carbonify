@@ -44,10 +44,18 @@
           <label for="project" class="form-label">Validated Project</label>
           <select id="project" v-model="selectedProjectId" class="form-select" @change="onProjectChange">
             <option value="" disabled>Select a validated project</option>
+            <!-- Title only. Appending "— <category>" made the widest option far
+                 wider than the control, and a native select's popup is sized to
+                 its longest option — so the open list overhung the box. The
+                 category for the chosen project is shown under the control
+                 instead, where it is actually readable. -->
             <option v-for="p in projects" :key="p.id" :value="p.id">
-              {{ p.title }} — {{ p.category }}
+              {{ p.title }}
             </option>
           </select>
+          <p v-if="selectedProjectCategory" class="empty-hint">
+            Category: {{ selectedProjectCategory }}
+          </p>
           <p v-if="!loadingProjects && projects.length === 0" class="empty-hint">
             You have no validated projects yet. Projects must be validated before you can
             submit monitoring reports.
@@ -242,6 +250,9 @@ const form = ref({
 
 const selectedProject = computed(() => projects.value.find((p) => p.id === selectedProjectId.value) || null)
 const metrics = computed(() => getMetricsForType(selectedProject.value?.category))
+// Shown under the selector, so the option labels can stay short enough that the
+// dropdown popup matches the width of the control.
+const selectedProjectCategory = computed(() => selectedProject.value?.category || '')
 const isEditable = computed(
   () => currentReport.value && ['draft', 'needs_revision'].includes(currentReport.value.status),
 )

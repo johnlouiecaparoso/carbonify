@@ -29,28 +29,14 @@ import { usePreferencesStore } from '@/store/preferencesStore'
 const css = readFileSync(resolve(process.cwd(), 'src/styles/preferences.css'), 'utf8')
 const root = () => document.documentElement
 
-/**
- * A REAL localStorage for this file.
- *
- * `src/test/setup.js` replaces the global with `{ getItem: vi.fn(), setItem:
- * vi.fn(), … }` — stubs that record calls and store nothing, so `getItem`
- * always returns undefined. Anything that round-trips through localStorage
- * therefore cannot be tested against the shared mock; it silently reads back
- * empty. Swapped for a working in-memory implementation here.
- */
-function installRealLocalStorage() {
-  const data = new Map()
-  global.localStorage = {
-    getItem: (k) => (data.has(k) ? data.get(k) : null),
-    setItem: (k, v) => data.set(k, String(v)),
-    removeItem: (k) => data.delete(k),
-    clear: () => data.clear(),
-  }
-}
+// This file used to install its own in-memory localStorage, because the shared
+// `src/test/setup.js` stubbed the global with `vi.fn()`s that stored nothing.
+// That stub is gone (2026-08-02) — happy-dom's real Storage is used now, and
+// setup.js clears it between tests — so the local workaround is deleted rather
+// than left to rot into a second, subtly different Storage implementation.
 
 describe('preferences take effect', () => {
   beforeEach(() => {
-    installRealLocalStorage()
     setActivePinia(createPinia())
     root().className = ''
   })
@@ -134,7 +120,6 @@ describe('preferences take effect', () => {
 
 describe('settings that cannot work are not offered', () => {
   beforeEach(() => {
-    installRealLocalStorage()
     setActivePinia(createPinia())
   })
 

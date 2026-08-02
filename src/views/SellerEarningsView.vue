@@ -14,6 +14,17 @@ import { exportSalesCsv, exportSalesByProjectCsv } from '@/services/sellerExport
 import { peso, shortDate } from '@/utils/format'
 import Withdraw from '@/components/wallet/Withdraw.vue'
 import KybForm from '@/components/wallet/KybForm.vue'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
+
+// Which "earnings by project" rows have been opened on a phone; inert above
+// 640px, where the table is a table and every column is already on screen.
+const expandedProjects = ref(new Set())
+function toggleProject(projectId) {
+  const next = new Set(expandedProjects.value)
+  if (next.has(projectId)) next.delete(projectId)
+  else next.add(projectId)
+  expandedProjects.value = next
+}
 
 const loading = ref(true)
 const loadError = ref('')
@@ -233,10 +244,18 @@ onMounted(load)
             Export CSV
           </button>
         </div>
-        <div v-if="salesByProject.length" class="table-scroll">
+        <!-- Same treatment as the asset ledger: a "See more" underneath so the
+             panel has a fixed height, and on a phone each card shows the
+             project name until "More info" is pressed. -->
+        <CollapsibleList
+          v-if="salesByProject.length"
+          :count="salesByProject.length"
+          :visible="5"
+          row-selector="tbody > tr"
+        >
           <!-- data-label drives the under-640px card layout; see
                src/styles/responsive-table.css -->
-          <table class="data-table stack-on-mobile">
+          <table class="data-table stack-on-mobile collapse-rows">
             <thead>
               <tr>
                 <th>Project</th>
@@ -248,8 +267,22 @@ onMounted(load)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in salesByProject" :key="row.projectId">
-                <td data-label="Project">{{ row.projectTitle }}</td>
+              <tr
+                v-for="row in salesByProject"
+                :key="row.projectId"
+                :class="{ 'is-open': expandedProjects.has(row.projectId) }"
+              >
+                <td data-label="Project">
+                  <span>{{ row.projectTitle }}</span>
+                  <button
+                    type="button"
+                    class="row-toggle"
+                    :aria-expanded="expandedProjects.has(row.projectId)"
+                    @click="toggleProject(row.projectId)"
+                  >
+                    {{ expandedProjects.has(row.projectId) ? 'Less' : 'More info' }}
+                  </button>
+                </td>
                 <td data-label="Sales">{{ row.salesCount }}</td>
                 <td data-label="Credits sold">{{ row.creditsSold }}</td>
                 <td data-label="Gross earned">{{ peso(row.grossEarnings) }}</td>
@@ -258,7 +291,7 @@ onMounted(load)
               </tr>
             </tbody>
           </table>
-        </div>
+        </CollapsibleList>
         <p v-else-if="sectionErrors.byProject" class="load-fail">
           Couldn't load your earnings by project. <button class="link-retry" @click="load">Retry</button>
         </p>

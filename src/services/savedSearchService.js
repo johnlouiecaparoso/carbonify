@@ -119,18 +119,22 @@ async function currentUserId() {
   return user?.id || null
 }
 
-/** The signed-in buyer's saved searches, most recent first. */
+/**
+ * The signed-in buyer's saved searches, most recent first.
+ *
+ * Throws on a failed read. An empty list reads as "you have saved no searches",
+ * and the buyer's response to that is to save the same search again — so the
+ * failure is not just invisible, it produces a duplicate row and a second set
+ * of price alerts for the same criteria.
+ */
 export async function listMySavedSearches() {
   const supabase = getSupabase()
-  if (!supabase) return []
+  if (!supabase) throw new Error('Supabase client not available')
   const { data, error } = await supabase
     .from('saved_searches')
     .select('id, label, criteria, last_seen_at, created_at')
     .order('created_at', { ascending: false })
-  if (error) {
-    console.error('listMySavedSearches failed:', error.message)
-    return []
-  }
+  if (error) throw new Error(error.message || 'Failed to load your saved searches')
   return data || []
 }
 

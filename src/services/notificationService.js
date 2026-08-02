@@ -345,6 +345,69 @@ async function getUserIdsByRoles(roles = [], excludedUserIds = []) {
     .filter((id) => id && !excluded.has(String(id)))
 }
 
+/**
+ * Notify the other party on a row you are actually a party to.
+ *
+ * WHY THIS EXISTS — DEFERRED_BACKLOG #36. `system_notifications`' INSERT policy
+ * is `with check (auth.uid() is not null)`: any signed-in user may insert a row
+ * for ANY `user_id`. Confirmed against live on 2026-08-02. So every
+ * `createNotificationsForUsers([someoneElse], …)` call below was also the
+ * mechanism by which anyone could plant a message in anyone else's bell.
+ *
+ * This routes those through a `SECURITY DEFINER` RPC that derives the recipient
+ * from the subject row instead of taking it from the caller. There is no
+ * "notify user X" entry point: you can reach the counterparty of a biomass RFQ
+ * or a feedstock delivery you are on, both parties, or — by escalation from a
+ * trade you are in — the admins. Nothing else.
+ *
+ * Self-addressed notifications do NOT come through here; they stay on the
+ * direct insert, which is what the tightened policy will still allow.
+ *
+ * Non-fatal by contract, like the calls it replaces: a notification that fails
+ * must never fail the action that earned it. It returns the number of rows
+ * created so a caller can tell "sent" from "silently nothing", which the old
+ * fire-and-forget could not.
+ *
+ * @param {'biomass_rfq'|'farmer_delivery'} subjectType
+ * @param {string} subjectId
+ * @param {'counterparty'|'both_parties'|'admins'} audience
+ * @returns {Promise<number>} notifications created (0 if the RPC is absent)
+ */
+export async function notifyCounterparty(subjectType, subjectId, audience, payload = {}) {
+  const supabase = getSupabase()
+  if (!supabase || !subjectId) return 0
+
+  const title = payload.title?.trim()
+  const message = payload.message?.trim()
+  if (!title || !message) return 0
+
+  const { data, error } = await supabase.rpc('notify_counterparty', {
+    p_subject_type: subjectType,
+    p_subject_id: subjectId,
+    p_audience: audience,
+    p_type: payload.type || 'system',
+    p_title: title,
+    p_message: message,
+    p_link: payload.link || null,
+    p_metadata: payload.metadata || {},
+  })
+
+  if (error) {
+    // Degrades to 0 while 20260802000300 is unapplied, so the frontend can ship
+    // ahead of the migration — the same "inert rather than broken" shape the
+    // counterparty-name RPC used. Said out loud, because a notification that
+    // silently stops arriving is the failure this whole change is about.
+    if (isMissingRpcFunctionError(error, 'notify_counterparty')) {
+      console.warn('[notify] notify_counterparty RPC is not applied yet — notification not sent')
+      return 0
+    }
+    console.error('[notify] notify_counterparty failed:', error.message)
+    return 0
+  }
+
+  return Number(data) || 0
+}
+
 export async function createNotificationsForUsers(userIds = [], payload = {}) {
   const supabase = getSupabase()
   const recipients = normalizeIds(userIds)
@@ -478,181 +541,28 @@ export async function notifyProjectComment({ project, authorId, authorRole, body
   )
 }
 
-export async function notifyProjectSubmittedForReview(project) {
-  if (!project?.id) return
-
-  const title = project.title || 'Untitled Project'
-  // A resubmission carries a revision_count > 0 (the developer addressed a
-  // "needs revision" decision). Word the alert so reviewers know it's a
-  // returning project, not a brand-new one, and which revision it is.
-  const revision = Number(project.revision_count) || 0
-  const isResubmission = revision > 0
-
-  await createNotificationsForRoles(
-    ['verifier'],
-    {
-      type: 'project_submission',
-      title: isResubmission
-        ? `Project resubmitted (revision ${revision})`
-        : 'New project submitted for verification',
-      message: isResubmission
-        ? `Project "${title}" was revised and resubmitted for review.`
-        : `Project "${title}" is waiting for review.`,
-      link: '/verifier',
-      metadata: {
-        project_id: project.id,
-        status: project.status || 'pending',
-        revision_count: revision,
-        resubmission: isResubmission,
-      },
-    },
-    {
-      excludeUserIds: [project.user_id].filter(Boolean),
-    },
-  )
-}
-
-export async function notifyProjectDecision(project, status, notes = '') {
-  if (!project?.id || !project?.user_id) return
-
-  const normalizedStatus = normalizeRole(status)
-  const canonicalStatus = normalizedStatus === 'approved' ? 'validated' : normalizedStatus
-  if (!['validated', 'needs_revision', 'rejected'].includes(canonicalStatus)) return
-
-  await notifyProjectSubmitterDecision(project, canonicalStatus, notes)
-
-  await createNotificationsForRoles(['admin'], {
-    type: 'project_status_admin',
-    title: `Project ${canonicalStatus}`,
-    message: `Project "${project.title || 'Untitled Project'}" was ${canonicalStatus}.`,
-    link: '/admin',
-    metadata: {
-      project_id: project.id,
-      status: canonicalStatus,
-    },
-  })
-
-  await createNotificationsForRoles(
-    ['admin', 'verifier'],
-    {
-      type: 'project_review_activity',
-      title: `Project ${canonicalStatus}`,
-      message: `A reviewer marked "${project.title || 'Untitled Project'}" as ${canonicalStatus}.`,
-      link: '/verifier',
-      metadata: {
-        project_id: project.id,
-        status: canonicalStatus,
-        reviewer_id: project.verified_by || null,
-      },
-    },
-    {
-      excludeUserIds: [project.user_id, project.verified_by].filter(Boolean),
-    },
-  )
-}
-
-export async function notifyProjectSubmitterDecision(project, status, notes = '') {
-  if (!project?.id || !project?.user_id) return
-
-  const normalizedStatus = normalizeRole(status)
-  const canonicalStatus = normalizedStatus === 'approved' ? 'validated' : normalizedStatus
-  if (!['validated', 'needs_revision', 'rejected'].includes(canonicalStatus)) return
-
-  const isValidated = canonicalStatus === 'validated'
-  const title = isValidated
-    ? 'Your project was validated'
-    : canonicalStatus === 'needs_revision'
-      ? 'Project requires revisions'
-      : 'Your project was rejected'
-  const noteSuffix = notes?.trim() ? ` Notes: ${notes.trim()}` : ''
-
-  await createNotificationsForUsers([project.user_id], {
-    type: 'project_status',
-    title,
-    message:
-      canonicalStatus === 'validated'
-        ? `Project "${project.title || 'Untitled Project'}" was validated and moved to the active pool.${noteSuffix}`
-        : canonicalStatus === 'needs_revision'
-          ? `Project "${project.title || 'Untitled Project'}" needs revisions before validation.${noteSuffix}`
-          : `Project "${project.title || 'Untitled Project'}" was rejected.${noteSuffix}`,
-    link: '/developer/projects',
-    metadata: {
-      project_id: project.id,
-      status: canonicalStatus,
-    },
-  })
-}
-
-export async function notifyProjectOwnerMarketplaceLive(project, listing) {
-  if (!project?.id || !project?.user_id) return
-
-  await createNotificationsForUsers([project.user_id], {
-    type: 'project_marketplace_live',
-    title: 'Your project is now live in the marketplace',
-    message: `Project "${project.title || 'Untitled Project'}" now has an active marketplace listing.`,
-    link: '/developer/projects',
-    metadata: {
-      project_id: project.id,
-      listing_id: listing?.id || null,
-    },
-  })
-}
-
-export async function notifyNewMarketplaceProject(project, listing) {
-  if (!project?.id) return
-
-  await createNotificationsForRoles(
-    ['general_user', 'buyer_investor', 'project_developer', 'admin'],
-    {
-      type: 'marketplace_new_project',
-      title: 'New project available in marketplace',
-      message: `"${project.title || 'Untitled Project'}" is now available for purchase.`,
-      link: '/marketplace',
-      metadata: {
-        project_id: project.id,
-        listing_id: listing?.id || null,
-      },
-    },
-    {
-      excludeUserIds: [project.user_id],
-    },
-  )
-}
-
-export async function notifyMarketplacePurchaseAndStock(project, options = {}) {
-  if (!project?.id) return
-
-  const remainingCredits = Number(options.remainingCredits)
-  const isSoldOut = Number.isFinite(remainingCredits) && remainingCredits <= 0
-  const projectTitle = project.title || 'Untitled Project'
-
-  const title = isSoldOut
-    ? 'Marketplace update: project sold out'
-    : 'Marketplace update: project was purchased'
-  const message = isSoldOut
-    ? `"${projectTitle}" has just been bought out and now has no stocks left.`
-    : `"${projectTitle}" was purchased in the marketplace.`
-
-  return createNotificationsForRoles(
-    ['general_user', 'buyer_investor'],
-    {
-      type: isSoldOut ? 'marketplace_project_sold_out' : 'marketplace_project_purchased',
-      title,
-      message,
-      link: '/marketplace',
-      metadata: {
-        project_id: project.id,
-        project_credit_id: options.projectCreditId || null,
-        listing_id: options.listingId || null,
-        buyer_id: options.buyerId || null,
-        remaining_credits: Number.isFinite(remainingCredits) ? remainingCredits : null,
-      },
-    },
-    {
-      excludeUserIds: [options.buyerId, options.sellerId].filter(Boolean),
-    },
-  )
-}
+// ── Removed 2026-08-02: seven notify* twins of live DATABASE TRIGGERS ────────
+//
+// notifyProjectSubmittedForReview, notifyProjectDecision,
+// notifyProjectSubmitterDecision, notifyProjectOwnerMarketplaceLive,
+// notifyNewMarketplaceProject, notifyMarketplacePurchaseAndStock and
+// notifyReviewersOfRoleApplicationInApp were exported, called by nothing, and
+// duplicated what five triggers already do:
+//
+//   trg_notify_project_submission / trg_notify_project_submitted  (projects)
+//   trg_notify_project_status                                     (projects)
+//   trg_notify_role_application                                   (role_applications)
+//   trg_notify_marketplace_listing                                (credit_listings)
+//
+// They are not merely dead. `20260626000200`'s own header records WHY the
+// trigger exists: the client-side version was rejected by RLS and the bell
+// never rang. So the trap was two-sided — call one of these and you either got
+// nothing, or a second notification on top of the trigger's.
+//
+// The live cross-user helpers (createNotificationsForUsers /
+// createNotificationsForRoles) and the three live notify* functions
+// (notifyProjectComment, notifyRoleApplicationDecision, notifyWelcomeUser)
+// stay. See DEFERRED_BACKLOG #30.
 
 export async function notifyRoleApplicationDecision(application, status) {
   if (!application?.user_id) return []
@@ -675,29 +585,6 @@ export async function notifyRoleApplicationDecision(application, status) {
       application_id: application.id,
       requested_role: application.role_requested,
       status: normalizedStatus,
-    },
-  })
-}
-
-export async function notifyReviewersOfRoleApplicationInApp(application) {
-  if (!application) return []
-
-  const normalizedRequestedRole = normalizeRole(application.role_requested)
-  if (!['verifier', 'project_developer'].includes(normalizedRequestedRole)) return []
-
-  const reviewerRoles = normalizedRequestedRole === 'verifier' ? ['admin'] : ['verifier']
-
-  const roleLabel = normalizedRequestedRole === 'verifier' ? 'Verifier' : 'Project Developer'
-
-  return createNotificationsForRoles(reviewerRoles, {
-    type: 'role_application_submission',
-    title: `New ${roleLabel} application`,
-    message: `${application.applicant_full_name || application.email || 'A new applicant'} submitted a ${roleLabel} application for review.`,
-    link: normalizedRequestedRole === 'verifier' ? '/admin' : '/verifier',
-    metadata: {
-      application_id: application.id || null,
-      requested_role: application.role_requested,
-      applicant_email: application.email || null,
     },
   })
 }

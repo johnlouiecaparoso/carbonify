@@ -280,7 +280,12 @@ onMounted(load)
 .fg.span2 { grid-column: 1 / -1; }
 .fg label { font-size: 0.85rem; font-weight: 600; color: #374151; }
 .fg .opt { font-weight: 400; color: #9ca3af; }
-.fg input, .fg select, .fg textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+.fg input, .fg select, .fg textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; width: 100%; min-width: 0; }
+/* Same padding does not produce the same height on a native <select> as on an
+   <input> — the UA adds its own box around the caret. In this two-column grid
+   that left "Product type" and "Title" side by side at different heights. */
+.fg input, .fg select { height: 38px; }
+.fg select { text-overflow: ellipsis; }
 .err-list { margin: 14px 0 0; padding-left: 18px; color: #991b1b; font-size: 0.85rem; }
 .form-actions { margin-top: 16px; }
 .btn-primary { background: #058526; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 600; }
