@@ -4,6 +4,10 @@ vi.mock('@/services/supabaseClient', () => ({
   getSupabase: vi.fn(),
 }))
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+
 import { getCounterpartyName } from '@/services/receiptService'
 import { getSupabase } from '@/services/supabaseClient'
 
@@ -32,6 +36,24 @@ import { getSupabase } from '@/services/supabaseClient'
 function clientReturning(result) {
   return { rpc: vi.fn().mockResolvedValue(result) }
 }
+
+describe('the receipt actually calls it', () => {
+  it('generateReceipt uses getCounterpartyName', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../services/receiptService.js'),
+      'utf8',
+    )
+
+    // It was written, exported, tested — and imported by NOTHING, so Vite
+    // tree-shook it straight out of the bundle. The migration and the service
+    // both existed while the capability could not run: this session's own
+    // "built != live" pattern, produced by the person fixing it.
+    //
+    // Asserting the export exists would have passed the whole time. This asserts
+    // it is CALLED, which is the difference.
+    expect(source).toMatch(/const counterparty = await getCounterpartyName\(/)
+  })
+})
 
 describe('getCounterpartyName', () => {
   beforeEach(() => {

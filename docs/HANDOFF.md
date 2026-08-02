@@ -12,7 +12,7 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **951 unit tests green** (re-verified 2026-08-01,
+> **Current build state:** build green, lint green, **952 unit tests green** (re-verified 2026-08-01,
 > 86 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
@@ -59,6 +59,13 @@
 > needed" costs on a payment surface. `search_path` pinned, PUBLIC execute revoked before granting
 > (#12 hygiene). The client degrades to `null` when the RPC is absent, so it is inert rather than
 > broken until you apply it.
+>
+> > 🐛 **And I shipped this one half-built, which is worth recording.** The migration, the service
+> > function and five tests all existed — and **nothing imported `getCounterpartyName`**, so Vite
+> > tree-shook it out and it was not in the production bundle at all. Caught by checking the deployed
+> > file rather than the source, the same way the 2026-07-30 `verify` fix was confirmed. **This
+> > session's own "built ≠ live" pattern, produced by the person fixing it.** The test now asserts the
+> > function is *called*, not that it exists — asserting the export would have passed the whole time.
 >
 > **4. 📐 #30 is measurable instead of estimated.** The entry carried a hand-count nobody could
 > re-derive. [`find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs) re-derives it: **63
