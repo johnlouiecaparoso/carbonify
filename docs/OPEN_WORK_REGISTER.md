@@ -69,8 +69,22 @@
 > > register of known items cannot route work nobody has written down yet, and the highest-severity
 > > findings today were in that category. Lane 1 being short is not the same as Lane 1 being done.
 >
-> One branch is open and unmerged: **`fix-mobile-cart-and-earnings`** (cart row layout, plus the
-> collapse treatment for Recent sales and Withdrawals).
+> One branch is open and unmerged: **`fix-mobile-cart-and-earnings`** — it has grown past its name and
+> now carries the cart row layout, the Recent-sales/Withdrawals collapse, the consent-gate hardening,
+> the certificate verification-URL fix, and `VERCEL_DOMAIN_AND_REDEPLOY.md`.
+>
+> **The consent gate was re-reported and the database came back clean.** Every check PASS; 0 accounts
+> without a row, 7 on the current version, 0 stranded under another. The service worker was ruled out
+> too (`networkFirstShell` — navigations fetch fresh, cache only offline). The explanation that fits
+> every number is that the gate shows **once per account** and six or seven accounts were signed into
+> in a row, which is the designed behaviour.
+>
+> > Two real defects were fixed anyway, neither of them the reported symptom: the service could
+> > report success for a row it could not read back (INSERT and SELECT are separate policies, so
+> > writable-but-not-readable is a reachable state), and **the diagnostic could not detect the thing
+> > it was most likely to be run about** — §6 counted acceptances against the newest row's version
+> > rather than the app's. *The clean result above only means something because those checks now
+> > exist.*
 
 ---
 
@@ -223,13 +237,13 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
-8b. 🆕 **Accept the consent box once on a REAL account, and confirm the row landed (~5 min).** The gate
-   was asking at every sign-in and recording nothing until 2026-08-01; fixed and verified for the four
-   DEV mock accounts, but `policy_acceptances` has **never held a row**, so "the write was broken for
-   real accounts too" and "nobody ever ticked the box" are still indistinguishable. Sign in, accept,
-   then run the join in [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md) — or
-   [`verify-policy-gate.js`](../scripts/test/verify-policy-gate.js) for one account from the terminal.
-   A null `accepted_at` after accepting is a **different, unfixed bug**.
+8b. ~~**Accept the consent box once on a REAL account, and confirm the row landed**~~ — ✅ **DONE and
+   verified 2026-08-02.** This step existed because `policy_acceptances` had **never held a row**, so
+   "the write is broken for real accounts" and "nobody ever ticked the box" were indistinguishable.
+   They are now distinguished: [`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql)
+   returns **every check PASS**, with **7 users on the current version**, **0 accounts without a
+   row**, and **0 rows stranded under an older version**. The write lands, it is readable, and the
+   SELECT/INSERT policies plus the `authenticated` grants are all present.
 9. Decide the **beta database** — reuse live (reconcile is clean) but purge or label leftover test data first
 10. **Run the closed beta** — 8–15 invited users, every role, `reconcile_financials()` = 0 daily
 
@@ -262,6 +276,19 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 >    unrelated *"Vite + React + TS"* app. `carbonify13` is production. Not a data risk, but it burns a
 >    build per push and **`.vercel/repo.json` links this checkout to `ecolink`**, so a CLI
 >    `vercel --prod` from the project folder would target the wrong project.
+>
+> 🆕 **2026-08-02 — the owner is redeploying and deleting `ecolink`, and finalising a domain.**
+> Everything needed for that is in **[VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md)**.
+> The headline, because it was the owner's actual worry: **a custom domain is never renamed by
+> anything in git.** The only git-derived part of any Vercel hostname is the **branch name**, and it
+> appears solely in *preview* URLs (`<project>-git-<branch>-<scope>.vercel.app`) — which is why a
+> preview built from `fix-mobile-cart-and-earnings` reads like the link was renamed to a commit
+> message. Commit messages and PR titles appear in no Vercel hostname at all.
+>
+> Recommendation on item 1: **delete the `deploy` job.** Keeping it alongside the Git integration
+> deploys twice per push, and `VERCEL_PROJECT_ID` would need hand-updating whenever the project
+> changes — a second place for the deploy target to drift, which is the very thing this cleanup is
+> removing.
 
 ~~Decide on merging **PR #14**~~ — ✅ **merged 2026-08-01**, 153 commits; `main` is current and
 production is running it · **set the three `VERCEL_*` secrets or delete `ci.yml`'s `deploy` job**,
