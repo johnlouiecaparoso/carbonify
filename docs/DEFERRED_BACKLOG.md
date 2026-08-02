@@ -128,17 +128,60 @@ counterparty's name still won't show on a receipt (a buyer can't read the seller
 receipts should display it, add a `SECURITY DEFINER` RPC returning name-only for a transaction the caller is
 party to. Do NOT loosen `profiles` SELECT RLS (hardened against role/KYC escalation, `20260703000300`).
 
-### 4. VALIDATE the `NOT VALID` foreign keys 🟢
+### 4. VALIDATE the `NOT VALID` constraints ✅ WRITTEN 2026-08-02 (owner applies)
 `credit_transactions_buyer_id_fkey` / `_seller_id_fkey` were added `NOT VALID` for safety. Once the
 orphan check (in `20260606000100_*.sql`) confirms zero orphans, run `VALIDATE CONSTRAINT`. (Not required for
 PostgREST embedding — a stale schema cache was the actual cause of the receipt 400, fixed by
 `20260718001100`; validating is cleanup/integrity only.)
 
-### 5. Prettier formatting pass — blocked 🟢
-`npm run format` (Prettier) **breaks the build**: it reformats multi-statement inline Vue handlers
+**It is not two foreign keys, it is four constraints — and the two this entry omitted are the
+interesting ones.** Measured across `supabase/migrations/`:
+
+| Constraint | Kind | From |
+|---|---|---|
+| `credit_transactions_buyer_id_fkey` | FK → `profiles(id)` | `20260718001100` |
+| `credit_transactions_seller_id_fkey` | FK → `profiles(id)` | `20260718001100` |
+| **`credit_ownership_qty_nonneg`** | CHECK `quantity >= 0` | `20260604020100` |
+| **`kyc_level_requested_range`** | CHECK `level_requested between 1 and 3` | `20260718000400` |
+
+`credit_ownership_qty_nonneg` is described in its own migration as the backstop that stops the same
+carbon unit being retired or sold twice. `NOT VALID` means it has been enforced on new writes and
+**never checked against the rows that already existed** — so "has any pre-existing holding ever gone
+negative?" is a question about whether the ledger is sound, and nothing has ever asked it.
+`20260802000200_validate_not_valid_constraints.sql` is the first thing to ask.
+
+*The fourth entry in this file whose stated count did not survive measurement, after #30, #27 and
+#12.*
+
+**The migration reports rather than merely running.** A bare `validate constraint` aborts on the
+first violation and tells you nothing about the rest, so each is validated independently: a failure
+is caught, named, and reported with the reason while the others still run. Nothing is skipped
+silently. If one fails, the read-only QUERIES block at the bottom of the file lists the offending
+rows.
+
+⚠️ **Not executed anywhere** — owner applies. `VALIDATE CONSTRAINT` takes only a
+SHARE UPDATE EXCLUSIVE lock, so reads and writes continue during the scan.
+
+### 5. Prettier formatting pass — ✅ UNBLOCKED 2026-08-02 (enabling it is your call)
+`npm run format` (Prettier) **broke the build**: it reformats multi-statement inline Vue handlers
 (e.g. `@input="fn(); errors.x = ''"`) across lines and drops the `;`, which the Vue template parser
 rejects. ESLint uses `skipFormatting`, so Prettier isn't enforced anyway. To enable Prettier safely,
 first refactor those inline handlers into named methods, then add the format step.
+
+**The blocker was seven attribute values in one file.** Every multi-statement inline handler in the
+repo lived in `RoleApplicationView.vue`, all of the same shape
+— `sanitizeNumericField('x'); errors.x = ''` — and all seven now call one named
+`onNumericInput(field)`. A repo-wide scan confirms **zero** multi-statement template handlers remain.
+
+**Verified by running it, not by reasoning about it:** `npx prettier --write` on that file, then
+`npm run build` — green, and no broken handler reintroduced.
+
+⚠️ **Prettier was NOT enabled, and that is deliberate.** Running it over one file produced a
+**3383-line** diff (it normalises line endings and reflows everything), so applying it repo-wide is a
+formatting-policy decision with an enormous, unreviewable diff — the owner's call, not a side
+effect of unblocking it. The Prettier run above was reverted; only the 21-line handler refactor
+landed. When you do want it: run `npm run format` on its own commit, touching nothing else, so the
+noise never mixes with a behaviour change.
 
 ### 6. Playwright **E2E green in CI** 🟢
 `.github/workflows/ci.yml` runs E2E as a separate `continue-on-error` job. It needs a live backend
