@@ -49,6 +49,13 @@ vi.mock('@/utils/env', () => ({
 // Setup Pinia for testing
 beforeEach(() => {
   setActivePinia(createPinia())
+  // Real Storage now, so it persists between tests unless cleared.
+  try {
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+  } catch {
+    // Some environments seal Storage; a test that needs it will say so loudly.
+  }
 })
 
 // Mock console methods to reduce noise in tests
@@ -73,14 +80,21 @@ Object.defineProperty(window, 'location', {
   writable: true,
 })
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-}
-global.localStorage = localStorageMock
+// localStorage is NOT mocked, deliberately. happy-dom already provides a real
+// Storage, and the stub that used to sit here — { getItem: vi.fn(), … } —
+// recorded calls and stored nothing, so `getItem` always returned undefined and
+// any test that appeared to verify persistence verified nothing.
+//
+// The sharper half was the enumeration. Real Storage exposes its entries as own
+// enumerable properties, so `Object.keys(localStorage)` lists the stored KEYS.
+// On the stub it listed `['getItem','setItem','removeItem','clear']` — which is
+// exactly what `userStore.clearLocalStorage()` iterates. It therefore matched
+// nothing, removed nothing, and could not fail. Note that `sessionStorage` was
+// never stubbed, so the two halves of that same loop behaved differently in
+// tests for months.
+//
+// Storage is per-environment and shared across the tests in a file, so it is
+// reset below rather than left to leak from one test into the next.
 
 // Mock fetch
 global.fetch = vi.fn()

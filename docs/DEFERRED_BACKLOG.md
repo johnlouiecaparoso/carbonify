@@ -1380,3 +1380,35 @@ authenticate) and delete the mock path entirely, which makes localhost behave li
 
 **(a) is the better answer.** Every workaround the mock path needs is a place where localhost and
 production diverge, and each one hides a class of bug until it reaches a real user.
+
+---
+
+### 35. The cart survives sign-out, so a shared device hands it to the next person 🟢
+**Found 2026-08-02**, while making the cart testable for the first time (`localStorage` in unit tests
+had been a no-op that stored nothing, so nothing about persistence could be asserted).
+
+`userStore.clearLocalStorage()` deliberately removes **only** keys matching `isAuthStorageKey`
+(`sb-*`, `supabase.*`). The cart lives under `ecolink_cart` and therefore survives. **That is the
+correct fix for the older, worse bug** — `performLogout()` used to call `localStorage.clear()`
+outright, wiping the user's theme, language, accessibility settings and sidebar width every time they
+signed out. Signing out should discard the session, not the application.
+
+The consequence nobody chose: on a **shared device** — a co-op office, an LGU desk, an internet café,
+all realistic for this platform — user A leaves credits in the basket, signs out, and user B signs in
+to find them there.
+
+**Severity, stated honestly: low.** The stored items are public listing data (title, price,
+availability) with no payment detail, and checkout is authorised server-side against the signed-in
+buyer, so B cannot buy anything as A. It is a privacy wrinkle and a confusing-UX bug, not a money
+defect.
+
+**Why it is here rather than fixed:** "clear the cart on sign-out" is a product decision with a real
+cost on the other side — a buyer who signs out mid-basket on their own laptop loses their work, which
+is the same class of complaint the `localStorage.clear()` fix existed to stop. The two candidate
+answers are (a) clear `ecolink_cart` plus the two `CART_*` checkout-coordination keys on sign-out, or
+(b) namespace the cart per user id and load only the signed-in user's. **(b) is better** and is
+roughly an afternoon: it fixes the shared-device case without punishing the single-user case.
+
+Current behaviour is pinned by
+[`cartPersistence.test.js`](../src/test/store/cartPersistence.test.js) so that it stays a decision
+rather than drifting back into an accident.

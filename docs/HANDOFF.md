@@ -28,10 +28,10 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1104 unit tests green across 92 files**
+> **Current build state:** build green, lint 0, **1121 unit tests green across 94 files**
 > (re-verified 2026-08-02).
 >
-> *1104 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
+> *1121 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
 >
 > **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
@@ -39,14 +39,75 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — the #15 tail, and #12 measured at four times its stated size
+> ### 🆕 2026-08-02 (latest) — the test `localStorage` was not merely empty, it was mis-shaped
+>
+> Suite **1104 → 1121** (94 files). Build green, lint 0. **No migration, no function deploy** — test
+> infrastructure and two new test files, so nothing here is inert waiting on anything.
+>
+> **The known half:** `src/test/setup.js` replaced `localStorage` with `{ getItem: vi.fn(), … }`,
+> stubs that record calls and store nothing, so any test that appeared to verify persistence verified
+> nothing. Recorded on 2026-07-31 and worked around locally in `preferencesEffects.test.js`.
+>
+> **The half nobody had noticed, and it is the one that mattered.** Real `Storage` exposes its entries
+> as own enumerable properties — that is what makes `Object.keys(localStorage)` the list of stored
+> **keys**. On the stub it returned **`['getItem','setItem','removeItem','clear']`**. And
+> `userStore.clearLocalStorage()` is written as:
+>
+> ```js
+> Object.keys(storage).filter(isAuthStorageKey).forEach((key) => storage.removeItem(key))
+> ```
+>
+> So under test that loop iterated four method names, matched none of them, removed nothing, and threw
+> nothing. **A test of sign-out clearing would have passed no matter what the function did, including
+> the exact opposite.** `sessionStorage` was never stubbed at all, so the two halves of that one loop
+> behaved differently in tests for months.
+>
+> **Fixed by deleting the mock, not by writing a better one.** happy-dom already provides a real
+> `Storage` — probed before changing anything: `Object.keys` returns the stored keys, `getItem`
+> round-trips, `length` works. `setup.js` now clears both stores between tests instead. The local
+> in-memory workaround in `preferencesEffects.test.js` is deleted with it, rather than left to rot
+> into a second, subtly different Storage implementation.
+>
+> ✅ **All 1104 existing tests stayed green through the change** — which is the finding, not a relief.
+> Nothing depended on the fake, because **nothing was testing persistence at all.** The gap was
+> missing tests, not broken ones.
+>
+> **Two files now cover what could not be covered before**, both mutation-checked in both directions:
+>
+> **1. [`authStorageClearing.test.js`](../src/test/store/authStorageClearing.test.js) (7).**
+> `authStorageKeys.test.js` pinned `isAuthStorageKey` and it was correct the whole time; **nothing
+> asserted anything used it correctly** — the same gap as `routeAccess` vs `routerGuardBypass`, and as
+> the RetireView portfolio import. This drives the real thing: the Supabase tokens go from *both*
+> stores, and theme, language, preferences, sidebar state, an unsaved draft and **the cart** all
+> survive. It matters because `clearLocalStorage()` runs on session **expiry**, not only sign-out —
+> over-matching destroys a user's settings while they sit on the page, under-matching leaves a token
+> on a shared machine. Restoring the old `includes('auth')` predicate turns it red; making the clear a
+> no-op turns it red differently.
+>
+> **2. [`cartPersistence.test.js`](../src/test/store/cartPersistence.test.js) (10).** **The cart had no
+> tests at all**, and could not have had useful ones — every behaviour worth checking round-trips
+> through storage. It is not decoration: `CartView` walks it sequentially through PayMongo and
+> `PaymentCallbackView` removes each paid item after the redirect, so a cart that fails to reload is a
+> buyer who pays for one item and loses the basket. Covers the reload round-trip, the money
+> arithmetic, corrupt stored JSON (a throw there happens during component setup and blanks the page,
+> not the cart), and quantity clamping to available stock.
+>
+> ⚠️ **One thing recorded rather than changed:** the cart deliberately survives sign-out, which is the
+> correct fix for the old `localStorage.clear()` that wiped theme and accessibility settings — but on
+> a **shared device the next person to sign in inherits the previous person's basket**. It holds
+> public listing data and no payment detail, and checkout is authorised server-side against the
+> signed-in buyer, so it is a privacy wrinkle rather than a money defect. *"Clear the cart on
+> sign-out"* is a product decision, so it is in [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) rather than
+> made unilaterally.
+>
+> ### 🆕 2026-08-02 — the #15 tail, and #12 measured at four times its stated size
 >
 > Suite **1086 → 1104** (92 files). Build green, lint 0. **One migration, NOT yet applied** —
 > `20260802000100_grant_hygiene_security_definer.sql`. The frontend half ships with the next deploy.
