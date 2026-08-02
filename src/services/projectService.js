@@ -552,105 +552,13 @@ export class ProjectService {
     return results
   }
 
-  /**
-   * Get all projects (admin/verifier only)
-   * @param {Object} filters - Filter options
-   * @param {string} filters.status - Filter by status
-   * @param {string} filters.category - Filter by category
-   * @param {number} filters.limit - Limit results
-   * @param {number} filters.offset - Offset for pagination
-   * @returns {Promise<Object>} Projects with pagination info
-   */
-  async getAllProjects(filters = {}) {
-    try {
-      let query = this.supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false })
+  // `getAllProjects` removed 2026-08-02 (#33): a dead twin of
+  // projectApprovalService.getAllProjects, which is the one ProjectApprovalPanel
+  // actually calls. Two methods of one name is where a fix lands on the copy
+  // nobody runs.
 
-      // Apply filters
-      if (filters.status) {
-        query = query.eq('status', filters.status)
-      }
-
-      if (filters.category) {
-        query = query.eq('category', filters.category)
-      }
-
-      if (filters.limit) {
-        query = query.limit(filters.limit)
-      }
-
-      if (filters.offset) {
-        query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        throw new Error(error.message || 'Failed to fetch projects')
-      }
-
-      return {
-        projects: data || [],
-        total: data?.length || 0,
-      }
-    } catch (error) {
-      console.error('Error fetching all projects:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Update project status (verifier/admin only)
-   * @param {string} projectId - Project ID
-   * @param {string} status - New status
-   * @param {string} verificationNotes - Verification notes
-   * @returns {Promise<Object>} Updated project
-   */
-  async updateProjectStatus(projectId, status, verificationNotes = '', reviewerId = null) {
-    if (!projectId) {
-      throw new Error('Project ID missing')
-    }
-
-    const normalizedStatus = String(status || '').toLowerCase().trim()
-    const acceptedStatuses = ['draft', 'pending', 'submitted', 'under_review', 'in_review', 'needs_revision', 'approved', 'validated', 'rejected']
-    if (!acceptedStatuses.includes(normalizedStatus)) {
-      throw new Error('Invalid status')
-    }
-
-    const canonicalStatus = normalizedStatus === 'pending' ? 'submitted' : normalizedStatus === 'under_review' ? 'in_review' : normalizedStatus === 'approved' ? 'validated' : normalizedStatus
-
-    try {
-      const { data, error } = await this.supabase
-        .from('projects')
-        .update({
-          status: canonicalStatus,
-          verification_notes: verificationNotes,
-          // `verified_by` is a uuid column — a literal 'current_user()' string
-          // throws invalid-input-syntax. Record the reviewer's id when known,
-          // otherwise leave it null (the admin/verifier panel passes reviewerId).
-          verified_by: ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus)
-            ? reviewerId
-            : null,
-          verified_at:
-            ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus) ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', projectId)
-        .select()
-        .single()
-
-      if (error) {
-        throw new Error(error.message || 'Failed to update project status')
-      }
-
-      return data
-    } catch (error) {
-      console.error('Error updating project status:', error)
-      throw error
-    }
-  }
+  // `updateProjectStatus` removed 2026-08-02 (#33): a dead twin of
+  // projectApprovalService.updateProjectStatus, which is the live approval path.
 
   /**
    * Assign project to a verifier
@@ -826,8 +734,12 @@ export const getUserProjects = projectService.getUserProjects.bind(projectServic
 export const getProject = projectService.getProject.bind(projectService)
 export const updateProject = projectService.updateProject.bind(projectService)
 export const deleteProject = projectService.deleteProject.bind(projectService)
-export const getAllProjects = projectService.getAllProjects.bind(projectService)
-export const updateProjectStatus = projectService.updateProjectStatus.bind(projectService)
+// `getAllProjects` and `updateProjectStatus` bindings removed 2026-08-02 with
+// the dead methods they pointed at. Binding a method that no longer exists
+// throws "Cannot read properties of undefined (reading 'bind')" at MODULE LOAD
+// — so the whole chunk fails to evaluate and every route that imports it dies,
+// not just the caller of the missing method. That is how deleting two unused
+// methods took down the verifier's sign-in.
 export const assignProjectToVerifier = projectService.assignProjectToVerifier.bind(projectService)
 export const getAvailableVerifiers = projectService.getAvailableVerifiers.bind(projectService)
 export const getProjectStats = projectService.getProjectStats.bind(projectService)
