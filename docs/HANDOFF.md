@@ -12,15 +12,47 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **959 unit tests green** (re-verified 2026-08-02,
-> 88 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **1086 unit tests green** (re-verified 2026-08-02,
+> 90 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (later) — #33 closed: it was never an architecture problem
+> ### 🆕 2026-08-02 (latest) — a silent data-loss path in the project write, and a net for the near-miss
+>
+> Suite **959 → 1086** (90 files; +121 of that is one test importing every module). Build green,
+> lint 0, authenticated e2e 22/22.
+>
+> **1. 🐛 A failed project insert was retried with fields silently deleted.** Both project write paths
+> caught an insert error, checked whether its message named any of **16 optional columns**, removed
+> those fields from the payload and retried. The project was created without them and **nobody was
+> told** — not the developer, not the verifier, not an admin.
+>
+> Four of the sixteen were `methodology`, `additionality_type`, `permanence_years` and
+> `reversal_risk` — **the fields that make a carbon credit assessable at all.** A project that looks
+> complete and silently lacks them is worse than a failed submit: the failure is visible, the
+> reshaping is not, and a verifier downstream cannot tell the difference.
+>
+> > Same family as everything else here — a fallback that turns an error into a plausible-looking
+> > result. `[]`-on-error said *"you own nothing"*; this said *"your project has no methodology"*.
+>
+> **Removed on evidence, not assumption.** All 16 columns were probed against the live schema via
+> PostgREST: every one returned **`200`**, against a control column returning
+> **`400 42703 column does not exist`**. The retry could not fire. #15 said to delete these "once
+> migrations are authoritative" — this is that, measured.
+>
+> **2. 🕸️ A net for yesterday's near-miss.**
+> [`modulesEvaluate.test.js`](../src/test/services/modulesEvaluate.test.js) imports **all 121**
+> service / util / store / composable / constant modules and asserts each one evaluates.
+>
+> The `.bind()` outage was invisible to build (syntax fine), lint (nothing unused) and 957 unit tests
+> (no test imported that module) — only a real-login Playwright spec caught it. **Mutation-checked by
+> recreating the exact break: this test names the failing module and the line in about a second.** It
+> also asserts it found more than 40 modules, so it cannot pass vacuously.
+>
+> ### 🆕 2026-08-02 — #33 closed: it was never an architecture problem
 >
 > Suite **957 → 959** (88 files). Build green, lint 0. Frontend only.
 >

@@ -157,35 +157,25 @@ export class ProjectService {
 
       let { data, error } = await this.supabase.from('projects').insert([insertData]).select().single()
 
-      // Schema-drift safety: drop any optional column missing on this DB and retry.
-      const driftCols = [
-        'supporting_documents',
-        'boundary',
-        'geo_coordinates',
-        'additionality_type',
-        'permanence_years',
-        'reversal_risk',
-        'methodology',
-        'development_status',
-        'feedstock',
-        'capacity',
-        'capacity_unit',
-        'capex',
-        'opex',
-        'project_lifetime_years',
-        'funding_target',
-        'funding_raised',
-      ]
-      const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
-      if (error && driftCols.some((c) => blob.includes(c))) {
-        const fallbackData = { ...insertData }
-        driftCols.forEach((c) => {
-          if (blob.includes(c)) delete fallbackData[c]
-        })
-        const retryResult = await this.supabase.from('projects').insert([fallbackData]).select().single()
-        data = retryResult.data
-        error = retryResult.error
-      }
+      // The schema-drift retry that used to sit here was REMOVED 2026-08-02.
+      //
+      // It caught an insert error mentioning any of 16 optional columns, DELETED
+      // those fields, and retried — so a project was created without them and
+      // nobody was told. Among the 16: `methodology`, `additionality_type`,
+      // `permanence_years` and `reversal_risk`. Those are the fields that make a
+      // carbon credit assessable. Silently dropping them produces a project that
+      // looks complete and cannot be evaluated, which is worse than a failed
+      // submit the developer can see and retry.
+      //
+      // Removed on EVIDENCE, not assumption: all 16 columns were probed against
+      // the live schema on 2026-08-02 and every one returned 200, against a
+      // control column that returned `400 42703 column does not exist`. The
+      // retry could not fire. DEFERRED_BACKLOG #15 said to delete these "once
+      // migrations are authoritative" — this is that, measured.
+      //
+      // A genuine schema mismatch now throws, which is the correct outcome: it
+      // is a deployment problem, and it should stop the write rather than
+      // quietly reshape it.
 
       if (error) {
         throw new Error(error.message || 'Failed to create project')
