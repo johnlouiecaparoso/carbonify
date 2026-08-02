@@ -98,7 +98,7 @@
 | 30 | **63 candidates — now MEASURABLE**, not estimated: `node scripts/analysis/find-dead-exports.mjs` | **Exact-string edits only** — line arithmetic corrupted two files last pass. The detector is deliberately conservative and reports candidates, not a verdict |
 | ~~9~~ | ~~Consolidate duplicated formatters~~ | ✅ **Done 2026-07-28** — `src/utils/format.js`; three real divergences fixed, incl. money rendering at one decimal place |
 | 15 | The nullable-client guard is copy-pasted **~162×** (re-counted 2026-07-29; was ~233 — the 2026-07-26 pass converted many to `throw`, which is the dangerous half) | Fix at the root, then delete the guards |
-| 15 | **Fulfillment saga exists twice**, "kept in sync by hand" | The webhook copy is the one that settles money |
+| ~~15~~ | ~~**Fulfillment saga exists twice**~~ — ✅ **drift FOUND and fixed 2026-08-02.** They were not in sync. The live TS port had **no retry cap** and **ignored its `supplier_orders` lookup error**, so a transient read failure made it place a **second supplier order** — defeating the `transaction_id UNIQUE` idempotency design. The tested JS copy is imported by nothing. Pinned by `fulfillmentSagaParity.test.js`, mutation-checked. 🔴 **Inert until `paymongo-webhook` is redeployed** |
 | 15 | Runtime schema-probing (5-attempt insert loop, "retry without `updated_at`") | Delete once migrations are authoritative (#7) |
 | 12 | Grant hygiene on ~10 `SECURITY DEFINER` RPCs | I write the migration, owner applies |
 | 4 | `VALIDATE CONSTRAINT` the two `NOT VALID` FKs | Integrity cleanup only |
