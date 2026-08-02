@@ -8,27 +8,17 @@
  * to file with an accountant or reconcile against a registry, which is every
  * real seller on the platform.
  *
- * Follows the convention set by lguReportService and adminExportService: import
- * the canonical `toCsv` from esgReportService, keep a local triggerDownload.
+ * Follows the convention set by lguReportService and adminExportService: the
+ * canonical `toCsv` from esgReportService, and `downloadBlob` from
+ * utils/download.js for the file itself.
  *
  * The row builders are pure so the money columns can be unit-tested without a
  * DOM or a database.
  */
 
 import { toCsv } from '@/services/esgReportService'
+import { downloadBlob } from '@/utils/download'
 import { netOf } from '@/services/payoutService'
-
-function triggerDownload(blob, filename) {
-  if (typeof document === 'undefined') return
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 /** `carbonify-sales-2026-07-26.csv` — dated so successive exports do not collide. */
 export function exportFilename(kind, now = new Date()) {
@@ -89,7 +79,7 @@ export function salesToRows(sales = []) {
 export function exportSalesCsv(sales = []) {
   const rows = salesToRows(sales)
   const csv = toCsv(rows, SALE_COLUMNS)
-  triggerDownload(
+  downloadBlob(
     new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
     exportFilename('sales'),
   )
@@ -129,7 +119,7 @@ export function salesByProjectToRows(byProject = []) {
 export function exportSalesByProjectCsv(byProject = []) {
   const rows = salesByProjectToRows(byProject)
   const csv = toCsv(rows, PROJECT_COLUMNS)
-  triggerDownload(
+  downloadBlob(
     new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
     exportFilename('earnings-by-project'),
   )

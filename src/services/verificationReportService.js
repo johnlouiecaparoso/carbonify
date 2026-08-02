@@ -10,24 +10,14 @@
  * tests without a database or a DOM. The export* helpers do the I/O.
  *
  * Follows the existing export convention: `toCsv` is the canonical serializer
- * (esgReportService) and each service keeps its own tiny triggerDownload, the
- * way lguReportService does.
+ * (esgReportService) and `downloadBlob` (utils/download.js) performs the
+ * download — previously every export service kept its own copy of the latter,
+ * and every copy had the same premature-revoke bug.
  */
 import { toCsv } from '@/services/esgReportService'
+import { downloadBlob } from '@/utils/download'
 import { CHECKLIST_ITEMS, ITEM_BY_KEY } from '@/constants/verificationChecklist'
 import { getAssessment, getProjectAuditTrail, buildProjectTimeline } from '@/services/verificationService'
-
-function triggerDownload(blob, filename) {
-  if (typeof document === 'undefined') return
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 /** A filename-safe slug of the project title. */
 export function reportSlug(title) {
@@ -165,7 +155,7 @@ const CSV_COLUMNS = [
 export async function exportVerificationReportCsv(project) {
   const report = await getVerificationReport(project)
   const csv = toCsv(reportToCsvRows(report), CSV_COLUMNS)
-  triggerDownload(
+  downloadBlob(
     new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
     `carbonify-verification-${reportSlug(report.project.title)}.csv`,
   )

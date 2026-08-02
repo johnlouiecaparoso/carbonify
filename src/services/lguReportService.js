@@ -6,19 +6,8 @@
  * buyer ESG report, so a city can hand a council/regulator a real document.
  */
 import { toCsv } from '@/services/esgReportService'
+import { downloadBlob } from '@/utils/download'
 import { buildEsgSummary } from '@/services/lguService'
-
-function triggerDownload(blob, filename) {
-  if (typeof document === 'undefined') return
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 /**
  * Group records into an ordered period series for charting. Periods are summed
@@ -129,7 +118,7 @@ const CSV_COLUMNS = [
 export function exportLguEsgCsv(records = [], { municipality = 'lgu' } = {}) {
   const csv = toCsv(records, CSV_COLUMNS)
   const safe = String(municipality || 'lgu').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
-  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `carbonify-lgu-esg-${safe}.csv`)
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `carbonify-lgu-esg-${safe}.csv`)
 }
 
 /** Download a formatted city ESG PDF (summary + per-period table). */
