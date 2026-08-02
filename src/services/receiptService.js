@@ -234,11 +234,27 @@ export async function generateReceipt(transactionId) {
 
     const transaction = await loadTransactionForReceipt(supabase, transactionId)
 
+    // The counterparty's name via the RPC (DEFERRED_BACKLOG #3). The embeds
+    // above resolve structurally but return NOTHING under `profiles` RLS, so
+    // whichever party the reader is NOT came out as the literal word "Buyer" or
+    // "Seller". This fills in the one the reader is entitled to see; it resolves
+    // to null when the migration is unapplied, and the placeholders below stand.
+    const counterparty = await getCounterpartyName(transactionId)
+
     // Generate receipt data
-    const buyerName = transaction.buyer?.full_name || transaction.buyer?.email || 'Buyer'
+    let buyerName = transaction.buyer?.full_name || transaction.buyer?.email || 'Buyer'
     const buyerEmail = transaction.buyer?.email || 'N/A'
-    const sellerName = transaction.seller?.full_name || transaction.seller?.email || 'Seller'
+    let sellerName = transaction.seller?.full_name || transaction.seller?.email || 'Seller'
     const sellerEmail = transaction.seller?.email || 'N/A'
+
+    // Only overwrite a placeholder. If the embed did return a name — the reader
+    // is that party — it is already the better source, and the RPC deliberately
+    // returns no email to pair with it.
+    if (counterparty?.role === 'seller' && sellerName === 'Seller') {
+      sellerName = counterparty.name
+    } else if (counterparty?.role === 'buyer' && buyerName === 'Buyer') {
+      buyerName = counterparty.name
+    }
     const projectInfo = transaction.project_credits?.projects || {}
     const vintageYear = transaction.project_credits?.vintage_year || null
     const verificationStandard = transaction.project_credits?.verification_standard || null
