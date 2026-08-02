@@ -100,7 +100,7 @@
 | ~~9~~ | ~~Consolidate duplicated formatters~~ | ✅ **Done 2026-07-28** — `src/utils/format.js`; three real divergences fixed, incl. money rendering at one decimal place |
 | 15 | The nullable-client guard is copy-pasted **~162×** (re-counted 2026-07-29; was ~233 — the 2026-07-26 pass converted many to `throw`, which is the dangerous half) | Fix at the root, then delete the guards |
 | ~~15~~ | ~~**Fulfillment saga exists twice**~~ — ✅ **drift FOUND and fixed 2026-08-02.** They were not in sync. The live TS port had **no retry cap** and **ignored its `supplier_orders` lookup error**, so a transient read failure made it place a **second supplier order** — defeating the `transaction_id UNIQUE` idempotency design. The tested JS copy is imported by nothing. Pinned by `fulfillmentSagaParity.test.js`, mutation-checked. 🔴 **Inert until `paymongo-webhook` is redeployed** |
-| 15 | Runtime schema-probing (5-attempt insert loop, "retry without `updated_at`") | Delete once migrations are authoritative (#7) |
+| ~~15~~ | ~~Runtime schema-probing / drift retry~~ — ✅ **removed 2026-08-02, on measured evidence.** It was not just dead weight: a failed insert was retried with up to **16 fields deleted**, including `methodology`, `additionality_type`, `permanence_years` and `reversal_risk` — so a project was created unassessable and nobody was told. All 16 columns probed live: every one `200`, against a control returning `400 42703`. Guarded by `noSilentColumnDrop.test.js` |
 | 12 | Grant hygiene on ~10 `SECURITY DEFINER` RPCs | I write the migration, owner applies |
 | 4 | `VALIDATE CONSTRAINT` the two `NOT VALID` FKs | Integrity cleanup only |
 | 5 | Prettier **breaks the build** on multi-statement inline Vue handlers | Refactor those to named methods first |
