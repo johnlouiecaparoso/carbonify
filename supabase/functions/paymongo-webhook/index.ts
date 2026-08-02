@@ -127,6 +127,11 @@ async function markEventProcessed(supabase: any, eventId: string) {
 // No real vendor SDK exists yet, so it uses a deterministic mock supplier
 // (CREDIT_SUPPLIER defaults to 'mock').
 // ───────────────────────────────────────────────────────────────────────────
+// Must match MAX_ATTEMPTS in src/services/credits/fulfillmentSaga.js. The two
+// copies drifted on exactly this constant: the JS one has always capped retries,
+// the port never did.
+const MAX_FULFILLMENT_ATTEMPTS = 3
+
 let _mockOrderSeq = 0
 function mockPlaceOrder(referenceId: string, quantity: number) {
   if (!(quantity > 0)) throw new Error('placeOrder requires a positive quantity')
@@ -149,14 +154,35 @@ async function runFulfillment(
     { transaction_id: transactionId, certificate_id: certificateId, quantity, supplier_id: supplierId, status: 'pending' },
     { onConflict: 'transaction_id', ignoreDuplicates: true },
   )
-  const { data: order } = await supabase
+  const { data: order, error: orderError } = await supabase
     .from('supplier_orders')
     .select('*')
     .eq('transaction_id', transactionId)
     .single()
 
+  // A failed LOOKUP is not an absent order. This used to destructure `data`
+  // only, so a transient read error left `order` undefined — and the placeOrder
+  // branch below begins `if (!order || ...)`, so the saga would place a SECOND
+  // supplier order for a transaction that already had one. That defeats the
+  // `transaction_id UNIQUE` key and the whole idempotency design, which exist
+  // precisely because PayMongo retries webhooks.
+  //
+  // Bail instead. The webhook is retried, and a resumed run reads the existing
+  // row and continues from its real state.
+  if (orderError) {
+    return { status: 'failed', error: `supplier_orders lookup failed: ${orderError.message}` }
+  }
+
   if (order && (order.status === 'retired' || order.status === 'refunded')) {
     return { status: order.status }
+  }
+
+  // Stop after MAX_ATTEMPTS. Without this the live saga retried a failing
+  // supplier without limit on every webhook redelivery, incrementing `attempts`
+  // forever with nothing to stop it. The JS copy has had this cap since it was
+  // written; the port never received it.
+  if ((order?.attempts ?? 0) >= MAX_FULFILLMENT_ATTEMPTS) {
+    return { status: 'failed', error: 'max fulfillment attempts exceeded' }
   }
 
   const patch = async (p: Record<string, unknown>) =>

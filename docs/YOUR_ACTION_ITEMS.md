@@ -88,21 +88,36 @@
 > > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
 > > migration if you want the four PASS rows on record.
 >
-> **You have four things left:**
+> **You have four things left** (one closed today, one new):
 >
 > | # | Do this | Blocks |
 > |---|---|---|
 > | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
-> | 4 | 🆕 **Apply `20260801000100_transaction_counterparty_name.sql`** (~1 min) | Receipts naming the other party |
+> | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
+> | 5 | 🔴 🆕 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
 >
-> **#4 is new and small.** A buyer's receipt cannot currently name the seller: the profile embed
-> resolves but returns nothing under `profiles` RLS, which is hardened against role escalation and
-> must stay that way. The migration adds a `SECURITY DEFINER` function returning a **display name
-> only**, and only to a party of that exact transaction — no email, no phone, no role. Until you apply
-> it the app degrades to omitting the name, so nothing is broken in the meantime. The `VERIFY` block
-> at the bottom of the file prints five PASS rows.
+> **#5 is new and it is the only red item that was not there yesterday.** The fulfillment saga exists
+> twice — a JS copy that **nothing imports except its own test**, and the TS port inside
+> `paymongo-webhook` that actually settles money. The comment said "keep the two in sync"; they were
+> not. The live copy had **no retry cap** (a failing supplier re-attempted on every webhook
+> redelivery, forever) and **ignored its own `supplier_orders` lookup error**, which made it place a
+> **second supplier order** for a transaction that already had one — defeating the idempotency design
+> that exists precisely because PayMongo retries webhooks.
+>
+> Both are fixed in the repo and **inert until you redeploy that one function**. Nothing else changed
+> in it, and there is no deploy-order constraint.
+>
+> *Honest severity:* `CREDIT_SUPPLIER` is still `mock`, so no real registry order could have been
+> duplicated yet — but `refund_purchase`, which both copies call, reverses a real ledger, and these
+> guards must exist before a supplier is wired rather than after.
+>
+> **#4 is done.** `20260801000100` is applied and was verified by probing the live REST endpoint
+> rather than trusting the dashboard: the RPC returns `200 []` to an anonymous caller where a
+> non-existent function returns `404 PGRST202` (run as a control). That proves both that it exists and
+> that it fails closed. Receipts can now name the counterparty — a display name only, and only to a
+> party of that transaction.
 >
 > 🆕 **Also new, and worth a run when convenient:**
 > [`rpc_positive_suite.sql`](../supabase/diagnostics/rpc_positive_suite.sql) — the positive half of

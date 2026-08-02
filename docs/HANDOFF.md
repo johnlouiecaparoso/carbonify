@@ -12,15 +12,55 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **952 unit tests green** (re-verified 2026-08-01,
-> 86 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **957 unit tests green** (re-verified 2026-08-02,
+> 87 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-01 (latest) — the backlog lane: #33, #15, #3, #30, and the first look at authenticated layout
+> ### 🔴 2026-08-02 — THE FULFILLMENT SAGA HAD DRIFTED, and the tested copy is not the live one
+>
+> Suite **952 → 957** (87 files). Build green, lint 0.
+> **🔴 ONE EDGE FUNCTION MUST BE REDEPLOYED: `supabase functions deploy paymongo-webhook`.**
+> Until then both defects below are still live.
+>
+> `#15` recorded that the fulfillment saga "exists twice, kept in sync by hand". Checked, and **it had
+> not been.** `src/services/credits/fulfillmentSaga.js` is imported by **nothing but its own unit
+> test**; the copy that settles money is the TS port inside `paymongo-webhook`. So
+> `fulfillmentSaga.test.js` has been green about code that does not run, while the code that moves
+> money had no test at all — **#21's "~40 tests overstate money-path coverage", made concrete.**
+>
+> **Two real divergences, both in the live copy only:**
+>
+> | | JS copy (tested) | TS port (settles money) |
+> |---|---|---|
+> | Retry cap | stops at `MAX_ATTEMPTS = 3` | **no cap at all** — a failing supplier was re-attempted on every webhook redelivery, forever |
+> | `supplier_orders` lookup error | throws | **destructured `data` only.** A transient read error left `order` undefined, and the placeOrder branch begins `if (!order \|\| …)` — so it placed a **SECOND supplier order** for a transaction that already had one |
+>
+> The second is the sharper one: it defeats the `transaction_id UNIQUE` key and the entire
+> idempotency design, which exist *because* PayMongo retries webhooks. It is the same read-then-act
+> shape as the double-subscription bug fixed on 2026-07-30, in the neighbouring function.
+>
+> **Severity, stated honestly:** `CREDIT_SUPPLIER` is still `mock`, so no real registry order could
+> have been duplicated yet. But `refund_purchase` — the compensation path both copies call — reverses
+> a real ledger, and these guards must exist *before* a supplier is wired, not after.
+>
+> > **"Kept in sync by hand" is not a mechanism, it is a hope.**
+> > [`fulfillmentSagaParity.test.js`](../src/test/services/fulfillmentSagaParity.test.js) is the
+> > mechanism. It cannot prove the two behave identically — only a Deno test against the real function
+> > could — but it asserts that the invariants which **already drifted** are present in both, plus the
+> > shared refund RPC and the terminal-state check. A drift that happened once is the likeliest to
+> > happen again. Mutation-checked.
+>
+> ✅ **`20260801000100` (counterparty name) is APPLIED — verified by probe, not by trust.**
+> `POST /rest/v1/rpc/get_transaction_counterparty_name` as `anon` returns **`200 []`**, where a
+> non-existent function returns **`404 PGRST202`** (run as a control on the same request). Two things
+> proven at once: the function exists, and it **fails closed** for an unauthenticated caller exactly
+> as designed.
+>
+> ### 🆕 2026-08-01 — the backlog lane: #33, #15, #3, #30, and the first look at authenticated layout
 >
 > Suite **935 → 951** (86 files). Build green, lint 0. **One migration, NOT yet applied** —
 > `20260801000100_transaction_counterparty_name.sql`; everything else is frontend and already live.
