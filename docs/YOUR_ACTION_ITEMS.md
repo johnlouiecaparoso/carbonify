@@ -12,7 +12,7 @@
 
 > ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **1086 green** across 90 files
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1104 green** across 92 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
 > spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
 > — `20260801000100_transaction_counterparty_name.sql`, item 4 below; everything else is frontend and
@@ -96,7 +96,26 @@
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
-> | 5 | 🔴 🆕 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
+> | 5 | 🔴 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
+> | 6 | 🆕 **Apply `20260802000100_grant_hygiene_security_definer.sql`** — backlog #12 | Nothing. Hygiene, not a live defect |
+>
+> **#6 is new and it is not urgent — but read this paragraph before you run it.** It removes the
+> implicit `PUBLIC` EXECUTE grant that Postgres puts on every function, from the 24 client-callable
+> `SECURITY DEFINER` functions that never had it revoked. Nothing is exploitable today: each one
+> checks `is_admin()` or `auth.uid()` in its body and an anonymous caller fails that check. This
+> closes the gap between *"safe because the body checks"* and *"safe because you cannot call it"*.
+>
+> ⚠️ **It has never been executed.** I had no database to run it against and you chose not to spin up
+> a local one, so it is carefully reviewed and unproven — say so to yourself before pasting it. It is
+> additive and idempotent, changes no function body and no RLS policy, and can be re-run safely.
+> **Run the `VERIFY` block at the bottom afterwards.** Six rows, all must read PASS; the one to look
+> at hardest is row 5, *"anon can still execute the RLS policy helpers"*, because seven of these
+> functions are called from inside RLS policies and a policy is evaluated as the **querying** role —
+> revoking `anon` there would break anonymous reads across the site. They are granted, not revoked,
+> for exactly that reason, but the verify row is what proves it rather than my saying so.
+>
+> If anything does go wrong, the blast radius is a `permission denied for function …` error, and the
+> fix is a one-line `grant execute on function public.<name>(<args>) to anon;`.
 >
 > **#5 is new and it is the only red item that was not there yesterday.** The fulfillment saga exists
 > twice — a JS copy that **nothing imports except its own test**, and the TS port inside

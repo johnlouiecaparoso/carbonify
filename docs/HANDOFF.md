@@ -12,17 +12,23 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> ### 🔴 One thing is waiting on the owner right now
+> ### 🔴 Two things are waiting on the owner right now
 >
-> **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
-> fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
-> order — are **inert until that runs**. Everything else on the board is either done or is the owner's
-> pilot work (escrow `ESC-01…06` first).
+> 1. **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
+>    fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
+>    order — are **inert until that runs**.
+> 2. **Apply `20260802000100_grant_hygiene_security_definer.sql`** (#12). Additive, idempotent, and it
+>    changes no function body and no policy. ⚠️ **It has not been executed anywhere** — there was no
+>    database to run it against, so it is reviewed but unproven. Run its `VERIFY` block after
+>    applying; row 5 is the one that matters, because a wrong revoke on an RLS helper would break
+>    anonymous reads.
 >
-> **Current build state:** build green, lint 0, **1086 unit tests green across 90 files**
+> Everything else on the board is either done or is the owner's pilot work (escrow `ESC-01…06` first).
+>
+> **Current build state:** build green, lint 0, **1104 unit tests green across 92 files**
 > (re-verified 2026-08-02).
 >
-> *1086 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
+> *1104 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
 >
 > **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
@@ -30,14 +36,101 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — a silent data-loss path in the project write, and a net for the near-miss
+> ### 🆕 2026-08-02 (latest) — the #15 tail, and #12 measured at four times its stated size
+>
+> Suite **1086 → 1104** (92 files). Build green, lint 0. **One migration, NOT yet applied** —
+> `20260802000100_grant_hygiene_security_definer.sql`. The frontend half ships with the next deploy.
+>
+> **1. 🐛 An admin could save a failed read back into live configuration.** `SystemConfigView` loads
+> platform settings and emission factors through `Promise.allSettled` and builds a banner from the
+> rejected branch — *"Could not load: platform settings. Do not save those sections until this
+> resolves."* — with a comment saying exactly why: *"Never let a blank field read as 'the saved value
+> is empty' — saving over that would silently reset live configuration."*
+>
+> **Both services returned `{}` and `[]` on error, so that branch had never run.** A failed read
+> rendered as **platform fee 0%, minimum KYC level to trade 0, both project fees ₱0** — in editable
+> inputs, next to an enabled Save button. `saveKyc()` writes `Number(minKyc.value)`, so one click
+> turns off the KYC gate on trading and records it as a deliberate admin decision.
+>
+> > **The fifth view this week whose error handling was written and could never run** —
+> > BuyerDashboardView, RetireView, WalletView, the three from 07-31, and now this one. The pattern is
+> > stable enough to state as a rule: **when a view handles a rejection, check that its service can
+> > actually produce one.** The handler is evidence of intent, not of behaviour.
+>
+> **2. 🐛 A verifier's duplicate-file check reported "clean" when it had not run.**
+> `findDuplicateEvidence` degraded to `[]`, and `[]` is not neutral there — it is the input that
+> *suppresses* the `alert` flag on the evidence integrity panel. A failed lookup rendered as
+> "these bytes appear on no other report", on the screen where credits are approved. It now throws,
+> and the component counts the failures and says so.
+>
+> **Six more reads in the same family**, found by scanning every `catch` / `if (error)` in
+> `src/services` rather than by following a report — 40 candidates, triaged one by one:
+>
+> | Read | Failure rendered as |
+> |---|---|
+> | `getAllSettings` / `listMethodologyFactors` | *"fee 0%, min KYC 0, no emission factors configured"* — **and savable** |
+> | `findDuplicateEvidence` | *"this evidence is not a duplicate"* |
+> | `getMyWatchlist` | *"your watchlist is empty"* — WatchlistView's error banner was dead code |
+> | `listMySavedSearches` | *"you have saved no searches"* — the buyer's fix is to save it again, producing a duplicate row and duplicate price alerts |
+> | `getMyListings` | a seller's listed inventory shown as unlisted |
+> | `getProjectPriceHistory` | a price chart drawn flat instead of absent |
+>
+> **What was deliberately left degrading, and why it is not the same thing:** `assetLedgerService`'s
+> and `mrvDashboardService`'s optional-table reads, `offtakeService.getOfftakeSummary`,
+> `farmerService.getMyCarbonParticipation`, `verificationService.getProjectAuditTrail` and
+> `listVerifiers`. Each degrades an **optional section** that is absent from the page when it fails,
+> rather than making a claim about the user. `getSetting` also keeps its fallback — every caller
+> passes one explicitly, which is the caller opting out where a reader can see it, the same shape as
+> `OrdersView`'s `.catch(() => [])`. What changed there is that a real error is now logged instead of
+> being absorbed into the default.
+>
+> **3. 📐 #12 said "~10 SECURITY DEFINER RPCs". It is 89 functions, 39 with no revoke.** Postgres
+> grants EXECUTE to PUBLIC on every new function, so `grant execute … to authenticated` without a
+> prior revoke leaves it callable by `anon` too. Of the 39: **15 are trigger functions** — not a
+> reachable surface, since PostgREST will not expose a `trigger` return type and a direct call raises
+> — and **24 are callable**, which is what the migration covers.
+>
+> > **The third backlog entry this week whose number was wrong** — #30's hand-count became a script,
+> > #27's estimate became 375 measured strings, and now #12's "~10" is 39. The entries are reliable
+> > about the *shape* of a problem and unreliable about its *size*.
+>
+> **The roles differ per function, and that is the whole design.** Seven of them (`is_admin`,
+> `is_lgu`, `is_mrv_staff`, `is_verifier_or_admin`, `owns_project`, `owns_report_project`,
+> `current_user_role`) appear inside `create policy` expressions — 13 files for `is_admin` alone — and
+> **a policy expression is evaluated as the querying role**, so revoking `anon` there would break
+> anonymous reads of every table whose policy calls one. Those keep all three roles: the change makes
+> an implicit default explicit and reviewable, and nothing else. Three more (`get_setting`,
+> `insert_system_notification`, `current_plan`) are reachable only from other `SECURITY DEFINER`
+> functions, which execute as the owner — verified call site by call site — so they get a revoke and
+> no grant. The four public reads keep `anon` **on purpose**: `/registry` and `/verify` work signed
+> out, and a revoke that closed them would be a regression wearing the costume of a security fix.
+>
+> Signatures are resolved from `pg_proc` inside the migration rather than typed out, because this repo
+> has overloads and a hand-written argument list that matches nothing is a migration that succeeds
+> while doing nothing.
+>
+> ⚠️ **Stated plainly: this migration has never been executed.** There is no database in the loop
+> here, and the owner declined a local scratch-database run. It is reviewed, not proven. The `VERIFY`
+> block has six rows and row 5 — *anon can still execute the RLS policy helpers* — is the one that
+> catches the failure mode that would matter.
+>
+> ✅ **Both changes are ratcheted, and both ratchets were mutation-checked.**
+> [`swallowedReadErrors.test.js`](../src/test/services/swallowedReadErrors.test.js) (13) asserts
+> rejection rather than shape — a `[]` is indistinguishable from a real empty result, which is the
+> entire defect — and includes a non-vacuity test that a successful read still resolves.
+> [`securityDefinerGrants.test.js`](../src/test/services/securityDefinerGrants.test.js) (5) re-derives
+> the inventory from `supabase/migrations/` on every run and fails if any client-callable
+> `SECURITY DEFINER` function lacks a revoke, **naming it**. Deleting one entry from the migration
+> turned it red and printed `open_dispute`; restoring it went green.
+>
+> ### 🆕 2026-08-02 — a silent data-loss path in the project write, and a net for the near-miss
 >
 > Suite **959 → 1086** (90 files; +121 of that is one test importing every module). Build green,
 > lint 0, authenticated e2e 22/22.

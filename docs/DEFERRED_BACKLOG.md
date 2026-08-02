@@ -362,10 +362,43 @@ one fails it until the entry is deleted from the list. The count can only go dow
 **Evidence to gather before deciding:** whether the fallbacks have ever actually fired in production.
 If path 1 always succeeds, paths 2 and 3 are dead code and this is a deletion, not a refactor.
 
-### 12. Grant hygiene on ~10 SECURITY DEFINER RPCs 🟠
+### 12. Grant hygiene on ~~~10~~ **39** SECURITY DEFINER RPCs ✅ WRITTEN 2026-08-02 (owner applies)
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
 exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
 RPCs and one regression away from being a hole. One migration.
+
+**The count was wrong, and that is the first finding.** Measured against `supabase/migrations/`:
+**89 SECURITY DEFINER functions, 39 with no revoke anywhere.** The third entry in this file this week
+whose number did not survive measurement — #30's hand-count became a script (63), #27's estimate
+became 375 strings, and "~10" here is 39. *These entries are reliable about the shape of a problem
+and unreliable about its size.*
+
+**Split, and only one half is a reachable surface.** 15 of the 39 return `trigger`: they take no
+arguments, PostgREST will not expose a `trigger` return type, and a direct call raises. The PUBLIC
+grant on them is not reachable, and the runtime privilege semantics of trigger execution are not
+worth risking a table-wide INSERT failure to tidy — `20260802000100` skips them **structurally**
+(`prorettype <> 'pg_catalog.trigger'::regtype`) rather than by list, so it cannot be got wrong by
+editing names. The other **24 are covered**.
+
+**Why the migration carries a role list per function rather than one blanket rule:**
+
+| Group | Roles kept | Why |
+|---|---|---|
+| RLS policy helpers — `is_admin`, `is_lgu`, `is_mrv_staff`, `is_verifier_or_admin`, `owns_project`, `owns_report_project`, `current_user_role` | anon + authenticated + service_role | They appear inside `create policy` expressions (13 files for `is_admin` alone), and **a policy is evaluated as the querying role**. Revoking `anon` breaks anonymous reads of every table whose policy calls one. This group's access is unchanged — the value is that an implicit default becomes an explicit, reviewable grant |
+| Internal helpers — `get_setting`, `insert_system_notification`, `current_plan` | **none** | Called only from other SECURITY DEFINER functions, which execute as the owner. Verified call site by call site. The real hygiene win |
+| Client RPCs — 8, incl. `review_kyc_application`, `resolve_dispute` | authenticated | Called from `src/` as a signed-in user, and by **no** edge function (all 11 edge-function RPC calls were enumerated). `anon` removed |
+| Public by design — `search_public_registry`, `public_registry_stats`, `public_market_stats`, `verify_certificate_public` | anon + authenticated | `/registry` and `/verify` work signed out. A revoke here would be a regression wearing the costume of a security fix |
+
+⚠️ **The migration has never been executed.** There was no database in the loop and a local scratch
+run was declined, so it is reviewed and unproven. Its `VERIFY` block has six rows; **row 5** —
+*anon can still execute the RLS policy helpers* — is the one that catches the failure mode that would
+actually matter.
+
+**Ratcheted, not just closed.** [`securityDefinerGrants.test.js`](../src/test/services/securityDefinerGrants.test.js)
+re-derives the inventory from `supabase/migrations/` on every run and fails, **naming the function**,
+if any client-callable SECURITY DEFINER function lacks a revoke. Mutation-checked: deleting one entry
+from the migration turned it red and printed `open_dispute`. This drifted for months precisely
+because nothing checked.
 
 ---
 
@@ -452,7 +485,7 @@ chargeback hold** — on the card rail this is a fraud path (list → self-buy w
 before the chargeback lands, loss lands on the platform). **Decide before live keys:** instant-payout by
 design (document it, drop the dead escrow table/RPC) **or** restore the hold window through settlement.
 
-### 15. Root-cause cleanups behind the review symptoms 🟢 — 3 of 4 CLOSED 2026-08-01/02
+### 15. Root-cause cleanups behind the review symptoms ✅ — ALL 4 CLOSED 2026-08-01/02
 
 > **Every one of these turned out to be wrong about the system in some way**, which is the finding
 > worth carrying from this entry. The nullable-client row prescribed deleting 162 guards (wrong fix —
@@ -519,8 +552,36 @@ Recorded so they aren't re-discovered each audit:
   a *local* `useErrorStore()` const that nothing needed; they are deleted.
 
   This row asserted a system was off for weeks while it was on — the doc-side twin of everything else
-  on this page. What genuinely remains is the inconsistent swallow/throw contract in the services,
-  and 2026-07-30 → 08-01 closed most of that surface read by read.
+  on this page.
+
+  ✅ **The swallow/throw half is CLOSED 2026-08-02**, and closed by *scanning* rather than by waiting
+  for the next bug report: every `catch` and `if (error)` in `src/services` was enumerated — **40
+  candidates** — and triaged one at a time. Seven were fixed; the rest degrade an **optional section**
+  that is simply absent when it fails, which is a different thing from making a claim about the user.
+
+  **The sharpest was not on any list.** `settingsService.getAllSettings` returned `{}` on a failed
+  read, and `SystemConfigView` binds it straight into editable inputs — so a database problem rendered
+  as **platform fee 0%, minimum KYC level to trade 0, both project fees ₱0**, next to an enabled Save
+  button. `saveKyc()` writes `Number(minKyc.value)`, so one click turns off the KYC gate on trading
+  and records it as a deliberate admin decision. That view **already** builds a *"Could not load…
+  Do not save those sections until this resolves"* banner from a rejected `Promise.allSettled`, and
+  carries a comment explaining exactly why — it had simply never been reachable.
+
+  > **The fifth view in one week whose error handling was written and could never run** (after
+  > BuyerDashboardView, RetireView, WalletView and the three on 07-31). The pattern is stable enough
+  > to be a rule now: **when a view handles a rejection, check that its service can produce one.** A
+  > handler is evidence of intent, not of behaviour.
+
+  Second sharpest: `findDuplicateEvidence` degraded to `[]`, and `[]` there is not neutral — it is
+  the input that *suppresses* the duplicate-file alert on the verifier's evidence panel. A failed
+  fraud check rendered as a passed one, on the screen where credits are approved. It throws now, and
+  the component counts and reports the failures.
+
+  Pinned by [`swallowedReadErrors.test.js`](../src/test/services/swallowedReadErrors.test.js), which
+  asserts **rejection rather than shape** — a `[]` is indistinguishable from a real empty result,
+  which is the whole defect — plus a non-vacuity case that a successful read still resolves.
+  Mutation-checked: restoring the two original `return {}` / `return []` turned exactly three tests
+  red.
 
 ---
 
