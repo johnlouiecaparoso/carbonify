@@ -362,7 +362,7 @@ one fails it until the entry is deleted from the list. The count can only go dow
 **Evidence to gather before deciding:** whether the fallbacks have ever actually fired in production.
 If path 1 always succeeds, paths 2 and 3 are dead code and this is a deletion, not a refactor.
 
-### 12. Grant hygiene on ~~~10~~ **39** SECURITY DEFINER RPCs ✅ WRITTEN 2026-08-02 (owner applies)
+### 12. Grant hygiene on ~~~10~~ **39** SECURITY DEFINER RPCs ✅ CLOSED — applied 2026-08-02
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
 exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
 RPCs and one regression away from being a hole. One migration.
@@ -389,10 +389,14 @@ editing names. The other **24 are covered**.
 | Client RPCs — 8, incl. `review_kyc_application`, `resolve_dispute` | authenticated | Called from `src/` as a signed-in user, and by **no** edge function (all 11 edge-function RPC calls were enumerated). `anon` removed |
 | Public by design — `search_public_registry`, `public_registry_stats`, `public_market_stats`, `verify_certificate_public` | anon + authenticated | `/registry` and `/verify` work signed out. A revoke here would be a regression wearing the costume of a security fix |
 
-⚠️ **The migration has never been executed.** There was no database in the loop and a local scratch
-run was declined, so it is reviewed and unproven. Its `VERIFY` block has six rows; **row 5** —
-*anon can still execute the RLS policy helpers* — is the one that catches the failure mode that would
-actually matter.
+✅ **Applied to live 2026-08-02 and verified by probing it, not by trusting the run.** As `anon`:
+`review_kyc_application`, `review_kyb_application` and `resolve_dispute` return
+**`401 42501 permission denied for function`** — refused at the privilege layer rather than admitted
+and failed inside the body. The four public reads still return `200` with rows. Eight anonymous table
+reads (`projects`, `credit_listings`, `app_settings`, `methodology_factors`, `profiles`,
+`policy_acceptances`, `monitoring_reports`, `project_comments`) all return `200` with **no**
+`permission denied for function` — the failure mode that actually mattered, because seven of these
+helpers are evaluated inside RLS policies as the querying role.
 
 **Ratcheted, not just closed.** [`securityDefinerGrants.test.js`](../src/test/services/securityDefinerGrants.test.js)
 re-derives the inventory from `supabase/migrations/` on every run and fails, **naming the function**,

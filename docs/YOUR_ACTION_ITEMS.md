@@ -97,25 +97,22 @@
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
 > | 5 | 🔴 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
-> | 6 | 🆕 **Apply `20260802000100_grant_hygiene_security_definer.sql`** — backlog #12 | Nothing. Hygiene, not a live defect |
+> | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
 >
-> **#6 is new and it is not urgent — but read this paragraph before you run it.** It removes the
-> implicit `PUBLIC` EXECUTE grant that Postgres puts on every function, from the 24 client-callable
-> `SECURITY DEFINER` functions that never had it revoked. Nothing is exploitable today: each one
-> checks `is_admin()` or `auth.uid()` in its body and an anonymous caller fails that check. This
-> closes the gap between *"safe because the body checks"* and *"safe because you cannot call it"*.
+> **#6 is done, and it was checked by measuring rather than by reading a green result.** As `anon`
+> against live: `review_kyc_application`, `review_kyb_application` and `resolve_dispute` now return
+> **`401 42501 permission denied for function`** — refused at the privilege layer instead of being
+> admitted and failing an `is_admin()` check inside the body. The four public reads still return
+> `200` with real rows, and eight anonymous table reads came back `200` with no
+> `permission denied for function` anywhere.
 >
-> ⚠️ **It has never been executed.** I had no database to run it against and you chose not to spin up
-> a local one, so it is carefully reviewed and unproven — say so to yourself before pasting it. It is
-> additive and idempotent, changes no function body and no RLS policy, and can be re-run safely.
-> **Run the `VERIFY` block at the bottom afterwards.** Six rows, all must read PASS; the one to look
-> at hardest is row 5, *"anon can still execute the RLS policy helpers"*, because seven of these
-> functions are called from inside RLS policies and a policy is evaluated as the **querying** role —
-> revoking `anon` there would break anonymous reads across the site. They are granted, not revoked,
-> for exactly that reason, but the verify row is what proves it rather than my saying so.
+> That last check is the one that mattered. Seven of these functions are called from **inside RLS
+> policies**, and a policy is evaluated as the *querying* role — so a careless revoke there would have
+> broken anonymous reads across the site. They were granted rather than revoked for exactly that
+> reason, and the probe is what proves it.
 >
-> If anything does go wrong, the blast radius is a `permission denied for function …` error, and the
-> fix is a one-line `grant execute on function public.<name>(<args>) to anon;`.
+> Nothing was exploitable before this; each function checks `is_admin()` or `auth.uid()` in its body.
+> It closes the gap between *"safe because the body checks"* and *"safe because you cannot call it"*.
 >
 > **#5 is new and it is the only red item that was not there yesterday.** The fulfillment saga exists
 > twice — a JS copy that **nothing imports except its own test**, and the TS port inside

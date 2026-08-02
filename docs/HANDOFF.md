@@ -12,18 +12,21 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> ### 🔴 Two things are waiting on the owner right now
+> ### 🔴 One thing is waiting on the owner right now
 >
-> 1. **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
->    fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
->    order — are **inert until that runs**.
-> 2. **Apply `20260802000100_grant_hygiene_security_definer.sql`** (#12). Additive, idempotent, and it
->    changes no function body and no policy. ⚠️ **It has not been executed anywhere** — there was no
->    database to run it against, so it is reviewed but unproven. Run its `VERIFY` block after
->    applying; row 5 is the one that matters, because a wrong revoke on an RLS helper would break
->    anonymous reads.
+> **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
+> fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
+> order — are **inert until that runs**. Everything else on the board is either done or is the owner's
+> pilot work (escrow `ESC-01…06` first).
 >
-> Everything else on the board is either done or is the owner's pilot work (escrow `ESC-01…06` first).
+> ✅ **`20260802000100` (grant hygiene, #12) is APPLIED — verified by probe, not by trust.** As `anon`
+> on live: `review_kyc_application`, `review_kyb_application` and `resolve_dispute` all return
+> **`401 42501 permission denied for function`**, where before the revoke the call reached the body.
+> The four public reads still return **`200`** with real rows, and eight anonymous table reads
+> (`projects`, `credit_listings`, `app_settings`, `methodology_factors`, `profiles`,
+> `policy_acceptances`, `monitoring_reports`, `project_comments`) are all **`200`** with no
+> `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
+> of these helpers are called from inside RLS policies.
 >
 > **Current build state:** build green, lint 0, **1104 unit tests green across 92 files**
 > (re-verified 2026-08-02).
@@ -116,10 +119,16 @@
 > has overloads and a hand-written argument list that matches nothing is a migration that succeeds
 > while doing nothing.
 >
-> ⚠️ **Stated plainly: this migration has never been executed.** There is no database in the loop
-> here, and the owner declined a local scratch-database run. It is reviewed, not proven. The `VERIFY`
-> block has six rows and row 5 — *anon can still execute the RLS policy helpers* — is the one that
-> catches the failure mode that would matter.
+> ✅ **Applied and probe-verified the same day** — see the box at the top of this file for the exact
+> responses. The admin RPCs now refuse `anon` at the privilege layer (`42501`) instead of admitting
+> the call and failing an `is_admin()` check inside the body, and nothing anonymous broke.
+>
+> **And the live values sharpen the finding rather than softening it.** `app_settings` on production
+> holds `platform_fee_percent = 0` — so for *that* field the swallowed-read rendering was
+> indistinguishable from the truth, and would never have been noticed. But
+> **`min_kyc_level_to_trade = 1`**, and the failed read rendered it as **0** with Save enabled. That
+> is the one that mattered: the difference between "the fee display looked right by luck" and "one
+> click turns off the KYC gate on trading".
 >
 > ✅ **Both changes are ratcheted, and both ratchets were mutation-checked.**
 > [`swallowedReadErrors.test.js`](../src/test/services/swallowedReadErrors.test.js) (13) asserts
