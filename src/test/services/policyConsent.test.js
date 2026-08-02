@@ -34,12 +34,35 @@ import { POLICY_VERSION, POLICY_DOCUMENTS } from '@/constants/policy'
 const DB_DOWN = { message: 'connection terminated unexpectedly', code: '08006' }
 const NO_TABLE = { message: 'relation "public.policy_acceptances" does not exist', code: '42P01' }
 
-/** `.select().eq().eq().limit()` */
+/**
+ * `.select().eq().eq().limit()`, plus the `.order()` the read uses when it is
+ * about to show the gate and wants to report WHY there is no row (an older
+ * policy_version reads very differently from no acceptance at all).
+ */
 function readChain(result) {
   const chain = {
     select: () => chain,
     eq: () => chain,
+    order: () => chain,
     limit: () => Promise.resolve(result),
+  }
+  return chain
+}
+
+/**
+ * `.insert().select('id').maybeSingle()`.
+ *
+ * The service asks for the inserted id back on purpose: `INSERT ... RETURNING`
+ * is filtered by the SELECT policy, so a row that is writable but not readable
+ * comes back empty — and that state is what produces an endless consent
+ * re-prompt. `row` is what RETURNING yields; pass `null` to model the hidden
+ * case.
+ */
+function insertChain({ error = null, row = { id: 'row-1' } } = {}) {
+  const chain = {
+    select: () => chain,
+    maybeSingle: () => Promise.resolve({ data: error ? null : row, error }),
+    then: (resolve, reject) => Promise.resolve({ data: error ? null : row, error }).then(resolve, reject),
   }
   return chain
 }
@@ -179,7 +202,7 @@ describe('acceptCurrentPolicy — must never fail quietly', () => {
   beforeEach(() => vi.mocked(getSupabase).mockReset())
 
   it('records the version and all three documents', async () => {
-    const insert = vi.fn(async () => ({ error: null }))
+    const insert = vi.fn(() => insertChain())
     vi.mocked(getSupabase).mockReturnValue({ from: () => ({ insert }) })
 
     await acceptCurrentPolicy('user-1')
@@ -194,23 +217,29 @@ describe('acceptCurrentPolicy — must never fail quietly', () => {
 
   it('throws when the insert fails, so the gate stays up', async () => {
     vi.mocked(getSupabase).mockReturnValue({
-      from: () => ({ insert: async () => ({ error: DB_DOWN }) }),
+      from: () => ({ insert: () => insertChain({ error: DB_DOWN }) }),
     })
 
     await expect(acceptCurrentPolicy('user-1')).rejects.toThrow()
   })
 
-  it('treats a duplicate as success, not failure', async () => {
-    // 23505: they already accepted this version, probably in another tab.
+  it('treats a duplicate as success — when the existing row is readable', async () => {
+    // 23505: they already accepted this version, probably in another tab. The
+    // read-back is what makes this success rather than an assumption; see the
+    // "writable but not readable" cases in policyShownOnce.test.js for the
+    // state where the same 23505 must NOT be reported as success.
     vi.mocked(getSupabase).mockReturnValue({
-      from: () => ({ insert: async () => ({ error: { code: '23505', message: 'duplicate key' } }) }),
+      from: () => ({
+        insert: () => insertChain({ error: { code: '23505', message: 'duplicate key' } }),
+        select: () => readChain({ data: [{ id: 'row-1' }], error: null }),
+      }),
     })
 
     await expect(acceptCurrentPolicy('user-1')).resolves.toEqual({ alreadyAccepted: true })
   })
 
   it('refuses to record acceptance with no user', async () => {
-    vi.mocked(getSupabase).mockReturnValue({ from: () => ({ insert: async () => ({ error: null }) }) })
+    vi.mocked(getSupabase).mockReturnValue({ from: () => ({ insert: () => insertChain() }) })
     await expect(acceptCurrentPolicy(null)).rejects.toThrow()
   })
 })

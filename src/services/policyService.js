@@ -127,7 +127,38 @@ export async function hasAcceptedCurrentPolicy(userId) {
     return { accepted: true, indeterminate: true }
   }
 
-  return { accepted: (data?.length ?? 0) > 0, indeterminate: false }
+  const accepted = (data?.length ?? 0) > 0
+
+  // About to show the gate. Before doing that, work out WHY there is no row —
+  // because the two reasons look identical to the user ("I already accepted
+  // this") and completely different to whoever has to fix it.
+  //
+  // Costs one extra query only on the path that ends in a blocking modal, which
+  // is at most once per user per version. A silent re-prompt costs far more.
+  if (!accepted) {
+    const { data: anyVersion } = await supabase
+      .from(TABLE)
+      .select('policy_version, accepted_at')
+      .eq('user_id', userId)
+      .order('accepted_at', { ascending: false })
+      .limit(1)
+
+    if (anyVersion?.length) {
+      console.warn(
+        `[policy] This account HAS accepted — but version "${anyVersion[0].policy_version}", ` +
+          `and the app now asks for "${POLICY_VERSION}". That is why the consent gate is ` +
+          'showing again. This is correct behaviour IF the documents genuinely changed; if they ' +
+          'did not, POLICY_VERSION in src/constants/policy.js was bumped by mistake and every ' +
+          'user is being re-asked.',
+      )
+    } else {
+      console.info(
+        `[policy] No acceptance on record for this account under any version — showing the gate.`,
+      )
+    }
+  }
+
+  return { accepted, indeterminate: false }
 }
 
 /**
@@ -152,18 +183,69 @@ export async function acceptCurrentPolicy(userId) {
     )
   }
 
-  const { error } = await supabase.from(TABLE).insert({
-    user_id: userId,
-    policy_version: POLICY_VERSION,
-    documents: POLICY_DOCUMENTS.map((d) => d.id),
-    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent?.slice(0, 500) : null,
-  })
+  // `.select()` is not decoration — it is the check.
+  //
+  // A bare insert only proves the INSERT policy passed. The gate's read runs
+  // against the SELECT policy, and those are two different rules: a row can be
+  // writable and not readable. When that happens the user accepts, the row
+  // lands, the read returns nothing, and the gate reappears on the next load —
+  // forever, with no error anywhere to say why.
+  //
+  // `INSERT ... RETURNING` needs SELECT on the new row, so asking for the id
+  // back makes the write fail LOUDLY in exactly that case, at the moment of
+  // acceptance, instead of silently starting the loop. Same round trip.
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert({
+      user_id: userId,
+      policy_version: POLICY_VERSION,
+      documents: POLICY_DOCUMENTS.map((d) => d.id),
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent?.slice(0, 500) : null,
+    })
+    .select('id')
+    .maybeSingle()
 
   if (error) {
-    // 23505 = unique violation: they already accepted this version, probably in
-    // another tab. That is success, not failure.
-    if (error.code === '23505') return { alreadyAccepted: true }
+    // 23505 = unique violation: a row for (user, version) already exists —
+    // another tab, or a previous accept. Historically this returned success
+    // immediately, which is right ONLY if that existing row is one we can read.
+    // If it is not, "already accepted" is precisely the answer that produces
+    // the endless re-prompt, so confirm before claiming it.
+    if (error.code === '23505') {
+      const { data: existing, error: readBackError } = await supabase
+        .from(TABLE)
+        .select('id')
+        .eq('user_id', userId)
+        .eq('policy_version', POLICY_VERSION)
+        .limit(1)
+
+      if (!readBackError && existing?.length) return { alreadyAccepted: true }
+
+      console.error(
+        `[policy] A ${TABLE} row exists for this user and version but cannot be read back` +
+          `${readBackError ? ` (${readBackError.message})` : ' (RLS returned no rows)'}. ` +
+          'The consent gate will re-appear on every load until the SELECT policy lets the ' +
+          'owner read their own acceptance. See supabase/diagnostics/policy_consent_verification.sql §8.',
+      )
+      throw new Error(
+        'Your acceptance is recorded but we cannot read it back, so we would keep asking. ' +
+          'Please contact support — this is a configuration problem on our side, not something ' +
+          'you can fix by trying again.',
+      )
+    }
     throw new Error(error.message || 'Could not record your acceptance. Please try again.')
+  }
+
+  // Insert reported success but returned no row: the same writable-not-readable
+  // state, reached without a unique violation.
+  if (!data?.id) {
+    console.error(
+      `[policy] Inserted into ${TABLE} but the row came back empty — the INSERT policy allows ` +
+        'the write and the SELECT policy hides it. The gate will re-appear on every load.',
+    )
+    throw new Error(
+      'Your acceptance could not be confirmed. Please contact support — retrying will not help.',
+    )
   }
 
   return { alreadyAccepted: false }
