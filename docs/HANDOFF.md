@@ -12,29 +12,32 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> ### 🔴 Three things are waiting on the owner right now
+> ### ✅ The owner's queue is clear — verified on live 2026-08-02
 >
-> *(Re-verified against live 2026-08-02 by anon probe — `PGRST202` means the function is not in the
-> catalog, so the migration has not been applied. Not taken on trust from this document.)*
+> 1. ~~`supabase functions deploy paymongo-webhook`~~ — **deployed by the owner 2026-08-02.** The
+>    fulfillment saga's retry cap and its second-supplier-order fix are live.
+> 2. ~~Apply `20260802000300` then `20260802000400`~~ (#36) — **APPLIED, verified by probe.**
+>    `notify_counterparty` returns `401 42501 permission denied for function` as `anon`, i.e. it is
+>    in the catalog with `EXECUTE` revoked from `public, anon`, which is exactly what the migration's
+>    grant-hygiene block does. The notification bell can no longer be written by a client naming its
+>    own recipient.
+> 3. ~~Apply `20260802000200_validate_not_valid_constraints.sql`~~ (#4) — reported run by the owner
+>    2026-08-02. **Not independently verified:** constraint validity is not readable through the anon
+>    API, so this one rests on the owner's word rather than a probe. If it matters later, the check is
+>    `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';`
 >
-> 1. **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
->    fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
->    order — are **inert until that runs**.
-> 2. **Apply `20260802000300` then `20260802000400`** (#36), in that order. ⚠️ **Confirmed still
->    unapplied** — `notify_counterparty` returns `PGRST202` on live. Until both land, **any signed-in
->    user can insert a row into any other user's notification bell.** The order is load-bearing:
->    000400 tightens the insert policy, and doing that first would break every legitimate
->    cross-user notification until 000300's RPC exists to replace them.
-> 3. **Apply `20260802000200_validate_not_valid_constraints.sql`** (#4). Not urgent, but it is the
->    first thing ever to ask whether **any `credit_ownership` row has gone negative** — the constraint
->    that stops the same carbon unit being retired or sold twice was added `NOT VALID`, so it has
->    never been checked against pre-existing rows. It reports rather than aborting, and validating
->    takes only a SHARE UPDATE EXCLUSIVE lock, so reads and writes continue.
+> ⚠️ **A probe told us the opposite of the truth first, and it is worth knowing why.** The initial
+> check of #36 reported `PGRST202` and this document briefly recorded it as "confirmed still
+> unapplied". The probe had **invented the argument names**. PostgREST resolves an RPC by name *and*
+> argument names, so a wrong arg list returns `PGRST202` — **the same code as a genuinely missing
+> function**. The rule for every future probe: **copy the signature out of the migration; never guess
+> it.** A green control (`is_admin` → 200) proves you reached the right database and says nothing
+> about whether you called the target correctly.
 >
 > ✅ **Nothing from the 2026-08-02 UX pass is waiting.** Its three migrations
-> (`20260802000500` / `000600` / `000700`) are applied and were verified by the same probe.
+> (`20260802000500` / `000600` / `000700`) are applied and verified.
 >
-> Everything else on the board is either done or is the owner's pilot work (escrow `ESC-01…06` first).
+> Everything else on the board is the owner's pilot work (escrow `ESC-01…06` first).
 >
 > ✅ **`20260802000100` (grant hygiene, #12) is APPLIED — verified by probe, not by trust.** As `anon`
 > on live: `review_kyc_application`, `review_kyb_application` and `resolve_dispute` all return
@@ -124,8 +127,9 @@
 >
 > ### 🆕 2026-08-02 — #36 confirmed on live, and the fix is staged
 >
-> Suite **1131 → 1138** (96 files). Build green, lint 0. **Two migrations, NEITHER applied**, and
-> **the order between them is load-bearing.**
+> Suite **1131 → 1138** (96 files). Build green, lint 0. **Two migrations, neither applied at the
+> time of writing** — *both applied by the owner later the same day and verified by probe; see the
+> owner's queue at the top.* **The order between them is load-bearing.**
 >
 > **The owner ran the query and it came back `(auth.uid() IS NOT NULL)`.** The notification-spoofing
 > hole is real: any signed-in user can insert a row into any other user's bell.
