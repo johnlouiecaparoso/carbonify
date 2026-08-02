@@ -12,12 +12,18 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> ### 🔴 One thing is waiting on the owner right now
+> ### 🔴 Two things are waiting on the owner right now
 >
-> **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
-> fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
-> order — are **inert until that runs**. Everything else on the board is either done or is the owner's
-> pilot work (escrow `ESC-01…06` first).
+> 1. **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
+>    fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
+>    order — are **inert until that runs**.
+> 2. **Apply `20260802000200_validate_not_valid_constraints.sql`** (#4). Not urgent, but it is the
+>    first thing ever to ask whether **any `credit_ownership` row has gone negative** — the constraint
+>    that stops the same carbon unit being retired or sold twice was added `NOT VALID`, so it has
+>    never been checked against pre-existing rows. It reports rather than aborting, and validating
+>    takes only a SHARE UPDATE EXCLUSIVE lock, so reads and writes continue.
+>
+> Everything else on the board is either done or is the owner's pilot work (escrow `ESC-01…06` first).
 >
 > ✅ **`20260802000100` (grant hygiene, #12) is APPLIED — verified by probe, not by trust.** As `anon`
 > on live: `review_kyc_application`, `review_kyb_application` and `resolve_dispute` all return
@@ -46,7 +52,42 @@
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — dead code led to a live spoofing surface
+> ### 🆕 2026-08-02 (latest) — #4 and #5 closed, and both were mis-stated
+>
+> Suite unchanged at **1131** (95 files). Build green, lint 0. **One migration, NOT applied** —
+> `20260802000200`. The frontend half is a 21-line refactor.
+>
+> **#5 said Prettier "breaks the build". The blocker was seven attribute values in one file.** Every
+> multi-statement inline Vue handler in the repo lived in `RoleApplicationView.vue`, all of the same
+> shape — `sanitizeNumericField('x'); errors.x = ''` — and all seven now call one named
+> `onNumericInput(field)`. A repo-wide scan finds **zero** multi-statement template handlers left, and
+> it was **proven by running `prettier --write` then `npm run build`**, not by reasoning about it.
+>
+> ⚠️ **Prettier is still not enabled, deliberately.** Formatting that one file produced a **3383-line**
+> diff, so turning it on repo-wide is a formatting-policy decision with an unreviewable diff and
+> belongs in its own commit touching nothing else. The Prettier run was reverted; only the refactor
+> landed.
+>
+> **#4 said "the two `NOT VALID` foreign keys". There are four constraints, and the two it omitted are
+> the ones that matter.** Alongside the two `credit_transactions` FKs sit
+> **`credit_ownership_qty_nonneg`** (`quantity >= 0`) and `kyc_level_requested_range`.
+>
+> > `credit_ownership_qty_nonneg` is described in its own migration as the backstop that stops the
+> > same carbon unit being **retired or sold twice**. `NOT VALID` means it has been enforced on every
+> > new write and **never once checked against the rows that already existed**. So *"has any holding
+> > ever gone negative?"* is a question about whether the ledger is sound, and nothing in this
+> > project's history has asked it. `20260802000200` is the first thing to ask.
+>
+> The migration validates each constraint **independently** — a bare `validate constraint` aborts on
+> the first violation and tells you nothing about the rest — catching and naming any failure with its
+> reason while the others still run. A read-only QUERIES block lists the offending rows if one fails.
+>
+> > **Fourth entry in a row whose stated size did not survive measurement** — #30's hand-count became a
+> > script, #27's estimate became 375 strings, #12's "~10" became 39, and #4's "two FKs" is four
+> > constraints. The backlog is reliable about the *shape* of a problem and unreliable about its
+> > *size*. Re-measure before acting, every time.
+>
+> ### 🆕 2026-08-02 — dead code led to a live spoofing surface
 >
 > Suite **1121 → 1131** (95 files). Build green, lint 0. **No migration** — the frontend half ships
 > with the next deploy; the database half is [#36](DEFERRED_BACKLOG.md) and is **not** fixed.

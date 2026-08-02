@@ -127,6 +127,21 @@
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
 > | 5 | 🔴 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
 > | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
+> | 7 | 🆕 **Apply `20260802000200_validate_not_valid_constraints.sql`** — backlog #4 | Nothing. But it answers a question nobody has asked |
+
+**#7 is not urgent, and it is the most interesting thing on this list.** Four constraints on live
+were added `NOT VALID`, which means Postgres enforces them on every new write but **skipped the check
+against rows that already existed**. One of them is `credit_ownership_qty_nonneg` — `quantity >= 0` —
+described in its own migration as the backstop that stops the same carbon unit being **retired or
+sold twice**.
+
+So *"has any holding in the ledger ever gone negative?"* has never been asked. This migration asks
+it. Most likely the answer is a clean four PASS rows and it is pure cleanup. If it is not, you want
+to know before a pilot, and the file's read-only QUERIES block will show you the exact rows.
+
+It validates each constraint independently and **reports** failures by name instead of aborting on
+the first, so one bad constraint cannot hide the state of the other three. `VALIDATE CONSTRAINT`
+takes only a SHARE UPDATE EXCLUSIVE lock — reads and writes continue while it scans. Re-runnable.
 >
 > **#6 is done, and it was checked by measuring rather than by reading a green result.** As `anon`
 > against live: `review_kyc_application`, `review_kyb_application` and `resolve_dispute` now return
