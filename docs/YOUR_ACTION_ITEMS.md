@@ -12,9 +12,11 @@
 
 > ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **935 green** across 82 files
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **951 green** across 86 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
-> spec. Lint 0, build green. One migration, **already applied**.
+> spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
+> — `20260801000100_transaction_counterparty_name.sql`, item 4 below; everything else is frontend and
+> already live.
 >
 > ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
 >
@@ -86,13 +88,28 @@
 > > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
 > > migration if you want the four PASS rows on record.
 >
-> **You have three things left:**
+> **You have four things left:**
 >
 > | # | Do this | Blocks |
 > |---|---|---|
 > | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
+> | 4 | 🆕 **Apply `20260801000100_transaction_counterparty_name.sql`** (~1 min) | Receipts naming the other party |
+>
+> **#4 is new and small.** A buyer's receipt cannot currently name the seller: the profile embed
+> resolves but returns nothing under `profiles` RLS, which is hardened against role escalation and
+> must stay that way. The migration adds a `SECURITY DEFINER` function returning a **display name
+> only**, and only to a party of that exact transaction — no email, no phone, no role. Until you apply
+> it the app degrades to omitting the name, so nothing is broken in the meantime. The `VERIFY` block
+> at the bottom of the file prints five PASS rows.
+>
+> 🆕 **Also new, and worth a run when convenient:**
+> [`rpc_positive_suite.sql`](../supabase/diagnostics/rpc_positive_suite.sql) — the positive half of
+> the integration tests. `rls_negative_suite.sql` proves an attacker is stopped; this asks whether the
+> *legitimate* path still works against the live schema, and whether the books reconcile. Everything
+> runs inside a transaction that ends in `ROLLBACK`, so it writes nothing. Probes that would pass
+> vacuously report `UNPROVEN` rather than `PASS`.
 >
 > **#2's deploy half is closed.** PR #14 is merged and `carbonify13.vercel.app` was **verified by
 > fetching it** — it serves `sw.js` at `CACHE_VERSION = 'v4'` and a bundle containing

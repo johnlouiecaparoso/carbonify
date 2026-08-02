@@ -16,10 +16,10 @@
 | # | Type | Status | What it covers |
 |---|---|---|---|
 | 1 | **Regression gate** ([§1.1](#11-regression-gate-run-on-every-change-)) | 🔴 mandatory | build green · eslint 0 · vitest green · `reconcile_financials()` = 0 after any money change |
-| 2 | **Unit (Vitest)** | ✅ **935 / 82 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
+| 2 | **Unit (Vitest)** | ✅ **951 / 86 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
 | 3 | **Component** | ✅ | Vue components in isolation, incl. `modalA11y` (15 dialogs) and `tokenContrast` (fails the suite on a contrast regression) |
 | 4 | **End-to-end (Playwright)** ([§1.3](#13-end-to-end-playwright-on-a-seeded-backend-)) | 🟡 **46/47** | 8 specs. **Not required in CI, not seeded** — the job is `continue-on-error`, which is how 6 failures sat unseen |
-| 5 | **Responsive / layout** | ✅ **37/37** | Real element geometry at 320/390/768/1024/1440 + tap targets + the 16px input floor. ⚠️ **public routes only** |
+| 5 | **Responsive / layout** | ✅ **37/37 public + 22/22 authenticated** | Real element geometry at 320/390/768/1024/1440 + tap targets + the 16px input floor. The authenticated half (added 2026-08-01) found **three layout bugs at 320px** on its first honest run. ⚠️ It measures the authenticated **shell**; tables render empty under the DEV mock session |
 | 6 | **Guard behaviour** | ✅ | `routerGuardBypass.test.js` drives the real router with a cold store. **Configuration is not enforcement** — see the note below |
 | 7 | **Backend configuration** ([§1.9](#19-backend-configuration-tests--)) | ✅ | *Is the deployment configured so the beta can happen at all?* Found two auth settings set against the pilot |
 | 8 | **Consent lifecycle** | ✅ **8 tests** | `policyShownOnce.test.js` — the box appears once, on first sign-in, for every role, and what does/does not bring it back |
@@ -31,7 +31,7 @@
 | # | Type | Status | What it covers |
 |---|---|---|---|
 | 9 | **Negative RLS / privilege suite** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | ✅ **5 PASS · 3 UNPROVEN · 0 FAIL** | *Performs* the attacks, not reads the policies. Re-run against a victim **with data** during the pilot |
-| 10 | **Integration (positive RPC path)** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | ❌ **none automated** | The highest-value thing left to add |
+| 10 | **Integration (positive RPC path)** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | 🟡 **written 2026-08-01, owner-run** | [`rpc_positive_suite.sql`](../supabase/diagnostics/rpc_positive_suite.sql). Transaction ending in `ROLLBACK`; vacuous probes report `UNPROVEN`. Needs the live DB |
 | 11 | **Payment & reconciliation** ([§1.4](#14-payment--reconciliation-testing-money-specific-)) | 🔴 | All 6 flows on test keys + **failure injection**: double-fired webhook, expired intent, forced error healing via `paymongo-resettle` |
 | 12 | **Escrow behaviour** (`ESC-01…06`) | 🔴 **never run — the current gate** | Escrow is live and the Terms promise sellers a hold window nobody has watched behave |
 | 13 | **Diagnostics / operational health** | ✅ 6 files | `pilot_preflight` · `escrow_verification` · `feedstock_verification` · `daily_beta_health` · `money_table_rls_audit` · `policy_consent_verification` |

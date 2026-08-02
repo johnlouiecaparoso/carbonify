@@ -12,15 +12,88 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **935 unit tests green** (re-verified 2026-08-01,
-> 82 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **951 unit tests green** (re-verified 2026-08-01,
+> 86 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-01 (latest) — post-merge sweep: the wallet, and the deploy topology
+> ### 🆕 2026-08-01 (latest) — the backlog lane: #33, #15, #3, #30, and the first look at authenticated layout
+>
+> Suite **935 → 951** (86 files). Build green, lint 0. **One migration, NOT yet applied** —
+> `20260801000100_transaction_counterparty_name.sql`; everything else is frontend and already live.
+>
+> **1. 🐛 #33 — project submission had three write paths, and the third was dangerous.** `ProjectForm`
+> cascaded `projectWorkflowService.submitProject` → `projectService.createProject` →
+> `projectApprovalService.submitProject`, taking whichever did not throw. Path 2 was a near-verbatim
+> copy of path 1 and validated identically, so it could only ever mask a transient blip. **Path 3 had
+> no numeric validation at all** — `estimated_credits: -5`, refused by both paths above, was accepted
+> on the third try — **spread the raw form object into the insert** instead of picking known columns,
+> and **hardcoded `status: 'pending'`**, so a **draft** reaching it was silently promoted into the
+> review queue and fired `notify_project_submitted_trigger`. A private draft became a submission, and
+> reviewers were notified, because two other code paths had failed.
+>
+> > **A fallback more permissive than the thing it backs up is not redundancy. It is the validation
+> > being optional.** Cascade removed; the surviving path is the one with the schema-drift retry.
+>
+> **2. 🔧 #15 — the nullable-client race, fixed where it starts.** `getSupabase()` kicked off an async
+> init and returned whatever the singleton held, so *"is Supabase available?"* depended on **when you
+> asked**. `createClient()` does no I/O; the only await was a legacy-session migration, now a
+> background side effect. A null return now means one thing: the environment is misconfigured.
+>
+> > **The entry's own prescription — "delete the ~162 guards" — was wrong.** The count was never the
+> > defect. The **shapes** were: 94 `throw` against 31 `return []`. One transient race surfaced as a
+> > hard error in one service and as an empty list in the next — and an empty list reads as a fact
+> > about the user. That is the class chased all week, and its source was a startup race.
+>
+> **And `errorStore` was never disabled.** `ErrorBoundary` uses it in full and is mounted; the
+> `main.js` monkeypatches went on 2026-07-29. Two stale `// Temporarily disabled` comments were all
+> that survived. The row asserting a system was off had been wrong for weeks.
+>
+> **3. 🆕 #3 — a receipt can name the counterparty.** New migration: a `SECURITY DEFINER` function
+> returning a **display name only**, and only to a party of that exact transaction. `profiles` SELECT
+> RLS is untouched — it is hardened against role/kyc_level escalation and must stay that way. No
+> email, no phone, no role: the `paymongo-checkout` finding is what returning "slightly more than
+> needed" costs on a payment surface. `search_path` pinned, PUBLIC execute revoked before granting
+> (#12 hygiene). The client degrades to `null` when the RPC is absent, so it is inert rather than
+> broken until you apply it.
+>
+> **4. 📐 #30 is measurable instead of estimated.** The entry carried a hand-count nobody could
+> re-derive. [`find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs) re-derives it: **63
+> candidates**. Deliberately conservative. Removed only what was hand-verified — nine `analytics.js`
+> wrappers and `getUserPurchaseHistory`.
+>
+> **5. 🐛 Three layout bugs on authenticated pages, found by the first test ever to look.**
+> [`responsive-authenticated.spec.js`](../src/test/e2e/responsive-authenticated.spec.js) — 22 tests.
+> All three were the same shape, **a hard minimum that cannot shrink**: `/dashboard`'s
+> `minmax(320px, 1fr)` grid measured **336px wide on a 320px screen** (six more grids across
+> CreditPortfolio, Marketplace, Analytics and UserPreferences carried it too); `/admin`'s
+> `.section-link` is `flex-shrink: 0` beside a text block and landed **65px off the edge**; the admin
+> filter bars' `min-width: 240px` search box could not fit beside a 180px select. All fixed with
+> `min(Npx, 100%)`.
+>
+> > **Two things that spec learned the hard way, and both are the same lesson.** Its FIRST version
+> > used `page.goto()` and reported **22/22 passing having measured nothing** — a goto is a full
+> > reload, and the DEV mock session lives only in the Pinia store, so every route bounced to
+> > `/login`. Then hand-written route paths were wrong twice, and a wrong path is indistinguishable
+> > from a page with no overflow. Both were caught by one assertion — `measured.length > 0` — added
+> > *because* a green result on a test that has never been red proves nothing. **It went red
+> > immediately, twice.** Routes are now discovered from the rendered navigation.
+>
+> **6. 📐 #27 (i18n) measured and deliberately NOT started.** ~**375** strings across the farmer + LGU
+> surfaces. The blocker is not the library or the extraction — it is the **translation content**, and
+> Filipino renderings of *escrow*, *retirement*, *feedstock* and *dispute* are terminology decisions
+> with legal weight on a platform where a smallholder contests a payment. Wrapping 375 strings in
+> `t()` with English values would be a large diff that changes nothing a user sees — the placebo
+> pattern removed twice this week. **Owner decision first.**
+>
+> ✅ Also added: [`rpc_positive_suite.sql`](../supabase/diagnostics/rpc_positive_suite.sql) — the
+> other half of TESTING_PLAN §1.2. Everything runs inside a transaction that ends in `ROLLBACK`, and
+> probes that would pass vacuously report `UNPROVEN`.
+>
+> ### 🆕 2026-08-01 — post-merge sweep: the wallet, and the deploy topology
 >
 > Suite **932 → 935** (82 files). Build green, lint 0.
 >

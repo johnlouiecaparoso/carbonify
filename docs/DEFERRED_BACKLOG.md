@@ -454,18 +454,35 @@ design (document it, drop the dead escrow table/RPC) **or** restore the hold win
 
 ### 15. Root-cause cleanups behind the review symptoms 🟠
 Recorded so they aren't re-discovered each audit:
-- **Nullable async Supabase client** → the `const s = getSupabase(); if (!s) return` guard is copy-pasted
-  ~233× across 49 files. Fix at the root: `await initSupabase()` before mount; make `getSupabase()`
-  throw-or-return; delete the guards.
+- ~~**Nullable async Supabase client**~~ ✅ **FIXED AT THE ROOT 2026-08-01.** `getSupabase()` kicked off
+  an async init and returned whatever the singleton held — `null` while that was in flight — so "is
+  Supabase available?" depended on *when* you asked. `createClient()` does no I/O; the only await was
+  a legacy-session migration, now a background side effect. **A null return now means one thing: the
+  environment is misconfigured.** The consent gate hit this exact race on 2026-08-01.
+
+  **The prescription in this entry — "delete the guards" — was wrong, and that is worth recording.**
+  The guard COUNT was never the defect. The two SHAPES were: 94 `throw` against 31 `return []`. One
+  transient race surfaced as a hard error in one service and as an empty list in the next, and an
+  empty list renders as a fact about the user — the class chased all week, with a startup race as its
+  source. With the race gone the guards are correct and rare; ripping out ~125 call sites across ~60
+  files to save a branch that can still legitimately fire is churn with a real regression budget and
+  no user-visible gain. Pinned by [`supabaseClientSync.test.js`](../src/test/services/supabaseClientSync.test.js),
+  mutation-checked.
 - **Schema-probing at runtime** (the 5-attempt insert loop / "retry without `updated_at`" fallbacks) exists
   because migrations aren't authoritative. Once #13 + CLI migration tracking (#7) land, run
   `supabase gen types` and delete the probes.
 - **Fulfillment saga exists twice** (`services/credits/fulfillmentSaga.js` + a hand-ported copy inside
   `paymongo-webhook`) "kept in sync by hand." The webhook copy is the one that settles money — make it the
   only one and test it directly (Deno test).
-- **Error handling is three systems, none on** — `errorStore` + `ErrorBoundary` are commented out in
-  `App.vue`; services `console.error` + inconsistently swallow/throw; `main.js` monkeypatches `window.fetch`
-  + `console.error` globally (which can eat unrelated errors). Pick one contract and turn the boundary on.
+- ~~**Error handling is three systems, none on**~~ ✅ **the premise was false, confirmed 2026-08-01.**
+  `ErrorBoundary` **is** mounted in `App.vue` and uses `errorStore` in full — notifications,
+  `handleApiError`, `showError/showWarning/showInfo`. The `main.js` monkeypatches were removed on
+  2026-07-29. All that survived were two `// Temporarily disabled` comments in `App.vue` referring to
+  a *local* `useErrorStore()` const that nothing needed; they are deleted.
+
+  This row asserted a system was off for weeks while it was on — the doc-side twin of everything else
+  on this page. What genuinely remains is the inconsistent swallow/throw contract in the services,
+  and 2026-07-30 → 08-01 closed most of that surface read by read.
 
 ---
 
@@ -996,6 +1013,40 @@ rather than this product's users.
 against the farmer and LGU surfaces before the buyer ones — those are the users for whom English is
 the actual obstacle.
 
+> ### 📐 Scoped 2026-08-01 — measured, and deliberately NOT started
+>
+> **The size, counted rather than guessed:** ~**375** visible strings and placeholders across the
+> farmer + LGU surfaces. The heaviest files are `LguDashboardView` (46), `FarmerPortalView` (44),
+> `UserPreferencesView` (35), `ProjectForm` (34), `UserManagement` (29), `ProfileView` (28),
+> `RoleApplicationView` (26), `BiomassRfqsView` (23), `RoleApplications` (23), `AdminFeedstockView`
+> (21), `MrvDashboardView` (20), `BiomassSellView` (18), `BuyerDashboardView` (16). No i18n library is
+> installed and there is no locales directory.
+>
+> **Why nothing was built.** The blocker is not the library, the extraction or the plumbing — those
+> are a day. It is the **translation content**, and it is the same class of problem as the farmer
+> training material already routed to the owner in
+> [OPEN_WORK_REGISTER §2d](OPEN_WORK_REGISTER.md): it needs domain knowledge, not a component.
+>
+> Filipino renderings of *escrow*, *retirement*, *verified emission reduction*, *feedstock*,
+> *offtake*, *jurisdiction* and *dispute* are terminology decisions with legal weight on a platform
+> where a smallholder contests a payment. Machine-translating them would produce text that looks
+> finished and misleads exactly the users #27 exists to protect.
+>
+> **And a half-done i18n layer is worse than none here.** Wrapping 375 strings in `t()` with English
+> values would add a large diff, change nothing a user sees, and register as progress — the placebo
+> pattern removed from this codebase on 2026-07-31 (accessibility toggles) and 2026-08-01 (`.dark`,
+> `.loaded`, `.webp`). A partially-translated UI is also its own defect: a farmer reading a Filipino
+> dispute form whose buttons and error messages stay English is worse served than one reading
+> consistent English.
+>
+> **What is actually needed, in order:**
+> 1. **Owner decision:** commission Filipino translations, or accept English-only for the pilot and
+>    say so in the pilot brief. This is the gate.
+> 2. Then: install `vue-i18n`, extract the farmer + LGU surfaces first, and ship a locale only when
+>    its coverage of those surfaces is **complete** — never partially.
+> 3. `preferencesStore.setLanguage` already persists a choice and `availableLanguages` is correctly
+>    down to English only, so the selector will not advertise a locale that does not exist.
+
 ---
 
 ## From the 2026-07-26 LGU review
@@ -1101,7 +1152,23 @@ alongside credit transactions. If it stays an introduction-and-records layer, th
 read-only feedstock view and a way to record an off-platform resolution — otherwise "contact
 support" resolves to nobody.
 
-### 30. ~100 exported functions are referenced nowhere 🟢 (first pass done 2026-07-26)
+### 30. Exported functions referenced nowhere 🟢 — now MEASURABLE (2026-08-01)
+
+> **The count is no longer a guess.** This entry carried "~100", then "~61 remaining", and nobody
+> could re-derive either. [`scripts/analysis/find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs)
+> re-derives it on demand: **63 candidates** as of 2026-08-01.
+>
+> It is deliberately conservative — a name mentioned in a comment counts as used — because the
+> previous pass computed line ranges, corrupted two files and needed a restore from backup. It also
+> cannot see the `AdvancedSearch.vue` trap, where a `vite.config.js` manualChunks entry made a dead
+> component look referenced. **Treat the output as candidates, verify each, delete with exact-string
+> edits.**
+>
+> Removed 2026-08-01 after hand-verification: nine `analytics.js` convenience wrappers (`main.js`
+> uses the singleton directly, so they made the app look instrumented in nine places when it is
+> instrumented in one) and `getUserPurchaseHistory`.
+
+### 30 (original). ~100 exported functions are referenced nowhere 🟢 (first pass done 2026-07-26)
 
 > **Progress 2026-07-26 (`bfc4526`).** The detector was widened to search
 > `supabase/functions`, `scripts/` and `docs/` as this entry asked, which immediately spared
