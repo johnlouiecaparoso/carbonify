@@ -6,7 +6,7 @@
 > ### 🧭 State in three lines (2026-08-01)
 >
 > **PR #14 is merged and production is running it** — `main` went from 153 commits behind to 0, and
-> `carbonify13.vercel.app` was verified by fetching it. Suite **935 green** across 82 files, lint 0,
+> `carbonify13.vercel.app` was verified by fetching it. Suite **1086 green** across 90 files, lint 0,
 > build green. ⚠️ `main` shows a red X on `ci.yml`'s `deploy` job (`VERCEL_TOKEN` never set); the
 > Vercel **Git integration** is what deploys, so that red is not a failed deploy.
 >
@@ -68,6 +68,23 @@ Read them in this order — the first two answer "where are we" and "what do I d
 ## 📖 Use the app
 
 - [user-guide/](user-guide/README.md) — step-by-step guides, one per role (getting started, buyer, developer, verifier, admin, LGU)
+
+## 🧰 Diagnostics & analysis tooling
+
+Read-only unless stated. Every SQL file ends with a single SUMMARY statement, because the Supabase
+editor shows only the last statement's result when a whole file is pasted.
+
+| Tool | Answers |
+|---|---|
+| [`pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) | Do the pieces exist and is the posture right? Run before inviting anyone |
+| [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) | Is an attacker actually **stopped**? Performs the attacks; `UNPROVEN` is not a pass |
+| [`rpc_positive_suite.sql`](../supabase/diagnostics/rpc_positive_suite.sql) | 🆕 Does the **legitimate** path still work, and do the books reconcile? Runs inside a transaction ending in `ROLLBACK` |
+| [`escrow_verification.sql`](../supabase/diagnostics/escrow_verification.sql) | Is escrow behaving? Run after each `ESC-01…06` test |
+| [`feedstock_verification.sql`](../supabase/diagnostics/feedstock_verification.sql) | Farmer payment record — row 6 (money core untouched) matters most |
+| [`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql) | Is the consent box shown once per user per version, and is the UNIQUE index still there? |
+| [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) | Is the money-table RLS posture **declared** correctly? |
+| [`daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql) | Run every morning during the pilot |
+| [`find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs) | 🆕 `node scripts/analysis/find-dead-exports.mjs` — which exports nothing references. **Candidates, not a verdict**: deliberately conservative, and deleting one took down a live surface on 2026-08-02 |
 
 ## 🛠 Build / operate it
 

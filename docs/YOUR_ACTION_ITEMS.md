@@ -12,7 +12,7 @@
 
 > ## 🧭 2026-08-01 — where this stands, in one box
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **951 green** across 86 files
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1086 green** across 90 files
 > (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
 > spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
 > — `20260801000100_transaction_counterparty_name.sql`, item 4 below; everything else is frontend and

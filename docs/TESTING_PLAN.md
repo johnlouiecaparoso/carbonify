@@ -7,16 +7,23 @@
 
 ## The complete list — every test type in the system
 
-> **Added 2026-08-01.** The detail was already here, spread across §1.1–§1.9 and §2. This is the same
-> content as one list, because "what kinds of testing does this system have?" had no single answer to
-> point at. **Each row links to its section; the section stays authoritative.**
+> **Added 2026-08-01, extended 2026-08-02.** The detail was already here, spread across §1.1–§1.9 and
+> §2. This is the same content as one list, because "what kinds of testing does this system have?" had
+> no single answer to point at. **Each row links to its section; the section stays authoritative.**
+>
+> **23 types across 4 tiers.** Rows `8b`–`8f` were added on 2026-08-01/02 and are worth reading as a
+> group: they are all assertions about **wiring and shape** rather than behaviour, because every
+> defect they pin was invisible to behavioural tests. A service can be correct while the view imports
+> the *other* copy; a module can parse and still fail to load; a fallback can be written, exported and
+> unit-tested while nothing calls it. Those are not behaviour bugs, so no behavioural test reaches
+> them.
 
 ### Tier 1 — Automated, on every change
 
 | # | Type | Status | What it covers |
 |---|---|---|---|
 | 1 | **Regression gate** ([§1.1](#11-regression-gate-run-on-every-change-)) | 🔴 mandatory | build green · eslint 0 · vitest green · `reconcile_financials()` = 0 after any money change |
-| 2 | **Unit (Vitest)** | ✅ **951 / 86 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
+| 2 | **Unit (Vitest)** | ✅ **1086 / 90 files** | Pure logic: fees, VAT, reconciliation, VER calculation, EXIF/evidence integrity, LGU jurisdiction, AML screening, segregation of duties |
 | 3 | **Component** | ✅ | Vue components in isolation, incl. `modalA11y` (15 dialogs) and `tokenContrast` (fails the suite on a contrast regression) |
 | 4 | **End-to-end (Playwright)** ([§1.3](#13-end-to-end-playwright-on-a-seeded-backend-)) | 🟡 **46/47** | 8 specs. **Not required in CI, not seeded** — the job is `continue-on-error`, which is how 6 failures sat unseen |
 | 5 | **Responsive / layout** | ✅ **37/37 public + 22/22 authenticated** | Real element geometry at 320/390/768/1024/1440 + tap targets + the 16px input floor. The authenticated half (added 2026-08-01) found **three layout bugs at 320px** on its first honest run. ⚠️ It measures the authenticated **shell**; tables render empty under the DEV mock session |
@@ -24,7 +31,11 @@
 | 7 | **Backend configuration** ([§1.9](#19-backend-configuration-tests--)) | ✅ | *Is the deployment configured so the beta can happen at all?* Found two auth settings set against the pilot |
 | 8 | **Consent lifecycle** | ✅ **8 tests** | `policyShownOnce.test.js` — the box appears once, on first sign-in, for every role, and what does/does not bring it back |
 | 8b | **Service wiring / duplicate reads** 🆕 | ✅ **6 tests** | [`duplicateServiceReads.test.js`](../src/test/services/duplicateServiceReads.test.js) — asserts **which service a view imports**, not what the service does. Added after a fix landed on one of two same-named copies of `getUserCreditPortfolio` while its own comment claimed it covered the view that imported the other. Carries a **ratchet baseline** of 9 known collisions (see [DEFERRED_BACKLOG #33](DEFERRED_BACKLOG.md)) that may shrink but never grow |
-| 8c | **Empty-vs-error reads** 🆕 | ✅ **21 tests** | [`emptyOnErrorReads.test.js`](../src/test/services/emptyOnErrorReads.test.js) (14), [`retirementHistoryErrors.test.js`](../src/test/services/retirementHistoryErrors.test.js) (4), [`walletTransactionErrors.test.js`](../src/test/services/walletTransactionErrors.test.js) (3). The repo's most persistent bug class: a failed read returning `[]` and rendering as a **fact about the user**. Each file also asserts the genuinely-empty case still resolves, so none can degrade into a blanket throw |
+| 8d | **Module evaluation** 🆕 | ✅ **121 tests** | [`modulesEvaluate.test.js`](../src/test/services/modulesEvaluate.test.js) — imports every service / util / store / composable / constant module and asserts it EVALUATES, not merely parses. Added 2026-08-02 after removing two dead methods took down the verifier's sign-in: a stale `.bind()` re-export throws at module load, and **build, lint and 957 unit tests all passed while it was broken**. Also asserts it found >40 modules, so it cannot pass vacuously |
+| 8e | **Structural guards** 🆕 | ✅ **19 tests** | Assertions about *wiring and shape*, not behaviour, for defects no behavioural test can reach: [`boundExportsResolve`](../src/test/services/boundExportsResolve.test.js) (a `.bind()` naming a missing method), [`noSilentColumnDrop`](../src/test/services/noSilentColumnDrop.test.js) (a failed insert retried with credibility fields deleted), [`fulfillmentSagaParity`](../src/test/services/fulfillmentSagaParity.test.js) (the money-path saga exists twice and the tested copy is not the live one), [`singleSubmitPath`](../src/test/services/singleSubmitPath.test.js) (project submission has exactly one write path), [`noPlaceboClasses`](../src/test/styles/noPlaceboClasses.test.js) (a class added from JS that no rule styles) |
+| 8f | **Client lifecycle** 🆕 | ✅ **5 tests** | [`supabaseClientSync.test.js`](../src/test/services/supabaseClientSync.test.js) — `getSupabase()` is synchronous and race-free, so a `null` means "misconfigured" rather than "you asked too early". The startup race was the source of the `[]`-vs-`throw` split across ~125 guards |
+| 8c | **Empty-vs-error reads** 🆕 | ✅ **21 tests** | [`emptyOnErrorReads.test.js`](../src/test/services/emptyOnErrorReads.test.js) (14), [`retirementHistoryErrors.test.js`](../src/test/services/retirementHistoryErrors.test.js) (4), [`walletTransactionErrors.test.js`](../src/test/services/walletTransactionErrors.test.js) (3),
+[`counterpartyName.test.js`](../src/test/services/counterpartyName.test.js) (6 — separates "you are not a party" from "the RPC is missing"). The repo's most persistent bug class: a failed read returning `[]` and rendering as a **fact about the user**. Each file also asserts the genuinely-empty case still resolves, so none can degrade into a blanket throw |
 
 ### Tier 2 — Database & money (owner-run)
 

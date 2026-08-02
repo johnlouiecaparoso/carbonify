@@ -452,7 +452,18 @@ chargeback hold** — on the card rail this is a fraud path (list → self-buy w
 before the chargeback lands, loss lands on the platform). **Decide before live keys:** instant-payout by
 design (document it, drop the dead escrow table/RPC) **or** restore the hold window through settlement.
 
-### 15. Root-cause cleanups behind the review symptoms 🟠
+### 15. Root-cause cleanups behind the review symptoms 🟢 — 3 of 4 CLOSED 2026-08-01/02
+
+> **Every one of these turned out to be wrong about the system in some way**, which is the finding
+> worth carrying from this entry. The nullable-client row prescribed deleting 162 guards (wrong fix —
+> the count was never the defect). The error-handling row said `errorStore` was commented out (false
+> for weeks). The schema-probing row called the retry harmless drift tolerance (it was silently
+> dropping the fields that make a credit assessable). The saga row said the two copies were "kept in
+> sync by hand" (they were not, and the drift was in the money path).
+>
+> **A backlog entry is a claim about the system, and claims need re-measuring before they are acted
+> on.** Three of these four were only found by checking rather than trusting.
+
 Recorded so they aren't re-discovered each audit:
 - ~~**Nullable async Supabase client**~~ ✅ **FIXED AT THE ROOT 2026-08-01.** `getSupabase()` kicked off
   an async init and returned whatever the singleton held — `null` while that was in flight — so "is
@@ -468,12 +479,39 @@ Recorded so they aren't re-discovered each audit:
   files to save a branch that can still legitimately fire is churn with a real regression budget and
   no user-visible gain. Pinned by [`supabaseClientSync.test.js`](../src/test/services/supabaseClientSync.test.js),
   mutation-checked.
-- **Schema-probing at runtime** (the 5-attempt insert loop / "retry without `updated_at`" fallbacks) exists
-  because migrations aren't authoritative. Once #13 + CLI migration tracking (#7) land, run
-  `supabase gen types` and delete the probes.
-- **Fulfillment saga exists twice** (`services/credits/fulfillmentSaga.js` + a hand-ported copy inside
-  `paymongo-webhook`) "kept in sync by hand." The webhook copy is the one that settles money — make it the
-  only one and test it directly (Deno test).
+- ~~**Schema-probing at runtime**~~ ✅ **REMOVED 2026-08-02 from the project write paths, and it was
+  worse than "dead weight".** The retry caught an insert error, checked whether its message named any
+  of **16 optional columns**, DELETED those fields from the payload and retried — so the project was
+  created without them and **nobody was told**. Four of the sixteen were `methodology`,
+  `additionality_type`, `permanence_years` and `reversal_risk`: the fields that make a carbon credit
+  assessable at all. A project that looks complete and silently lacks them is worse than a failed
+  submit the developer can see, because the failure is visible and the reshaping is not.
+
+  Same family as `[]`-on-error — a fallback that turns an error into a plausible-looking result.
+  One said *"you own nothing"*; this said *"your project has no methodology"*.
+
+  **Removed on evidence.** This entry said to delete the probes "once migrations are authoritative".
+  Rather than wait for #7, all 16 columns were probed against the live schema via PostgREST on
+  2026-08-02: every one returned `200`, against a control column returning
+  `400 42703 column does not exist`. The retry could not fire. Guarded by
+  [`noSilentColumnDrop.test.js`](../src/test/services/noSilentColumnDrop.test.js), which asserts both
+  halves — no retry, **and** the credibility fields are still sent.
+- ~~**Fulfillment saga exists twice**~~ ⚠️ **CHECKED 2026-08-02 — they were NOT in sync, and the
+  drift was in the money path.** The JS copy is imported by nothing but its own unit test; the TS port
+  inside `paymongo-webhook` is what settles money. So the suite was green about code that does not
+  run. Two divergences, both in the live copy only: **no retry cap** (a failing supplier re-attempted
+  on every webhook redelivery, forever), and **an ignored `supplier_orders` lookup error** that made
+  it place a **second supplier order** for a transaction that already had one — defeating the
+  `transaction_id UNIQUE` key and the whole idempotency design, which exists *because* PayMongo
+  retries webhooks.
+
+  Both fixed; 🔴 **inert until `supabase functions deploy paymongo-webhook` is run.** Pinned by
+  [`fulfillmentSagaParity.test.js`](../src/test/services/fulfillmentSagaParity.test.js), which asserts
+  the invariants that already drifted are present in both copies. *"Kept in sync by hand" is not a
+  mechanism, it is a hope.*
+
+  **Still open:** unifying them properly needs a Deno test against the real edge function; the parity
+  test is a stopgap that compares source, not behaviour.
 - ~~**Error handling is three systems, none on**~~ ✅ **the premise was false, confirmed 2026-08-01.**
   `ErrorBoundary` **is** mounted in `App.vue` and uses `errorStore` in full — notifications,
   `handleApiError`, `showError/showWarning/showInfo`. The `main.js` monkeypatches were removed on
