@@ -449,6 +449,25 @@ import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import { downloadBlob } from '@/utils/download'
 
 const router = useRouter()
+
+/**
+ * The origin a downloaded certificate should tell its holder to verify at.
+ *
+ * Taken from the browser, never hardcoded. This line used to read
+ * `https://carbonify.com/verify` — a domain the platform does not own — printed
+ * onto a document people keep and may hand to an auditor. A certificate that
+ * cites a dead verification address is worse than one that cites none, because
+ * it looks checkable.
+ *
+ * `window.location.origin` follows whatever domain the app is actually served
+ * from, so this stays correct through a Vercel rename or a custom domain with
+ * no code change. The PDF path (certificatePdfService) already does this.
+ */
+function verifyBaseUrl() {
+  return typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://carbonify13.vercel.app'
+}
 const route = useRoute()
 const userStore = useUserStore()
 
@@ -778,7 +797,7 @@ Certificate Issued: ${formatDate(certificate.issued_at || certificate.timestamp)
 This certificate is issued by Carbonify and verifies the 
 ownership/retirement of carbon credits.
 
-For verification, visit: https://carbonify.com/verify
+For verification, visit: ${verifyBaseUrl()}/verify/${certificate.certificate_number}
 ═══════════════════════════════════════════════════════════
       `.trim()
       
