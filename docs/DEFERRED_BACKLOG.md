@@ -1556,3 +1556,95 @@ where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
 
 It read `(auth.uid() IS NOT NULL)`.
 </details>
+
+## From the 2026-08-02 cross-role UX pass
+
+> **Update, same day — both of these were subsequently built.** The two gaps the scan named as
+> mattering most now exist: the verifier's decision record (`MyDecisionsPanel`, a fourth tab on the
+> verifier workbench, plus `getMyVerificationDecisions` / `summariseDecisions` and a CSV export) and
+> the LGU's endorsement record (`getMyEndorsementHistory` / `summariseEndorsements`, its own tab
+> beside Endorsements). Neither needed a migration — both read tables their role could already see,
+> asked by actor instead of by subject. For analytics, **concentration** shipped
+> (`computeConcentration` + the panel), and the fabricated placeholder data described below was
+> removed. What remains open is listed at the end of each section.
+
+Both were requests to *design a feature*, not to fix a defect, and both span every role — which is
+why they were recorded here first rather than shipped thin.
+
+### 1. A "history" surface for the roles that have none
+
+**The scan.** Six roles, and what each can currently see of its own past:
+
+| Role | Has | Missing |
+|---|---|---|
+| Buyer / general user | Receipts, Orders, Retire → Transaction History, Portfolio, Certificates, Reported problems | — |
+| Project developer | Carbon asset ledger (incl. buyer history), Seller earnings, per-project verification timeline | No single "what happened to my projects" feed; the timeline is per project and only inside the review panel |
+| Admin | Audit logs (`/admin/audit-logs`), role applications, refunds, AML screenings | — |
+| Verifier | The verification timeline of whichever project is open | **No record of their own past decisions.** A verifier cannot answer "what did I validate last month", which is the first question an accreditation body asks |
+| Farmer | Deliveries and RFQ quotes in the portal | No payment/earnings history separate from the delivery list |
+| LGU | Emissions records they filed | **No endorsement history.** An endorsement is a credibility signal attached to a carbon project; the body that gave it cannot list what it has given |
+
+**The two that matter** are the verifier's decision log and the LGU's endorsement log, for the same
+reason: both roles put their name on something, and neither can enumerate what they have put their
+name on. Both are reads over tables that already exist (`verification_timeline`, the endorsement
+table from 20260722000500) filtered by actor — the work is a service function, a view, and a nav
+entry each, not new schema.
+
+**Do not** solve this with one generic "History" page per role. Five of the six already have
+purpose-built records views and a sixth generic feed would be a seventh place to look.
+
+**Built (2026-08-02).** Both. The verifier's is a "My Decisions" tab reading `audit_logs` filtered
+to `user_id = me` and the five decision actions — the read policy from 20260722000300 already
+allowed it; nobody had asked the table by actor. The LGU's reads `project_endorsements` filtered to
+`lgu_user_id = me`, and surfaces `created_at` vs `updated_at` so a **reversed** endorsement is
+visible rather than silently replaced. Both throw rather than returning `[]`, because "you have
+decided nothing" is a claim about a professional's record and a failed read is not evidence for it.
+
+**Still open:** the developer's cross-project feed and the farmer's payment history. Lower value —
+neither role puts its name on a third party's document the way the two above do.
+
+### 2. Making the subscription's analytics worth paying for
+
+`/analytics` is gated behind the paid plan (`FeatureGate`), and what it shows today is a restatement
+of the portfolio: totals owned, totals retired, a category split. A buyer can read all of that off
+the portfolio page for free, which makes the gate feel like a paywall over their own data rather
+than over insight.
+
+What would change that, roughly in order of value per unit of work:
+
+- **Price basis vs market, over time.** `computePortfolioPnl` already exists and
+  `priceHistoryService` already records marks — the unrealized position is computed and then not
+  charted.
+- **Retirement pacing against a target.** The carbon calculator produces an offset target and hands
+  it to the marketplace; nothing tracks progress against it afterwards.
+- **Concentration risk.** How much of a portfolio sits in one project, one category, one developer.
+  Cheap to compute, and the single most useful thing a disclosure reviewer asks.
+- **Vintage ageing.** Which credits are getting old, which matters for what a buyer can claim.
+
+None of this needs new tables. It needs the existing series to be charted rather than summed. Load
+the `dataviz` skill before building any of it — the app has `chart.js` and two chart components
+(`CategoryChart`, `PortfolioChart`) already, and a third style of chart would be the thing that makes
+the page look assembled rather than designed.
+
+**Built (2026-08-02): concentration**, as `computeConcentration` (pure, 11 tests) plus a panel —
+largest-project share, top-3 share, project and category counts, HHI mapped to a plain-language
+verdict, and a labelled horizontal bar per holding. Repeat purchases of one project are summed
+before any share is taken; without that, five buys of the same project read as a diversified
+portfolio, which is the failure mode the whole figure exists to catch.
+
+⚠️ **A real defect was found and fixed while doing it.** `categoryChartData` was *seeded with
+invented data* — five hard-coded category names at shares `[35, 25, 15, 15, 10]`. Those rendered as
+a finished doughnut before any fetch resolved, and **stayed on screen if the load failed or the
+account had never bought anything**. A buyer on a paid plan could be shown a confident breakdown of
+a portfolio they do not own and export a disclosure decision from it. The chart now starts empty and
+has an empty state. Worth a general rule: *placeholder data that is visually indistinguishable from
+real data is worse than an empty state, and this codebase should not ship any more of it.*
+
+The category palette was also re-picked while there. The old one included the same red used for
+error/critical status elsewhere, so a "Waste Management" slice looked like a failed payment; the
+replacement is the validated categorical order (worst adjacent CVD ΔE 9.1, normal-vision ΔE 19.6 on
+white). Three slots fall under 3:1 contrast, so the chart carries a table view — which is also its
+accessible view.
+
+**Still open:** P&L vs market over time, retirement pacing against the calculator's target, and
+vintage ageing. All three are the same shape as concentration — existing data, not yet charted.

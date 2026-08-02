@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -12,16 +12,27 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> ### 🔴 Two things are waiting on the owner right now
+> ### 🔴 Three things are waiting on the owner right now
+>
+> *(Re-verified against live 2026-08-02 by anon probe — `PGRST202` means the function is not in the
+> catalog, so the migration has not been applied. Not taken on trust from this document.)*
 >
 > 1. **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
 >    fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
 >    order — are **inert until that runs**.
-> 2. **Apply `20260802000200_validate_not_valid_constraints.sql`** (#4). Not urgent, but it is the
+> 2. **Apply `20260802000300` then `20260802000400`** (#36), in that order. ⚠️ **Confirmed still
+>    unapplied** — `notify_counterparty` returns `PGRST202` on live. Until both land, **any signed-in
+>    user can insert a row into any other user's notification bell.** The order is load-bearing:
+>    000400 tightens the insert policy, and doing that first would break every legitimate
+>    cross-user notification until 000300's RPC exists to replace them.
+> 3. **Apply `20260802000200_validate_not_valid_constraints.sql`** (#4). Not urgent, but it is the
 >    first thing ever to ask whether **any `credit_ownership` row has gone negative** — the constraint
 >    that stops the same carbon unit being retired or sold twice was added `NOT VALID`, so it has
 >    never been checked against pre-existing rows. It reports rather than aborting, and validating
 >    takes only a SHARE UPDATE EXCLUSIVE lock, so reads and writes continue.
+>
+> ✅ **Nothing from the 2026-08-02 UX pass is waiting.** Its three migrations
+> (`20260802000500` / `000600` / `000700`) are applied and were verified by the same probe.
 >
 > Everything else on the board is either done or is the owner's pilot work (escrow `ESC-01…06` first).
 >
@@ -34,10 +45,10 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1138 unit tests green across 96 files**
-> (re-verified 2026-08-02).
+> **Current build state:** build green, lint 0, **1173 unit tests green across 99 files**
+> (re-verified 2026-08-02, after the cross-role UX pass).
 >
-> *1138 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
+> *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
 >
 > **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
@@ -45,14 +56,73 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — #36 confirmed on live, and the fix is staged
+> ### 🆕 2026-08-02 (latest) — cross-role UX pass; analytics was showing invented data
+>
+> Suite **1138 → 1173** (99 files). Build green, lint 0. **Three migrations, ALL APPLIED and
+> verified on live** — `20260802000500` (tour flag), `000600` (`support_reports`), `000700`
+> (`admin_set_user_jurisdiction`).
+>
+> A single reported list of ~50 items, worked end to end across all six roles. Two things found on
+> the way matter more than the list did.
+>
+> 🐛 **The analytics page was seeded with INVENTED DATA.** `categoryChartData` shipped five
+> hard-coded category names at shares `[35, 25, 15, 15, 10]`. Those rendered as a finished doughnut
+> **before any fetch resolved**, and **stayed on screen if the load failed or the account had never
+> bought anything**. So a buyer on the *paid* plan could be shown a confident breakdown of a
+> portfolio they do not own — on the page they upgraded for — and take a disclosure decision from
+> it. It now starts empty and has an empty state.
+>
+> > The general rule this earns: **placeholder data that is visually indistinguishable from real
+> > data is worse than an empty state.** It is the same defect family as the swallowed reads
+> > (`return []` rendering as a fact about the user), but louder, because invented numbers look
+> > *more* trustworthy than a blank panel rather than less.
+>
+> 🐛 **Every download in the app could silently never happen.** All eight call sites revoked the
+> object URL in the same tick as `a.click()`. The click only *schedules* the download; the browser
+> reads the blob afterwards, so revoking synchronously can cancel it — no error, no console warning,
+> nothing to report but "I clicked export and nothing happened". Five services each carried a
+> byte-identical `triggerDownload`; three more inlined it. **Fifth entry in the pattern this repo
+> keeps hitting: a correct fix applied to one branch and not its siblings.** There is now one
+> `utils/download.js`.
+>
+> **Structural change worth knowing about: the header is ONE row at every width.** It was two — a
+> mobile layout and a desktop layout, each with its own brand group, and only the desktop one
+> carried the avatar dropdown. That is the whole reason profile, preferences, KYC, wallet, the tour
+> and the user guide were reachable on a phone only by scrolling to the bottom of the sidebar
+> drawer. The sidebar's `.account-block` is **deleted**, and `AppSidebar.test.js` now asserts its
+> absence deliberately — if you see that assertion and think it is stale, read it again.
+>
+> **New surfaces:** "Report a problem" for every role (it existed only on a receipt card, so
+> verifier, LGU, farmer and developer could not report anything at all — new `support_reports`
+> table, guided two-step form whose checklist is specific to the category chosen); verifier **My
+> Decisions**; LGU **Endorsement Record**; portfolio **concentration** on analytics; `SmartSearch`
+> on marketplace and registry.
+>
+> > The two record views needed **no migration**. Both read tables the role could already see —
+> > asked by **actor** instead of by subject. Nobody had ever asked `audit_logs` "what did *I*
+> > decide?", which is the first question an accreditation body puts to a verifier.
+>
+> **LGU accounts could not be created at all** — `lgu_user` was missing from the admin role
+> dropdown. Jurisdiction is now captured where the role is granted, which matters because every LGU
+> scoping surface *fails open* on a null municipality: an LGU with none sees and can endorse
+> projects nationwide. `admin_set_user_jurisdiction` is a **separate** RPC on purpose — adding
+> parameters to `admin_set_user_profile` would have broken editing *every* user on a database where
+> the migration had not landed.
+>
+> **The repeated "dropdown is bigger than the box" complaint had one cause.** A native `<select>`'s
+> popup is never narrower than its control but grows to fit its longest `<option>`. So an
+> under-sized control with long labels *always* opens a list that overhangs it. Fixed by sizing
+> controls to their content and shortening labels (e.g. `"<title> — <category>"` → title, with the
+> category shown beneath), plus a global form-control baseline in `src/styles/form-controls.css`.
+>
+> ### 🆕 2026-08-02 — #36 confirmed on live, and the fix is staged
 >
 > Suite **1131 → 1138** (96 files). Build green, lint 0. **Two migrations, NEITHER applied**, and
 > **the order between them is load-bearing.**
