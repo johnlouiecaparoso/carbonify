@@ -12,13 +12,48 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **957 unit tests green** (re-verified 2026-08-02,
-> 87 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
+> **Current build state:** build green, lint green, **959 unit tests green** (re-verified 2026-08-02,
+> 88 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
 > Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
 > were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
 > was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
 > five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
 > before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+>
+> ### 🆕 2026-08-02 (later) — #33 closed: it was never an architecture problem
+>
+> Suite **957 → 959** (88 files). Build green, lint 0. Frontend only.
+>
+> **#33 read as "three services own project writes — needs a decision about which one." It did not.**
+> `projectWorkflowService` had **nine methods and exactly one reachable** (`submitProject`, called by
+> ProjectForm). The other eight were called from nowhere, and `calculateCreditsAmount` /
+> `calculateBasePrice` were reachable only from `generateProjectCredits`, itself dead. Deleting that
+> block closed **six** of the nine collisions and ~420 lines without touching a live path. The
+> remaining three — `getAllProjects`, `updateProjectStatus`, `submitProject` — each had one live copy
+> and one dead twin; the twins are gone. **The ratchet baseline is now empty.**
+>
+> > **"Consolidate three services" was the wrong shape of the problem.** Nothing needed merging.
+> > Almost all of it was dead code that had only ever *looked* like an architecture question — the
+> > same correction #26 and #11 each needed, where the entry named a blocking change that was not on
+> > the path at all.
+>
+> **🔴 And deleting two dead methods took down the verifier's sign-in.** Worth reading twice, because
+> every safety net missed it.
+>
+> `projectService` re-exports each method at the bottom as
+> `export const x = projectService.x.bind(projectService)`. **`undefined.bind` throws at module
+> evaluation**, so the whole chunk failed to load and every route importing anything from it died with
+> it — not just callers of the removed methods. A dead-code deletion became a total outage of an
+> unrelated surface.
+>
+> **Build passed** (syntax was fine). **Lint passed** (nothing was unused). **The unit suite passed —
+> 957 green.** The only thing that went red was `responsive-authenticated.spec.js`, written the day
+> before, which drives a real login. I attributed it by stashing the change and re-running: baseline
+> 5/5 green, my change 5/5 red.
+>
+> [`boundExportsResolve.test.js`](../src/test/services/boundExportsResolve.test.js) now checks every
+> `.bind()` re-export names a method that exists — and asserts it found bindings at all, so it cannot
+> pass vacuously. Mutation-checked.
 >
 > ### 🔴 2026-08-02 — THE FULFILLMENT SAGA HAD DRIFTED, and the tested copy is not the live one
 >

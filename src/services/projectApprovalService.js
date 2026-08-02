@@ -1,6 +1,6 @@
 import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
-import { notifyProjectSubmitted } from '@/services/emailService'
+// notifyProjectSubmitted went with the dead submitProject twin removed below.
 import { missingRequiredDocLabels } from '@/constants/projectDocuments'
 import { logUserAction } from '@/services/auditService'
 
@@ -677,60 +677,10 @@ export class ProjectApprovalService {
     }
   }
 
-  /**
-   * Submit a new project for approval
-   * @param {Object} projectData - Project data
-   * @returns {Promise<Object>} Submitted project
-   */
-  async submitProject(projectData, userId = null) {
-    if (!this.supabase) {
-      throw new Error('Supabase client not available')
-    }
-
-    try {
-      // Use provided userId or try to get from auth
-      let finalUserId = userId
-      if (!finalUserId) {
-        finalUserId = await getCurrentUserId()
-      }
-      if (!finalUserId) {
-        throw new Error('User not authenticated')
-      }
-
-      // Prepare project data (exclude documents field as it doesn't exist in DB)
-      const projectDataWithoutDocuments = { ...projectData }
-      delete projectDataWithoutDocuments.documents
-      const submitData = {
-        ...projectDataWithoutDocuments,
-        user_id: finalUserId,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-
-      // Insert project
-      const { data: project, error } = await this.supabase
-        .from('projects')
-        .insert([submitData])
-        .select()
-        .single()
-
-      if (error) {
-        throw new Error(error.message || 'Failed to submit project')
-      }
-
-      try {
-        await notifyProjectSubmitted(project.id, project.user_id)
-      } catch (emailError) {
-        console.error('Error sending project submission notification:', emailError)
-      }
-
-      return project
-    } catch (error) {
-      console.error('Error submitting project:', error)
-      throw error
-    }
-  }
+  // `submitProject` removed 2026-08-02 (#33): a dead twin of
+  // projectWorkflowService.submitProject. It was the third arm of the submission
+  // cascade removed on 2026-08-01 — the one with NO numeric validation that
+  // hardcoded status:'pending', silently promoting drafts into the review queue.
 
   /**
    * Get all projects for testing

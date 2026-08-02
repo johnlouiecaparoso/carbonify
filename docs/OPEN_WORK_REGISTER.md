@@ -95,6 +95,7 @@
 
 | # | Item | Note |
 |---|---|---|
+| ~~33~~ | ~~Three services own project writes~~ — ✅ **CLOSED 2026-08-02, and it was never an architecture problem.** `projectWorkflowService` had 9 methods and **1 reachable**; deleting the dead block closed 6 of the 9 collisions and ~420 lines. The other three had one live copy and one dead twin each. **Ratchet baseline is now empty.** ⚠️ The deletion broke the verifier's sign-in via a stale `.bind()` re-export — `undefined.bind` throws at module load, so the whole chunk dies. Build, lint and 957 unit tests all passed while it was broken; only a real-login Playwright test caught it. Guarded by `boundExportsResolve.test.js` | [#33](DEFERRED_BACKLOG.md) |
 | 30 | **63 candidates — now MEASURABLE**, not estimated: `node scripts/analysis/find-dead-exports.mjs` | **Exact-string edits only** — line arithmetic corrupted two files last pass. The detector is deliberately conservative and reports candidates, not a verdict |
 | ~~9~~ | ~~Consolidate duplicated formatters~~ | ✅ **Done 2026-07-28** — `src/utils/format.js`; three real divergences fixed, incl. money rendering at one decimal place |
 | 15 | The nullable-client guard is copy-pasted **~162×** (re-counted 2026-07-29; was ~233 — the 2026-07-26 pass converted many to `throw`, which is the dangerous half) | Fix at the root, then delete the guards |

@@ -47,34 +47,32 @@ const ALLOWED_DUPLICATES = new Set([
 ])
 
 /**
- * Collisions that EXIST TODAY and are recorded as debt, not blessed.
+ * Collisions that exist today, recorded as debt rather than blessed.
  *
- * This is a ratchet, asserted exactly: a new collision fails the suite, and
- * removing one of these fails it too until the entry is deleted here. That is
- * deliberate — an allowlist silently absorbs progress, and this list is meant
- * to shrink.
+ * ✅ **Empty as of 2026-08-02.** It held nine, all across the three project
+ * services. They are gone, and none of it needed the risky consolidation the
+ * entry imagined:
  *
- * All nine come from three project services that overlap heavily
- * (`projectService`, `projectWorkflowService`, `projectApprovalService`), and
- * `ProjectForm.vue` imports all three. The sharp end is its submit handler,
- * which cascades `projectWorkflowService.submitProject` ->
- * `projectService.createProject` -> `projectApprovalService.submitProject`,
- * taking whichever does not throw. Three write paths into one table, chosen by
- * failure — so which one ran is not knowable from the code, and a fix to one is
- * invisible to the other two. Untangling that needs a decision about which
- * service owns project writes; see DEFERRED_BACKLOG #33.
+ *   · `projectWorkflowService` had nine methods and ONE reachable
+ *     (`submitProject`, called by ProjectForm). The other eight were called
+ *     from nowhere, and `calculateCreditsAmount` / `calculateBasePrice` were
+ *     reachable only from `generateProjectCredits`, itself dead. Deleting that
+ *     block closed six collisions and ~420 lines without touching a live path.
+ *   · The remaining three — `getAllProjects`, `updateProjectStatus`,
+ *     `submitProject` — each had exactly one live copy and one dead twin. The
+ *     twins are deleted.
+ *
+ * **The lesson: "consolidate three services" was the wrong shape of the
+ * problem.** Nothing needed merging. Almost all of it was dead code that had
+ * only ever looked like an architecture question — the same correction #26 and
+ * #11 each needed, where the entry named a blocking change that turned out not
+ * to be on the path at all.
+ *
+ * This list is a RATCHET, asserted exactly: a new collision fails the suite, and
+ * so does removing one without deleting its entry here. It is meant to stay
+ * empty now.
  */
-const KNOWN_COLLISIONS = [
-  'approveProject exported by projectApprovalService.js and projectWorkflowService.js',
-  'calculateBasePrice exported by projectApprovalService.js and projectWorkflowService.js',
-  'calculateCreditsAmount exported by projectApprovalService.js and projectWorkflowService.js',
-  'getAllProjects exported by projectApprovalService.js and projectService.js',
-  'getPendingProjects exported by projectApprovalService.js and projectWorkflowService.js',
-  'getProjectStats exported by projectService.js and projectWorkflowService.js',
-  'getUserProjects exported by projectService.js and projectWorkflowService.js',
-  'submitProject exported by projectApprovalService.js and projectWorkflowService.js',
-  'updateProjectStatus exported by projectApprovalService.js and projectService.js',
-]
+const KNOWN_COLLISIONS = []
 
 function serviceFiles() {
   return readdirSync(SERVICES_DIR, { withFileTypes: true })
