@@ -70,7 +70,10 @@
 >
 > Suite **1138 → 1173** (99 files). Build green, lint 0. **Three migrations, ALL APPLIED and
 > verified on live** — `20260802000500` (tour flag), `000600` (`support_reports`), `000700`
-> (`admin_set_user_jurisdiction`).
+> (`admin_set_user_jurisdiction`). **Merged to `main` and deployed** (`9d435bc..55a8852`).
+>
+> 64 files, +5,721/−745, 17 of them new. One follow-up branch is open and unmerged —
+> `fix-mobile-cart-and-earnings`, described at the end of this section.
 >
 > A single reported list of ~50 items, worked end to end across all six roles. Two things found on
 > the way matter more than the list did.
@@ -124,6 +127,18 @@
 > under-sized control with long labels *always* opens a list that overhangs it. Fixed by sizing
 > controls to their content and shortening labels (e.g. `"<title> — <category>"` → title, with the
 > category shown beneath), plus a global form-control baseline in `src/styles/form-controls.css`.
+>
+> **Follow-up, same evening — the cart row and the last two earnings tables.** On branch
+> `fix-mobile-cart-and-earnings`, not yet merged. The cart row fed **five children into three grid
+> columns**, so the browser auto-placed them and the price — the number you are checking — landed
+> mid-card. Now two explicit rows: name on top, price bottom-left, `− n +` and `×` bottom-right.
+> "Recent sales" and "Withdrawals" get the collapse treatment "Earnings by project" already had.
+>
+> > **Rendering it caught two things reasoning did not.** A realistic bulk quantity (12,000 credits)
+> > clipped to `120(` in the field; and after widening it, it *still* clipped at 320px, because the
+> > native number spinners eat ~15px **inside** the input. Both invisible in code review. The
+> > `dataviz` habit of "render it and look at it" earns its keep on ordinary layout too, not just on
+> > charts — screenshots at 380px and 320px are cheap.
 >
 > ### 🆕 2026-08-02 — #36 confirmed on live, and the fix is staged
 >
