@@ -111,4 +111,59 @@
   .table-scroll:has(> .data-table.stack-on-mobile) {
     overflow-x: visible;
   }
+
+  /* ── Row-level collapse, opted into with `.collapse-rows` ────────────────
+   *
+   * Stacking solves the horizontal scroll but trades it for a vertical one: a
+   * ten-column asset ledger becomes a ten-line card PER PROJECT, so twelve
+   * projects is a hundred and twenty lines to scroll past. On the widest
+   * tables that is worse than the problem.
+   *
+   * With this class a card shows its FIRST cell — the project name, in every
+   * table that opts in — and nothing else until the row is marked `.is-open`.
+   * The view owns that flag and renders the toggle inside the first cell;
+   * nothing here assumes a particular button, only that the row can be given
+   * a class. The totals row is exempt: a summary with its numbers hidden is
+   * not a summary. */
+  .data-table.stack-on-mobile.collapse-rows tbody tr:not(.is-open) td:not(:first-child) {
+    display: none;
+  }
+
+  /* Without the dashed rule the collapsed card is a single unseparated line. */
+  .data-table.stack-on-mobile.collapse-rows tbody tr:not(.is-open) td:first-child {
+    border-top: none;
+  }
+
+  /* The name and its toggle share the line; the ::before label is redundant
+     when the cell is the only thing on the card. */
+  .data-table.stack-on-mobile.collapse-rows tbody td:first-child::before {
+    display: none;
+  }
+
+  .data-table.stack-on-mobile.collapse-rows tbody td:first-child {
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .row-toggle {
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary-color, #058526);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+}
+
+/* The toggle is a phone-only affordance — above 640px the table is a table and
+   every column is already visible. */
+@media (min-width: 641px) {
+  .row-toggle {
+    display: none;
+  }
 }

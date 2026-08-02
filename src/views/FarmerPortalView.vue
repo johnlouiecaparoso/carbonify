@@ -955,7 +955,17 @@ onMounted(load)
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .form-row { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
 .form-row label { font-size: 0.85rem; font-weight: 600; color: #374151; }
-.form-row input, .form-row select, .form-row textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+.form-row input, .form-row select, .form-row textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; width: 100%; min-width: 0; }
+/* A native <select> does not resolve the same box height as an <input> from
+   identical padding — the UA adds its own inner padding around the caret. In
+   the two-column parcel form that put "Crop type" and "Area (hectares)" side by
+   side at visibly different heights, and "Status" out of line with "Planted
+   on". Pinning the height is what makes the row read as one. textarea is left
+   free so `rows` still controls it. */
+.form-row input, .form-row select { height: 38px; }
+.form-row select { text-overflow: ellipsis; }
+/* PARCEL_STATUSES are raw lowercase enum values ('active', 'fallow'). */
+#p-status { text-transform: capitalize; }
 .estimate { margin-top: 8px; font-size: 0.85rem; color: #065f46; }
 .proof-list { margin: 6px 0 0; padding-left: 18px; font-size: 0.82rem; color: #4b5563; }
 

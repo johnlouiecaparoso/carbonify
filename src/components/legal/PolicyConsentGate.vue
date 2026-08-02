@@ -322,10 +322,14 @@ async function accept() {
   line-height: 1.55;
   cursor: pointer;
 }
+/* 15px, not 18px: the label beside it is 0.84rem, and an 18px box next to
+   13.4px text is the largest element in the row — which is what made this read
+   as oversized on every role. `margin-top` keeps it on the first line's
+   optical centre now that the box is smaller. */
 .agree-box {
-  margin-top: 2px;
-  width: 18px;
-  height: 18px;
+  margin-top: 3px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
   accent-color: var(--primary-color, #058526);
   cursor: pointer;

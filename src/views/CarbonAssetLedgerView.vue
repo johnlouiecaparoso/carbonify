@@ -2,12 +2,23 @@
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyAssetLedger } from '@/services/assetLedgerService'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import { peso, num } from '@/utils/format'
 
 const loading = ref(true)
 const loadError = ref('')
 const rows = ref([])
 const totals = ref(null)
+
+// Which ledger rows have been opened on a phone. Above 640px the class is inert
+// — the table is a table and every column is already on screen.
+const expandedRows = ref(new Set())
+function toggleRow(projectId) {
+  const next = new Set(expandedRows.value)
+  if (next.has(projectId)) next.delete(projectId)
+  else next.add(projectId)
+  expandedRows.value = next
+}
 
 function statusLabel(s) {
   return String(s || '').replace(/_/g, ' ')
@@ -90,11 +101,14 @@ onMounted(load)
       <!-- Per-project asset ledger -->
       <section class="panel">
         <h2>Assets by project</h2>
-        <div class="table-scroll">
+        <!-- Vertically scrollable with a "See more" underneath, so the panel's
+             height stops growing with the portfolio. -->
+        <CollapsibleList :count="rows.length" :visible="5" row-selector="tbody > tr">
           <!-- data-label on every cell drives the under-640px card layout
                (src/styles/responsive-table.css); ten columns is the worst
-               horizontal scroll in the app. -->
-          <table class="data-table stack-on-mobile">
+               horizontal scroll in the app. `collapse-rows` takes that further
+               on a phone: each card shows the project name until opened. -->
+          <table class="data-table stack-on-mobile collapse-rows">
             <thead>
               <tr>
                 <th>Project</th>
@@ -110,11 +124,23 @@ onMounted(load)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in rows" :key="row.projectId">
+              <tr
+                v-for="row in rows"
+                :key="row.projectId"
+                :class="{ 'is-open': expandedRows.has(row.projectId) }"
+              >
                 <td data-label="Project">
                   <router-link :to="`/projects/${row.projectId}`" class="proj-link">
                     {{ row.projectTitle }}
                   </router-link>
+                  <button
+                    type="button"
+                    class="row-toggle"
+                    :aria-expanded="expandedRows.has(row.projectId)"
+                    @click="toggleRow(row.projectId)"
+                  >
+                    {{ expandedRows.has(row.projectId) ? 'Less' : 'More info' }}
+                  </button>
                 </td>
                 <td data-label="Status"><span class="badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
                 <td class="num" data-label="Estimated">{{ num(row.estimated) }}</td>
@@ -141,7 +167,7 @@ onMounted(load)
               </tr>
             </tfoot>
           </table>
-        </div>
+        </CollapsibleList>
         <p class="muted small legend">
           <strong>Issued</strong> = credits in your sellable pool ·
           <strong>Pending</strong> = verified reductions awaiting issuance ·

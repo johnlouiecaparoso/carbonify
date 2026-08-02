@@ -51,6 +51,42 @@ export async function adminSetUserProfile({ userId, kycLevel, role, fullName } =
   return data
 }
 
+/**
+ * Admin: set an LGU account's municipality / province.
+ *
+ * Deliberately a SEPARATE RPC from adminSetUserProfile rather than two more of
+ * its parameters — see the header of
+ * supabase/migrations/20260802000700_admin_set_user_jurisdiction.sql. Short
+ * version: changing that function's signature would break editing EVERY user
+ * on a database where the migration has not been applied yet.
+ *
+ * Pass '' (not null) to clear a field; null leaves it unchanged.
+ */
+export async function adminSetUserJurisdiction({ userId, municipality, province } = {}) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!userId) throw new Error('userId is required')
+
+  const { data, error } = await supabase.rpc('admin_set_user_jurisdiction', {
+    p_user_id: userId,
+    p_municipality: municipality ?? null,
+    p_province: province ?? null,
+  })
+  if (error) {
+    // PGRST202 = no function matching that name/arguments, i.e. the migration
+    // is not applied. Name it, because the fix is a deployment step and the raw
+    // message sends you looking at the client instead.
+    if (error.code === 'PGRST202') {
+      throw new Error(
+        'Setting an LGU jurisdiction is not available on this deployment yet ' +
+          '(migration 20260802000700 has not been applied). The rest of the changes were saved.',
+      )
+    }
+    throw new Error(error.message || 'Failed to set the jurisdiction')
+  }
+  return data
+}
+
 function client() {
   const supabase = getSupabase()
   if (!supabase) throw new Error('Supabase client not available')

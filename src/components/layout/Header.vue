@@ -1,62 +1,32 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <header class="header">
+    <!--
+      ONE header row, not two.
+
+      This used to be a `.mobile-header-layout` and a `.desktop-header-layout`
+      side by side, each with its own copy of the brand group, and only the
+      desktop one carrying the avatar dropdown. That is why a phone had no way
+      to reach profile, preferences, KYC, wallet, the tour or the user guide
+      except by scrolling to the bottom of the sidebar drawer — the account
+      block down there existed purely to make up for the missing menu.
+
+      With a single row the avatar sits beside the cart at every width, the
+      dropdown it opens is the same one on both, and the sidebar's account
+      block can go away. The handful of genuine per-width differences are CSS
+      (see .desktop-nav / .menu-btn--guest), which is where they belong.
+    -->
     <div class="header-container">
-      <!-- Mobile Header Layout -->
-      <div class="mobile-header-layout">
-        <!-- Menu button and logo share one flex row so they sit on the same
-             baseline. They used to be pinned to opposite ends of the header. -->
-        <div class="brand-group">
-          <button
-            class="menu-btn"
-            type="button"
-            :aria-label="menuButtonLabel"
-            :aria-expanded="menuExpanded"
-            @click="onMenuButtonClick"
-          >
-            <svg class="hamburger-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16"
-              ></path>
-            </svg>
-          </button>
-
-          <router-link to="/" class="logo">
-            <img
-              src="/carbonify-logo.png"
-              alt="Carbonify"
-              class="brand-wordmark brand-wordmark--mobile"
-            />
-          </router-link>
-        </div>
-
-        <!-- Right Section: cart badge -->
-        <div class="mobile-right-section">
-          <router-link
-            v-if="userStore.isAuthenticated && showCartIcon && cartStore.count > 0"
-            to="/cart"
-            class="cart-button mobile-cart"
-            :aria-label="`Cart, ${cartStore.count} credits`"
-          >
-            <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
-            <span class="cart-badge">{{ cartStore.count > 99 ? '99+' : cartStore.count }}</span>
-          </router-link>
-        </div>
-      </div>
-
-      <!-- Desktop Navigation (Hidden on Mobile) -->
-      <div class="desktop-header-layout">
+      <div class="header-row">
         <!-- Menu button + logo. The button replaced the sidebar's own collapse
              control, so there is one place to widen or narrow the sidebar and
              it sits where a menu button is expected. Guests have no sidebar to
-             toggle, so they get the logo alone. -->
+             toggle on desktop, so it is hidden there — but they still need it
+             on a phone, where it opens the guest overlay menu. -->
         <div class="brand-group">
           <button
-            v-if="userStore.isAuthenticated"
             class="menu-btn"
+            :class="{ 'menu-btn--guest': !userStore.isAuthenticated }"
             type="button"
             :aria-label="menuButtonLabel"
             :aria-expanded="menuExpanded"
@@ -89,8 +59,8 @@
           </router-link>
         </nav>
 
-        <!-- Desktop Actions -->
-        <div class="desktop-actions">
+        <!-- Cart, notifications, avatar — at every width. -->
+        <div class="header-actions">
           <!-- Cart lives next to the bell so buyers have an ambient reminder that
              they have items pending; it used to be text buried in the profile
              dropdown, which meant a filled cart was effectively invisible. -->
@@ -264,6 +234,17 @@
                   >
                   <span>About</span>
                 </router-link>
+
+                <!-- The one entry point every role has to "something is wrong".
+                     It lives here rather than on a page because the pages where
+                     things break are exactly the ones you cannot navigate away
+                     from to find a report button. -->
+                <button type="button" class="dropdown-item" @click="startReport">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                    >support_agent</span
+                  >
+                  <span>Report a problem</span>
+                </button>
               </div>
 
               <button @click="handleLogout" class="dropdown-item logout">
@@ -336,6 +317,7 @@ import { useUserStore } from '@/store/userStore'
 import { useCartStore } from '@/store/cartStore'
 import { getRoleDisplayName } from '@/constants/roles'
 import { buildGuestNav, buildAccountMenu, homeDestination } from '@/constants/navigation'
+import { openReportProblem } from '@/constants/support'
 import { useSidebar } from '@/composables/useSidebar'
 import { performLogout } from '@/utils/logout'
 import { safeInternalPath } from '@/utils/safeInternalPath'
@@ -439,6 +421,12 @@ function handleLogout() {
 function startTour() {
   showUserMenu.value = false
   window.dispatchEvent(new Event('carbonify:open-tour'))
+}
+
+// ReportProblemModal (also at the app root) listens for this one.
+function startReport() {
+  showUserMenu.value = false
+  openReportProblem()
 }
 
 const avatarUrl = computed(() => {
@@ -761,11 +749,8 @@ watch(
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
-.brand-wordmark--mobile {
-  height: 1.9rem;
-  width: 1.9rem;
-  padding: 0;
-}
+/* The mobile size now comes from a media query on .brand-wordmark itself — the
+   header no longer has a separate mobile logo element to hang a modifier on. */
 
 .logo-container {
   display: flex;
@@ -990,8 +975,11 @@ watch(
 /* Admin navigation items removed - admin features accessible via profile dropdown */
 
 /* Desktop Actions */
-.desktop-actions {
-  display: none;
+/* Shown at every width — this is the row that carries the avatar menu, and a
+   phone needs it more than a desktop does (there is no second copy of these
+   links anywhere else on mobile any more). */
+.header-actions {
+  display: flex;
   align-items: center;
   gap: 1rem;
   margin: 0;
@@ -1540,21 +1528,13 @@ watch(
 }
 
 /* Mobile Header Layout */
-.mobile-header-layout {
-  display: none;
+/* The single header row. Replaces the old .mobile-header-layout /
+   .desktop-header-layout pair — see the comment above the template. */
+.header-row {
+  display: flex;
   width: 100%;
   align-items: center;
   justify-content: space-between;
-  gap: 0;
-  padding: 0;
-  margin: 0;
-}
-
-/* Show mobile header on mobile screens */
-@media (max-width: 1024px) {
-  .mobile-header-layout {
-    display: flex !important;
-  }
 }
 
 .hamburger-icon {
@@ -1581,42 +1561,9 @@ watch(
   color: white;
 }
 
-.mobile-cart {
-  width: 2rem;
-  height: 2rem;
-}
-
-.mobile-right-section {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-shrink: 0;
-  margin: 0;
-  padding: 0.5rem 1rem;
-  width: auto;
-}
-
-/* Removed old mobile user section styles - now integrated into hamburger menu */
-
-/* Desktop Header Layout */
-.desktop-header-layout {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* Hide desktop header on mobile */
-@media (max-width: 1024px) {
-  .desktop-header-layout {
-    display: none !important;
-  }
-}
-
 /* Extra small screens */
 @media (max-width: 480px) {
-  .mobile-header-layout {
-    padding: 0.25rem 0;
+  .header-row {
     gap: 0.25rem;
   }
 
@@ -1857,8 +1804,8 @@ watch(
 /* Very small screens adjustments */
 @media (max-width: 360px) {
   .brand-group,
-  .mobile-right-section {
-    padding: 0.5rem 0.75rem;
+  .header-actions {
+    padding: 0.5rem 0.5rem;
   }
 
   .mobile-menu {
@@ -2210,10 +2157,6 @@ watch(
     display: flex;
   }
 
-  .desktop-actions {
-    display: flex;
-  }
-
   .mobile-menu-button {
     display: none;
   }
@@ -2225,11 +2168,28 @@ watch(
     display: block;
   }
 
+  /* Guest links; a phone gets them from the overlay menu instead. */
   .desktop-nav {
     display: none;
   }
 
-  .desktop-actions {
+  /* Tighter on a phone: three icons plus the brand have to share ~360px. */
+  .header-actions {
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .brand-wordmark {
+    height: 1.9rem;
+    width: 1.9rem;
+  }
+}
+
+/* A signed-out desktop visitor has no sidebar, so the hamburger would toggle
+   nothing. On a phone the same button opens the guest overlay menu, so it is
+   hidden by width rather than by `v-if`. */
+@media (min-width: 1025px) {
+  .menu-btn--guest {
     display: none;
   }
 }

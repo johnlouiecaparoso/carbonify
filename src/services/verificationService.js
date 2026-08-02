@@ -229,6 +229,121 @@ export async function getProjectAuditTrail(projectId) {
   return data || []
 }
 
+/** The audit actions that represent a verifier DECIDING something. */
+const DECISION_ACTIONS = [
+  'project_validated',
+  'project_rejected',
+  'project_needs_revision',
+  'report_approved',
+  'report_rejected',
+]
+
+/**
+ * Every decision the signed-in verifier has personally made, newest first.
+ *
+ * WHY THIS EXISTS
+ * A verifier could read the timeline of whichever project happened to be open,
+ * and nothing else. So the one question their accreditation body asks first —
+ * "what did you validate, and when?" — had no answer inside the product. The
+ * data was already there and already readable; nobody had ever asked it by
+ * actor instead of by project.
+ *
+ * No migration needed: 20260722000300 grants verifiers SELECT on audit rows
+ * whose `resource_type` is 'projects' or 'monitoring_reports', which is exactly
+ * the set below. Filtering by `user_id = me` narrows within what RLS already
+ * allows rather than reaching past it.
+ *
+ * THROWS rather than returning []. "You have decided nothing" is a claim about
+ * a professional's record; a failed read is not evidence for it, and this is a
+ * screen someone may be looking at precisely because they are being audited.
+ *
+ * @param {{ limit?: number, since?: string|null }} [opts]
+ * @returns {Promise<Array<{id:string, at:string, action:string, label:string,
+ *   kind:'project'|'report', resourceId:string, projectTitle:string|null,
+ *   note:string|null}>>}
+ */
+export async function getMyVerificationDecisions({ limit = 200, since = null } = {}) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const userId = sessionData?.session?.user?.id
+  if (!userId) throw new Error('Please sign in again to see your decision history')
+
+  let query = supabase
+    .from('audit_logs')
+    .select('id, action, resource_type, resource_id, created_at, metadata')
+    .eq('user_id', userId)
+    .in('action', DECISION_ACTIONS)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (since) query = query.gte('created_at', since)
+
+  const { error, data } = await query
+  if (error) throw new Error(error.message || 'Could not load your decision history')
+
+  const rows = data || []
+
+  // Titles are not on the audit row. Fetched in one batch keyed by id rather
+  // than embedded, because audit_logs.resource_id is a plain uuid column with
+  // no FK to projects — there is no relationship for PostgREST to traverse.
+  const projectIds = [
+    ...new Set(rows.filter((r) => r.resource_type === 'projects').map((r) => r.resource_id)),
+  ].filter(Boolean)
+
+  let titles = {}
+  if (projectIds.length) {
+    const { data: projects, error: titleError } = await supabase
+      .from('projects')
+      .select('id, title')
+      .in('id', projectIds)
+    // A missing title degrades to "Project <short id>". Losing a label must not
+    // lose the decision it belongs to.
+    if (titleError) {
+      console.warn('[verification] could not resolve project titles:', titleError.message)
+    } else {
+      titles = Object.fromEntries((projects || []).map((p) => [p.id, p.title]))
+    }
+  }
+
+  return rows.map((row) => ({
+    id: row.id,
+    at: row.created_at,
+    action: row.action,
+    label: TIMELINE_LABELS[row.action] || String(row.action || '').replace(/_/g, ' '),
+    kind: row.resource_type === 'monitoring_reports' ? 'report' : 'project',
+    resourceId: row.resource_id,
+    projectTitle:
+      row.resource_type === 'projects'
+        ? titles[row.resource_id] || `Project ${String(row.resource_id || '').slice(0, 8)}`
+        : row.metadata?.project_title || null,
+    note: row.metadata?.note || row.metadata?.notes || row.metadata?.reason || null,
+  }))
+}
+
+/**
+ * Roll a decision list into the counts a verifier is actually asked for.
+ * Pure — exported for unit testing.
+ *
+ * @param {Array<Object>} decisions
+ * @returns {{total:number, validated:number, rejected:number, revisions:number,
+ *   reports:number, firstAt:string|null, lastAt:string|null}}
+ */
+export function summariseDecisions(decisions = []) {
+  const list = decisions || []
+  const times = list.map((d) => d.at).filter(Boolean).sort()
+  return {
+    total: list.length,
+    validated: list.filter((d) => d.action === 'project_validated').length,
+    rejected: list.filter((d) => d.action === 'project_rejected').length,
+    revisions: list.filter((d) => d.action === 'project_needs_revision').length,
+    reports: list.filter((d) => d.kind === 'report').length,
+    firstAt: times[0] || null,
+    lastAt: times[times.length - 1] || null,
+  }
+}
+
 /**
  * Free-text filter over the review queue.
  *

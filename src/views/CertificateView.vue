@@ -51,21 +51,33 @@
 
           <!-- Certificates List + Detail View -->
           <div v-else class="certificates-layout">
-            <div class="certificate-list">
-              <button
-                v-for="certificate in certificates"
-                :key="certificate.id"
-                class="certificate-list-item"
-                :class="{ active: certificate.id === selectedCertificate?.id }"
-                @click="handleCertificateSelect(certificate)"
+            <!-- The picker sits on the RIGHT (see .certificates-layout) so the
+                 certificate itself gets the reading position. Each row is
+                 title first, certificate number under it — they used to share
+                 one line, which made the number look like part of the name. -->
+            <div class="certificate-picker">
+              <CollapsibleList
+                :count="certificates.length"
+                :visible="6"
+                row-selector=".certificate-list-item"
               >
-                <span class="certificate-list-title">
-                  {{ certificate.project_title || certificate.certificate_data?.project_title || 'Untitled Certificate' }}
-                </span>
-                <span class="certificate-list-meta">
-                  Cert #{{ certificate.certificate_number || certificate.id }}
-                </span>
-              </button>
+                <div class="certificate-list">
+                  <button
+                    v-for="certificate in certificates"
+                    :key="certificate.id"
+                    class="certificate-list-item"
+                    :class="{ active: certificate.id === selectedCertificate?.id }"
+                    @click="handleCertificateSelect(certificate)"
+                  >
+                    <span class="certificate-list-title">
+                      {{ certificate.project_title || certificate.certificate_data?.project_title || 'Untitled Certificate' }}
+                    </span>
+                    <span class="certificate-list-meta">
+                      Cert #{{ certificate.certificate_number || certificate.id }}
+                    </span>
+                  </button>
+                </div>
+              </CollapsibleList>
             </div>
 
             <div v-if="!isMobile" class="certificate-detail-area">
@@ -433,6 +445,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getUserCertificates } from '@/services/certificateService'
 import { getUserReceipts, downloadReceipt as downloadReceiptFile } from '@/services/receiptService'
+import CollapsibleList from '@/components/ui/CollapsibleList.vue'
+import { downloadBlob } from '@/utils/download'
 
 const router = useRouter()
 const route = useRoute()
@@ -768,15 +782,10 @@ For verification, visit: https://carbonify.com/verify
 ═══════════════════════════════════════════════════════════
       `.trim()
       
-      const blob = new Blob([certText], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `certificate-${certificate.certificate_number}.txt`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      downloadBlob(
+        new Blob([certText], { type: 'text/plain' }),
+        `certificate-${certificate.certificate_number}.txt`,
+      )
       console.log('Text certificate downloaded as fallback')
       alert('Certificate downloaded as text file (PDF generation unavailable)')
     }
@@ -879,14 +888,17 @@ onUnmounted(() => {
   border-bottom: none;
 }
 
+/* Left-aligned, like every other page banner in the app. This one and the
+   receipt were the only two centred, which made them read as a different
+   product the moment you navigated between them. */
 .header-content {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .header-text {
-  text-align: center;
+  text-align: left;
   width: 100%;
 }
 
@@ -894,11 +906,12 @@ onUnmounted(() => {
   font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.35rem 0;
 }
 
 .page-description {
-  color: #fff;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.95rem;
   margin: 0;
 }
 
@@ -981,11 +994,25 @@ onUnmounted(() => {
 }
 
 /* Certificates Layout */
+/* Certificate first, picker second — the certificate is what the page is for,
+   and it now sits where the eye lands. The DOM order is unchanged (picker
+   first) so keyboard and screen-reader users still meet the list before the
+   thing it controls; only the visual columns are swapped. */
 .certificates-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) 1fr;
+  grid-template-columns: 1fr minmax(220px, 320px);
   gap: 1.5rem;
   align-items: flex-start;
+}
+
+.certificate-picker {
+  order: 2;
+  min-width: 0;
+}
+
+.certificate-detail-area {
+  order: 1;
+  min-width: 0;
 }
 
 .certificate-list {
@@ -996,14 +1023,17 @@ onUnmounted(() => {
   border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 0.75rem;
   padding: 1rem;
-  max-height: 70vh;
-  overflow-y: auto;
 }
 
+/* Title on top, certificate number underneath. These used to share a row
+   (`align-items: center` on a flex row), so "Cert #…" read as a continuation
+   of the project name rather than as its identifier. */
 .certificate-list-item {
   display: flex;
-  align-items: center;
-  padding: 0.75rem 0.875rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
   background: var(--bg-primary, #ffffff);
   border: 1px solid var(--border-light, #e8f5e8);
   border-radius: 0.5rem;
@@ -1012,6 +1042,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
+  width: 100%;
 }
 
 .certificate-list-item:hover {
@@ -1028,19 +1059,15 @@ onUnmounted(() => {
 }
 
 .certificate-list-title {
-  flex: 1;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .certificate-list-meta {
-  margin-top: 0.3rem;
   color: var(--text-muted, #64748b);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 500;
-}
-
-.certificate-detail-area {
-  min-height: 400px;
 }
 
 .certificate-card {
@@ -1277,15 +1304,19 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
+  /* `max-height: none` here is what made every certificate render at once on a
+     phone — a 40-certificate account was a wall of cards with no end in sight
+     and no way to reach the rest of the page. CollapsibleList now caps it at
+     six rows in a scroller with a "See more" button underneath, so the height
+     stops depending on how long you have used the platform. */
   .certificate-list {
-    max-height: none;
+    gap: 0.5rem;
+    padding: 0.6rem;
   }
 
   .certificate-list-item {
     transform: none !important;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.15rem;
+    padding: 0.5rem 0.6rem;
   }
 
   .certificate-detail-area {

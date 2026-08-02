@@ -260,9 +260,21 @@ onMounted(load)
             <label for="o-status">Status</label>
             <select id="o-status" v-model="form.status">
               <option v-for="s in OFFTAKE_STATUSES" :key="s" :value="s">
-                {{ OFFTAKE_STATUS_LABELS[s] }}{{ isContracted(s) ? ' — counts as contracted' : '' }}
+                {{ OFFTAKE_STATUS_LABELS[s] }}
               </option>
             </select>
+            <!-- "— counts as contracted" used to be appended to the option text
+                 itself, which roughly doubled the widest label and so opened a
+                 popup far wider than the control. It says the same thing here,
+                 about the status actually chosen, and costs the dropdown
+                 nothing. -->
+            <small class="hint">
+              {{
+                isContracted(form.status)
+                  ? 'Counts as contracted revenue.'
+                  : 'Not counted as contracted revenue.'
+              }}
+            </small>
           </div>
         </div>
         <div class="form-row">
@@ -369,6 +381,9 @@ onMounted(load)
 .small { font-size: 0.8rem; }
 .opt { font-weight: 400; color: #9ca3af; }
 .hint { margin: 8px 0 0; }
+/* Inside a .form-row the hint is a sibling of the control, so it needs to be a
+   quiet caption rather than inherit the row's field styling. */
+.form-row .hint { margin: 0; font-size: 0.78rem; color: #6b7280; }
 
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
 .stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
@@ -400,7 +415,12 @@ onMounted(load)
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .form-row { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
 .form-row label { font-size: 0.85rem; font-weight: 600; color: #374151; }
-.form-row input, .form-row select, .form-row textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+.form-row input, .form-row select, .form-row textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; width: 100%; min-width: 0; }
+/* Native selects do not resolve the same height as inputs from equal padding,
+   which put the Project and Status dropdowns out of line with the text fields
+   beside them in the two-column agreement form. */
+.form-row input, .form-row select { height: 38px; }
+.form-row select { text-overflow: ellipsis; }
 .estimate { margin-top: 12px; font-size: 0.85rem; color: #065f46; }
 .err-list { margin: 10px 0 0; padding-left: 18px; color: #991b1b; font-size: 0.85rem; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }

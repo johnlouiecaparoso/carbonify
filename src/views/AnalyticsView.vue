@@ -4,6 +4,8 @@ import PageHeader from '@/components/layout/PageHeader.vue'
 import { useUserStore } from '@/store/userStore'
 import { generateCarbonImpactReport } from '@/services/receiptService'
 import { getSellerBalance, getMySales, getMyPayouts } from '@/services/payoutService'
+import { creditOwnershipService } from '@/services/creditOwnershipService'
+import { computeConcentration } from '@/services/portfolioAnalytics'
 import { formatDate } from '@/utils/formatDate'
 import { FEATURES } from '@/constants/plans'
 import PortfolioChart from '@/components/charts/PortfolioChart.vue'
@@ -93,24 +95,60 @@ const loadCarbonImpactData = async () => {
     const impactReport = await generateCarbonImpactReport(userStore.user.id)
     carbonImpactData.value = impactReport
 
-    // Update category chart data with real data
-    if (impactReport.categoryBreakdown) {
-      const categories = Object.keys(impactReport.categoryBreakdown)
-      const categoryData = categories.map(
-        (category) => impactReport.categoryBreakdown[category].credits,
-      )
-      const totalCredits = categoryData.reduce((sum, credits) => sum + credits, 0)
+    // Build the category chart from what actually came back. Reassigned whole
+    // rather than patched in place: the previous version mutated
+    // `datasets[0].data` and left the seeded labels and colours behind, so a
+    // response with fewer categories than the placeholder kept the extras.
+    const breakdown = impactReport.categoryBreakdown || {}
+    const categories = Object.keys(breakdown)
+    const credits = categories.map((c) => Number(breakdown[c]?.credits) || 0)
+    const totalCredits = credits.reduce((sum, n) => sum + n, 0)
 
-      categoryChartData.value.labels = categories
-      categoryChartData.value.datasets[0].data = categoryData.map((credits) =>
-        totalCredits > 0 ? Math.round((credits / totalCredits) * 100) : 0,
-      )
-    }
+    categoryChartData.value =
+      totalCredits > 0
+        ? {
+            labels: categories,
+            datasets: [
+              {
+                data: credits.map((n) => Math.round((n / totalCredits) * 100)),
+                // Sliced by index so slot 1 is always the same hue whatever the
+                // category count. `%` guards a portfolio with more categories
+                // than slots — those fold onto earlier hues, which the legend
+                // and the table view still disambiguate.
+                backgroundColor: categories.map((_, i) => SERIES_COLORS[i % SERIES_COLORS.length]),
+                borderColor: '#ffffff',
+                // A 2px surface gap between adjacent segments, so touching
+                // slices read as separate marks rather than one blended arc.
+                borderWidth: 2,
+              },
+            ],
+          }
+        : { labels: [], datasets: [] }
   } catch (err) {
     console.error('Error loading carbon impact data:', err)
     error.value = 'Failed to load impact data'
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Per-project holdings, for the concentration panel.
+ *
+ * Loaded separately and failing QUIETLY: concentration is one panel on this
+ * page, and losing it must not blank the impact report beside it. The panel
+ * simply does not render when there is nothing to compute — it never shows a
+ * zero, because "0% in your largest project" is a false statement rather than
+ * an empty one.
+ */
+const loadHoldings = async () => {
+  const userId = userStore.user?.id
+  if (!userId) return
+  try {
+    holdings.value = await creditOwnershipService.getUserCreditPortfolio(userId)
+  } catch (err) {
+    console.warn('[analytics] concentration unavailable:', err?.message)
+    holdings.value = []
   }
 }
 
@@ -164,29 +202,66 @@ const salesChartOptions = computed(() => ({
   },
 }))
 
-const categoryChartData = ref({
-  labels: ['Forestry', 'Renewable Energy', 'Blue Carbon', 'Energy Efficiency', 'Waste Management'],
-  datasets: [
-    {
-      data: [35, 25, 15, 15, 10],
-      backgroundColor: [
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(139, 92, 246, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-      ],
-      borderColor: [
-        'rgba(16, 185, 129, 1)',
-        'rgba(59, 130, 246, 1)',
-        'rgba(139, 92, 246, 1)',
-        'rgba(245, 158, 11, 1)',
-        'rgba(239, 68, 68, 1)',
-      ],
-      borderWidth: 2,
-    },
-  ],
-})
+/**
+ * Categorical series colours, in fixed slot order.
+ *
+ * Assigned by SLOT, never cycled and never re-assigned when the number of
+ * categories changes — a filter that drops a category must not repaint the
+ * survivors, or the reader's mental mapping of colour→category silently breaks.
+ *
+ * The previous set was picked ad hoc and included a red, which is reserved for
+ * error/critical status everywhere else in this app; a "Waste Management" slice
+ * rendered in the same red as a failed payment is a real misread. This order is
+ * validated: worst adjacent CVD ΔE 9.1 (protan), worst adjacent normal-vision
+ * ΔE 19.6, both clear of their floors on a white surface. Three of the five sit
+ * under 3:1 contrast against white, which obliges visible labels rather than
+ * colour alone — hence the legend plus the percentage in every tooltip and the
+ * table view below the chart.
+ */
+const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4']
+
+/**
+ * Starts EMPTY, deliberately.
+ *
+ * This used to be seeded with five invented categories and the shares
+ * [35, 25, 15, 15, 10]. Those numbers rendered as a finished chart before any
+ * data loaded, and stayed on screen if the load failed or the account simply
+ * had no purchases — so a buyer could be shown a confident breakdown of a
+ * portfolio they do not own, in a page they pay for, and export decisions from
+ * it. Placeholder data that is indistinguishable from real data is the worst
+ * kind. The empty state below says "no purchases yet" instead.
+ */
+const categoryChartData = ref({ labels: [], datasets: [] })
+
+const hasCategoryData = computed(() => (categoryChartData.value.labels || []).length > 0)
+
+// ── Concentration ───────────────────────────────────────────────────────────
+// Holdings are loaded here rather than reusing the impact report: that report
+// aggregates by category and drops the per-PROJECT split, which is precisely
+// what concentration needs.
+const holdings = ref([])
+
+const concentration = computed(() => computeConcentration(holdings.value))
+
+/** What each HHI band means, in words a buyer can act on. */
+const CONCENTRATION_COPY = {
+  none: { label: '—', detail: '' },
+  diversified: {
+    label: 'Diversified',
+    detail:
+      'Your offsets are spread across enough projects that a problem with any one of them — a reversal, a suspension, a failed re-verification — would affect only part of your position.',
+  },
+  moderate: {
+    label: 'Moderately concentrated',
+    detail:
+      'A meaningful share of your offsets sits in a small number of projects. Worth knowing before you rely on them for a disclosure.',
+  },
+  concentrated: {
+    label: 'Concentrated',
+    detail:
+      'Most of your offsets sit in very few projects. If one were reversed or suspended, a large part of your claimed reduction would go with it.',
+  },
+}
 
 const categoryChartOptions = ref({
   plugins: {
@@ -207,6 +282,7 @@ const categoryChartOptions = ref({
 // Load data on component mount
 onMounted(() => {
   loadCarbonImpactData()
+  loadHoldings()
 })
 </script>
 
@@ -336,8 +412,85 @@ onMounted(() => {
 
           <div class="chart-card">
             <h3>Credit Purchases by Category</h3>
-            <CategoryChart :data="categoryChartData" :options="categoryChartOptions" />
+            <CategoryChart v-if="hasCategoryData" :data="categoryChartData" :options="categoryChartOptions" />
+            <!-- Was a chart of five invented categories. An empty state is the
+                 honest version of "we have nothing to show you". -->
+            <p v-else class="chart-empty">
+              No purchases to break down yet. Buy credits and your category mix appears here.
+            </p>
+
+            <!-- The table view the contrast relief rule requires: three of the
+                 five slot colours sit under 3:1 on white, so identity must not
+                 rest on colour alone. It doubles as the accessible view. -->
+            <table v-if="hasCategoryData" class="chart-table">
+              <caption class="sr-only">Credit purchases by category, as percentages</caption>
+              <thead>
+                <tr><th scope="col">Category</th><th scope="col" class="num">Share</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="(label, i) in categoryChartData.labels" :key="label">
+                  <th scope="row">
+                    <span
+                      class="swatch"
+                      :style="{ background: categoryChartData.datasets[0].backgroundColor[i] }"
+                      aria-hidden="true"
+                    ></span>
+                    {{ label }}
+                  </th>
+                  <td class="num">{{ categoryChartData.datasets[0].data[i] }}%</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+        </div>
+
+        <!-- ── Concentration ────────────────────────────────────────────────
+             The one thing on this page that cannot be read off the free
+             portfolio view: how much of the position sits in one project. -->
+        <div class="concentration" v-if="concentration.totalCredits > 0">
+          <div class="conc-head">
+            <h3>Concentration</h3>
+            <span class="conc-rating" :class="concentration.rating">
+              {{ CONCENTRATION_COPY[concentration.rating].label }}
+            </span>
+          </div>
+          <p class="conc-explainer">{{ CONCENTRATION_COPY[concentration.rating].detail }}</p>
+
+          <div class="conc-stats">
+            <div class="conc-stat">
+              <span class="conc-label">Largest project</span>
+              <span class="conc-value">{{ concentration.largestShare }}%</span>
+            </div>
+            <div class="conc-stat">
+              <span class="conc-label">Top 3 projects</span>
+              <span class="conc-value">{{ concentration.topThreeShare }}%</span>
+            </div>
+            <div class="conc-stat">
+              <span class="conc-label">Projects held</span>
+              <span class="conc-value">{{ concentration.projectCount }}</span>
+            </div>
+            <div class="conc-stat">
+              <span class="conc-label">Categories</span>
+              <span class="conc-value">{{ concentration.categoryCount }}</span>
+            </div>
+          </div>
+
+          <!-- A horizontal bar per project: magnitude compared across a short,
+               named list, which is what bars are for. Values are labelled
+               directly, so no axis is needed and no legend (one series). -->
+          <ul class="conc-bars">
+            <li v-for="p in concentration.topProjects" :key="p.label" class="conc-bar-row">
+              <span class="conc-bar-label" :title="p.label">{{ p.label }}</span>
+              <span class="conc-bar-track">
+                <span class="conc-bar-fill" :style="{ width: `${p.share}%` }"></span>
+              </span>
+              <span class="conc-bar-value">{{ p.share }}%</span>
+            </li>
+          </ul>
+          <p class="conc-foot">
+            Share of the {{ concentration.totalCredits.toLocaleString() }} credits you currently
+            hold. Retired credits are excluded — they are spent, not exposure.
+          </p>
         </div>
 
         <!-- Recent Activity -->
@@ -603,6 +756,228 @@ onMounted(() => {
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.chart-empty {
+  margin: 0;
+  padding: 2rem 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+/* The accessible/relief view of the doughnut. Values sit in text ink, never in
+   the series colour — the swatch beside the label carries identity. */
+.chart-table {
+  width: 100%;
+  margin-top: 1rem;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: 0.35rem 0.25rem;
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-light, #e8f5e8);
+}
+
+.chart-table thead th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chart-table .num {
+  text-align: right;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 0.4rem;
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Concentration ───────────────────────────────────────────────────────── */
+.concentration {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 3rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.conc-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.conc-head h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Status wears status colours, and always with its label — never colour alone. */
+.conc-rating {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.conc-rating.diversified {
+  background: #dcfce7;
+  color: #166534;
+}
+.conc-rating.moderate {
+  background: #fef3c7;
+  color: #92400e;
+}
+.conc-rating.concentrated {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.conc-explainer {
+  margin: 0 0 1.25rem;
+  max-width: 70ch;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.conc-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.conc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.conc-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.conc-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.conc-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.conc-bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.conc-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.conc-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-tertiary, #f0f9f0);
+  overflow: hidden;
+}
+
+/* Thin mark, rounded data-end, anchored to the baseline (left edge). One
+   series, so it carries the single sequential hue and needs no legend. */
+.conc-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary-color, #058526);
+}
+
+.conc-bar-value {
+  min-width: 3.2rem;
+  text-align: right;
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.conc-foot {
+  margin: 1rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .concentration {
+    padding: 1rem;
+  }
+
+  /* The label needs the full width on a phone; the bar and its value share the
+     line below it rather than each being squeezed to a few pixels. */
+  .conc-bar-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 0.3rem;
+  }
+
+  .conc-bar-label {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+
+  /* Each row is two lines here, so the 0.5rem list gap that separated
+     single-line rows no longer reads as a separation — the next project's name
+     sits as close to this bar as this project's name does. Verified by
+     rendering at 380px. */
+  .conc-bars {
+    gap: 1rem;
+  }
 }
 
 .activity-section {

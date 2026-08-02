@@ -613,8 +613,12 @@ onMounted(() => {
   min-width: min(240px, 100%);
 }
 
+/* Sized for "Under Review" plus the native caret. The popup a browser draws is
+   never narrower than the control but grows to fit its longest option, so an
+   under-sized control is what makes the open list look wider than the closed
+   box. See src/styles/form-controls.css. */
 .filter-select {
-  min-width: min(180px, 100%);
+  min-width: min(200px, 100%);
 }
 
 .filter-button {
@@ -956,6 +960,35 @@ tbody tr:hover {
 }
 
 @media (max-width: 768px) {
+  /* The three white stat cards live in PageHeader's actions slot. At 150px min
+     each they wrapped to three stacked cards on a phone and pushed the green
+     "Role Applications" title off the top of the viewport — the reported
+     "header is not clearly visible". As a 3-up row of compact pills they cost
+     one line instead of three and the title stays on screen. */
+  .header-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .stat {
+    min-width: 0;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    box-shadow: none;
+    text-align: center;
+  }
+
+  .stat__label {
+    font-size: 0.68rem;
+    line-height: 1.25;
+  }
+
+  .stat__value {
+    font-size: 1.1rem;
+  }
+
   .filters-bar {
     flex-direction: column;
     align-items: stretch;

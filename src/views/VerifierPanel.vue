@@ -68,6 +68,7 @@
             <ProjectApprovalPanel v-if="activeTab === 'projects'" />
             <MrvReviewDashboard v-else-if="activeTab === 'mrv'" />
             <DeveloperApplicationsDashboard v-else-if="activeTab === 'applications'" />
+            <MyDecisionsPanel v-else-if="activeTab === 'decisions'" />
           </div>
         </div>
       </div>
@@ -81,6 +82,7 @@ import { useUserStore } from '@/store/userStore'
 import ProjectApprovalPanel from '@/components/admin/ProjectApprovalPanel.vue'
 import DeveloperApplicationsDashboard from '@/components/verifier/DeveloperApplicationsDashboard.vue'
 import MrvReviewDashboard from '@/components/verifier/MrvReviewDashboard.vue'
+import MyDecisionsPanel from '@/components/verifier/MyDecisionsPanel.vue'
 import { getVerifierQueueCounts } from '@/services/verifierQueueCounts'
 
 const store = useUserStore()
@@ -99,6 +101,10 @@ const tabs = computed(() => [
     icon: 'how_to_reg',
     count: counts.value.applications,
   },
+  // Not a queue — a record. Carries no count on purpose: the other three
+  // numbers mean "work waiting for you", and a badge here would read as more
+  // of the same rather than as history.
+  { value: 'decisions', label: 'My Decisions', icon: 'history', count: 0 },
 ])
 
 // Project validation is the queue a verifier opens the panel for.

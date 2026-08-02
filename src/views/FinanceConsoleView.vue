@@ -42,17 +42,22 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Book Reconciliation</h2>
-          <button class="btn" :disabled="loading" @click="refresh">
-            {{ loading ? 'Refreshing…' : 'Refresh' }}
-          </button>
-          <button
-            class="btn"
-            :disabled="loading || !transactions.length"
-            :title="`Export ${transactions.length} transaction(s) as CSV`"
-            @click="exportCsv"
-          >
-            Export CSV
-          </button>
+          <!-- Grouped so `space-between` distributes heading-vs-actions rather
+               than heading-vs-Refresh-vs-Export, which is what spread the two
+               buttons to opposite ends of a phone-width row. -->
+          <div class="panel-head__actions">
+            <button class="btn" :disabled="loading" @click="refresh">
+              {{ loading ? 'Refreshing…' : 'Refresh' }}
+            </button>
+            <button
+              class="btn"
+              :disabled="loading || !transactions.length"
+              :title="`Export ${transactions.length} transaction(s) as CSV`"
+              @click="exportCsv"
+            >
+              Export CSV
+            </button>
+          </div>
         </div>
         <div v-if="drift.length === 0" class="recon-ok">
           <span class="material-symbols-outlined inline-ico" aria-hidden="true">check_circle</span> Books balanced — no drift detected.
@@ -253,11 +258,18 @@ onMounted(refresh)
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-bottom: 1rem;
 }
 .panel-head h2 {
   margin: 0;
   font-size: 1.15rem;
+}
+.panel-head__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .btn {
   padding: 0.5rem 1rem;
@@ -355,6 +367,23 @@ onMounted(refresh)
   .tx-table {
     font-size: 0.82rem;
     white-space: nowrap;
+  }
+
+  /* Heading on its own line, then Refresh and Export CSV as an equal-width
+     pair. Previously they were two differently-sized buttons pushed to
+     opposite edges by `space-between`, which is the misalignment reported on
+     the finance console in mobile. */
+  .panel-head__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .panel-head__actions .btn {
+    width: 100%;
+    padding: 0.5rem 0.5rem;
+    font-size: 0.85rem;
   }
 }
 

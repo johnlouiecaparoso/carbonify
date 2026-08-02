@@ -286,8 +286,11 @@ onMounted(() => {
   min-width: min(200px, 100%);
 }
 
+/* The user filter lists full names, so its popup is as wide as the longest
+   account in the table; a 150px control guaranteed the open list overhung the
+   closed box. 220px covers the realistic names and lines the two up. */
 .filter-select {
-  min-width: min(150px, 100%);
+  min-width: min(220px, 100%);
 }
 
 .refresh-btn {

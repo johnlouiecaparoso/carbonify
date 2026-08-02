@@ -130,7 +130,12 @@
           </div>
 
           <div v-else class="receipts-list list-scroll-y">
-            <div v-for="receipt in shownReceipts" :key="receipt.id" class="receipt-card">
+            <div
+              v-for="receipt in shownReceipts"
+              :key="receipt.id"
+              class="receipt-card"
+              :class="{ 'is-open': expandedReceipts.has(receipt.id) }"
+            >
               <div class="receipt-header">
                 <div class="receipt-icon">Receipt</div>
                 <div class="receipt-info">
@@ -143,6 +148,20 @@
                   }}</span>
                 </div>
               </div>
+
+              <!-- Phone only (hidden by CSS above 768px). A receipt card is six
+                   label/value rows plus four buttons; at phone width a handful
+                   of purchases became a page you scroll for a long time to get
+                   past. Name and receipt number identify it; the rest opens on
+                   request. -->
+              <button
+                type="button"
+                class="details-toggle"
+                :aria-expanded="expandedReceipts.has(receipt.id)"
+                @click="toggleReceiptDetails(receipt.id)"
+              >
+                {{ expandedReceipts.has(receipt.id) ? 'Hide information' : 'See more information' }}
+              </button>
 
               <div class="receipt-details">
                 <div class="detail-row">
@@ -260,6 +279,16 @@ const shownReceipts = computed(() =>
   receiptsExpanded.value ? receipts.value : receipts.value.slice(0, COLLAPSED_COUNT),
 )
 const hasMore = computed(() => receipts.value.length > COLLAPSED_COUNT)
+
+// Which cards have had "See more information" opened. Only consulted on phone
+// widths — above 768px the details are always shown and the toggle is hidden.
+const expandedReceipts = ref(new Set())
+function toggleReceiptDetails(id) {
+  const next = new Set(expandedReceipts.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedReceipts.value = next
+}
 
 function showMore() {
   receiptsExpanded.value = true
@@ -537,14 +566,16 @@ onMounted(() => {
   border-bottom: none;
 }
 
+/* Left-aligned, matching the certificate page and every other banner. The two
+   of them were the only centred headers in the app. */
 .header-content {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .header-text {
-  text-align: center;
+  text-align: left;
   width: 100%;
 }
 
@@ -552,12 +583,18 @@ onMounted(() => {
   font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.35rem 0;
 }
 
 .page-description {
-  color: #fff;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.95rem;
   margin: 0;
+}
+
+/* Desktop shows every row; the toggle only exists for phone widths. */
+.details-toggle {
+  display: none;
 }
 
 .receipt-content {
@@ -928,6 +965,50 @@ onMounted(() => {
 
   .detail-value {
     text-align: left;
+  }
+
+  /* Name + receipt number is the whole card until asked otherwise. */
+  .details-toggle {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary-color, #058526);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .receipt-card .receipt-details {
+    display: none;
+  }
+
+  .receipt-card.is-open .receipt-details {
+    display: block;
+    margin-top: 0.5rem;
+  }
+
+  .receipt-card {
+    padding: 0.85rem;
+  }
+
+  .receipt-title {
+    font-size: 0.95rem;
+  }
+
+  /* Four buttons in a column is most of a phone screen; two per row is not. */
+  .receipt-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+  }
+
+  .receipt-actions .btn {
+    width: 100%;
+    padding: 0.4rem 0.4rem;
+    font-size: 0.78rem;
   }
 }
 </style>

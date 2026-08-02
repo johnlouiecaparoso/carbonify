@@ -5,6 +5,7 @@ import { createPinia } from 'pinia'
 import '@/styles/tokens.css'
 import '@/styles/responsive.css'
 import '@/styles/responsive-table.css'
+import '@/styles/form-controls.css'
 // Last, so the preference overrides beat component defaults.
 import '@/styles/preferences.css'
 

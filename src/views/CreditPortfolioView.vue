@@ -341,9 +341,32 @@ const exporting = ref('') // '' | 'pdf' | 'csv'
 const exportMessage = ref('')
 const exportError = ref(false)
 
+// A report is four Supabase reads plus, for PDF, a lazily-imported jsPDF chunk.
+// Any one of those can stall on a bad connection, and an awaited request that
+// never settles leaves the button reading "Preparing…" forever with nothing to
+// click and nothing explaining why — the reported "it just loads, I can't
+// export it". A bounded wait turns that into a stated failure the user can act
+// on. Generous on purpose: this must only fire when something is genuinely
+// wrong, never on a slow-but-working export.
+const EXPORT_TIMEOUT_MS = 30_000
+
+function withTimeout(promise, ms) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            'Your report is taking longer than expected. Check your connection and try again.',
+          ),
+        ),
+      ms,
+    )
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
 async function downloadEsg(format) {
-  // Diagnostic: confirms the click handler fired (look for this in the console).
-  console.log(`[ESG] export button clicked → ${format}`)
   const userId = userStore.session?.user?.id
   if (!userId) {
     exportError.value = true
@@ -356,10 +379,11 @@ async function downloadEsg(format) {
   exportMessage.value = 'Preparing your report…'
   exportError.value = false
   try {
-    const data =
-      format === 'pdf' ? await exportEsgReportPdf(userId) : await exportEsgReportCsv(userId)
+    const data = await withTimeout(
+      format === 'pdf' ? exportEsgReportPdf(userId) : exportEsgReportCsv(userId),
+      EXPORT_TIMEOUT_MS,
+    )
     const total = data?.totals?.totalCredits ?? 0
-    console.log('[ESG] report generated', data?.totals)
     exportMessage.value =
       total > 0
         ? `Your ESG/offset report downloaded (${total} credit${total === 1 ? '' : 's'} covered).`
@@ -859,8 +883,24 @@ onMounted(() => {
   font-weight: bold;
 }
 
+/* Title, location and category are a stack, so lay them out as one.
+   Previously each was its own display type — an <h3> block, an inline-flex <p>
+   still carrying the UA's 1em top/bottom margin, and an inline <span> — so the
+   three sat on inconsistent baselines with a full line of dead space between
+   the name and the location. That is the "name, location and under of it is not
+   aligned" report. `min-width: 0` lets a long title wrap instead of pushing the
+   row wider than the card. */
 .credit-info {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.credit-info > p {
+  margin: 0;
 }
 
 .credit-title {
@@ -917,10 +957,13 @@ onMounted(() => {
 
 .credit-location {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
   color: #6b7280;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  /* The pin must stay on the first line of a wrapping place name. */
+  text-align: left;
 }
 
 .credit-location .material-symbols-outlined {
@@ -964,6 +1007,48 @@ onMounted(() => {
 .credit-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  /* Wider, not taller. Two auto-width buttons in a narrow card wrapped onto
+     separate rows and each still only occupied part of its line, so the pair
+     cost two tall rows and looked ragged. A 1fr/1fr grid gives them the full
+     card width and lets the vertical padding come down. */
+  .credit-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .credit-actions .btn {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* Only "Manage in Wallet" is rendered for a retired holding — let it span
+     rather than sit as a lonely half-width button. */
+  .credit-actions .btn:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .credit-card {
+    padding: 1rem;
+  }
+
+  .credit-image {
+    width: 44px;
+    height: 44px;
+  }
+
+  .image-placeholder {
+    font-size: 1.15rem;
+  }
+
+  .credit-title {
+    font-size: 1rem;
+  }
 }
 
 /* Transactions Section */

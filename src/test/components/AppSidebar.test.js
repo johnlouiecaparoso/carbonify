@@ -146,24 +146,31 @@ describe('AppSidebar', () => {
     expect(wrapper.findAll('.nav-item.current')).toHaveLength(0)
   })
 
-  it('offers account links and logout, for the mobile drawer where there is no avatar', () => {
+  it('carries no account block — the header avatar menu owns those links now', () => {
+    // This used to assert the opposite. The block existed only because the
+    // MOBILE header had no avatar menu, so profile/preferences/KYC/wallet/
+    // about/tour/guide/logout were reachable on a phone only by scrolling to
+    // the bottom of this drawer. The header is a single row at every width now
+    // and carries the avatar dropdown beside the cart, so keeping this here
+    // would be a second copy of that menu — and the reason the drawer was long
+    // enough that signing out meant scrolling past every feature.
     signIn(ROLES.buyer)
     const wrapper = mountSidebar()
 
-    const account = wrapper.find('.account-block')
-    expect(account.exists()).toBe(true)
-    expect(account.findAll('.nav-item').map((el) => el.attributes('href'))).toEqual(
-      expect.arrayContaining(['/profile', '/about']),
-    )
-    expect(account.find('.nav-item--logout').exists()).toBe(true)
+    expect(wrapper.find('.account-block').exists()).toBe(false)
+    expect(wrapper.find('.account-name').exists()).toBe(false)
+    expect(wrapper.find('.nav-item--logout').exists()).toBe(false)
   })
 
-  it('shows the signed-in identity in the drawer', () => {
-    signIn(ROLES.developer)
+  it('does not light a product link while sitting on an account page', () => {
+    // Account paths are still fed to the highlight resolver even though they
+    // are not rendered here: without them, /profile would fall through to
+    // whichever product path happened to be the longest prefix match.
+    signIn(ROLES.buyer)
+    currentPath = '/profile'
     const wrapper = mountSidebar()
 
-    expect(wrapper.find('.account-name').text()).toBe('Ada Reyes')
-    expect(wrapper.find('.account-avatar').text()).toBeTruthy()
+    expect(wrapper.findAll('.nav-item.current')).toHaveLength(0)
   })
 
   it('reflects the drawer and collapsed state as classes', async () => {

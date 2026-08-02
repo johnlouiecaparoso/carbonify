@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import UiButton from '@/components/ui/Button.vue'
+import { downloadBlob } from '@/utils/download'
 
 const preferencesStore = usePreferencesStore()
 
@@ -110,13 +111,10 @@ function exportPreferences() {
     accessibility: preferencesStore.accessibility,
   }
 
-  const blob = new Blob([JSON.stringify(preferences, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'carbonify-preferences.json'
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadBlob(
+    new Blob([JSON.stringify(preferences, null, 2)], { type: 'application/json' }),
+    'carbonify-preferences.json',
+  )
 }
 
 function importPreferences(event) {
@@ -558,8 +556,11 @@ function importPreferences(event) {
   background: #f3f4f6;
 }
 
+/* Was #3b82f6. Every other active/selected state in the app is the brand
+   green; a blue pill here was the only one, which is why this page reads as
+   belonging to a different product. */
 .nav-tab.active {
-  background: #3b82f6;
+  background: var(--primary-color, #058526);
   color: white;
 }
 
@@ -635,8 +636,8 @@ function importPreferences(event) {
 .setting-select:focus,
 .setting-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary-color, #058526);
+  box-shadow: 0 0 0 3px rgba(5, 133, 38, 0.12);
 }
 
 .setting-checkbox {
@@ -646,11 +647,13 @@ function importPreferences(event) {
   cursor: pointer;
 }
 
+/* 15px matches the 0.875rem label; at 18px the box outweighed the setting it
+   was labelling, which is the "checkbox is too large" report on this page. */
 .setting-checkbox input {
   margin: 0;
-  margin-top: 2px;
-  width: 18px;
-  height: 18px;
+  margin-top: 3px;
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
   accent-color: var(--primary-color, #058526);
   cursor: pointer;
@@ -762,25 +765,80 @@ function importPreferences(event) {
 }
 
 @media (max-width: 768px) {
-  .preferences-container {
-    grid-template-columns: 1fr;
+  .page-body {
+    padding: 1rem;
   }
 
+  .preferences-container {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* The tab rail was a horizontal scroller of full-size pills — icon at
+     1.25rem plus label plus 1rem side padding — so at five tabs most of them
+     were off-screen with no affordance saying so, and the row overlapped the
+     card below it. A 2-per-row grid shows every tab at once, which is what
+     "confusing and destroyed" was describing. */
   .preferences-nav {
-    flex-direction: row;
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    overflow-x: visible;
   }
 
   .nav-tab {
     white-space: nowrap;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-color, #d1e7dd);
+    background: #fff;
+    min-width: 0;
+  }
+
+  /* The glyph was bigger than the label it sat beside. */
+  .tab-icon {
+    font-size: 1.05rem;
+  }
+
+  .tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .preferences-content {
+    padding: 1rem;
+  }
+
+  .panel-title {
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
   }
 
   .settings-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .notification-section {
+    padding: 1rem;
+  }
+
+  .notification-sections {
+    gap: 1.25rem;
+  }
+
+  /* A wrapping description next to a top-aligned box left the checkbox
+     stranded above two lines of text. Keeping the row's own gap tight and the
+     text block full-width is what puts them back on one reading line. */
+  .setting-checkbox,
+  .notification-checkbox {
+    gap: 0.5rem;
+    min-height: 32px;
   }
 
   .preferences-actions {
     flex-direction: column;
+    padding-top: 1.25rem;
   }
 }
 </style>
