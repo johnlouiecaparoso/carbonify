@@ -74,6 +74,7 @@ All money RPCs are `SECURITY DEFINER` with `set search_path = public` (bypass RL
 | `open_dispute` / `resolve_dispute` | **authenticated** (buyer) / admin | Buyer opens a dispute on their own txn; admin resolves — a refund resolution calls `refund_purchase`. |
 | `activate_subscription(p_user_id, p_plan)` | **service_role** (webhook) | Grants `period_days` of a plan (extends from later of now/current expiry); price/plan columns are service-role-write-protected. |
 | `current_plan(p_user_id)` | definer helper | Resolves the **effective** plan, treating an expired paid plan as `free`. |
+| `get_transaction_counterparty_name(p_transaction_id)` 🆕 | **authenticated** | Display **name only** of the other party on a transaction the caller is party to. Added `20260801000100` (applied 2026-08-02) so a receipt can name the counterparty **without loosening `profiles` SELECT RLS**, which is hardened against role/`kyc_level` escalation by `20260703000300`. Returns zero rows — not an error — for a caller who is neither buyer nor seller, so it is neither a directory nor an existence oracle. Never returns email, phone, role or `kyc_level`. |
 
 > Because these are `SECURITY DEFINER`, execute is explicitly `revoke`d from `public`/`anon` (and usually `authenticated`) and granted only where listed — so a logged-in user cannot call, e.g., `process_marketplace_purchase` directly to fabricate a purchase.
 

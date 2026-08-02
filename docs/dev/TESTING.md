@@ -28,7 +28,13 @@ Fast, isolated, no network. Config lives in `vitest.config.js`:
 - MSW (`msw`) is available for HTTP mocking; `jsdom` is also installed as an alternate DOM
 - Coverage (v8) has an 80% threshold on branches/functions/lines/statements
 
-Current status: ~145 unit tests passing across ~20 files.
+Current status: **1086 unit tests passing across 90 files** (2026-08-02).
+
+> ⚠️ **Run with `--no-file-parallelism`.** The parallel happy-dom worker init flakes on Windows and
+> reports "no tests" — an environment issue, not a real failure. It clears on re-run.
+>
+> *1086 includes the 121-case `modulesEvaluate` sweep (one assertion per module), so it is not
+> directly comparable to earlier counts.*
 
 ### Run
 
@@ -55,7 +61,7 @@ Under `src/test/`:
 | Payment providers / abstraction | `services/paymentProvider.test.js`, `services/paymentService.test.js` |
 | Payout providers / ledger side | `services/payoutProvider.test.js`, `services/payoutService.test.js` |
 | PayMongo webhook HMAC signature | `services/paymongoWebhookSignature.test.js` |
-| Supplier fulfillment saga | `services/creditSupplier.test.js`, `services/fulfillmentSaga.test.js` |
+| Supplier fulfillment saga | `services/creditSupplier.test.js`, `services/fulfillmentSaga.test.js`. ⚠️ **These test a copy that does not run** — `src/services/credits/fulfillmentSaga.js` is imported by nothing but its own test, while the code that settles money is the TS port inside `paymongo-webhook`. They had already drifted by 2026-08-02. `services/fulfillmentSagaParity.test.js` compares the two |
 | Verification rubric | `services/verificationRubric.test.js` |
 | VAT invoicing | `services/vatInvoice.test.js` |
 | Subscription plans | `services/plans.test.js` |

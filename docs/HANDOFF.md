@@ -12,13 +12,30 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **1086 unit tests green** (re-verified 2026-08-02,
-> 90 files), plus **`responsive.spec.js` — 37/37** measuring real layout at 320/390/768/1024/1440.
-> Playwright was **46/47**; the one red was `pilot-readiness.spec.js` correctly reporting that signups
-> were disabled on live, and **that is now fixed on the backend** (see 2026-07-31 below). The e2e suite
-> was **38/44 with 6 failures nobody had seen**, because CI runs that job `continue-on-error: true`;
-> five were stale selectors and are fixed. Unit-test history: (916 earlier on 2026-08-01, 908 on 2026-07-31, 820 and 801 earlier that day, 786
-> before the 2026-07-30 security pass, 770 before the 2026-07-29 feedstock pass below, 757 before the 2026-07-28 defect pass, 703 before the 2026-07-26 role-by-role review, 693 after the UI-consistency pass, 687 before it, 681 before the 2026-07-25 expansion-feature pass, 679 before the UX pass, 665 before the RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
+> ### 🔴 One thing is waiting on the owner right now
+>
+> **`supabase functions deploy paymongo-webhook`** (~1 min). The fulfillment saga's two 2026-08-02
+> fixes — a missing retry cap, and an ignored lookup error that made it place a **second** supplier
+> order — are **inert until that runs**. Everything else on the board is either done or is the owner's
+> pilot work (escrow `ESC-01…06` first).
+>
+> **Current build state:** build green, lint 0, **1086 unit tests green across 90 files**
+> (re-verified 2026-08-02).
+>
+> *1086 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
+> so it is not directly comparable to the 959 before it.*
+>
+> **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
+> new on 2026-08-01 and found three real layout bugs at 320px on its first honest run; it is also the
+> only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
+> `pilot-readiness.spec.js` is green now that signups are enabled on live.
+>
+> Unit-test history: 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
+> role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
+>
+> *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
+> and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > ### 🆕 2026-08-02 (latest) — a silent data-loss path in the project write, and a net for the near-miss
 >
