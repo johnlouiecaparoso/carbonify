@@ -268,10 +268,11 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 
 > 🆕 **Two Vercel items found 2026-08-01, both small and both yours:**
 >
-> 1. **`ci.yml`'s `deploy` job fails on every push to `main`** — `Input required and not supplied:
->    vercel-token`. That secret has never been set and the job has never run. The Vercel **Git
->    integration** is what actually deploys. **Set the three `VERCEL_*` secrets or delete the job** —
->    leaving it red trains everyone to ignore `main`'s CI status.
+> 1. ~~**`ci.yml`'s `deploy` job fails on every push to `main`**~~ — ✅ **deleted 2026-08-02**
+>    (`693eb47`), so this is **no longer an owner item**. It had never run: the three `VERCEL_*`
+>    secrets were never set, and the Vercel **Git integration** was doing the real deploying all
+>    along. Removed rather than fixed — setting the secrets would deploy **twice** per push and add a
+>    second place for the deploy target to drift. `main` should now go green for the first time.
 > 2. **A second Vercel project, `ecolink`, builds from this repo on every push** and serves an
 >    unrelated *"Vite + React + TS"* app. `carbonify13` is production. Not a data risk, but it burns a
 >    build per push and **`.vercel/repo.json` links this checkout to `ecolink`**, so a CLI
@@ -291,9 +292,10 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 > removing.
 
 ~~Decide on merging **PR #14**~~ — ✅ **merged 2026-08-01**, 153 commits; `main` is current and
-production is running it · **set the three `VERCEL_*` secrets or delete `ci.yml`'s `deploy` job**,
-which fails on a missing `vercel-token` while the Vercel Git integration does the real deploying ·
-buy + verify the
+production is running it · ~~set the three `VERCEL_*` secrets or delete `ci.yml`'s `deploy` job~~ —
+✅ **job deleted 2026-08-02**; the Git integration was always the real deploy path ·
+**delete the spare `ecolink` Vercel project and finalise the domain**
+([VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md)) · buy + verify the
 **email-confirmation domain** · adopt CLI migration tracking (#7) so live stops drifting from
 `supabase/migrations/` · hold all keys and secrets.
 

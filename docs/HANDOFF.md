@@ -195,6 +195,39 @@
 > **`ecolink`** project being deleted, and the env-var/Supabase-redirect steps that break silently
 > after a domain change.
 >
+> ### ✅ `ci.yml`'s deploy job is gone, and `main` should go green
+>
+> It had **never run once** — `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` were never set,
+> so every push to `main` died on `Input required and not supplied: vercel-token` while the Vercel
+> **Git integration** did the real deploying. Deleted (`693eb47`) rather than fixed: setting the
+> secrets would deploy **twice** per push, and `VERCEL_PROJECT_ID` would need hand-updating whenever
+> the project changes — a second place for the deploy target to drift, which is exactly what removing
+> the spare `ecolink` project is meant to end.
+>
+> > The red X *was* the cost. A CI status that fails permanently for a reason nobody needs to act on
+> > trains everyone to stop reading it, and then a genuine failure looks identical. Re-parsed after
+> > the edit: valid YAML, four jobs, none of which depended on `deploy`.
+>
+> ### Merged to `main` and verified serving — not assumed
+>
+> `55a8852..43ea63a`. Production was checked by **fetching it**, the way PR #14 was on 2026-08-01:
+>
+> | Checked | Result |
+> |---|---|
+> | Consent hardening in the main bundle | `"cannot read it back"`, `"could not be confirmed"` — **present** |
+> | Mobile collapse in the route chunk | `More info` · `row-toggle` · `row-lead` — **present**, chunk byte-identical to the local build (12,949 B) |
+>
+> ⚠️ **Two of my own checks were wrong first, and the second one nearly read as a failed deploy.**
+>
+> 1. I compared production's bundle **hash** against my local build. Those can never match — Vercel
+>    inlines *its* `VITE_*` values at build time, so the bytes differ by design. **The hash
+>    *changing* mid-poll (`B0gNXghE` → `JJzd344z`) was the real signal**, not the hash matching.
+> 2. A follow-up fetch reported `0` occurrences of `More info` in the route chunk. That was a
+>    malformed URL in the command, not a missing deploy — a direct fetch found all three markers.
+>
+> Both are the same error: **a check that fails is only evidence once you have confirmed the check
+> itself is sound.** Same lesson as the `PGRST202` probe earlier the same day, reached twice more.
+>
 > ### 🆕 2026-08-02 — #36 confirmed on live, and the fix is staged
 >
 > Suite **1131 → 1138** (96 files). Build green, lint 0. **Two migrations, neither applied at the

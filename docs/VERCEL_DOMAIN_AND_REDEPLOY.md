@@ -101,19 +101,30 @@ These are the ones that break silently, because the app itself is domain-agnosti
 > hardcoded `https://carbonify.com/verify` in the text-file fallback was fixed on 2026-08-02 — it
 > would have printed a dead verification address onto a document a holder might hand to an auditor.
 
-## `ci.yml`'s deploy job
+## `ci.yml`'s deploy job — ✅ removed 2026-08-02
 
-It has never run. `amondnet/vercel-action` fails on its first input:
+It had never run once. `amondnet/vercel-action` failed on its first input:
 
 ```
 Input required and not supplied: vercel-token
 ```
 
-`VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` have never been set as repository secrets.
-Deploys come from the **GitHub integration** instead, which is why production updates despite the red
-X on `main`.
+`VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` were never set as repository secrets. Deploys
+come from the **GitHub integration**, which is why production always updated despite the red X on
+`main`.
 
-**Recommendation: delete the job.** Keeping both would deploy twice per push, and the `VERCEL_PROJECT_ID`
-secret would have to be updated by hand every time the project changes — a second place for the
-deployment target to drift. If you would rather keep it, set the three secrets and confirm it does
-not double-deploy alongside the integration.
+**Deleted rather than fixed** (`693eb47`). Setting the secrets would have deployed **twice** per push
+— integration *and* action — and `VERCEL_PROJECT_ID` would need hand-updating whenever the Vercel
+project changes, which is a second place for the deployment target to drift. That is precisely what
+deleting the spare `ecolink` project is meant to end.
+
+> The red X was the actual cost, not the missing deploy. **A CI status that fails permanently for a
+> reason nobody needs to act on trains everyone to stop reading it** — and then a real failure looks
+> exactly the same. `main` should now go green for the first time.
+
+A comment sits where the job was, so nobody re-adds it without removing the Git integration first.
+The workflow was re-parsed after the edit: valid YAML, four jobs (`test`, `e2e`, `build`,
+`lighthouse`), none of which depended on `deploy`.
+
+**If you ever want CI to own deployment instead:** delete the Git integration first, then restore the
+job and set the three secrets. Never both at once.
