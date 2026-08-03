@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -48,8 +48,8 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1176 unit tests green across 99 files**
-> (re-verified 2026-08-02, after the cross-role UX pass).
+> **Current build state:** build green, lint 0, **1185 unit tests green across 101 files**
+> (re-verified 2026-08-03, after the mobile UX pass).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
@@ -59,14 +59,122 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-02 (latest) — cross-role UX pass; analytics was showing invented data
+> ### 🆕 2026-08-03 (latest) — mobile UX pass, and the icon font was blocked by our own CSP
+>
+> Suite **1176 → 1185** (99 → 101 files). Build green, lint 0. **No migrations.** Eight reported
+> items, all fixed and each verified on a real mobile viewport rather than by reading the CSS.
+>
+> 🔴 **"The logos got replaced with their names."** Reported on a phone: open the site, back out,
+> come back, and the interface returns with words where the icons were. The cause is ours.
+> Material Symbols renders by **ligature** — the markup is literally
+> `<span class="material-symbols-outlined">notifications</span>`, and the font turns that word into
+> a bell. No font, no glyph: you get the word.
+>
+> `public/sw.js` proxies every Google Fonts request through `fetch()`, and **a fetch issued from a
+> worker is governed by `connect-src`** — which listed neither font origin. They were in `style-src`
+> and `font-src`, which covers the *browser* loading them directly and says nothing about the worker
+> doing it. The same `/(.*)` header block in `vercel.json` is served with `sw.js` itself, so the
+> worker inherited a policy that forbade the one cross-origin fetch it exists to make. The first
+> page load was fine (no worker yet); from the **second** load onward every font request the worker
+> proxied was blocked, the handler's `catch` returned `Response.error()`, and the icons came back as
+> names. That is exactly the "backed out and came back" sequence that was reported.
+>
+> > **The general shape: a service worker is a separate CSP subject, and it inherits the document's
+> > policy by accident of routing.** Anything the worker fetches needs `connect-src`, no matter which
+> > directive governs the same URL when the page fetches it.
+>
+> Three defences now, because one of them will be wrong again some day:
+>
+> 1. `connect-src` fixed in `vercel.json`.
+> 2. `src/styles/icons.css` declares `.material-symbols-outlined` **locally**, so a missing Google
+>    stylesheet no longer means the class does not exist at all.
+> 3. `src/utils/iconFont.js` gates the ligature text behind an `icons-ready` class on `<html>` and
+>    keeps re-checking on `pageshow`, `visibilitychange` and `online` — the moments a phone brings a
+>    page *back*. Icons degrade to blank boxes **of identical width**, never to words.
+>
+> > ⚠️ **`document.fonts.check()` cannot detect this failure, and the first version of the guard used
+> > it.** Per the CSS Font Loading spec, `check()` collects the font faces matching the family and
+> > **returns `true` if that set is empty** — and an empty set is precisely the broken case, because
+> > no stylesheet means no `@font-face`. Measured with the font blocked: `check()` said `true` while
+> > every icon rendered as its name. The guard now **measures** instead — eight characters of
+> > "settings" shaped by the icon font collapse to one glyph about an eighth as wide, and nothing
+> > else does that. Verified both directions: font blocked → hidden, font present → visible.
+>
+> `CACHE_VERSION` → **v5**, and `cacheFirstFont` no longer stores unverifiable **opaque** responses.
+> An opaque response reports status 0 and is indistinguishable from a 500 or a captive-portal
+> redirect, so the old cache-first-forever behaviour let a single bad moment on mobile data poison
+> the entry permanently. Google Fonts sends `Access-Control-Allow-Origin: *`, so the worker now
+> re-requests with `mode: 'cors'` and caches only what it could actually verify.
+>
+> 🐛 **One injected stylesheet explained three separate reports.** `src/utils/mobile.js` appended
+> this at runtime, on phones only:
+>
+> ```css
+> button, a, input, select, textarea { min-height: 44px; min-width: 44px; }
+> ```
+>
+> A minimum **size** is not a minimum hit area, and `min-width`/`min-height` beat the `width`/
+> `height` a component asks for. So every control in that list ignored its own design on a phone:
+> checkboxes rendered **44×44** instead of the 15px in `styles/form-controls.css` (measured), and
+> the 28px Filters button inside `SmartSearch` grew to 44px and burst out of the 38px bar it sits
+> in — on the marketplace *and* the registry.
+>
+> > **This is why "the checkbox is too large" was reported twice after being fixed.** Both fixes went
+> > into `form-controls.css`, which was never the file overriding it. The rule lived in a JS template
+> > literal, so it appears in **no `.css` file** — searching the stylesheets could not have found it,
+> > and it lands last in the cascade with no scope attribute. `src/test/styles/mobileControlSizing.test.js`
+> > now parses the injected block and fails on any blanket minimum. **Sixth entry in this repo's
+> > recurring pattern, with a new twist: not a fix applied to one branch and not its sibling, but a
+> > fix applied to the wrong file entirely because the real one was invisible to search.**
+>
+> **The rest, briefly:**
+>
+> - **Filter panel labels were centred over left-aligned selects.** `.marketplace-header` was
+>   `text-align: center` and it cascaded into the search bar it contains — which also centred the
+>   input's placeholder. Fixed at both ends; `SmartSearch` now states its own alignment so it cannot
+>   be re-centred by whatever page it is dropped into.
+> - **Headers are left-aligned everywhere a role works.** Marketplace, Profile, Preferences, Carbon
+>   Calculator, Certificate Verify and Role Application were centred; the role dashboards already
+>   used the shared `PageHeader`. Public marketing pages (Home, About) and the auth cards are
+>   deliberately **still centred** — they are not dashboards.
+> - **The notifications panel is the only dropdown in the header row not anchored to the rightmost
+>   control** — the avatar is, and the bell sits two slots left of it. `right: 0` hung a 320px panel
+>   leftwards from ~90px in, so at 360–375px its left edge was **off-screen** and `overflow-x: hidden`
+>   clipped it. Below 640px it now spans the viewport with equal insets. Verified at 360/375/393/430px:
+>   8px both sides, no overflow.
+> - **Add to Cart is a toggle.** It was add-only: a listing already in the cart showed a different
+>   icon and the tooltip "In cart", but pressing it ran `addItem` again and silently bumped the
+>   quantity, so undoing an accidental tap meant going to `/cart` and deleting the row.
+> - **Typing an address that does not exist rendered a blank page.** There was no catch-all, so
+>   vue-router matched nothing: header, footer, white space, and no indication the address was wrong
+>   rather than the app broken. New `NotFoundView` suggests the closest pages **the current role can
+>   actually reach** (it reads `buildSidebar`, so nobody is offered a route they would be bounced
+>   off) — typing `/certificate` offers "Certificates". Plus redirects for the short names people
+>   actually type: `/developer`, `/settings`, `/saved`, `/portfolio`, `/calculator`, `/earnings`,
+>   `/help`, `/buyer`, `/admin/dashboard`.
+>
+> 🐛 **KYC said "verify your identity" to people who were already verified.** `useTradeEligibility`
+> caches the level module-wide so a page of twenty listing cards resolves it once. The cache was
+> keyed on **nothing** — a bare `loaded` boolean. `/marketplace` is public, so on a cold load
+> `KycGateBanner` mounts and calls `ensureLoaded()` *before the session is restored*; that took the
+> signed-out branch, set `loaded = true` and fetched nothing. The session then arrived, and
+> `needsKyc` was computed against a `kycLevel` of 0 that had **never been read from anywhere**.
+> Nothing could repair it: every later call saw `loaded` and returned early, for the life of the page.
+>
+> > Keyed by **user id**, the arrival of a session is itself a cache miss. `/kyc` also calls
+> > `refresh()` now, so an admin approval mid-session reaches the banner and the checkout gate
+> > instead of stopping at the page that says "Verified (Level 1)".
+> > `src/test/services/tradeEligibilityCache.test.js` pins all five behaviours, including that the
+> > banner must not accuse anyone while the first read is still in flight.
+>
+> ### 🆕 2026-08-02 — cross-role UX pass; analytics was showing invented data
 >
 > Suite **1138 → 1176** (99 files). Build green, lint 0. **Three migrations, ALL APPLIED and
 > verified on live** — `20260802000500` (tour flag), `000600` (`support_reports`), `000700`
