@@ -1,0 +1,77 @@
+/* ============================================================================
+ * Material Symbols — a local definition of the class, and a guard against the
+ * failure mode that has no visual halfway house.
+ *
+ * WHAT GOES WRONG
+ * Material Symbols renders by LIGATURE: the markup is literally
+ * `<span class="material-symbols-outlined">notifications</span>`, and the font
+ * turns the word into a bell. If the font is unavailable the word is what you
+ * see. Not a missing glyph, not a box — the word. A phone that fails to fetch
+ * the font shows "notifications", "shopping_cart", "menu", "search" scattered
+ * across the header where the icons should be, which is the "the logos got
+ * replaced with names and it's all confusing" report.
+ *
+ * There are two separate ways to arrive there, and index.html only defends
+ * against one of them:
+ *
+ *   1. The FONT FILE is slow or missing. `display=block` in the Google Fonts
+ *      URL covers the first ~3 seconds, then the browser gives up blocking and
+ *      paints the fallback — the words. On a slow mobile connection 3s is not
+ *      much of a budget.
+ *   2. The STYLESHEET itself never arrives (fonts.googleapis.com blocked,
+ *      captive portal, a dead cache entry). Then `.material-symbols-outlined`
+ *      is not defined at all: no font-family, no ligature feature, no sizing.
+ *      `display=block` cannot help because the rule it belongs to was never
+ *      parsed. Every icon renders as its name at body-text size.
+ *
+ * WHAT THIS FILE DOES
+ * The base rule below is a local copy of what Google's stylesheet declares, so
+ * case 2 degrades into case 1 — the class keeps its sizing and its ligature
+ * settings whether or not the remote CSS loads.
+ *
+ * The `.icons-ready` gate handles both. utils/iconFont.js adds that class to
+ * <html> only once the font is confirmed usable; until then the ligature text
+ * is hidden rather than shown. A blank square where an icon belongs is a
+ * momentary gap. The word "shopping_cart" in the middle of the header is a
+ * different app.
+ *
+ * Every icon-only control in this app carries an aria-label or a title, so the
+ * hidden state costs nothing to assistive tech and nothing to a hover.
+ * ==========================================================================*/
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Three declarations, each doing a different job:
+ *
+ *   visibility  hides the ligature text without taking the element out of
+ *               flow. display:none would collapse the box and reflow the whole
+ *               UI twice — once on hide, once on reveal.
+ *   width: 1em  a glyph in this family is about one em wide, so this reserves
+ *               very nearly the space the icon will occupy. Without it the
+ *               element is still sized by its TEXT, and eight hidden characters
+ *               of "check_circle" push their whole row sideways — invisible,
+ *               but just as wrong as the visible version.
+ *   overflow    clips the too-wide text back into that box.
+ *
+ * Components that give their icons an explicit width win on specificity, which
+ * is correct: they already know the size they want. */
+html:not(.icons-ready) .material-symbols-outlined {
+  visibility: hidden;
+  width: 1em;
+  overflow: hidden;
+}

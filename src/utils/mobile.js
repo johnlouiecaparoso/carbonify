@@ -182,16 +182,40 @@ export const mobileCSS = {
     style.textContent = `
       /* Mobile-specific styles */
       @media (max-width: 768px) {
-        /* Prevent zoom on input focus */
-        input, select, textarea {
+        /* Prevent zoom on input focus. iOS zooms the page when a focused field
+           is under 16px, and there is no way back out of that zoom. Checkboxes
+           and radios are excluded because they have no text to size — and the
+           !important here would otherwise beat their own rules. */
+        input:not([type='checkbox']):not([type='radio']), select, textarea {
           font-size: 16px !important;
         }
 
-        /* Improve touch targets */
-        button, a, input, select, textarea {
-          min-height: 44px;
-          min-width: 44px;
-        }
+        /* NO global min-height/min-width here. There used to be:
+         *
+         *     button, a, input, select, textarea {
+         *       min-height: 44px; min-width: 44px;
+         *     }
+         *
+         * A minimum SIZE is not a minimum hit area — it resizes the control
+         * itself, and min-width/min-height beat the width/height a component
+         * sets, so every element in that list silently ignored its own design
+         * on a phone and on a phone only. It is why:
+         *
+         *   - checkboxes rendered at 44x44 instead of the 15px in
+         *     styles/form-controls.css (three roles reported "the checkbox is
+         *     too large"; the file they were fixed in was never the file that
+         *     was overriding them),
+         *   - the Filters button in SmartSearch grew from 28px to 44px and
+         *     burst out of the 38px search bar it sits inside, on both the
+         *     marketplace and the registry.
+         *
+         * The hit area is handled where it can be handled without distorting
+         * anything: the .tap-target class in styles/form-controls.css puts the
+         * 44px on the LABEL ROW that wraps a small control, which is the
+         * padding-based technique this rule was reaching for.
+         *
+         * (No backticks in this comment on purpose — the whole block is inside
+         * a JS template literal, and one would end the string here.) */
 
         /* Better scrolling */
         body {

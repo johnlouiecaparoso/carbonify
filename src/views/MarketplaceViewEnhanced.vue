@@ -281,15 +281,24 @@
                       >
                         Purchase
                       </UiButton>
+                      <!-- Toggles. In-cart listings get the filled state and the
+                           remove icon so the button says which way it will go. -->
                       <UiButton
                         v-if="!isSoldOut(listing)"
                         variant="outline"
                         size="sm"
-                        :title="inCart(listing) ? 'In cart' : 'Add to cart'"
-                        @click.stop="addListingToCart(listing)"
+                        class="cart-toggle"
+                        :class="{ 'cart-toggle--in': inCart(listing) }"
+                        :title="cartButtonLabel(listing)"
+                        :aria-label="cartButtonLabel(listing)"
+                        :aria-pressed="inCart(listing)"
+                        @click.stop="toggleListingInCart(listing)"
                       >
                         <span class="material-symbols-outlined" aria-hidden="true">
-                          {{ inCart(listing) ? 'shopping_cart_checkout' : 'add_shopping_cart' }}
+                          {{ inCart(listing) ? 'remove_shopping_cart' : 'add_shopping_cart' }}
+                        </span>
+                        <span class="cart-toggle__text">
+                          {{ inCart(listing) ? 'Remove' : 'Add' }}
                         </span>
                       </UiButton>
                       <UiButton
@@ -386,15 +395,24 @@
                       >
                         Purchase
                       </UiButton>
+                      <!-- Toggles. In-cart listings get the filled state and the
+                           remove icon so the button says which way it will go. -->
                       <UiButton
                         v-if="!isSoldOut(listing)"
                         variant="outline"
                         size="sm"
-                        :title="inCart(listing) ? 'In cart' : 'Add to cart'"
-                        @click.stop="addListingToCart(listing)"
+                        class="cart-toggle"
+                        :class="{ 'cart-toggle--in': inCart(listing) }"
+                        :title="cartButtonLabel(listing)"
+                        :aria-label="cartButtonLabel(listing)"
+                        :aria-pressed="inCart(listing)"
+                        @click.stop="toggleListingInCart(listing)"
                       >
                         <span class="material-symbols-outlined" aria-hidden="true">
-                          {{ inCart(listing) ? 'shopping_cart_checkout' : 'add_shopping_cart' }}
+                          {{ inCart(listing) ? 'remove_shopping_cart' : 'add_shopping_cart' }}
+                        </span>
+                        <span class="cart-toggle__text">
+                          {{ inCart(listing) ? 'Remove' : 'Add' }}
                         </span>
                       </UiButton>
                       <UiButton
@@ -1431,11 +1449,36 @@ function isWatched(listing) {
   return watchedIds.value.has(listing.listing_id)
 }
 
-function addListingToCart(listing) {
-  cart.addItem(listing, 1)
-}
 function inCart(listing) {
   return cart.has(listing.listing_id)
+}
+
+/**
+ * One button, both directions. It used to be add-only: a listing already in the
+ * cart showed a different icon and the tooltip "In cart", but pressing it ran
+ * addItem again and silently bumped the quantity — so the only way to undo an
+ * accidental tap was to go to /cart and delete the row. Pressing the button
+ * that put something in the cart is the obvious way to take it back out.
+ */
+function toggleListingInCart(listing) {
+  const id = listing.listing_id
+  if (cart.has(id)) {
+    cart.removeItem(id)
+    // addItem raises its own toast from the store; removal is confirmed here so
+    // both directions of the same button give the same kind of feedback.
+    toastStore.push({
+      message: `Removed from cart — ${listing.project_title || 'Carbon credits'}`,
+      type: 'info',
+      icon: 'remove_shopping_cart',
+    })
+    return
+  }
+  cart.addItem(listing, 1)
+}
+
+/** Label for the cart toggle — also its tooltip and its accessible name. */
+function cartButtonLabel(listing) {
+  return inCart(listing) ? 'Remove from cart' : 'Add to cart'
 }
 
 async function toggleWatch(listing) {
@@ -1511,11 +1554,15 @@ onUnmounted(() => {
   background: var(--bg-secondary);
 }
 
+/* Left-aligned, like every other page banner (components/layout/PageHeader.vue
+   is the shared one). This was the last centred header among the signed-in
+   surfaces; centring it also leaked into the search bar it contains, which
+   inherited text-align and centred the placeholder and the filter labels. */
 .marketplace-header {
   background: var(--primary-color, #058526);
   color: white;
   padding: 1.5rem 0;
-  text-align: center;
+  text-align: left;
 }
 
 .page-title {
@@ -1536,18 +1583,18 @@ onUnmounted(() => {
    the search bar's panel (SmartSearch), so this row holds a single child. */
 .search-controls {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   max-width: 960px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .search-actions {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 0.75rem;
   max-width: 960px;
-  margin: 0.75rem auto 0;
+  margin: 0.75rem 0 0;
 }
 
 /* .search-input-wrap / .search-icon / .search-input / .filter-select lived
@@ -1612,10 +1659,10 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   max-width: 960px;
-  margin: 1rem auto 0;
+  margin: 1rem 0 0;
 }
 
 .saved-searches-label {
@@ -1946,6 +1993,38 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin-top: 1rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Cart toggle: icon plus a one-word direction. The icon alone (a cart with a +
+   vs a cart with a −) is the whole signal at a glance, but "Add"/"Remove" is
+   what makes it unambiguous that pressing it again undoes it. */
+.cart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cart-toggle .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+.cart-toggle__text {
+  font-size: 0.8rem;
+}
+
+/* The in-cart state, styled here rather than by swapping UiButton's `variant`:
+   Button.vue only implements primary / outline / ghost, so `variant="success"`
+   silently rendered an unstyled grey button — the one state that most needed to
+   look different looked like nothing at all. */
+.cart-toggle--in {
+  background: var(--primary-light, #e8f5e8);
+  border-color: var(--primary-color, #058526);
+  color: var(--primary-dark, #045c1a);
+}
+
+.cart-toggle--in:hover {
+  background: #d7ecd7;
 }
 
 .project-actions-buttons {

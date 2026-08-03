@@ -522,7 +522,7 @@ function importPreferences(event) {
 }
 
 .preferences-header {
-  text-align: center;
+  text-align: left;
   margin-bottom: 2rem;
 }
 

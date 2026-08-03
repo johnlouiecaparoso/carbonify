@@ -412,4 +412,14 @@ onMounted(async () => {
     gap: 1.5rem;
   }
 }
+
+/* Below this the bar and the button cannot share a row — the bar's 260px basis
+   plus a ~90px button exceeds the gutter-less width — so the button wraps. Left
+   at its natural width it looks stranded under the left end of the bar; full
+   width it reads as the second half of one control. */
+@media (max-width: 560px) {
+  .toolbar > .btn {
+    width: 100%;
+  }
+}
 </style>

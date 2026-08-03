@@ -1215,12 +1215,12 @@ function goBackHome() {
   background: linear-gradient(135deg, var(--primary-color, #058526) 0%, #0f9d58 100%);
   padding: 2rem 1.5rem;
   color: #ffffff;
-  text-align: center;
+  text-align: left;
 }
 
 .hero__container {
   max-width: 760px;
-  margin: 0 auto;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

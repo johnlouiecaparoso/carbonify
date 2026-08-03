@@ -1345,15 +1345,15 @@ export default {
   font-weight: 700;
   color: #fff;
   margin-bottom: 0.5rem;
-  text-align: center;
+  text-align: left;
 }
 
 .page-description {
   font-size: 0.95rem;
   color: #fff;
-  text-align: center;
+  text-align: left;
   max-width: 600px;
-  margin: 0 auto;
+  margin: 0;
   line-height: 1.6;
 }
 

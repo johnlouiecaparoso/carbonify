@@ -300,7 +300,7 @@ function reset() {
 }
 
 .header-content {
-  text-align: center;
+  text-align: left;
 }
 
 .page-title {

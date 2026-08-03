@@ -81,8 +81,10 @@ import {
   submitKycApplication,
   MIN_KYC_LEVEL_TO_TRADE,
 } from '@/services/kycService'
+import { useTradeEligibility } from '@/composables/useTradeEligibility'
 
 const userStore = useUserStore()
+const { refresh: refreshEligibility } = useTradeEligibility()
 
 const documentTypes = [
   'Philippine National ID (PhilSys)',
@@ -159,6 +161,12 @@ async function load() {
   try {
     level.value = await getMyKycLevel(userStore.session?.user?.id)
     applications.value = await getMyKycApplications(userStore.session?.user?.id)
+    // useTradeEligibility caches the level for the whole session, so an admin
+    // approval that lands mid-session was invisible to the rest of the app:
+    // this page said "Verified (Level 1)" while the marketplace banner and the
+    // checkout gate still read the level from before the approval and kept
+    // asking for verification. Visiting this page re-reads it for everyone.
+    await refreshEligibility()
   } catch (err) {
     setMessage(err.message || 'Failed to load KYC status', true)
   }

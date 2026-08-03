@@ -6,12 +6,16 @@ import '@/styles/tokens.css'
 import '@/styles/responsive.css'
 import '@/styles/responsive-table.css'
 import '@/styles/form-controls.css'
+// A local definition of .material-symbols-outlined, so the icon font failing
+// does not turn every icon into its own name. See the file's header.
+import '@/styles/icons.css'
 // Last, so the preference overrides beat component defaults.
 import '@/styles/preferences.css'
 
 import App from './App.vue'
 import router from './router'
 import { analytics } from '@/utils/analytics'
+import { initIconFont } from '@/utils/iconFont'
 import { initializeMobile } from '@/utils/mobile'
 import { optimizeImageLoading } from '@/utils/imageOptimization'
 import { setupServiceWorkerCache } from '@/utils/cache'
@@ -38,6 +42,12 @@ initSentry(app, router)
 initSupabase().catch(() => {
   // Error already logged in initSupabase, no need to log again
 })
+
+// Before mount: styles/icons.css hides ligature text until this says the icon
+// font is usable, and resolving it early keeps that window as short as
+// possible. It also keeps watching for the font across bfcache restores and
+// tab wake-ups, which is when it was observed to go missing.
+initIconFont()
 
 app.mount('#app')
 

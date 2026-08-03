@@ -14,7 +14,11 @@
 // Bumped to v2 with the icon rework. Until now these caches were deleted a
 // second after every page load by a stray block in main.js, so no user has ever
 // held a populated v1 cache.
-const CACHE_VERSION = 'v4'
+//
+// v5: cacheFirstFont no longer stores unverifiable opaque responses. Any device
+// already holding a poisoned Google Fonts entry from v4 — the icons-render-as-
+// words state — drops it on activate and re-fetches once.
+const CACHE_VERSION = 'v5'
 const SHELL_CACHE = `carbonify-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `carbonify-assets-${CACHE_VERSION}`
 const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/carbonify-logo.png', '/icon-192.png']
@@ -92,11 +96,48 @@ async function safePut(cache, key, response) {
  *
  * Cache-first with a network fallback: fonts are immutable and versioned by
  * URL, so a stale hit is not a risk worth a round trip.
+ *
+ * ⚠️ CSP: both origins must be in **connect-src** in vercel.json, not only in
+ * style-src/font-src. Those two cover the BROWSER loading the stylesheet and
+ * the font file directly. Everything below is the WORKER calling fetch(), and a
+ * fetch from a worker is governed by connect-src — the same header, because the
+ * `/(.*)` block that sets it is also served with sw.js itself. While they were
+ * missing, this handler took control on the second page load, every font
+ * request it proxied was blocked, the catch below returned Response.error(),
+ * and Material Symbols never loaded — so the icons came back as their names.
  */
 const FONT_ORIGINS = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com']
 
 function isFontRequest(url) {
   return FONT_ORIGINS.includes(url.origin)
+}
+
+/**
+ * Fetch a Google Fonts URL in a way we can VALIDATE.
+ *
+ * The stylesheet <link> in index.html carries no crossorigin attribute, so the
+ * browser issues it no-cors and hands back an OPAQUE response: status 0, no
+ * headers, indistinguishable from a 500, a captive-portal redirect or an empty
+ * body. This used to be cached as-is, cache-first and forever — so a single
+ * failed request during one bad moment on mobile data poisoned the cache with
+ * a stylesheet that would never work again, and every subsequent load rendered
+ * the icons as their ligature names until CACHE_VERSION changed. That is a
+ * permanent break caused by a transient fault, which is the worst trade a
+ * cache can make.
+ *
+ * Both Google Fonts origins send `Access-Control-Allow-Origin: *`, so asking
+ * for the same URL with `mode: 'cors'` costs nothing and returns a response
+ * with a real status. A CORS response also satisfies the no-cors request that
+ * triggered it — it is strictly more capable than the opaque one.
+ */
+async function fetchValidatableFont(request) {
+  try {
+    const corsResponse = await fetch(request.url, { mode: 'cors', credentials: 'omit' })
+    if (corsResponse && corsResponse.ok) return corsResponse
+  } catch {
+    /* CORS blocked or offline — fall through to the plain request */
+  }
+  return fetch(request)
 }
 
 async function cacheFirstFont(request) {
@@ -105,13 +146,11 @@ async function cacheFirstFont(request) {
   if (cached) return cached
 
   try {
-    const response = await fetch(request)
-    // Font responses are frequently OPAQUE (the stylesheet <link> carries no
-    // crossorigin attribute), so `response.ok` is false and status is 0.
-    // `isCacheable` correctly rejects those everywhere else — an opaque body
-    // cannot be validated — but for fonts an opaque hit is still a working
-    // font, and refusing it is what left the icons broken offline.
-    if (response && (response.ok || response.type === 'opaque')) {
+    const response = await fetchValidatableFont(request)
+    // Only a response we could actually verify gets stored. An opaque one is
+    // still SERVED (it may well be fine, and the browser can use it), it is
+    // just never written to a cache we then trust indefinitely.
+    if (response && response.ok && response.type !== 'opaque') {
       try {
         await cache.put(request, response.clone())
       } catch {
@@ -121,7 +160,8 @@ async function cacheFirstFont(request) {
     return response
   } catch {
     // Offline with nothing cached. Returning an error here is honest: the
-    // browser falls back to the next font in the stack.
+    // browser falls back to the next font in the stack, and utils/iconFont.js
+    // keeps the ligature names hidden until a later attempt succeeds.
     return Response.error()
   }
 }

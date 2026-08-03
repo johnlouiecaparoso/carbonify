@@ -1605,9 +1605,36 @@ watch(
     font-size: 0.75rem;
   }
 
+  /* .notifications-dropdown used to be re-anchored here (right/width). The
+     viewport-anchored rule below covers every width up to 640px, so there is
+     nothing left for this breakpoint to say about it. */
+}
+
+/* The notifications panel is the one dropdown in this row that is NOT anchored
+   to the rightmost control — the avatar is, and the bell sits two slots to its
+   left. `right: 0` therefore hangs a 320px panel leftwards from a point ~90px
+   in from the right edge, so on a 360-375px phone its left edge lands at a
+   negative offset and `overflow-x: hidden` on <body> clips it. Even at 393px,
+   where it technically fits, it reads as floating loose: flush against the left
+   edge of the screen and nowhere near the bell it belongs to.
+
+   Below 640px it spans the viewport with equal insets instead — the shape a
+   phone wants anyway, a sheet under the header rather than a menu hanging off
+   an icon. Dropping .notifications-menu to `static` is what makes that work
+   without a hardcoded header height: the panel then resolves against
+   .header-container (the nearest positioned ancestor, and full-bleed), so
+   `left/right` are viewport insets and `top: 100%` is the header's own bottom
+   edge whatever it measures. */
+@media (max-width: 640px) {
+  .notifications-menu {
+    position: static;
+  }
+
   .notifications-dropdown {
-    right: -0.25rem;
-    width: min(320px, calc(100vw - 0.75rem));
+    top: calc(100% + 0.4rem);
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
     max-height: min(70vh, 380px);
   }
 }

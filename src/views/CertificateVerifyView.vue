@@ -267,11 +267,11 @@ onMounted(() => {
 
 .header-content {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .header-text {
-  text-align: center;
+  text-align: left;
 }
 
 .page-title {

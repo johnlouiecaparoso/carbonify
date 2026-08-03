@@ -543,6 +543,44 @@ const router = createRouter({
       component: UserPreferencesView,
       meta: { requiresAuth: true },
     },
+
+    /**
+     * Addresses people type but that were never routes.
+     *
+     * Typing a page's name into the address bar is a normal way to navigate,
+     * and the names that come to mind are the SHORT ones — /developer, not
+     * /developer/projects; /settings, not /preferences. Every one of these used
+     * to match nothing and render a blank page. They redirect rather than
+     * duplicate the route so there is still exactly one canonical URL per page,
+     * and each one still passes through the same guards as its target.
+     */
+    { path: '/developer', redirect: '/developer/projects' },
+    { path: '/admin/dashboard', redirect: '/admin' },
+    { path: '/buyer', redirect: '/dashboard' },
+    { path: '/settings', redirect: '/preferences' },
+    { path: '/saved', redirect: '/watchlist' },
+    { path: '/watch', redirect: '/watchlist' },
+    { path: '/portfolio', redirect: '/credit-portfolio' },
+    { path: '/calculator', redirect: '/carbon-calculator' },
+    { path: '/earnings', redirect: '/sales' },
+    { path: '/help', redirect: '/guide' },
+    { path: '/verifier/panel', redirect: '/verifier' },
+
+    /**
+     * Catch-all. Without it vue-router matched nothing for an unknown path and
+     * rendered nothing — a header, a footer, and white space in between, which
+     * looks like the app failed rather than like the address was wrong.
+     *
+     * Public on purpose: bouncing a signed-out visitor from a typo to /login
+     * tells them the page exists and they are not allowed in, which is both
+     * wrong and worse than the truth.
+     */
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      meta: { public: true },
+      component: () => import('@/views/NotFoundView.vue'),
+    },
   ],
 })
 

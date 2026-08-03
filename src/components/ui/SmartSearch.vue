@@ -273,6 +273,11 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   max-width: 640px;
+  /* The marketplace banner is text-align:center, and this bar sits inside it.
+     Without this the filter panel's field labels centred themselves over
+     left-aligned selects — the "filters are not aligned" report. Anything the
+     bar draws is left-aligned regardless of the page it is dropped into. */
+  text-align: left;
 }
 
 .ss-bar {
@@ -301,7 +306,13 @@ onBeforeUnmount(() => {
 
 .ss-input {
   flex: 1 1 auto;
+  /* Both minimums are load-bearing, not defaults. A global mobile stylesheet
+     used to set `min-height: 44px; min-width: 44px` on every input and button
+     in the app, which is taller than this 38px bar — the contents overflowed
+     it top and bottom. That rule is gone, but the bar states its own floor so
+     the next well-meant global cannot silently reshape it. */
   min-width: 0;
+  min-height: 0;
   height: 100%;
   border: none;
   outline: none;
@@ -317,12 +328,19 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  min-height: 0;
+  min-width: 0;
   padding: 0;
   border: none;
   background: none;
   color: var(--text-muted, #64748b);
   cursor: pointer;
 }
+.ss-clear {
+  width: 24px;
+  height: 24px;
+}
+
 .ss-clear .material-symbols-outlined,
 .ss-row-remove .material-symbols-outlined {
   font-size: 1rem;
@@ -335,9 +353,13 @@ onBeforeUnmount(() => {
 .ss-filter-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
   flex: 0 0 auto;
   height: 28px;
+  /* See .ss-input — this button is what actually burst out of the bar. */
+  min-height: 0;
+  min-width: 0;
   padding: 0 0.6rem;
   border: 1px solid var(--border-color, #d1e7dd);
   border-radius: 999px;
