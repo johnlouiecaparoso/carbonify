@@ -139,22 +139,28 @@ jobs:
           name: lighthouse-reports
           path: .lighthouseci/
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [test, build, lighthouse]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+  # ── There is deliberately no `deploy` job here ────────────────────────────
+  #
+  # One existed and had NEVER run. It called amondnet/vercel-action with
+  # VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID, none of which have ever
+  # been set as repository secrets, so every push to `main` failed on:
+  #
+  #     Input required and not supplied: vercel-token
+  #
+  # Deploys come from the **Vercel GitHub integration**, which is why
+  # production has always updated despite a red X on `main`. That red X was
+  # the real cost: a CI status that is permanently failing for a reason nobody
+  # needs to act on trains everyone to stop reading it — and then a genuine
+  # failure looks identical.
+  #
+  # Removed rather than fixed, on purpose. Setting the secrets would deploy
+  # TWICE per push (integration + action), and VERCEL_PROJECT_ID would need
+  # updating by hand whenever the Vercel project changes — a second place for
+  # the deployment target to drift out of sync. One deploy path is the point.
+  #
+  # If CI should ever own deployment instead, delete the Git integration
+  # first, then add the job back. Never both.
+  # See docs/VERCEL_DOMAIN_AND_REDEPLOY.md.
 
 
 

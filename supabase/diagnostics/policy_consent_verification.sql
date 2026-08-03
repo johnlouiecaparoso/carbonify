@@ -128,11 +128,77 @@ where pa.id is null
 
 union all
 
+-- ⚠️ This used to read `policy_version = (the newest row's version)`, which is
+-- circular: it reported "users who accepted the current version" using whatever
+-- version happened to be in the table, so a MISMATCH between the table and the
+-- app was invisible to it — and a mismatch is the single most likely cause of
+-- "I accepted and it keeps asking me". Pinned to the app's constant instead.
+-- ⚠️ KEEP IN SYNC with POLICY_VERSION in src/constants/policy.js.
 select
-  '6. Users who have accepted the current version',
+  '6. Users who accepted the version the APP asks for (2026-07-31)',
   'INFO — ' || count(distinct user_id)::text
 from public.policy_acceptances
-where policy_version = (
-  select policy_version from public.policy_acceptances
-  order by accepted_at desc limit 1
-);
+where policy_version = '2026-07-31'
+
+union all
+
+select
+  '7. Rows whose version the app will NEVER match',
+  case when count(*) = 0 then 'PASS'
+       else 'FAIL — ' || count(*) || ' row(s) under another version; those users are re-asked forever'
+  end
+from public.policy_acceptances
+where policy_version <> '2026-07-31'
+
+union all
+
+-- The gate reads through RLS as the signed-in user. If SELECT is missing or its
+-- USING clause is wrong, an INSERT can succeed while the read-back returns zero
+-- rows — the user accepts, the row lands, and the gate reappears on every load.
+-- Writable-but-not-readable is the exact shape of the reported loop.
+select
+  '8. SELECT policy present (a row you cannot read = asked forever)',
+  case when count(*) = 1 then 'PASS' else 'FAIL — ' || count(*) || ' SELECT policies' end
+from pg_policies
+where tablename = 'policy_acceptances' and cmd = 'SELECT'
+
+union all
+
+select
+  '9. INSERT policy present',
+  case when count(*) = 1 then 'PASS' else 'FAIL — ' || count(*) || ' INSERT policies' end
+from pg_policies
+where tablename = 'policy_acceptances' and cmd = 'INSERT'
+
+union all
+
+select
+  '10. authenticated holds SELECT+INSERT grants',
+  case when count(*) = 2 then 'PASS'
+       else 'FAIL — grants are ' || coalesce(string_agg(privilege_type, '+'), 'MISSING') end
+from information_schema.role_table_grants
+where table_name = 'policy_acceptances'
+  and grantee = 'authenticated'
+  and privilege_type in ('SELECT', 'INSERT');
+
+-- ============================================================================
+-- IF THE GATE KEEPS REAPPEARING — run this too. It names the account and shows
+-- exactly what the app would find for it.
+-- ============================================================================
+-- select
+--   u.email,
+--   pa.policy_version                                   as stored_version,
+--   '2026-07-31'                                        as app_expects,
+--   pa.policy_version = '2026-07-31'                    as app_will_match,
+--   pa.accepted_at
+-- from auth.users u
+-- left join public.policy_acceptances pa on pa.user_id = u.id
+-- where u.last_sign_in_at is not null
+-- order by u.last_sign_in_at desc
+-- limit 20;
+--
+-- Read `app_will_match`:
+--   true  for every row  → the data is fine; the problem is client-side
+--                          (check the console for `[policy]` warnings)
+--   false                → version mismatch; those users are re-asked forever
+--   NULL  (no row)       → the write never landed; check the console on accept

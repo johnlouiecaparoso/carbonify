@@ -158,12 +158,39 @@
     white-space: nowrap;
     cursor: pointer;
   }
+
+  /* Optional lead for the first cell, when the row's identifier alone is not
+     enough to be worth showing collapsed. A sale collapsed to a bare date, or a
+     withdrawal collapsed to a bare date, tells the reader nothing they came for
+     — so the view appends the one figure that matters (net paid, amount) and
+     this lays the pair out. */
+  .row-lead {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .row-lead-value {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* Once the row is open the figure has its own labelled line below, so the
+     lead would print it twice — "₱12,000" in the header and "AMOUNT ₱12,000"
+     directly under it. The lead exists to make the COLLAPSED state useful; it
+     has no job in the open one. */
+  .data-table.stack-on-mobile.collapse-rows tbody tr.is-open .row-lead-value {
+    display: none;
+  }
 }
 
-/* The toggle is a phone-only affordance — above 640px the table is a table and
-   every column is already visible. */
+/* Both are phone-only affordances — above 640px the table is a table, every
+   column is already visible, and repeating the net or the amount inside the
+   Date column would duplicate a column that is right there. */
 @media (min-width: 641px) {
-  .row-toggle {
+  .row-toggle,
+  .row-lead-value {
     display: none;
   }
 }

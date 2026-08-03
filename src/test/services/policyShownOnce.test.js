@@ -31,39 +31,61 @@ import { POLICY_VERSION } from '@/constants/policy'
  * creates — because that constraint is half of why re-accepting is a no-op.
  */
 
-/** Minimal stand-in for `policy_acceptances`, including its unique index. */
-function createFakeTable() {
+/**
+ * Minimal stand-in for `policy_acceptances`, including its unique index.
+ *
+ * `selectable` models the half of RLS that matters here. INSERT and SELECT are
+ * two separate policies, so a row can be **writable and not readable** — and in
+ * that state the user accepts, the row lands, the gate's read finds nothing,
+ * and the box comes back on every load forever. `INSERT ... RETURNING` needs
+ * SELECT on the new row, which is why the service asks for the id back: it
+ * turns that silent loop into an error at the moment of acceptance.
+ */
+function createFakeTable({ selectable = true } = {}) {
   const rows = []
+  const visible = () => (selectable ? rows : [])
 
   return {
     rows,
     client: {
       from() {
         const filters = {}
+        const matching = () =>
+          visible().filter((r) => Object.entries(filters).every(([col, val]) => r[col] === val))
+
         const chain = {
           select: () => chain,
           eq: (column, value) => {
             filters[column] = value
             return chain
           },
-          limit: () =>
-            Promise.resolve({
-              data: rows.filter((r) =>
-                Object.entries(filters).every(([col, val]) => r[col] === val),
-              ),
-              error: null,
-            }),
-          insert: async (row) => {
+          // The read path orders by accepted_at when working out WHY there is
+          // no row for the current version.
+          order: () => chain,
+          limit: () => Promise.resolve({ data: matching(), error: null }),
+          maybeSingle: () => Promise.resolve({ data: matching()[0] ?? null, error: null }),
+          insert: (row) => {
             const duplicate = rows.some(
               (r) => r.user_id === row.user_id && r.policy_version === row.policy_version,
             )
             // 23505 is what Postgres raises against
             // policy_acceptances_user_version_key.
-            if (duplicate) {
-              return { error: { code: '23505', message: 'duplicate key value' } }
+            const inserted = duplicate ? null : { id: `row-${rows.length + 1}`, ...row }
+            if (inserted) rows.push(inserted)
+
+            const result = duplicate
+              ? { data: null, error: { code: '23505', message: 'duplicate key value' } }
+              : // RETURNING is filtered by the SELECT policy, so an unreadable
+                // row comes back as `null` with no error — exactly what
+                // PostgREST does.
+                { data: selectable ? inserted : null, error: null }
+
+            const insertChain = {
+              select: () => insertChain,
+              maybeSingle: () => Promise.resolve(result),
+              then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
             }
-            rows.push({ id: `row-${rows.length + 1}`, ...row })
-            return { error: null }
+            return insertChain
           },
         }
         return chain
@@ -200,5 +222,45 @@ describe('the one thing that DOES bring it back', () => {
     // re-showing. A user who accepted is not asked again because the network
     // blipped.
     expect(await gateWouldShow('user-1')).toBe(false)
+  })
+
+  /**
+   * The reported symptom, 2026-08-02: "I accepted on six accounts and it is
+   * still showing." The state that produces it is a row that the INSERT policy
+   * allows and the SELECT policy hides. Before this, the service reported
+   * success both times — on the first accept (bare insert, no read-back) and on
+   * every accept after (23505 treated as "already accepted") — so the user
+   * looped forever and nothing, anywhere, said why.
+   */
+  describe('writable but not readable — the endless re-prompt', () => {
+    beforeEach(() => {
+      table = createFakeTable({ selectable: false })
+      vi.mocked(getSupabase).mockReset()
+      vi.mocked(getSupabase).mockReturnValue(table.client)
+    })
+
+    it('refuses to report success when the row cannot be read back', async () => {
+      // It must NOT resolve. Resolving is what started the loop.
+      await expect(acceptCurrentPolicy('user-1')).rejects.toThrow(/could not be confirmed/i)
+      // The write itself did land — that is precisely what made this invisible.
+      expect(table.rows).toHaveLength(1)
+    })
+
+    it('does not claim "already accepted" for a row it cannot see', async () => {
+      table.rows.push({ id: 'row-1', user_id: 'user-1', policy_version: POLICY_VERSION })
+
+      // The second accept hits 23505. Returning `{ alreadyAccepted: true }`
+      // here is the exact bug: the gate closes, the next load re-reads, finds
+      // nothing, and asks again.
+      await expect(acceptCurrentPolicy('user-1')).rejects.toThrow(/cannot read it back/i)
+    })
+
+    it('still surfaces as "not accepted" to the gate, so the two agree', async () => {
+      table.rows.push({ id: 'row-1', user_id: 'user-1', policy_version: POLICY_VERSION })
+      // The read genuinely cannot see it, so the gate shows — correct on its own
+      // terms. The fix is not to make the gate lie; it is to make ACCEPTING fail
+      // loudly instead of pretending it worked.
+      expect(await gateWouldShow('user-1')).toBe(true)
+    })
   })
 })

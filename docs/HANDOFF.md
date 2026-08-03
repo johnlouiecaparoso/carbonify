@@ -48,7 +48,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1173 unit tests green across 99 files**
+> **Current build state:** build green, lint 0, **1176 unit tests green across 99 files**
 > (re-verified 2026-08-02, after the cross-role UX pass).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
@@ -59,7 +59,7 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
@@ -68,9 +68,12 @@
 >
 > ### 🆕 2026-08-02 (latest) — cross-role UX pass; analytics was showing invented data
 >
-> Suite **1138 → 1173** (99 files). Build green, lint 0. **Three migrations, ALL APPLIED and
+> Suite **1138 → 1176** (99 files). Build green, lint 0. **Three migrations, ALL APPLIED and
 > verified on live** — `20260802000500` (tour flag), `000600` (`support_reports`), `000700`
-> (`admin_set_user_jurisdiction`).
+> (`admin_set_user_jurisdiction`). **Merged to `main` and deployed** (`9d435bc..55a8852`).
+>
+> 64 files, +5,721/−745, 17 of them new. One follow-up branch is open and unmerged —
+> `fix-mobile-cart-and-earnings`, described at the end of this section.
 >
 > A single reported list of ~50 items, worked end to end across all six roles. Two things found on
 > the way matter more than the list did.
@@ -124,6 +127,73 @@
 > under-sized control with long labels *always* opens a list that overhangs it. Fixed by sizing
 > controls to their content and shortening labels (e.g. `"<title> — <category>"` → title, with the
 > category shown beneath), plus a global form-control baseline in `src/styles/form-controls.css`.
+>
+> **Follow-up, same evening — the cart row and the last two earnings tables.** On branch
+> `fix-mobile-cart-and-earnings`, not yet merged. The cart row fed **five children into three grid
+> columns**, so the browser auto-placed them and the price — the number you are checking — landed
+> mid-card. Now two explicit rows: name on top, price bottom-left, `− n +` and `×` bottom-right.
+> "Recent sales" and "Withdrawals" get the collapse treatment "Earnings by project" already had.
+>
+> > **Rendering it caught two things reasoning did not.** A realistic bulk quantity (12,000 credits)
+> > clipped to `120(` in the field; and after widening it, it *still* clipped at 320px, because the
+> > native number spinners eat ~15px **inside** the input. Both invisible in code review. The
+> > `dataviz` habit of "render it and look at it" earns its keep on ordinary layout too, not just on
+> > charts — screenshots at 380px and 320px are cheap.
+>
+> ### The consent gate, re-reported — and the database came back clean
+>
+> Reported the same evening: *"I accepted on six accounts and it is still showing."* The verification
+> script was run against live. **Every check PASS**, and the two INFO rows settle it:
+>
+> | Check | Result |
+> |---|---|
+> | Accounts with **no** acceptance row | **0** |
+> | Users who accepted the version the app asks for (`2026-07-31`) | **7** |
+> | Rows stranded under another version | **0** (PASS) |
+> | SELECT policy · INSERT policy · `authenticated` grants | PASS · PASS · PASS |
+>
+> So writes land, they are readable, there is no version mismatch, and no account is missing a row.
+> **Two further causes were ruled out rather than assumed:** the service worker serves navigations
+> `networkFirstShell` (fresh `index.html`, cache only when offline), so it cannot be pinning a stale
+> bundle; and a DEV mock session would *skip* the gate, not show it.
+>
+> The remaining explanation that fits every number is the mundane one: **the gate shows once per
+> ACCOUNT, and six or seven accounts were signed into in a row** — which is the designed behaviour
+> and feels exactly like "it keeps showing" while you are testing.
+>
+> ⚠️ **Two real defects were fixed anyway, because the investigation found them.** Neither was the
+> reported symptom, and both could have produced it:
+>
+> 1. **The service could report success for a row it could not read.** INSERT and SELECT are separate
+>    RLS policies, so a row can be **writable and not readable** — accept, row lands, read finds
+>    nothing, gate returns on every load, forever, with no error anywhere. Both success paths were
+>    assumptions: the first accept did a bare `.insert()` with no `RETURNING`, and every accept after
+>    reported `alreadyAccepted` off a 23505 without checking the existing row was visible. Now
+>    `.insert().select('id').maybeSingle()` — `RETURNING` is filtered by the SELECT policy, so the
+>    hidden case fails **loudly at the moment of acceptance**, same round trip.
+> 2. **The diagnostic could not detect the thing it was most likely to be run about.** §6 counted
+>    "users who accepted the current version" using **the newest row's version** — circular, so a
+>    mismatch between the table and the app was invisible to it. Pinned to `POLICY_VERSION`, plus new
+>    checks §7–§10 for stranded versions, both policies, and the grants. *The clean result above is
+>    only meaningful because those checks now exist.*
+>
+> The read path also says **why** it is about to show the gate — "no row at all" and "accepted, but
+> under version X" are indistinguishable to the user and completely different to whoever fixes it.
+> Suite **1173 → 1176**, three regression tests on a fake table that now models RLS *visibility*
+> rather than only the unique index.
+>
+> **Also fixed while checking the domain question:** the downloadable **text** certificate had
+> `https://carbonify.com/verify` hardcoded — a domain the platform does not own, printed onto a
+> document a holder keeps and may hand to an auditor. *A certificate citing a dead verification
+> address is worse than one citing none, because it looks checkable.* Now built from
+> `window.location.origin`, so it survives a Vercel rename or a custom domain. The PDF path already
+> did this; only the fallback was missed.
+>
+> **New:** [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md) — why a *branch* URL looks
+> like the link was renamed to a GitHub comment (the branch name is the only git-derived part of any
+> Vercel hostname), why a custom domain never is, that `.vercel/repo.json` here points at the
+> **`ecolink`** project being deleted, and the env-var/Supabase-redirect steps that break silently
+> after a domain change.
 >
 > ### 🆕 2026-08-02 — #36 confirmed on live, and the fix is staged
 >

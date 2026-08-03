@@ -16,15 +16,33 @@ import Withdraw from '@/components/wallet/Withdraw.vue'
 import KybForm from '@/components/wallet/KybForm.vue'
 import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 
-// Which "earnings by project" rows have been opened on a phone; inert above
-// 640px, where the table is a table and every column is already on screen.
-const expandedProjects = ref(new Set())
-function toggleProject(projectId) {
-  const next = new Set(expandedProjects.value)
-  if (next.has(projectId)) next.delete(projectId)
-  else next.add(projectId)
-  expandedProjects.value = next
+/**
+ * Per-row open state for the three stacked tables on this page.
+ *
+ * All inert above 640px — there the tables are tables and every column is
+ * already on screen, and `.row-toggle` is `display: none`.
+ *
+ * One factory rather than three copies of the same six lines: the earnings,
+ * sales and payout tables differ only in which id they key on.
+ */
+function useRowExpansion() {
+  const open = ref(new Set())
+  return {
+    open,
+    toggle(id) {
+      // Replaced rather than mutated — Vue tracks Set methods, but replacing
+      // keeps this obvious and the row counts here are small.
+      const next = new Set(open.value)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      open.value = next
+    },
+  }
 }
+
+const { open: expandedProjects, toggle: toggleProject } = useRowExpansion()
+const { open: expandedSales, toggle: toggleSale } = useRowExpansion()
+const { open: expandedPayouts, toggle: togglePayout } = useRowExpansion()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -311,8 +329,12 @@ onMounted(load)
             Export CSV
           </button>
         </div>
-        <div v-if="sales.length" class="table-scroll">
-          <table class="data-table stack-on-mobile">
+        <!-- Same treatment as "Earnings by project": capped height with a
+             "See more" underneath, and on a phone each card shows the sale date
+             until opened. Seven columns become seven lines per sale once
+             stacked, so fifty sales was ~350 lines to scroll past. -->
+        <CollapsibleList v-if="sales.length" :count="sales.length" :visible="5" row-selector="tbody > tr">
+          <table class="data-table stack-on-mobile collapse-rows">
             <thead>
               <tr>
                 <th>Date</th>
@@ -325,8 +347,25 @@ onMounted(load)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in sales" :key="s.id">
-                <td data-label="Date">{{ shortDate(s.created_at) }}</td>
+              <tr v-for="s in sales" :key="s.id" :class="{ 'is-open': expandedSales.has(s.id) }">
+                <!-- The date is the first cell, so it is what a collapsed card
+                     shows. The net is appended to it: on a sales list the one
+                     number you want without opening anything is what you were
+                     actually paid. -->
+                <td data-label="Date">
+                  <span class="row-lead">
+                    {{ shortDate(s.created_at) }}
+                    <strong class="row-lead-value">{{ peso(s.net_amount) }}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    class="row-toggle"
+                    :aria-expanded="expandedSales.has(s.id)"
+                    @click="toggleSale(s.id)"
+                  >
+                    {{ expandedSales.has(s.id) ? 'Less' : 'More info' }}
+                  </button>
+                </td>
                 <td data-label="Credits">{{ s.quantity }}</td>
                 <td data-label="Unit">{{ peso(s.price_per_credit) }}</td>
                 <td data-label="Gross">{{ peso(s.total_amount) }}</td>
@@ -338,7 +377,7 @@ onMounted(load)
               </tr>
             </tbody>
           </table>
-        </div>
+        </CollapsibleList>
         <p v-else-if="sectionErrors.sales" class="load-fail">
           Couldn't load your sales — this is not the same as having none.
           <button class="link-retry" @click="load">Retry</button>
@@ -349,21 +388,42 @@ onMounted(load)
       <!-- Payout history -->
       <section class="panel">
         <h2>Withdrawals</h2>
-        <div v-if="payouts.length" class="table-scroll">
-          <table class="data-table stack-on-mobile">
+        <CollapsibleList
+          v-if="payouts.length"
+          :count="payouts.length"
+          :visible="5"
+          row-selector="tbody > tr"
+        >
+          <table class="data-table stack-on-mobile collapse-rows">
             <thead>
               <tr><th>Date</th><th>Amount</th><th>Status</th><th>Note</th></tr>
             </thead>
             <tbody>
-              <tr v-for="p in payouts" :key="p.id">
-                <td data-label="Date">{{ shortDate(p.created_at) }}</td>
+              <tr v-for="p in payouts" :key="p.id" :class="{ 'is-open': expandedPayouts.has(p.id) }">
+                <!-- Date plus the amount: on a withdrawal the amount is the
+                     whole point, so hiding it behind a toggle would make the
+                     collapsed row useless. -->
+                <td data-label="Date">
+                  <span class="row-lead">
+                    {{ shortDate(p.created_at) }}
+                    <strong class="row-lead-value">{{ peso(p.amount) }}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    class="row-toggle"
+                    :aria-expanded="expandedPayouts.has(p.id)"
+                    @click="togglePayout(p.id)"
+                  >
+                    {{ expandedPayouts.has(p.id) ? 'Less' : 'More info' }}
+                  </button>
+                </td>
                 <td data-label="Amount">{{ peso(p.amount) }}</td>
                 <td data-label="Status"><span class="badge" :class="p.status">{{ p.status }}</span></td>
                 <td class="muted small" data-label="Note">{{ p.failure_reason || '—' }}</td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </CollapsibleList>
         <p v-else-if="sectionErrors.payouts" class="load-fail">
           Couldn't load your withdrawals. <button class="link-retry" @click="load">Retry</button>
         </p>

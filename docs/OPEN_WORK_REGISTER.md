@@ -53,6 +53,38 @@
 > exists to prevent: a routing doc that names a red blocker is read as status whatever its header
 > says. **A row that says "not confirmed done" is itself a claim that needs re-measuring** — the same
 > class as every other defect on this project, reached from the doc side.
+>
+> **Worked 2026-08-02 (evening) — the cross-role UX pass.** Suite **1138 → 1173** (99 files), merged
+> to `main` and deployed. It closed a ~50-item user-reported list across all six roles, and **Lane 2
+> is now empty of migrations**: the owner applied `20260802000300/000400/000500/000600/000700` and
+> redeployed `paymongo-webhook` the same day, all verified by probe except #4's constraint validation
+> (not readable through the anon API — recorded as the owner's word).
+>
+> Three defects surfaced that no backlog entry had predicted, all found while doing something else:
+> analytics rendering **invented placeholder data** as if it were the user's portfolio; **every
+> download in the app** able to fail silently; and a sidebar link that could never highlight. Two of
+> the three were user-visible on the paid plan.
+>
+> > The routing lesson: **all three were found by working through a UX list, not by auditing.** A
+> > register of known items cannot route work nobody has written down yet, and the highest-severity
+> > findings today were in that category. Lane 1 being short is not the same as Lane 1 being done.
+>
+> One branch is open and unmerged: **`fix-mobile-cart-and-earnings`** — it has grown past its name and
+> now carries the cart row layout, the Recent-sales/Withdrawals collapse, the consent-gate hardening,
+> the certificate verification-URL fix, and `VERCEL_DOMAIN_AND_REDEPLOY.md`.
+>
+> **The consent gate was re-reported and the database came back clean.** Every check PASS; 0 accounts
+> without a row, 7 on the current version, 0 stranded under another. The service worker was ruled out
+> too (`networkFirstShell` — navigations fetch fresh, cache only offline). The explanation that fits
+> every number is that the gate shows **once per account** and six or seven accounts were signed into
+> in a row, which is the designed behaviour.
+>
+> > Two real defects were fixed anyway, neither of them the reported symptom: the service could
+> > report success for a row it could not read back (INSERT and SELECT are separate policies, so
+> > writable-but-not-readable is a reachable state), and **the diagnostic could not detect the thing
+> > it was most likely to be run about** — §6 counted acceptances against the newest row's version
+> > rather than the app's. *The clean result above only means something because those checks now
+> > exist.*
 
 ---
 
@@ -74,6 +106,9 @@
 | ~~15~~ | ~~**Error handling: the remaining half**~~ — ✅ **CLOSED 2026-08-02**, by scanning every `catch` / `if (error)` in `src/services` instead of waiting for the next report: **40 candidates, 7 fixed, the rest deliberately left degrading.** The sharpest was `getAllSettings` — a failed read rendered as **platform fee 0%, min KYC level 0, both fees ₱0** in editable admin inputs beside an enabled Save button, so one click writes those zeros into live config and turns off the KYC gate on trading. SystemConfigView's *"Do not save those sections"* banner had been unreachable the whole time: **the fifth view this week whose error handling was written and could never run.** Also `findDuplicateEvidence`, where `[]` is what *suppresses* the duplicate alert — a failed fraud check reading as a clean one, on the screen where credits are approved | [#15](DEFERRED_BACKLOG.md) |
 | 🆕 | ~~**A failed settings read was savable back into live configuration**~~ — ✅ **fixed 2026-08-02.** See above. The rule this leaves: **when a view handles a rejection, check that its service can produce one** — a handler is evidence of intent, not of behaviour | code |
 | 🆕 | ~~**The notification bell was an open redirect**~~ — ✅ **fixed 2026-08-02.** `Header.vue` navigated with `window.location.assign(notification.link)`, and `link` is stored data that **any signed-in user can write into anyone else's feed** (see #36). An absolute URL there is an in-product phishing link aimed at whoever opens the bell, staff included. Now constrained to a root-relative path by [`safeInternalPath`](../src/utils/safeInternalPath.js). ⚠️ **The RLS half is NOT fixed** — that is [#36](DEFERRED_BACKLOG.md) and needs a migration plus ~18 call sites moved behind an RPC | [#36](DEFERRED_BACKLOG.md) |
+| 🆕 | ~~**The analytics page showed INVENTED data as the user's own portfolio**~~ — ✅ **fixed 2026-08-02.** `categoryChartData` was seeded with five hard-coded categories at shares `[35,25,15,15,10]`. Those rendered as a finished doughnut **before any fetch resolved** and **stayed** if the load failed or the account had never bought anything — so a buyer on the **paid** plan could read a confident breakdown of a portfolio they do not own, on the page they upgraded for, and take a disclosure decision from it. Now starts empty with an empty state. **The rule: placeholder data that is visually indistinguishable from real data is worse than an empty state** — it is the swallowed-read family, but louder, because invented numbers look *more* trustworthy than a blank panel | code |
+| 🆕 | ~~**Every download in the app could silently never happen**~~ — ✅ **fixed 2026-08-02.** All **eight** call sites revoked the object URL in the same tick as `a.click()`. The click only *schedules* the download; the browser reads the blob afterwards, so a synchronous revoke can cancel it — no error, no console warning, nothing to report but *"I clicked export and nothing happened"*. Timing-dependent, hence intermittent, hence it survived eight copies. Five services each held a byte-identical `triggerDownload`; three more inlined it. **Fifth instance of this repo's signature pattern — a correct fix applied to one branch and not its siblings.** Now one `utils/download.js` | code |
+| 🆕 | ~~**"User guide" could never highlight in the sidebar**~~ — ✅ **fixed 2026-08-02.** `/guide` was missing from the path list the active-link resolver matches against, so the one item you were standing on stayed unlit. Same commit: "Take a tour" drew a UA button border because the reset was scoped to `.nav-item--logout`, and the tour is a `<button>` too | code |
 | ~~26~~ | ~~The farmer "Paid" flag is a one-sided assertion rendered as fact~~ — ✅ **fixed 2026-07-29.** The record is two-sided; the badge reads "buyer says paid" until the farmer answers | [#26](DEFERRED_BACKLOG.md) |
 | ~~26~~ | ~~A feedstock dispute is structurally impossible~~ — ✅ **fixed 2026-07-29**, and **without** widening `disputes`: the disagreement is recorded on the delivery and escalates to `/admin/feedstock` | [#26](DEFERRED_BACKLOG.md) |
 | 🆕 | ~~**One payment could activate two subscription periods**~~ — ✅ **fixed 2026-07-30.** The webhook's subscription branch guarded with a read-then-act `status === 'paid'` check while `activate_subscription()` is *additive*. PayMongo delivers both `checkout_session.payment.paid` and `payment.paid` (distinct event ids → both clear event-level dedup), so two deliveries granted two periods. Now uses the same atomic claim the wallet branch already had | code |
@@ -150,7 +185,7 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | ~~29~~ | ~~Read-only admin feedstock view~~ | ✅ **Built 2026-07-29** — `/admin/feedstock`, read-only plus a record-the-outcome action |
 | ~~26~~ | ~~ToS + in-app modal stating the records-layer position~~ | ✅ **Built 2026-07-29** — ToS §1.14 + modal §6, landed together |
 | 28 | Notify an LGU when a project appears in its jurisdiction | Must be jurisdiction-scoped and **fail closed** |
-| 24 | Verifier's own decision history | Convenience view (an afternoon) vs attestation record (schema) |
+| ~~24~~ | ~~Verifier's own decision history~~ | ✅ **Built 2026-08-02 — and the decision it was waiting on turned out not to block it.** The choice was framed as "convenience view (an afternoon) vs attestation record (schema)". It needed **neither an afternoon of scaffolding nor a schema**: every decision was already in `audit_logs`, and 20260722000300 already let verifiers read project-scoped rows. Nobody had ever queried that table **by actor** instead of by subject. `MyDecisionsPanel` + `getMyVerificationDecisions` + a CSV export whose timestamps are ISO-8601 UTC, because the file is evidence. ⚠️ It is the *convenience view*: it reports what was logged, and is not a signed attestation — if an accreditation body ever needs non-repudiation, that is still the schema conversation |
 | ~~31~~ | ~~Farmers reach checkout by URL but aren't offered it~~ | ✅ **Decided + built 2026-07-30. A farmer is a SELLER, not a buyer** — they supply feedstock and do not trade credits, same as a project developer. `ROLES.FARMER` added to `FINANCE_RESTRICTED_ROLES`. Zero nav regression: `isBuyerRole()` already excluded farmers and their sidebar never offered those 10 routes — **only the router guard disagreed**, which is the contradiction #31 was actually about |
 | ~~32~~ | ~~**Google and phone sign-in are advertised in the UI and disabled on the backend**~~ | ✅ **fixed 2026-07-30 — and the decision no longer blocks anything.** Rather than pick one of the two answers, the forms now ask GoTrue `/auth/v1/settings` which providers are enabled and render accordingly (`useAuthProviders`). Enable Google in the dashboard and the button appears with **no redeploy**; leave it off and nobody is offered a dead path. Fails closed |
 | 21 | Provider layer imported only by tests | Route through the seam, or delete 11 files + port the signature test |
@@ -202,15 +237,28 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
-8b. 🆕 **Accept the consent box once on a REAL account, and confirm the row landed (~5 min).** The gate
-   was asking at every sign-in and recording nothing until 2026-08-01; fixed and verified for the four
-   DEV mock accounts, but `policy_acceptances` has **never held a row**, so "the write was broken for
-   real accounts too" and "nobody ever ticked the box" are still indistinguishable. Sign in, accept,
-   then run the join in [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md) — or
-   [`verify-policy-gate.js`](../scripts/test/verify-policy-gate.js) for one account from the terminal.
-   A null `accepted_at` after accepting is a **different, unfixed bug**.
+8b. ~~**Accept the consent box once on a REAL account, and confirm the row landed**~~ — ✅ **DONE and
+   verified 2026-08-02.** This step existed because `policy_acceptances` had **never held a row**, so
+   "the write is broken for real accounts" and "nobody ever ticked the box" were indistinguishable.
+   They are now distinguished: [`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql)
+   returns **every check PASS**, with **7 users on the current version**, **0 accounts without a
+   row**, and **0 rows stranded under an older version**. The write lands, it is readable, and the
+   SELECT/INSERT policies plus the `authenticated` grants are all present.
 9. Decide the **beta database** — reuse live (reconcile is clean) but purge or label leftover test data first
 10. **Run the closed beta** — 8–15 invited users, every role, `reconcile_financials()` = 0 daily
+
+> ✅ **2026-08-02 — the migration queue is empty.** `20260802000300` + `000400` (#36 notification
+> spoofing), `000500`, `000600`, `000700` were all applied and `paymongo-webhook` redeployed on the
+> same day. Five of the six were verified from here by anon probe; `20260802000200` (#4, validating
+> the `NOT VALID` constraints) is **reported run but not independently verified** — constraint
+> validity is not readable through the anon API. If you want that one settled:
+> `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';`
+>
+> ⚠️ **A probe reported the opposite of the truth first.** #36 was briefly recorded here and in
+> HANDOFF as "confirmed still unapplied" on the strength of a `PGRST202`. The probe had **invented
+> the argument names** — PostgREST resolves an RPC by name *and* argument names, so a wrong arg list
+> returns the same code as a missing function. **Copy the signature out of the migration; never guess
+> it.** A green control proves you reached the right database and nothing more.
 
 ### 2b. Decisions I cannot make for you
 
@@ -228,6 +276,19 @@ Org accounts go/no-go · public API exposure + key-gating · fee amounts · Busi
 >    unrelated *"Vite + React + TS"* app. `carbonify13` is production. Not a data risk, but it burns a
 >    build per push and **`.vercel/repo.json` links this checkout to `ecolink`**, so a CLI
 >    `vercel --prod` from the project folder would target the wrong project.
+>
+> 🆕 **2026-08-02 — the owner is redeploying and deleting `ecolink`, and finalising a domain.**
+> Everything needed for that is in **[VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md)**.
+> The headline, because it was the owner's actual worry: **a custom domain is never renamed by
+> anything in git.** The only git-derived part of any Vercel hostname is the **branch name**, and it
+> appears solely in *preview* URLs (`<project>-git-<branch>-<scope>.vercel.app`) — which is why a
+> preview built from `fix-mobile-cart-and-earnings` reads like the link was renamed to a commit
+> message. Commit messages and PR titles appear in no Vercel hostname at all.
+>
+> Recommendation on item 1: **delete the `deploy` job.** Keeping it alongside the Git integration
+> deploys twice per push, and `VERCEL_PROJECT_ID` would need hand-updating whenever the project
+> changes — a second place for the deploy target to drift, which is the very thing this cleanup is
+> removing.
 
 ~~Decide on merging **PR #14**~~ — ✅ **merged 2026-08-01**, 153 commits; `main` is current and
 production is running it · **set the three `VERCEL_*` secrets or delete `ci.yml`'s `deploy` job**,
