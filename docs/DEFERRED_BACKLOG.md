@@ -1603,6 +1603,32 @@ repo: `preferencesStore`'s defaults/reset, and `UserPreferencesView.vue`, which 
 switch and writes them back. Nothing reads any of them. The same is true of the twelve notification
 toggles — `notificationService` does not import `preferencesStore` at all.
 
+> ### ⚠️ There are TWO live notification-preference surfaces, and they disagree
+>
+> This is the part that makes the entry worth more than its severity colour.
+>
+> | Surface | Stored | Scope | Consulted when anything is sent |
+> |---|---|---|---|
+> | `UserPreferencesView` — 12 toggles | `localStorage.preferences` | **per device** | ❌ never |
+> | `ProfileView` → *Notifications* — 4 toggles | `profiles.notification_preferences` | per account | ❌ never |
+>
+> A user can set email notifications **off** on one page and **on** on the other; neither governs
+> anything, and nothing reconciles them. `notification_preferences` returns **zero hits across the
+> whole of `supabase/`** — no edge function and no trigger reads it — so the server-persisted set is
+> just as inert as the device-local one.
+>
+> **The database-backed one is the more dangerous of the two**, precisely because it looks
+> legitimate: it is per-account, it survives a device change, and it is a real column on `profiles`.
+> Anyone auditing whether Carbonify honours notification preferences would find that column, see it
+> populated with sensible values, and reasonably conclude the feature works. *A stored preference
+> reads as an honoured preference* — the same illusion as `wallet_topup_user_id`, the guard that was
+> written and never read (HANDOFF 2026-08-04), one layer up.
+>
+> A third surface, `emailService.getUserEmailPreferences` / `updateUserEmailPreferences`, is a pure
+> stub — it ignores its `userId` and returns hard-coded values, and the update path returns
+> `success: true` having saved nothing. It has **no callers** and is already filed under #30 as
+> residue of the deleted `/email-settings` page. Delete it with that item; do not wire it up.
+
 | Control | Read by | Effect of changing it |
 |---|---|---|
 | `privacy.allowAnalytics` | ✅ **now honoured** (2026-08-04) | Gates every `gtag` call **and** the GA script injection |
@@ -1613,6 +1639,7 @@ toggles — `notificationService` does not import `preferencesStore` at all.
 | `notifications.email.*` (5) | nothing | none |
 | `notifications.push.*` (4) | nothing | none |
 | `notifications.inApp.*` (5) | nothing | none |
+| `profiles.notification_preferences` (4, **server-side**) | nothing | none — 0 hits across `supabase/` |
 
 **What was fixed and why only that one.** `allowAnalytics` is a *consent* control, and analytics
 genuinely sends — `trackPurchase` forwards a transaction id, an amount and the user id to Google
@@ -1631,10 +1658,14 @@ itself the harm**. That was a defect with a contained fix, so it was fixed rathe
    (RLS on `profiles`), not a client check — a client-side "hide" on a column the API still returns
    is theatre.
 2. **Notification preferences must be enforced where notifications are sent**, which is the edge
-   functions and the DB triggers — not the browser. That needs the preferences to live on the
-   profile row rather than in `localStorage`.
-3. **They are stored per device, not per account** — the #35 defect again. Fixing that is wasted
-   work if (2) moves them server-side anyway, which is why it was not done in the same pass.
+   functions and the DB triggers — not the browser. Half the work is already done and nobody
+   noticed: `profiles.notification_preferences` exists, is per account, and is populated. What is
+   missing is any *reader* at send time. **Decide which of the two surfaces survives first** —
+   shipping enforcement against one while the other stays on screen makes the disagreement visible
+   instead of merely latent.
+3. **The `localStorage` set is stored per device, not per account** — the #35 defect again. Fixing
+   that scoping is wasted work if (2) retires that surface in favour of the profile row, which is
+   why it was not done in the same pass.
 4. 🔴 **Whether analytics consent may default to ON is a compliance question, not an implementation
    choice.** `DEFAULT_ANALYTICS_CONSENT` is `true` today purely to match what the switch already
    showed users. Opt-out vs opt-in under the Philippine DPA belongs with the NPC/DPO track in

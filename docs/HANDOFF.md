@@ -195,6 +195,15 @@
 > > how this repo produces its signature defect. The `dist/` check confirms no
 > > `isEnabled&&…gtag` path survives.
 >
+> > ⚠️ **There are two live notification-preference surfaces and they disagree.**
+> > `UserPreferencesView`'s twelve toggles go to `localStorage` (per device); `ProfileView`'s four
+> > go to `profiles.notification_preferences` (per account). **Neither is consulted when anything is
+> > sent** — `notification_preferences` returns *zero* hits across the whole of `supabase/`. A user
+> > can set email notifications off on one page and on on the other. The database-backed one is the
+> > more dangerous, because it looks legitimate: anyone auditing would find a real column on
+> > `profiles`, populated with sensible values, and conclude the feature works. *A stored preference
+> > reads as an honoured preference* — the `wallet_topup_user_id` illusion, one layer up.
+>
 > **Everything else there is deferred to backlog #37, deliberately.** `profileVisibility`,
 > `showEmail` and `showPhone` govern a surface that does not exist yet — `/profile` is self-only —
 > and honouring them means RLS on `profiles`, not a client-side hide on a column the API still

@@ -95,6 +95,10 @@
 >   two places — the store's defaults and the form that writes them — and nothing reads any of them.
 >   Now honoured (backlog **#37**, which routes the rest: the remaining controls need server-side
 >   enforcement and a schema, and the opt-in/opt-out default is an NPC/DPO call, not a build one).
+>   **#37 also records two *live* notification-preference surfaces that disagree** — twelve toggles
+>   in `localStorage` and four on `profiles.notification_preferences` — neither of which is read by
+>   anything that sends. The database-backed one is the more dangerous, because a populated column
+>   on `profiles` reads to an auditor as a feature that works.
 >
 > > The routing lesson, again and more sharply than on 08-02: the analytics defect was reachable in
 > > **no** development environment. `isEnabled` is `import.meta.env.PROD`, so it was absent from
