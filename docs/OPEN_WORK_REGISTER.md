@@ -72,7 +72,7 @@
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
-> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1219** (106 files), build green,
+> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1226** (107 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed. Six further defects, **none of which any entry on this page predicted**:
 >
@@ -90,7 +90,11 @@
 >   hit — a pattern with six instances rarely has exactly six. Its sibling `FirstRunGuide.vue` had
 >   keyed by user id all along, with a docblock explaining why;
 > - `wallet_topup_user_id` was **written and never read** — a guard that existed only as decoration;
-> - the payment confirmation screen **threw inside its own render** if the provider omitted `amount`.
+> - the payment confirmation screen **threw inside its own render** if the provider omitted `amount`;
+> - **the "allow analytics" consent switch did nothing.** All six privacy controls appear in exactly
+>   two places — the store's defaults and the form that writes them — and nothing reads any of them.
+>   Now honoured (backlog **#37**, which routes the rest: the remaining controls need server-side
+>   enforcement and a schema, and the opt-in/opt-out default is an NPC/DPO call, not a build one).
 >
 > > The routing lesson, again and more sharply than on 08-02: the analytics defect was reachable in
 > > **no** development environment. `isEnabled` is `import.meta.env.PROD`, so it was absent from
@@ -213,6 +217,7 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | ~~24~~ | ~~Verifier's own decision history~~ | ✅ **Built 2026-08-02 — and the decision it was waiting on turned out not to block it.** The choice was framed as "convenience view (an afternoon) vs attestation record (schema)". It needed **neither an afternoon of scaffolding nor a schema**: every decision was already in `audit_logs`, and 20260722000300 already let verifiers read project-scoped rows. Nobody had ever queried that table **by actor** instead of by subject. `MyDecisionsPanel` + `getMyVerificationDecisions` + a CSV export whose timestamps are ISO-8601 UTC, because the file is evidence. ⚠️ It is the *convenience view*: it reports what was logged, and is not a signed attestation — if an accreditation body ever needs non-repudiation, that is still the schema conversation |
 | ~~31~~ | ~~Farmers reach checkout by URL but aren't offered it~~ | ✅ **Decided + built 2026-07-30. A farmer is a SELLER, not a buyer** — they supply feedstock and do not trade credits, same as a project developer. `ROLES.FARMER` added to `FINANCE_RESTRICTED_ROLES`. Zero nav regression: `isBuyerRole()` already excluded farmers and their sidebar never offered those 10 routes — **only the router guard disagreed**, which is the contradiction #31 was actually about |
 | ~~32~~ | ~~**Google and phone sign-in are advertised in the UI and disabled on the backend**~~ | ✅ **fixed 2026-07-30 — and the decision no longer blocks anything.** Rather than pick one of the two answers, the forms now ask GoTrue `/auth/v1/settings` which providers are enabled and render accordingly (`useAuthProviders`). Enable Google in the dashboard and the button appears with **no redeploy**; leave it off and nobody is offered a dead path. Fails closed |
+| 37 | 🆕 **The preferences page's Privacy and Notification sections are placebos** | `allowAnalytics` is fixed; the other 17 controls are read by nothing. Needs server-side enforcement + preferences on the profile row, **not** a client patch. The opt-in/opt-out default is a 🏢 **DPA/NPC call** (Step 6c) |
 | 21 | Provider layer imported only by tests | Route through the seam, or delete 11 files + port the signature test |
 | 25 | Reviews aren't assigned; concurrent reviewers invisible | Claimed vs merely advertised |
 | ~~35~~ | ~~**The cart survives sign-out, so a shared device hands it to the next person**~~ | ✅ **CLOSED 2026-08-04 — the decision was a false blocker.** The cost that made this a choice ("clearing loses a legitimate basket") belonged to option (a) only; option (b), namespacing per user id, never had it. What neither option named was the **guest bucket** — browse signed-out, then sign in to pay — so the guest cart now merges forward at sign-in and is emptied. Nothing discarded, nobody inherits anybody. **A second, worse cart defect surfaced while fixing it** (see 2026-08-04 above) | 

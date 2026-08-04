@@ -1591,6 +1591,65 @@ where polrelid = 'public.system_notifications'::regclass and polcmd = 'a';
 It read `(auth.uid() IS NOT NULL)`.
 </details>
 
+---
+
+### 37. The preferences page's Privacy and Notification sections are placebos 🟠
+**Found 2026-08-04**, while sweeping `localStorage` keys for the device-vs-account defect that
+closed #35. `privacy.allowAnalytics` was **fixed on the spot** (see below); the rest is recorded
+here because it needs decisions and a schema, not a patch.
+
+**The measurement.** Each of the six privacy controls appears in exactly **two** places in the whole
+repo: `preferencesStore`'s defaults/reset, and `UserPreferencesView.vue`, which binds them to a
+switch and writes them back. Nothing reads any of them. The same is true of the twelve notification
+toggles — `notificationService` does not import `preferencesStore` at all.
+
+| Control | Read by | Effect of changing it |
+|---|---|---|
+| `privacy.allowAnalytics` | ✅ **now honoured** (2026-08-04) | Gates every `gtag` call **and** the GA script injection |
+| `privacy.profileVisibility` | nothing | none |
+| `privacy.showEmail` / `showPhone` | nothing | none |
+| `privacy.allowCookies` | nothing | none |
+| `privacy.dataSharing` | nothing | none |
+| `notifications.email.*` (5) | nothing | none |
+| `notifications.push.*` (4) | nothing | none |
+| `notifications.inApp.*` (5) | nothing | none |
+
+**What was fixed and why only that one.** `allowAnalytics` is a *consent* control, and analytics
+genuinely sends — `trackPurchase` forwards a transaction id, an amount and the user id to Google
+Analytics. A consent switch that does nothing is the worst member of the placebo-control class this
+repo keeps finding (the theme toggle that styled nothing, six languages with no i18n installed,
+accessibility switches saved and never applied), because **the user's belief that they opted out is
+itself the harm**. That was a defect with a contained fix, so it was fixed rather than filed.
+
+**What is deferred, and why it is not a patch:**
+
+1. **`profileVisibility` / `showEmail` / `showPhone` have no surface to govern yet.** `/profile` is
+   self-only — it renders the signed-in user's own email and phone off their own session. There is
+   no public profile page, so nothing is exposed today. But these controls promise to govern a
+   disclosure that does not exist, and the day a public profile ships they will silently fail to
+   take effect unless someone remembers. Honouring them properly means **server-side enforcement**
+   (RLS on `profiles`), not a client check — a client-side "hide" on a column the API still returns
+   is theatre.
+2. **Notification preferences must be enforced where notifications are sent**, which is the edge
+   functions and the DB triggers — not the browser. That needs the preferences to live on the
+   profile row rather than in `localStorage`.
+3. **They are stored per device, not per account** — the #35 defect again. Fixing that is wasted
+   work if (2) moves them server-side anyway, which is why it was not done in the same pass.
+4. 🔴 **Whether analytics consent may default to ON is a compliance question, not an implementation
+   choice.** `DEFAULT_ANALYTICS_CONSENT` is `true` today purely to match what the switch already
+   showed users. Opt-out vs opt-in under the Philippine DPA belongs with the NPC/DPO track in
+   YOUR_ACTION_ITEMS Step 6c. **Nobody on the build side should guess it.**
+
+**The honest interim option, if the decision takes a while:** remove the controls that do nothing
+from the UI, exactly as the seven fake languages and the dead theme toggle were removed. A missing
+control is honest; a control that lies is not. That is a product call, hence here.
+
+⚠️ **Severity is about trust, not exposure.** No data leaks today: GA is unconfigured
+(`VITE_GA_TRACKING_ID` unset), there is no public profile, and the notification toggles only fail to
+*suppress* mail that mostly still goes through `console.log` stubs. It is 🟠 because a pilot user
+who opts out of analytics and data sharing has been told something untrue by the product, and
+because this is the surface an NPC review or a pentest brief looks at first.
+
 ## From the 2026-08-02 cross-role UX pass
 
 > **Update, same day — both of these were subsequently built.** The two gaps the scan named as

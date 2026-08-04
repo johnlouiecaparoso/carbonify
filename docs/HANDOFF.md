@@ -48,7 +48,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1219 unit tests green across 106 files**
+> **Current build state:** build green, lint 0, **1226 unit tests green across 107 files**
 > (re-verified 2026-08-04, after the pre-pilot defect hunt).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
@@ -59,7 +59,7 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1219 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1226 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
@@ -68,7 +68,7 @@
 >
 > ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
 >
-> Suite **1185 → 1219** (101 → 106 files). Build green, lint 0. **No migrations.** Nothing here was
+> Suite **1185 → 1226** (101 → 107 files). Build green, lint 0. **No migrations.** Nothing here was
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
@@ -176,6 +176,38 @@
 > > [`onboardingGuideScoping.test.js`](../src/test/components/onboardingGuideScoping.test.js) (6
 > > tests) and mutation-checked in three independent directions — collapsing the key turns 3 red,
 > > removing the legacy-key drop turns 1 red, removing the re-read watch turns 1 red.
+>
+> 🔴 **The "allow analytics" switch on the preferences page did nothing.** Sweeping that surface
+> after the storage-key pass turned up the measurement: each of the **six** privacy controls appears
+> in exactly **two** places in the whole repo — `preferencesStore`'s defaults, and
+> `UserPreferencesView.vue`, which binds them to a switch and writes them back. **Nothing reads any
+> of them.** The twelve notification toggles are the same; `notificationService` does not import the
+> preferences store at all.
+>
+> `allowAnalytics` was fixed on the spot because it is a **consent** control and analytics genuinely
+> sends — `trackPurchase` forwards a transaction id, an amount and the user id to GA. Consent now
+> gates all six `gtag` sites through a single `canSend()` choke point **and** the GA script injection
+> (`setupGoogleAnalytics()` ends in `gtag('config', …)`, which sends a page_view by itself, so gating
+> only the later calls would leak the first one). Re-read per call, so revoking takes effect at once.
+>
+> > **Why one choke point rather than six conditions.** Each call site had independently written
+> > `this.isEnabled && window.gtag`. Adding consent as a seventh copy of that condition is exactly
+> > how this repo produces its signature defect. The `dist/` check confirms no
+> > `isEnabled&&…gtag` path survives.
+>
+> **Everything else there is deferred to backlog #37, deliberately.** `profileVisibility`,
+> `showEmail` and `showPhone` govern a surface that does not exist yet — `/profile` is self-only —
+> and honouring them means RLS on `profiles`, not a client-side hide on a column the API still
+> returns. Notification preferences must be enforced where notifications are *sent*, which is the
+> edge functions, so they need to live on the profile row first. And 🔴 **whether analytics consent
+> may default to ON at all is a DPA question for the NPC/DPO track, not an implementation choice** —
+> `DEFAULT_ANALYTICS_CONSENT` is `true` today only because that is what the switch already showed
+> users.
+>
+> *Honest severity: nothing leaks today* — GA is unconfigured, there is no public profile, and the
+> mail those toggles would suppress is mostly still `console.log` stubs. It is red because a pilot
+> user who opts out has been told something untrue, and because this is the first surface an NPC
+> review or a pentest brief looks at.
 >
 > 🐛 **A guard that was written and never read.** `TopUp.vue` has always stored
 > `wallet_topup_user_id`; the only other mention of that key in the entire repo was
