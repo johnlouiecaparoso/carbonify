@@ -1,5 +1,56 @@
 # Vercel — redeploying, deleting the spare project, and pinning the domain
 
+> ## 🔴 2026-08-05 — THIS IS NOW THE ACTIVE DOC. The site is gone, and this page predicted why.
+>
+> Measured straight after pushing `main` (`d88de64`):
+>
+> | Host | Result |
+> |---|---|
+> | `carbonify13.vercel.app` | **`404 DEPLOYMENT_NOT_FOUND`** — the documented production URL, verified live on 2026-08-01 |
+> | `carbonify.vercel.app` | `200`, `<title>Carbonify</title>` — **but it is the `ecolink` React app.** One 553 KB `/assets/index-*.js` with no `policy_acceptances`, no `credit_listings`, no Supabase client, no Vue runtime; `/sw.js` and `/manifest.webmanifest` both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a manifest |
+>
+> **The cause is row #1 of the table below, which this page wrote down three days earlier:**
+> *`<project>.vercel.app` changes only if you rename the Vercel project.* `git push` reported
+> *"This repository moved… new location `johnlouiecaparoso/carbonify`"* — **the GitHub repo was
+> renamed `carbonify13` → `carbonify`.** Two explanations fit; only the dashboard distinguishes them:
+>
+> - the rename broke the `carbonify13` project's Git link, so nothing has built since; or
+> - that project was renamed/deleted and `ecolink` took the freed `carbonify` name.
+>
+> **Three questions to answer in the dashboard, in order:**
+>
+> 1. Which project is connected to `johnlouiecaparoso/carbonify`?
+> 2. Did it build commit `d88de64`?
+> 3. Which domain is aliased to it? — that is the new production URL.
+>
+> **Then confirm the answer instead of assuming it** — the impostor above answered `200` with the
+> right page title, so eyeballing it is not enough:
+>
+> ```bash
+> node scripts/analysis/verify-deploy.mjs https://<the-url-you-found>
+> ```
+>
+> It checks that the host responds, that `/sw.js` serves a `CACHE_VERSION`, that the entry bundle
+> contains `credit_listings` / `policy_acceptances` / `process_wallet_purchase`, and that the
+> 2026-08-04 analytics `window.fetch` wrapper is **gone** (its presence means an old build, and
+> `VITE_GA_TRACKING_ID` is unsafe against it). Exit 0 = this app.
+>
+> Then work §*Order of operations* below, which is written for exactly this move. **Do §*Environment
+> variables* before pointing any domain**: `VITE_*` values are inlined at build time, so a project
+> without them builds green and fails at runtime. And when a URL is chosen, replace
+> `carbonify13.vercel.app` in [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md),
+> [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) and any pilot invite, and update **Supabase → Auth → URL
+> Configuration** (§*After the domain is final*) or every password-reset and confirmation link will
+> point at a dead host.
+>
+> ⚠️ **Two local one-liners, both still outstanding** (a tool restriction blocked me from running the
+> first, and the second is your local state to remove):
+>
+> ```bash
+> git remote set-url origin https://github.com/johnlouiecaparoso/carbonify.git   # still points at carbonify13.git, works only by redirect
+> rm -rf .vercel                                                                  # still linked to `ecolink` — see §Before you deploy from this folder
+> ```
+>
 > **Written 2026-08-02**, for the redeploy where the second Vercel project (`ecolink`) is removed and
 > a final domain is chosen. The question that prompted it: *"will the link get renamed to the GitHub
 > comment/branch?"*

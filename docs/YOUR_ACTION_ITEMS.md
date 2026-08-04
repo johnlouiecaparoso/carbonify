@@ -82,18 +82,20 @@
 > `20260804000100`–`000500` — each returned *"Success. No rows returned"* — and redeployed the edge
 > functions.
 >
-> **Two things carry forward:**
+> ✅ **All three money edge functions are deployed** — `paymongo-webhook`, `paymongo-resettle` and
+> `paymongo-checkout` (the last one 2026-08-05, closing the wallet **top-up** suspension check).
+> **The entire backend side of this pass is now live.**
 >
-> 1. 🟡 **Confirm `paymongo-checkout` was in the redeploy set.** That row was added to the docs on
->    2026-08-05, *after* the list you were working from. If it was not deployed, the wallet **top-up**
->    suspension check is still inert. `supabase functions deploy paymongo-checkout` — idempotent,
->    safe to run again, no ordering constraint.
-> 2. 🔴 **`ESC-01…06` is now the only thing gating the pilot.** `20260804000300` is applied, which is
->    what makes `ESC-02` able to pass. **Run it with GCash specifically** — wallet balance alone does
->    not exercise the branch that was broken.
+> **What carries forward is all frontend:**
 >
-> ✅ **`VITE_GA_TRACKING_ID` is safe to set now** (it was not before this deploy). Confirm the Vercel
-> build actually completed first.
+> 1. 🔴 **The site does not resolve** — see the box above. Nothing user-facing from 2026-08-04 or
+>    08-05 is reachable, including the price fix.
+> 2. 🔴 **`ESC-01…06` is the last functional gate**, and it needs a working site to run against.
+>    `20260804000300` is applied, which is what makes `ESC-02` able to pass. **Run it with GCash
+>    specifically** — wallet balance alone does not exercise the branch that was broken.
+>
+> ⚠️ **`VITE_GA_TRACKING_ID` stays unset** until a deployment of the current code is confirmed
+> reachable — not merely pushed.
 >
 > > 🔎 **What the audit found, because it is worth knowing which way it went.** Finding **C** was
 > > `plan` and `plan_expires_at` — **not** `kyb_verified` or `is_active`. That means `20260703000300`
@@ -345,7 +347,9 @@ takes only a SHARE UPDATE EXCLUSIVE lock — reads and writes continue while it 
 > runs inside a transaction that ends in `ROLLBACK`, so it writes nothing. Probes that would pass
 > vacuously report `UNPROVEN` rather than `PASS`.
 >
-> **#2's deploy half is closed.** PR #14 is merged and `carbonify13.vercel.app` was **verified by
+> **#2's deploy half is closed.** ⚠️ **Re-opened 2026-08-05 — that host now 404s; see the top of this
+> page.** The paragraph below was true when written and is kept because *how* it was verified is the
+> method that later caught the outage. PR #14 is merged and `carbonify13.vercel.app` was **verified by
 > fetching it** — it serves `sw.js` at `CACHE_VERSION = 'v4'` and a bundle containing
 > `policy_acceptances`, neither of which existed on the old `main`. So the router fix is live: a
 > farmer can no longer reach `/admin` by typing the URL. The consent gate, onboarding guides, KYC

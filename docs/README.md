@@ -1,17 +1,23 @@
 # Carbonify — Documentation Index
 
-> **Updated 2026-08-01.** This folder mixes **current** docs with **historical** planning notes kept for
+> **Updated 2026-08-05.** This folder mixes **current** docs with **historical** planning notes kept for
 > traceability. Use the current set below; anything under "Historical" carries a superseded banner.
 >
-> ### 🧭 State in three lines (2026-08-01)
+> ### 🧭 State in three lines (2026-08-05)
 >
-> **PR #14 is merged and production is running it** — `main` went from 153 commits behind to 0, and
-> `carbonify13.vercel.app` was verified by fetching it. Suite **1086 green** across 90 files, lint 0,
-> build green. ⚠️ `main` shows a red X on `ci.yml`'s `deploy` job (`VERCEL_TOKEN` never set); the
-> Vercel **Git integration** is what deploys, so that red is not a failed deploy.
+> 🔴 **There is no reachable production site.** `carbonify13.vercel.app` returns
+> `404 DEPLOYMENT_NOT_FOUND` and `carbonify.vercel.app` serves the unrelated `ecolink` React app —
+> the GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git integration did not
+> follow. **This is the top item**; nothing user-facing can be tested until it is fixed.
+> See [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md).
 >
-> **The one thing gating a pilot seller invite is `ESC-01…06`** — the four escrow behaviour checks.
-> Escrow is applied and holding balances; nobody has watched it behave on a real purchase.
+> ✅ **The backend is fully current.** All five `20260804*` migrations applied 2026-08-05, all three
+> money edge functions redeployed, `main` pushed. Suite **1278 green** across 111 files, lint 0,
+> build green.
+>
+> **Once the site is back, the one thing gating a pilot seller invite is `ESC-01…06`** — the escrow
+> behaviour checks. Escrow is applied and holding balances; nobody has watched it behave on a real
+> purchase. Run `ESC-02` **on GCash specifically**.
 >
 > **Real money is still gated on the independent penetration test.** Test keys only until then.
 >
@@ -86,6 +92,7 @@ editor shows only the last statement's result when a whole file is pasted.
 | [`access_posture_audit.sql`](../supabase/diagnostics/access_posture_audit.sql) | 🆕 Who can **read** it, and what can a client write to a profile? Covers `profiles` + `certificates` (neither has a tracked RLS policy) and the profiles column grants. 0 rows = correct |
 | [`daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql) | Run every morning during the pilot |
 | [`find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs) | 🆕 `node scripts/analysis/find-dead-exports.mjs` — which exports nothing references. **Candidates, not a verdict**: deliberately conservative, and deleting one took down a live surface on 2026-08-02 |
+| [`verify-deploy.mjs`](../scripts/analysis/verify-deploy.mjs) | 🆕 `node scripts/analysis/verify-deploy.mjs <url>` — **is that URL serving THIS app, and is it current?** Written 2026-08-05 after a 200 with the right `<title>` turned out to be an unrelated React project. Exit 0/1, so it can gate a pre-flight |
 
 ## 🛠 Build / operate it
 

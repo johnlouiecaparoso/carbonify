@@ -103,7 +103,7 @@ These cannot be done in-repo by Claude:
 | Anthropic Claude API | AI Assistant | ❌ Not connected |
 | Sentry | Error monitoring | ✅ Present |
 | Leaflet / OpenStreetMap | Maps | ✅ (no key) |
-| Vercel | Hosting | ✅ **`carbonify13`** is production (`carbonify13.vercel.app`), deployed by the Vercel **Git integration** on push to `main`. ⚠️ A second project, `ecolink`, is wired to this same repo, builds on every push, and serves an unrelated React app — see §5 |
+| Vercel | Hosting | 🔴 **BROKEN 2026-08-05 — no known production URL.** `carbonify13.vercel.app` now returns `404 DEPLOYMENT_NOT_FOUND`; `carbonify.vercel.app` answers but serves the **`ecolink`** React app, not this codebase. The GitHub repo was renamed `carbonify13` → `carbonify` and the Git integration did not follow. Fix in the Vercel dashboard — [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md) |
 | Blockchain (e.g. Polygon) | Tokenization | ⏭️ Future — owner decision |
 
 Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,

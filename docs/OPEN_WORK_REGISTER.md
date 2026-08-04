@@ -70,10 +70,25 @@
 > > register of known items cannot route work nobody has written down yet, and the highest-severity
 > > findings today were in that category. Lane 1 being short is not the same as Lane 1 being done.
 >
-> **✅ Closed 2026-08-05 — Lane 2 is empty again.** All five `20260804*` migrations are applied, the
-> edge functions redeployed and `main` pushed. The pre-flight audit returned 5 rows and both findings
-> are closed; the one that mattered was **D**, which was breaking every profile save on production
-> and had never been reported. Detail in [HANDOFF.md](HANDOFF.md) § *2026-08-05*.
+> **✅ Closed 2026-08-05 — the database half of Lane 2 is empty.** All five `20260804*` migrations are
+> applied, **all three** money edge functions redeployed and `main` pushed. The pre-flight audit
+> returned 5 rows and both findings are closed; the one that mattered was **D**, which was breaking
+> every profile save on production and had never been reported. Detail in [HANDOFF.md](HANDOFF.md)
+> § *2026-08-05*.
+>
+> > 🔴 **And one item replaced it, routed 👤 owner and outranking everything on this page: there is no
+> > production site.** `carbonify13.vercel.app` returns `404 DEPLOYMENT_NOT_FOUND`;
+> > `carbonify.vercel.app` answers `200` with this app's title and is the unrelated `ecolink` React
+> > project. The GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git integration
+> > did not follow. Only the Vercel dashboard can route this one —
+> > [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md) carries the ordered fix.
+> >
+> > **The routing lesson, and it is the sharpest one this page has recorded.** Every lane on this
+> > register describes work on the *codebase*. This item is not in the codebase, not in the database,
+> > and not in any document — it is in a third-party dashboard, and no artifact in this repo could
+> > have shown it. It was found by fetching a URL after a push that reported success. *A register
+> > routes work it can see; the deploy target was never a lane.* Now closable by
+> > `node scripts/analysis/verify-deploy.mjs <url>`.
 >
 > **⚠️ Historical — Lane 2 was NOT empty of migrations.** The money-path defect
 > pass added **five (`20260804000100`–`000500`) plus three edge-function redeploys**, routed 👤 owner.

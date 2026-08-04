@@ -54,11 +54,9 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 >   **Nothing else in this runbook can run until a URL serves this codebase.** Fix in the Vercel
 >   dashboard, then replace `carbonify13.vercel.app` everywhere in these docs and in the UAT script.
 > - [x] ✅ **The five `20260804*` migrations are applied** (2026-08-05, each *"Success. No rows
->   returned"*), `main` is pushed, and `paymongo-webhook` + `paymongo-resettle` are redeployed.
->   `20260804000300` gates §3's escrow checks and is in — **ESC-02 can now pass.**
-> - [ ] 🟡 **Confirm `paymongo-checkout` was also redeployed.** It carries the wallet top-up
->   suspension guard and was named in no deploy instruction anywhere until 2026-08-05, so it may not
->   have been in the set. Idempotent: just run `supabase functions deploy paymongo-checkout`.
+>   returned"*), `main` is pushed, and **all three** money edge functions are redeployed —
+>   `paymongo-webhook`, `paymongo-resettle` and `paymongo-checkout`. `20260804000300` gates §3's
+>   escrow checks and is in — **ESC-02 can pass as soon as there is a site to run it against.**
 
 > 💡 **Shortcut:** every SQL check below (1a, 1b) plus the money-table RLS audit, the escrow
 > apply-status question and the `20260718*` apply-status question are bundled into one read-only
@@ -101,11 +99,15 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 - [ ] **1f. Sentry is receiving events** (if a `VITE_SENTRY_DSN` is configured) — trigger any handled
   error and confirm it lands, so you have eyes on the pilot.
 
-- [x] **1g. Frontend deployed** — ✅ **done 2026-08-01.** PR #14 merged to `main`; production
-      (`carbonify13.vercel.app`) verified by fetching it, not by reading a CI badge. ⚠️ `main` shows a
-      red X on `ci.yml`'s `deploy` job (`VERCEL_TOKEN` never set) — the Vercel **Git integration** is
-      what deploys, so that red is not a failed deploy. Originally: deployed from the current build; the header/login
-  logo renders (the green-leaf badge), and `/` hero stats load real numbers, not `—`.
+- [ ] 🔴 **1g. Frontend deployed** — ⚠️ **REGRESSED 2026-08-05.** It was ✅ on 2026-08-01: PR #14
+      merged and production (`carbonify13.vercel.app`) verified by fetching it, not by reading a CI
+      badge. **That host now returns `404 DEPLOYMENT_NOT_FOUND`** — see the 🔴 item at the top of this
+      pre-flight. Re-tick this only once you have confirmed the new URL serves *this* app:
+      ```bash
+      node scripts/analysis/verify-deploy.mjs https://<the-new-url>
+      ```
+      Then eyeball it too — the header/login logo renders (the green-leaf badge) and `/` hero stats
+      load real numbers, not `—`.
 
 - [ ] 🔴 **1h. `process-payouts` is deployed, its secret is set, AND it is scheduled.** Added
   2026-07-29, when escrow went live. `process_marketplace_purchase` now holds card sellers' net in

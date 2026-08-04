@@ -398,8 +398,14 @@
 > > The previous six were built-not-deployed or written-not-saved. This one is *deployed-to-nowhere*:
 > > the push succeeded, the CI is irrelevant, git is clean and level — and there is no site. Every
 > > signal a developer normally trusts was green. **The only check that caught it was fetching the
-> > URL**, which is the same check that proved the 08-01 deploy real. Do it every time; it costs one
-> > command.
+> > URL**, which is the same check that proved the 08-01 deploy real.
+> >
+> > It is now one command, because "fetch it and look" has a failure mode of its own —
+> > `carbonify.vercel.app` returned `200` with `<title>Carbonify</title>`, and a human glance passes
+> > that: **`node scripts/analysis/verify-deploy.mjs <url>`**. It checks the response, `/sw.js`'s
+> > `CACHE_VERSION`, three schema markers in the entry bundle, and that the deleted `window.fetch`
+> > wrapper is absent — exiting 0 only if the URL serves *this* app at *this* vintage. It reports
+> > FAIL against both hosts today, which is how it was verified.
 >
 > ⚠️ **One thing to confirm rather than assume: `paymongo-checkout`.** The redeploy list said *two*
 > functions until 2026-08-05 and the real answer is *three*. If only `paymongo-webhook` and
@@ -434,8 +440,8 @@
 > | 4 | Apply `20260804000400` (payout suspension + idempotency scope) | ✅ applied 2026-08-05 |
 > | 5 | 🔒 **GATED:** `20260804000500` (certificates RLS) | ✅ applied 2026-08-05 after its pre-flight |
 > | 6 | `supabase functions deploy paymongo-webhook` and `paymongo-resettle` | ✅ owner reports redeployed 2026-08-05 |
-> | 6b | `supabase functions deploy paymongo-checkout` | 🟡 **confirm.** This row did not exist until 2026-08-05, so it may not have been in the set that was deployed. Idempotent — just run it |
-> | 7 | Push `main` | ✅ pushed 2026-08-05 |
+> | 6b | `supabase functions deploy paymongo-checkout` | ✅ **deployed 2026-08-05.** The wallet top-up suspension check is live. All three money edge functions are now current |
+> | 7 | Push `main` | ✅ pushed 2026-08-05 (`d88de64`) — ⚠️ **but nothing served it**, see the box above |
 >
 > **Nothing here is a one-way door.** Every migration carries its own ROLLBACK block naming the exact
 > file to re-apply. `20260804000300` degrades to today's behaviour if step 6 never happens; the only
