@@ -6,6 +6,8 @@ import { useModernPrompt } from '@/composables/useModernPrompt'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import { useCartStore } from '@/store/cartStore'
 import { useUserStore } from '@/store/userStore'
+import { getIntentBySession } from '@/services/orderService'
+import { resolveWalletTopUp } from '@/services/paymentPurpose'
 import {
   CART_CHECKOUT_ACTIVE,
   CART_PENDING_SESSION,
@@ -156,28 +158,30 @@ onMounted(async () => {
       success.value = true
       paymentDetails.value = result.payment
 
-      // Wallet top-up completion (legacy path; migrated to payment_intents in P5).
-      const topUpSession = localStorage.getItem('wallet_topup_session')
-      let wasTopUp = topUpSession && topUpSession === sessionId
-
-      // TopUp.vue has always stored who started the top-up, and until now
-      // NOTHING read it back — this view's only mention of the key was to
-      // remove it. A guard that is written but never checked reads, to anyone
-      // auditing the money path, as protection that does not exist.
+      // What KIND of payment was this? Ask the server (P5 completed 2026-08-04).
       //
-      // These keys are device-global, so on a shared machine they can outlive
-      // the account that wrote them. If the pending top-up was started by
-      // somebody else, this is not that person's payment to report on: say
-      // nothing about it and drop the stale keys.
-      const topUpOwner = localStorage.getItem('wallet_topup_user_id')
+      // `payment_intents.purpose` is the authority: the checkout function writes
+      // it, the webhook credits the balance from it, and reconcile/resettle both
+      // work off it. This view was the last place in the money path choosing a
+      // branch from browser storage — which fails whenever the payment finishes
+      // somewhere the redirect did not start (another browser, another device,
+      // storage cleared). The money is credited regardless; it was the RECEIPT
+      // that went silent, which is the combination that produces a support
+      // ticket.
+      //
+      // Reading the intent also makes the shared-device case structural:
+      // payment_intents is owner-scoped by RLS, so another account's row is not
+      // returned at all. A database that cannot hand you someone else's row
+      // beats comparing a key anybody on the device could have written.
       const currentUserId = userStore.session?.user?.id || null
-      if (wasTopUp && topUpOwner && currentUserId && topUpOwner !== currentUserId) {
-        console.warn('⚠️ Pending top-up belongs to a different account; ignoring it')
-        localStorage.removeItem('wallet_topup_session')
-        localStorage.removeItem('wallet_topup_amount')
-        localStorage.removeItem('wallet_topup_user_id')
-        wasTopUp = false
-      }
+      const intent = await getIntentBySession(sessionId)
+      const wasTopUp = resolveWalletTopUp({
+        intent,
+        sessionId,
+        currentUserId,
+        storedSession: localStorage.getItem('wallet_topup_session'),
+        storedOwner: localStorage.getItem('wallet_topup_user_id'),
+      })
 
       // Server-authoritative marketplace settlement. Skipped for top-ups (which
       // are not marketplace purchases). Runs before cart sequencing so the item
@@ -255,7 +259,6 @@ onMounted(async () => {
       localStorage.removeItem('pending_purchase_session')
       localStorage.removeItem('pending_purchase_intent')
       localStorage.removeItem('wallet_topup_session')
-      localStorage.removeItem('wallet_topup_amount')
       localStorage.removeItem('wallet_topup_user_id')
 
       // Redirect to appropriate page after 3 seconds

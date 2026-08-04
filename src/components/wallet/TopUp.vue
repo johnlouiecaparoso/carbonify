@@ -52,8 +52,15 @@ async function handleSubmit() {
     // If PayMongo checkout is created, redirect user
     if (result.redirect && result.checkoutUrl) {
       // Store session and user data for callback
+      // These two are now only a FALLBACK. `payment_intents.purpose` is what the
+      // callback reads to decide this was a top-up (P5); these cover the case
+      // where that row cannot be read. See services/paymentPurpose.js.
+      //
+      // `wallet_topup_amount` used to be written here and was read by nothing —
+      // the only other mention of it in the repo was `removeItem`. Removed
+      // rather than wired up: the amount is on the intent, and a stored value
+      // nobody reads is the `wallet_topup_user_id` problem waiting to happen.
       localStorage.setItem('wallet_topup_session', result.sessionId)
-      localStorage.setItem('wallet_topup_amount', amount.toString())
       if (userStore.session?.user?.id) {
         localStorage.setItem('wallet_topup_user_id', userStore.session.user.id)
       }

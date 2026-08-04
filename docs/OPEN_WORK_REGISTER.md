@@ -73,7 +73,7 @@
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
-> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1240** (108 files), build green,
+> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1251** (109 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed.
 >
@@ -187,7 +187,7 @@
 | ~~5~~ | ~~Prettier **breaks the build** on multi-statement inline Vue handlers~~ — ✅ **unblocked 2026-08-02.** The blocker was **seven attribute values in one file**, all the same shape, now one named `onNumericInput(field)`. Repo-wide scan: zero multi-statement template handlers remain. Proven by running `prettier --write` then `npm run build` | ⚠️ **Prettier still NOT enabled** — one file produced a **3383-line** diff, so turning it on repo-wide is a formatting-policy decision and belongs in its own commit. Owner's call |
 | 27 | **i18n — scoped 2026-08-01: ~375 strings** across the farmer + LGU surfaces | ⚠️ **The blocker is translation CONTENT, not code** — Filipino renderings of *escrow*, *retirement*, *feedstock*, *dispute* are terminology decisions with legal weight. Moved to an owner decision; a half-translated UI is worse than English-only. See [#27](DEFERRED_BACKLOG.md) |
 | ~~P3~~ | ~~Derive `payment_intents.user_id` from the verified JWT, not the request body~~ | ✅ **Already done** — verified 2026-07-30. All four `paymongo-checkout` actions call `getVerifiedUserId(req)` and `throw` when it is null; the body's `user_id` is never read. Only a stale *comment* said otherwise. This row was the doc drifting, not the code |
-| P5 | Migrate wallet top-ups onto `payment_intents` | Consistent reconciliation |
+| ~~P5~~ | ~~Migrate wallet top-ups onto `payment_intents`~~ | ✅ **CLOSED 2026-08-04 — and the server half had been done for a long time.** The checkout function already wrote `purpose: 'wallet_topup'`, the webhook already credited the balance from it, `paymongo-reconcile` already swept every intent *without filtering on purpose*, and `paymongo-resettle` already healed top-ups by name. **The stated benefit — consistent reconciliation — was therefore already being delivered while this row said the work was open.** What actually remained was the callback page, which still decided *"was this a top-up?"* from a `localStorage` key: the last branch in the money path chosen from browser storage. Now read from the intent, with the key kept only as a fallback. Same class as the two YOUR_ACTION_ITEMS rows reconciled on 08-04 — **a register row is a claim, not a measurement** |
 
 ### 1c. Test coverage — the gap is not unit tests
 

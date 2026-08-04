@@ -79,6 +79,45 @@ export async function getUnfinishedOrders(limit = 10) {
 }
 
 /**
+ * The intent behind one checkout session, for the caller who owns it.
+ *
+ * Used by the payment callback to ask the SERVER what kind of payment just
+ * settled, instead of inferring it from a `localStorage` key written before the
+ * redirect (P5). See `services/paymentPurpose.js` for why that mattered.
+ *
+ * Returns `null` — not a throw — when there is no such row or the read fails.
+ * That is the opposite of `getMyOrders`, and deliberately so: there, `[]` would
+ * masquerade as "you have no orders" and hide money the buyer has started to
+ * spend. Here the caller has a documented fallback and the *payment itself is
+ * already settled server-side*, so a failed lookup must degrade to the previous
+ * behaviour rather than break a confirmation screen the buyer is waiting on.
+ *
+ * `.maybeSingle()`, not `.single()` — `.single()` raises an error for zero rows,
+ * which is how `walletService.getTransactions` ended up unable to tell "no
+ * wallet yet" from "the read failed".
+ */
+export async function getIntentBySession(sessionId) {
+  if (!sessionId) return null
+  const supabase = getSupabase()
+  if (!supabase) return null
+  const uid = await getCurrentUserId()
+  if (!uid) return null
+
+  const { data, error } = await supabase
+    .from('payment_intents')
+    .select('id, purpose, amount, currency, status, listing_id, quantity')
+    .eq('provider_session_id', sessionId)
+    .eq('user_id', uid)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('Could not read payment intent for session:', error.message)
+    return null
+  }
+  return data || null
+}
+
+/**
  * Best-effort project titles, joined in memory from marketplace listings.
  * An order whose listing has since sold out or been delisted keeps its generic
  * label rather than disappearing — the buyer still paid for it.

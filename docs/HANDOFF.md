@@ -43,7 +43,7 @@
 > | Feedstock / farmer payment record (two-sided) | ✅ Incl. dispute → admin console |
 > | Accessibility: modals, contrast, 6 real settings | ✅ (full a11y pass still outstanding) |
 > | PWA, offline shell, responsive to 320px | ✅ |
-> | Test suite | ✅ **1240 unit across 108 files**, 46+22+9 Playwright, lint 0, build green |
+> | Test suite | ✅ **1251 unit across 109 files**, 46+22+9 Playwright, lint 0, build green |
 >
 > ### What is NOT implemented
 >
@@ -123,7 +123,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1240 unit tests green across 108 files**
+> **Current build state:** build green, lint 0, **1251 unit tests green across 109 files**
 > (re-verified 2026-08-04, after the pre-pilot defect hunt).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
@@ -134,7 +134,7 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1240 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1251 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
@@ -143,7 +143,7 @@
 >
 > ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
 >
-> Suite **1185 → 1240** (101 → 108 files). Build green, lint 0. **No migrations.** Nothing here was
+> Suite **1185 → 1251** (101 → 109 files). Build green, lint 0. **No migrations.** Nothing here was
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
@@ -330,6 +330,34 @@
 > [`webhookSignatureParity.test.js`](../src/test/services/webhookSignatureParity.test.js) — 8 tests
 > asserting the **live** copy still carries every guard and that both tolerance constants are the
 > same number. Mutation-checked four ways, including reintroducing the original defect.
+>
+> ✅ **P5 closed — and most of it had been done for a long time without the register noticing.**
+> "Migrate wallet top-ups onto `payment_intents`" was still listed as open work. The server half was
+> already complete: the checkout function writes `purpose: 'wallet_topup'`, the webhook credits the
+> balance from that row, `paymongo-reconcile` sweeps **every** intent without filtering on purpose,
+> and `paymongo-resettle` heals top-ups by name. *So the benefit the row promised — consistent
+> reconciliation — was already being delivered while the row said the work had not started.*
+>
+> What genuinely remained was one line of the callback page: it still decided *"was this a top-up?"*
+> by comparing the settled session id against a `localStorage` key written before the redirect —
+> **the last branch anywhere in the money path chosen from browser storage.** That fails whenever
+> the payment finishes somewhere the redirect did not start: a different browser, a phone after
+> starting on a desktop, private mode ended, storage cleared. In every one of those cases the money
+> **is** credited (the webhook does not consult the browser) and the confirmation screen simply says
+> nothing about it. *Right balance, silent receipt* — the combination that produces a support ticket
+> nobody can answer.
+>
+> > Reading the intent also turns the shared-device case from a **check** into a **structural**
+> > guarantee: `payment_intents` is owner-scoped by RLS and the query filters on `user_id`, so
+> > another account's row is never returned. A database that cannot hand you someone else's row
+> > beats comparing a key anybody on that device could have written. The two legacy keys survive
+> > only as a fallback for when the intent cannot be read, and that path deliberately degrades to
+> > **exactly** the previous behaviour rather than to something new and untested.
+>
+> **`wallet_topup_amount` was deleted rather than wired up** — written on every top-up, and the only
+> other mention of it in the entire repo was `removeItem`. The third "written and never read" key
+> found this week, after `wallet_topup_user_id` and the search-history scoping. The amount is on the
+> intent; a stored value nobody reads is the next decorative guard waiting to happen.
 >
 > 🐛 **A guard that was written and never read.** `TopUp.vue` has always stored
 > `wallet_topup_user_id`; the only other mention of that key in the entire repo was
