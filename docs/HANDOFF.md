@@ -85,13 +85,16 @@
 > *So "what should I build next" is currently the wrong question.* The next useful thing on this
 > project is a **deploy** and the **escrow behaviour checks**, and both are owner actions.
 >
-> **👤 Owner:** ⓪ **run `access_posture_audit.sql`** — read-only, decides the urgency of everything
-> else; ① **apply the five `20260804*` migrations, redeploy the two edge functions, then deploy** —
-> the whole 2026-08-04 pass is committed and unpushed, and *do not set `VITE_GA_TRACKING_ID` before
-> you do*; ② the **escrow checks** (`ESC-01…06`) — **only after `20260804000300`, which is what makes
-> them able to pass**; ③ **purge the test data**;
-> ④ **buy + verify the email domain**; ⑤ the one-line `convalidated` query; ⑥ run the closed beta;
-> ⑦ the open decisions (#21, #37 ×2, #18, #27, #31, fee amounts, DR policy).
+> **👤 Owner — ⓪ and ① are DONE as of 2026-08-05.** ~~⓪ run `access_posture_audit.sql`~~ (run; 5
+> rows, both findings closed); ~~① apply the five `20260804*` migrations, redeploy the edge functions,
+> then deploy~~ (all five applied, **all three** functions deployed, `main` pushed, and the deployed
+> bundle verified chunk-by-chunk at `carbonify-gilt.vercel.app`). `VITE_GA_TRACKING_ID` is now safe
+> to set. **What remains:**
+>
+> ① 🔴 the **escrow checks** (`ESC-01…06`) — the last thing gating a seller invite. `20260804000300`
+> is applied, which is what makes `ESC-02` able to pass; run it **on GCash specifically**;
+> ② **purge the test data**; ③ **buy + verify the email domain**; ④ the one-line `convalidated` query;
+> ⑤ run the closed beta; ⑥ the open decisions (#21, #37 ×2, #18, #27, #31, fee amounts, DR policy).
 >
 > **🏢 Third party:** ① the **independent penetration test** — the last P0, external, weeks of lead
 > time, and the only gate no code closes; ② SEC / BIR / NPC registration; ③ a licensed PSP/EMI for
@@ -100,10 +103,19 @@
 > (registry, accredited VVB, DENR/CCC).
 >
 > > ⚠️ **The failure mode to guard against is not "unfinished" — it is "finished but not live".**
-> > That has now happened five times: the unscheduled payout worker, the misnamed
-> > `account-deletion` secret, three undeployed function fixes, a frontend 153 commits behind, and
-> > today an entire defect pass sitting unpushed. **Built ≠ live. Applied ≠ verified. A claim is not
-> > a measurement.**
+> > That has now happened seven times: the unscheduled payout worker, the misnamed
+> > `account-deletion` secret, three undeployed function fixes, a frontend 153 commits behind, a
+> > defect pass sitting unpushed, and one sitting **uncommitted**. **Built ≠ live. Applied ≠
+> > verified. A claim is not a measurement.**
+> >
+> > 🆕 **And on 2026-08-05 the mirror image appeared, which is worth naming separately: LIVE BUT
+> > BELIEVED DEAD.** The site was up and building every push; `carbonify13.vercel.app` was simply the
+> > wrong address after a repo rename, and the project had been created as `carbonify-gilt`. Fetching
+> > the documented URL — the check that had caught real outages twice — returned 404 and was read as
+> > "there is no deployment". Nine further hostname guesses hardened the wrong conclusion. **A
+> > negative result from an enumeration is a statement about the enumeration**, and the owner
+> > answered it in one message. *The deploy target is not discoverable from this repo: when it is
+> > unknown, ask rather than sweep.*
 >
 > ---
 >

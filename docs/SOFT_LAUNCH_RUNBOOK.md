@@ -31,16 +31,20 @@ catch UX/role bugs that unit tests can't.
 Run each and confirm the expected result. The SQL runs in the Supabase **SQL Editor** (it executes with
 elevated rights, so the `service_role`-only grant on the reconcile function is fine there).
 
-> ## 🆕 1z. Do this one FIRST — added 2026-08-04
+> ## ✅ 1z. Run 2026-08-05 — 5 rows, both findings now closed
 >
-> - [ ] **Run [`supabase/diagnostics/access_posture_audit.sql`](../supabase/diagnostics/access_posture_audit.sql).**
->   Read-only. **0 rows = pass.** Any row is a problem, and `check_name` says which.
+> - [x] **[`access_posture_audit.sql`](../supabase/diagnostics/access_posture_audit.sql)** — run
+>   2026-08-05. Returned **5 rows**; `20260804000200` was applied and closes both. **Re-run it to
+>   confirm 0 rows**, which is the pass condition and has not itself been re-measured since.
+>
+> | Finding | What it said | Read |
+> |---|---|---|
+> | **C ×2** | `plan`, `plan_expires_at` client-writable | 🟢 Better than feared — **not** `kyb_verified` / `is_active` / `role` / `kyc_level`, so `20260703000300` was applied once and never re-run and the later revokes held. The KYB-self-approval hole was **never open on live**, and `trg_protect_plan_columns` was reverting plan writes anyway |
+> | **D ×3** | `municipality`, `province`, `onboarding_tour_version` not owner-writable | 🔴 **Live and broken.** `updateProfile` PATCHes the whole form at once, so **every profile save was failing `42501`**; the welcome tour replayed on every device forever. Nobody had reported either |
 >
 > It is first because it answers a question no other check on this page asks — *who can read this,
-> and what can a client write to a profile?* — and because one possible answer changes what you do
-> next. Finding **C** ("client can write a protected profiles column") means any signed-in user can
-> set their own `kyb_verified` and withdraw money; if that comes back, apply `20260804000200`
-> **before** anything else on this list.
+> and what can a client write to a profile?* — and, as finding D showed, it can surface a feature
+> that has been broken in production for a month with no report attached to it.
 >
 > `pilot_preflight.sql` does not cover this, and neither does `money_table_rls_audit.sql`: the latter
 > inspects only `INSERT/UPDATE/DELETE/ALL` policies, so an open **SELECT** policy passes it silently,

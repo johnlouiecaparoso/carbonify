@@ -311,6 +311,13 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 
 Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 
+> ✅ **Updated 2026-08-05 — steps 0z and the whole 08-04 queue are closed.** `access_posture_audit.sql`
+> was run (5 rows; both findings closed by `20260804000200`), all five `20260804*` migrations are
+> applied, **all three** money edge functions are redeployed, and the frontend is live and
+> chunk-verified at **`carbonify-gilt.vercel.app`** — not `carbonify13.vercel.app`, which 404s since
+> the GitHub repo was renamed. **Step 5 below (`ESC-01…06`) is the only remaining functional gate**,
+> with step 9's test-data purge alongside it.
+
 0. ✅ ~~**Enable signups, and settle the sender domain first.**~~ — **done 2026-07-31.**
    `disable_signup=false`, `mailer_autoconfirm=true` (measured). Registration works and signs the user
    straight in with no email involved — the route taken instead of buying the domain first, and it
@@ -342,7 +349,13 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
    ⚠️ The deploy came from the **Vercel GitHub integration**. The `deploy` job in `ci.yml` failed
    with `Input required and not supplied: vercel-token` — that secret has never been set. Set the
    three `VERCEL_*` secrets or delete the job; do not read its red X as a failed deploy.
-5. Run the 4 escrow behaviour checks ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun**; escrow is applied but not behaviourally verified
+4d. ✅ **Re-deployed and re-verified 2026-08-05 at a NEW URL — `carbonify-gilt.vercel.app`.** The
+   GitHub repo was renamed `carbonify13` → `carbonify`, which killed `carbonify13.vercel.app`; the
+   Vercel project had been created as `carbonify-gilt` and had been building every push throughout.
+   Verified by walking all **106** deployed chunks — `node scripts/analysis/verify-deploy.mjs <url>`.
+   ⚠️ `carbonify.vercel.app` is a **different application that is also titled "Carbonify"**; do not
+   send a tester there.
+5. 🔴 **Run the escrow behaviour checks** ([ESCROW_DECISION.md §6](ESCROW_DECISION.md)) — **still unrun, and now the only functional gate left.** `20260804000300` is applied, which is what makes `ESC-02` able to pass at all; run it **on GCash specifically**. Escrow is applied but not behaviourally verified
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
 8b. ~~**Accept the consent box once on a REAL account, and confirm the row landed**~~ — ✅ **DONE and

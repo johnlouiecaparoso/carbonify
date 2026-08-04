@@ -226,22 +226,27 @@
 > anything marked 🔴 here should be re-checked against its source before you act on it, and the
 > source is HANDOFF for what happened and the live database for what is true.
 >
-> **You have five things left** (four closed, two of them merely unrecorded). **Row 0 is new and it
-> did not exist this morning** — see the box below it.
+> **Updated 2026-08-05 — you have THREE things left, and only the first one gates the pilot.**
+> Everything about the money-path pass (five migrations, three edge functions, the deploy) is closed
+> and verified.
 >
 > | # | Do this | Blocks |
 > |---|---|---|
-> | 0 | 🔴 **Deploy — the whole 2026-08-04 pass is sitting unpushed on `main`** (`git log origin/main..main` to see it). Every fix from the pre-pilot defect hunt is inert until you do | Nothing gates on it, but two of the fixes are the kind you want live *before* a pilot |
-> | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
-> | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
-> | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
+> | 0 | ~~Deploy the 2026-08-04 pass~~ ✅ **done 2026-08-05** — pushed, and the deployed bundle verified chunk-by-chunk at `carbonify-gilt.vercel.app`. `VITE_GA_TRACKING_ID` is now safe to set | — |
+> | 1 | 🔴 **Run the escrow behaviour checks** — `ESC-01…06`, Step 1b. **On GCash specifically**; wallet balance alone does not exercise the branch that was broken | **Inviting any seller.** The last functional gate |
+> | 2 | 🟠 **Purge or label the leftover test data** — Step 3 | The pilot: a real tester must not buy a fake credit |
+> | 3 | 🟠 Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
 > | 5 | ~~Redeploy `paymongo-webhook`~~ ✅ **done 2026-08-02.** The saga's retry cap and its second-supplier-order fix are live | — |
 > | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
 > | 7 | 🟡 **Confirm `20260802000200` took** — backlog #4. You reported running it; it is the one item never independently verified, because constraint validity is not readable through the anon API. One query settles it: `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';` | Nothing. But it answers a question nobody has asked |
 > | 8 | ~~Apply `20260802000300` → deploy → `20260802000400`~~ ✅ **done 2026-08-02, in the right order.** `notify_counterparty` answers `401 42501` to `anon`, which is the grant-hygiene block doing its job | — |
 
-> ### 🔴 #0 — deploy, and one thing to NOT do before you deploy
+> ### ✅ #0 — deployed 2026-08-05. Kept because of what it says about *before* you deploy.
+>
+> **This is closed.** The pass is pushed, live and verified. The reasoning below is retained because
+> the `VITE_GA_TRACKING_ID` warning it carries was real, was one dashboard keystroke away from
+> firing, and is exactly the kind of thing that will be true again after some future undeployed pass.
 >
 > The 2026-08-04 defect hunt is **committed but not pushed.** Nothing on this page
 > gated on them, which is exactly why they need saying out loud: *built ≠ live* has now been the
