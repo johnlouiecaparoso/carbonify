@@ -72,9 +72,9 @@
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
-> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1213** (105 files), build green,
+> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1219** (106 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
-> needed. Five further defects, **none of which any entry on this page predicted**:
+> needed. Six further defects, **none of which any entry on this page predicted**:
 >
 > - the production bundle **replaced `window.fetch`** and named each metric after the full request
 >   URL — query strings included — forwarding them to GA the moment a measurement ID is set;
@@ -83,6 +83,12 @@
 > - **search history was keyed by device, not by account**, so the next person to sign in was shown
 >   the previous person's search terms — #35's own defect in a neighbouring branch, found by asking
 >   "what else is keyed this way?" after fixing the cart. One grep of `localStorage.setItem`;
+> - **the homepage onboarding guide was dismissed per device and never reset**, so the first person
+>   to close it closed it for every account that signed in on that machine afterwards. The panel is
+>   role-specific, so an admin dismissing it silently denied the next farmer or LGU their own
+>   quick-start. Found by re-running that same grep **exhaustively** instead of stopping at its first
+>   hit — a pattern with six instances rarely has exactly six. Its sibling `FirstRunGuide.vue` had
+>   keyed by user id all along, with a docblock explaining why;
 > - `wallet_topup_user_id` was **written and never read** — a guard that existed only as decoration;
 > - the payment confirmation screen **threw inside its own render** if the provider omitted `amount`.
 >

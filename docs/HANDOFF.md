@@ -48,7 +48,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1213 unit tests green across 105 files**
+> **Current build state:** build green, lint 0, **1219 unit tests green across 106 files**
 > (re-verified 2026-08-04, after the pre-pilot defect hunt).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
@@ -59,7 +59,7 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1213 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1219 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
@@ -68,7 +68,7 @@
 >
 > ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
 >
-> Suite **1185 → 1213** (101 → 105 files). Build green, lint 0. **No migrations.** Nothing here was
+> Suite **1185 → 1219** (101 → 106 files). Build green, lint 0. **No migrations.** Nothing here was
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
@@ -154,6 +154,28 @@
 > > does — the marketplace is public, so the component routinely mounts before the session lands, and
 > > without it a signed-in user would keep reading and writing the guest bucket for the life of the
 > > page. That is the leak with an extra step.
+>
+> 🐛 **Seventh instance, and the sweep that found it was the one worth running.** The `localStorage`
+> grep above was re-run **exhaustively** rather than stopped at its first hit, on the theory that a
+> pattern with six instances rarely has exactly six. `OnboardingGuide.vue` — the role-specific
+> quick-start on the **homepage**, the first screen after sign-in — dismissed under a flat
+> `carbonify_onboarding_dismissed`. Nothing ever resets it, so the first person to close it closed it
+> for **every account that ever signed in on that device afterwards**, permanently.
+>
+> No data leaks here; the loss runs the other way. Because the panel is chosen **by role**, an admin
+> dismissing it meant the farmer, LGU or buyer who used that desk next was never shown the onboarding
+> written for them — silently, with nothing to click to get it back. On the shared devices a pilot
+> actually runs on, that suppresses onboarding for precisely the people a pilot exists to onboard.
+>
+> > **The sibling had it right the whole time.** `onboarding/FirstRunGuide.vue` keys by user id and
+> > carries a docblock saying why: *"Stable per-user key so a dismissal does not follow a different
+> > account."* Two onboarding components, written to the same purpose, one branch apart — one
+> > reasoned about shared devices in a comment, the other never asked. That is this repo's signature
+> > defect in its purest form yet: **not a pattern nobody knew, a pattern already written down and
+> > applied to one of two siblings.** Pinned by
+> > [`onboardingGuideScoping.test.js`](../src/test/components/onboardingGuideScoping.test.js) (6
+> > tests) and mutation-checked in three independent directions — collapsing the key turns 3 red,
+> > removing the legacy-key drop turns 1 red, removing the re-read watch turns 1 red.
 >
 > 🐛 **A guard that was written and never read.** `TopUp.vue` has always stored
 > `wallet_topup_user_id`; the only other mention of that key in the entire repo was

@@ -27,15 +27,64 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useUserStore } from '@/store/userStore'
 
 const store = useUserStore()
-const STORAGE_KEY = 'carbonify_onboarding_dismissed'
 
-const dismissed = ref(
-  typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY) === 'true',
+/**
+ * Keyed by ACCOUNT, not by device (2026-08-04).
+ *
+ * It was a flat `carbonify_onboarding_dismissed`, so the first person to
+ * dismiss this on a device dismissed it for every account that ever signed in
+ * afterwards — permanently, since nothing resets it. The guide below is chosen
+ * BY ROLE, so the practical effect was that an admin dismissing it meant the
+ * farmer, LGU or buyer who used that machine next was never shown their own
+ * quick-start. On the shared devices a pilot runs on — a co-op office, an LGU
+ * desk — that silently suppresses onboarding for exactly the people it exists
+ * for, and it does so on the homepage, the first screen after sign-in.
+ *
+ * `FirstRunGuide.vue` is this component's sibling and has always keyed by user
+ * id, with a docblock explaining why: *"Stable per-user key so a dismissal does
+ * not follow a different account."* The correct pattern was already in the
+ * repo, one branch over. That is this codebase's signature defect, and this is
+ * the seventh instance.
+ */
+const LEGACY_KEY = 'carbonify_onboarding_dismissed'
+const storageKey = computed(
+  () => `carbonify_onboarding_dismissed_${store.session?.user?.id || 'anon'}`,
 )
+
+function readDismissed() {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(storageKey.value) === 'true'
+  } catch {
+    // Private mode / storage disabled. Showing the guide again is the harmless
+    // failure, so fail towards visible — the same direction FirstRunGuide takes.
+    return false
+  }
+}
+
+// Dropped rather than migrated, for the same reason as the cart's legacy key
+// (backlog #35): its value records that SOMEBODY dismissed this here, and
+// carrying that forward to the next person to sign in is the defect being
+// fixed. The cost is one extra dismissal for a user who had already dismissed.
+try {
+  if (typeof window !== 'undefined') window.localStorage.removeItem(LEGACY_KEY)
+} catch {
+  /* non-critical */
+}
+
+const dismissed = ref(readDismissed())
+
+// The session is restored asynchronously, so at setup the key is usually the
+// `anon` one even for a user who is signed in. Without this re-read a returning
+// user is shown the guide they already dismissed, and dismissing it writes to
+// the anon bucket — the same fix SmartSearch's history needed.
+watch(storageKey, () => {
+  dismissed.value = readDismissed()
+})
 
 const visible = computed(() => store.isAuthenticated && !dismissed.value)
 
@@ -92,8 +141,11 @@ const steps = computed(() => guide.value.steps)
 
 function dismiss() {
   dismissed.value = true
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(STORAGE_KEY, 'true')
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(storageKey.value, 'true')
+  } catch {
+    /* storage unavailable — the panel still closes for this session */
   }
 }
 </script>
