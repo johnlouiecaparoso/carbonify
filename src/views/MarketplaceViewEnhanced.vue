@@ -1573,7 +1573,12 @@ onUnmounted(() => {
 
 .page-description {
   font-size: 0.95rem;
-  opacity: 0.9;
+  /* `opacity: 0.9` over the #058526 header computed to #e6f3e9 — 4.18:1, under
+     the 4.5:1 AA floor. Opacity is the easy way to make a subtitle look
+     secondary and the easy way to fail contrast, because the value you wrote is
+     not the value that gets rendered. Full white is 4.78:1 here and still reads
+     as subordinate to the heading above it, which is larger and bolder. */
+  color: #ffffff;
   margin: 0 0 1.25rem 0;
 }
 
@@ -1628,8 +1633,20 @@ onUnmounted(() => {
 
 .save-search-button {
   height: 42px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  /*
+   * A WHITE overlay on the green header LIGHTENS it to #2b9747, which drops
+   * white text to 3.73:1 — below the 4.5:1 AA floor. Darkening instead keeps
+   * the same "translucent chip on a coloured header" look while moving the
+   * contrast the right way: the button reads as a surface either way, but only
+   * one direction leaves its own label legible.
+   *
+   * This is the trap `.page-description` fell into too, one rule apart: the
+   * colour you write is not the colour that renders once alpha is composited,
+   * so contrast has to be measured on the result rather than read off the
+   * stylesheet.
+   */
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: white;
   padding: 0 1.25rem;
   border-radius: 8px;
@@ -1643,7 +1660,9 @@ onUnmounted(() => {
 }
 
 .save-search-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.28);
+  /* Hover must not brighten past the contrast floor either — a control that
+     becomes unreadable exactly while you are pointing at it. */
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .save-search-button:disabled {

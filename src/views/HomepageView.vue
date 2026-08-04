@@ -88,11 +88,22 @@
 
           <!-- Carousel Indicators -->
           <div class="carousel-indicators">
+            <!--
+              These were empty <button>s: no text, no aria-label, no title, so
+              they had NO accessible name at all (axe `button-name`, critical).
+              A screen reader announced three controls as "button, button,
+              button" with no way to tell which slide each one goes to, or which
+              is current — the visual `.active` class carried information that
+              existed nowhere in the accessibility tree.
+            -->
             <button
-              v-for="(_, index) in featuredProjects"
+              v-for="(project, index) in featuredProjects"
               :key="index"
+              type="button"
               @click="currentFeatured = index"
               :class="['indicator', { active: index === currentFeatured }]"
+              :aria-label="`Show featured project ${index + 1} of ${featuredProjects.length}${project?.title ? `: ${project.title}` : ''}`"
+              :aria-current="index === currentFeatured ? 'true' : undefined"
             />
           </div>
         </div>

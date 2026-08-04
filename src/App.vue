@@ -282,6 +282,14 @@ onMounted(async () => {
 
     <!-- Main App -->
     <div v-else>
+      <!--
+        Skip link. First thing in the tab order, visible only when focused.
+        Without it a keyboard or screen-reader user tabs through the whole
+        header and sidebar — dozens of stops — on EVERY page load, because
+        navigation comes before content in the DOM on all of them.
+      -->
+      <a class="skip-link" href="#main-content">Skip to main content</a>
+
       <Header v-if="showHeader" />
 
       <!-- App shell. Signed-in users navigate from the sidebar; signed-out
@@ -289,7 +297,14 @@ onMounted(async () => {
       <div class="app-body">
         <AppSidebar v-if="showSidebar" />
 
-        <div class="app-main">
+        <!--
+          `main` is the landmark screen readers jump to. Until 2026-08-04 the
+          app had NO main landmark on any route — measured, zero — so there was
+          nothing to jump to and nothing for the skip link above to target.
+          `tabindex="-1"` makes it programmatically focusable so the skip link
+          moves focus here rather than only scrolling.
+        -->
+        <main id="main-content" class="app-main" tabindex="-1">
           <!-- A suspended account is blocked at the database, so without this
                the user would only discover their state as an unexplained
                failure part way through a purchase. It says what still works,
@@ -320,7 +335,7 @@ onMounted(async () => {
           </div>
 
           <router-view />
-        </div>
+        </main>
       </div>
 
       <!-- First-run guided walkthrough; self-gates on auth + first visit. -->
@@ -1392,6 +1407,34 @@ body {
    The sidebar is a flex sibling of the page content rather than a fixed
    overlay, so page content is never hidden underneath it and every view keeps
    working with its own container width. */
+/*
+ * Off-screen until focused, then pinned to the top-left. Not `display: none`
+ * and not `visibility: hidden` — both remove it from the tab order, which is
+ * the one thing a skip link must stay in.
+ */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  padding: 0.75rem 1.25rem;
+  background: var(--primary-color, #058526);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0 0 0.5rem 0;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* The landmark is focused programmatically by the skip link; it is not an
+   interactive control, so it must not draw a focus ring of its own. */
+.app-main:focus {
+  outline: none;
+}
+
 .app-body {
   display: flex;
   align-items: flex-start;

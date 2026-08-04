@@ -73,7 +73,7 @@
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
-> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1251** (109 files), build green,
+> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1256** (110 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed.
 >
@@ -202,7 +202,7 @@
 | **Responsive layout, MEASURED** | ✅ **new layer 2026-07-31** — `responsive.spec.js`, 37 tests at 320/390/768/1024/1440. Found the `/home` overflow that reading the CSS had not. `html { overflow-x: clip }` hides overflow rather than scrolling it, so `scrollWidth` would have passed while content was unreachable — it measures element geometry instead. ✅ **Authenticated half added 2026-08-01** — [`responsive-authenticated.spec.js`](../src/test/e2e/responsive-authenticated.spec.js), 22 tests, which found **three real layout bugs at 320px** on its first honest run. Its first version reported 22/22 passing having measured NOTHING (`page.goto` reloads, and the DEV mock session lives only in the store) — caught by a `measured.length > 0` assertion added because a green that has never been red proves nothing | [TESTING_PLAN](TESTING_PLAN.md) |
 | ~~**`localStorage` in unit tests is a no-op**~~ | ✅ **fixed 2026-08-02, by DELETING the mock.** happy-dom already provides a real `Storage`; the stub was pure loss. **It was worse than "stores nothing":** `Object.keys()` on it returned `['getItem','setItem','removeItem','clear']` — and that is exactly what `userStore.clearLocalStorage()` iterates, so the sign-out/expiry clear matched nothing, removed nothing and could not fail a test. `sessionStorage` was never stubbed, so the two halves of one loop behaved differently for months. Two new files pin what was previously untestable: [`authStorageClearing.test.js`](../src/test/store/authStorageClearing.test.js) (7) and [`cartPersistence.test.js`](../src/test/store/cartPersistence.test.js) (10, the cart had **no** tests at all). Both mutation-checked in both directions | [TESTING_PLAN](TESTING_PLAN.md) |
 | **Load / performance** | ❌ not done | before scaling, not before soft launch |
-| **Accessibility** | 🟡 partial | contrast closed (#19); full pass outstanding |
+| **Accessibility** | 🟢 **automated pass CLOSED 2026-08-04** — [`accessibility.spec.js`](../src/test/e2e/accessibility.spec.js), 18 tests, axe-core 4.10.3 against **WCAG 2.1 A + AA** in real Chromium (contrast needs layout, so happy-dom cannot check it). **0 violations on the 7 public routes.** Found and fixed: no `main` landmark ANYWHERE in the app, every route sharing one `<title>`, an ARIA-invalid combobox, three unnamed carousel buttons, and four contrast failures. ⚠️ **Automated checks catch roughly a third of WCAG** — green here means no *machine-detectable* violation, not that a screen-reader user can complete a purchase. **Manual/AT testing remains open**, and authenticated routes are not yet covered | [TESTING_PLAN](TESTING_PLAN.md) |
 
 > ⚠️ **#21 — ~40 tests overstate money-path coverage.** The `services/credits|payments|payouts`
 > provider layer is imported **only by tests**. `paymongoWebhookSignature.test.js` tests signature

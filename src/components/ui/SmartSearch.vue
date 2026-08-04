@@ -57,6 +57,26 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'search', 'clear-filters'])
 
 const HISTORY_LIMIT = 6
+
+/**
+ * The id `aria-controls` points at.
+ *
+ * `aria-expanded` and `aria-haspopup` are NOT permitted on a plain textbox —
+ * axe reports `aria-allowed-attr` (critical) — so the input has to declare
+ * `role="combobox"`. A combobox must also say what it controls, hence this.
+ *
+ * The popup is announced as a **dialog**, not a listbox, and that is the honest
+ * description: it holds grouped buttons ("Recent searches" with per-row remove,
+ * suggestions, a Clear action), not a set of mutually-exclusive options.
+ * Claiming `listbox` would promise a screen-reader user arrow-key option
+ * semantics this panel does not implement — a lie that reads as more accessible
+ * than the truth. ARIA 1.2 permits `dialog` as a combobox popup; `role="dialog"`
+ * without `aria-modal` is correctly non-modal.
+ *
+ * Derived from the surface so the marketplace and registry instances cannot
+ * emit duplicate ids on a page that renders both.
+ */
+const panelId = computed(() => `ss-panel-${props.storageKey}`)
 const userStore = useUserStore()
 const historyKey = computed(() => {
   // `guest` rather than an empty segment, so signed-out history is its own
@@ -201,8 +221,10 @@ onBeforeUnmount(() => {
         class="ss-input"
         :placeholder="placeholder"
         :aria-label="placeholder"
+        role="combobox"
         :aria-expanded="panel === 'suggest'"
-        aria-haspopup="listbox"
+        :aria-controls="panelId"
+        aria-haspopup="dialog"
         @focus="openSuggest"
         @keyup.enter="commit()"
       />
@@ -232,7 +254,13 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Suggestions + history -->
-    <div v-if="panel === 'suggest'" class="ss-panel">
+    <div
+      v-if="panel === 'suggest'"
+      :id="panelId"
+      class="ss-panel"
+      role="dialog"
+      aria-label="Search suggestions"
+    >
       <div v-if="shownHistory.length" class="ss-group">
         <div class="ss-group-head">
           <span class="ss-group-title">Recent searches</span>

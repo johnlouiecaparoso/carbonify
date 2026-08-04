@@ -285,7 +285,11 @@ onMounted(async () => {
 }
 .stat-label {
   font-size: 0.8rem;
-  color: #d1fae5;
+  /* #d1fae5 over the #058526 header is 4.21:1 at 12.8px — just under the 4.5:1
+     AA floor, and these are the labels naming the registry's headline numbers.
+     White is 4.78:1 on the same background; the uppercase letter-spacing below
+     already marks it as a label, so the tint was not doing the work. */
+  color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

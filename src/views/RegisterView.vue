@@ -374,7 +374,10 @@ function scrollToSignup() {
 .apply-specialist__note {
   margin: 0.875rem 0 0;
   font-size: 0.75rem;
-  color: #9ca3af;
+  /* #9ca3af on white is 2.53:1 at 12px — well under the 4.5:1 AA floor, and
+     this is the note explaining what applying as a specialist means. #6b7280
+     is 4.83:1 and visually still secondary. */
+  color: #6b7280;
   text-align: center;
   line-height: 1.45;
 }

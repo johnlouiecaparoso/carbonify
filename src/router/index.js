@@ -825,4 +825,45 @@ router.beforeEach(async (to, from, next) => {
   }
 })
 
+const APP_NAME = 'Carbonify'
+
+/**
+ * Turn a route name into something a person would recognise in a tab.
+ * `forgot-password` → `Forgot Password`. Names are kebab-case throughout.
+ */
+function titleFromRouteName(name) {
+  if (!name) return ''
+  return String(name)
+    .split(/[-_/]/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+export { titleFromRouteName }
+
+/**
+ * Per-page document titles (WCAG 2.4.2, Level A).
+ *
+ * **Every route served the same title until 2026-08-04** — measured across
+ * seven public routes, all of them `"Carbonify - Carbon Credit Marketplace"`,
+ * the static one in `index.html`. An automated checker cannot flag this: each
+ * page individually *has* a non-empty title, and axe has no way to know they
+ * are all identical. It took loading the routes and comparing them.
+ *
+ * The cost falls hardest on the people this matters most for. A screen-reader
+ * user hears the title on every navigation, so the app announced the same
+ * sentence whether they had landed on the marketplace, their wallet or a
+ * checkout failure. It also makes browser history and a row of open tabs
+ * useless for everyone else.
+ *
+ * Derived from `route.name` rather than added to each of ~80 route records:
+ * a per-route field is a field somebody forgets on the next route, and the
+ * failure is silent. `meta.title` still wins where a better phrase is wanted.
+ */
+router.afterEach((to) => {
+  const specific = to.meta?.title || titleFromRouteName(to.name)
+  document.title = specific ? `${specific} · ${APP_NAME}` : APP_NAME
+})
+
 export default router

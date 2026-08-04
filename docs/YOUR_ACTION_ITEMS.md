@@ -47,7 +47,7 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **1251 green** across 109
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1256 green** across 110
 > files (1185 on 2026-08-03, 1131 on 08-02, 920 on 08-01, 908 on 07-31, 801 the morning before), plus
 > a 37-test responsive spec and a 22-test authenticated one. Lint 0, build green. **No migration is
 > waiting on you** — every one is applied and probe-verified except `20260802000200`, whose

@@ -41,9 +41,9 @@
 > | Auth, consent gate, policy versioning | ✅ Signups on, consent recorded per version |
 > | DPA export + deletion | ✅ Shipping and live (the secret was misnamed until 07-30) |
 > | Feedstock / farmer payment record (two-sided) | ✅ Incl. dispute → admin console |
-> | Accessibility: modals, contrast, 6 real settings | ✅ (full a11y pass still outstanding) |
+> | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe, 0 violations on the public routes** — manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
-> | Test suite | ✅ **1251 unit across 109 files**, 46+22+9 Playwright, lint 0, build green |
+> | Test suite | ✅ **1256 unit across 110 files**, 46+22+9 Playwright, lint 0, build green |
 >
 > ### What is NOT implemented
 >
@@ -123,18 +123,18 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1251 unit tests green across 109 files**
+> **Current build state:** build green, lint 0, **1256 unit tests green across 110 files**
 > (re-verified 2026-08-04, after the pre-pilot defect hunt).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
 >
-> **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke.** The authenticated spec is
+> **Playwright: 46/46 public + 22/22 authenticated + 9/9 runtime smoke + 18/18 accessibility (new 2026-08-04).** The authenticated spec is
 > new on 2026-08-01 and found three real layout bugs at 320px on its first honest run; it is also the
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1251 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
@@ -143,7 +143,7 @@
 >
 > ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
 >
-> Suite **1185 → 1251** (101 → 109 files). Build green, lint 0. **No migrations.** Nothing here was
+> Suite **1185 → 1256** (101 → 110 files). Build green, lint 0. **No migrations.** Nothing here was
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
@@ -358,6 +358,42 @@
 > other mention of it in the entire repo was `removeItem`. The third "written and never read" key
 > found this week, after `wallet_topup_user_id` and the search-history scoping. The amount is on the
 > intent; a stored value nobody reads is the next decorative guard waiting to happen.
+>
+> ♿ **Accessibility: the automated pass is closed, and the two worst findings were invisible to it.**
+> [`accessibility.spec.js`](../src/test/e2e/accessibility.spec.js) — 18 tests, axe-core 4.10.3, WCAG
+> 2.1 A + AA, in **real Chromium**. Contrast cannot be checked without layout (it needs the computed
+> foreground, the computed background and the actual font size), which is why this is Playwright and
+> not happy-dom. **0 violations on the seven public routes**, from five failing routes at the start.
+>
+> **The app had no `main` landmark. Anywhere. On any route — measured, zero.** So a screen-reader
+> user had nothing to jump to and no way past the navigation, on every single page load. There was
+> also no skip link, because there was nothing for one to target. Both now exist, and the skip link
+> is asserted to be the **first** tab stop.
+>
+> **Every route served the same `<title>`** — all seven identical, the static string from
+> `index.html`. *No automated checker can find this*: each page individually has a non-empty title,
+> which is all axe can ask; that they are all identical is only visible by loading several routes and
+> comparing them. It is a WCAG 2.4.2 Level A failure, and the cost lands on exactly the people the
+> criterion exists for — a screen-reader user hears the title on every navigation, so the app
+> announced the same sentence whether they had reached the marketplace, their wallet or a failed
+> checkout. Titles are now derived from `route.name` in one `afterEach`, **not** added to each of ~80
+> route records: a per-route field is a field somebody forgets on the next route, and that failure is
+> silent.
+>
+> Also fixed: the search input carried `aria-expanded` and `aria-haspopup` on a plain textbox, where
+> neither is permitted (`aria-allowed-attr`, critical) — it now declares `role="combobox"` and
+> announces its popup as a **dialog** rather than a listbox, which is the honest description of a
+> panel of grouped buttons; three carousel indicators were empty `<button>`s with **no accessible
+> name at all**, announced as "button, button, button" with the current one marked only by a CSS
+> class; and four colour-contrast failures, three of them caused by `opacity` or a white overlay —
+> *the colour you write is not the colour that renders once alpha is composited*, which is precisely
+> why this had to be measured rather than read off the stylesheets.
+>
+> > ⚠️ **What a green run does and does not say.** Automated rules catch roughly a third of WCAG.
+> > This says no *machine-detectable* violation remains on the public routes. Whether a
+> > screen-reader user can actually complete a purchase is a manual question and **stays open**, as
+> > do the authenticated routes. Recorded that way in the register rather than as "accessibility:
+> > done".
 >
 > 🐛 **A guard that was written and never read.** `TopUp.vue` has always stored
 > `wallet_topup_user_id`; the only other mention of that key in the entire repo was
