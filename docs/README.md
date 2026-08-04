@@ -5,20 +5,20 @@
 >
 > ### 🧭 State in three lines (2026-08-05)
 >
-> 🔴 **There is no reachable production site.** `carbonify13.vercel.app` returns
-> `404 DEPLOYMENT_NOT_FOUND` and `carbonify.vercel.app` serves an unrelated React app branded
-> "Carbonify" (and it is *not* `ecolink`, which answers separately) —
-> the GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git integration did not
-> follow. **This is the top item**; nothing user-facing can be tested until it is fixed.
-> See [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md).
+> ✅ **Production is `https://carbonify-gilt.vercel.app`** — verified 2026-08-05 by walking all 106
+> deployed chunks (`node scripts/analysis/verify-deploy.mjs <url>`), not by loading the page.
+> ⚠️ **It is not `carbonify13.vercel.app`**, which now returns `404 DEPLOYMENT_NOT_FOUND`: the GitHub
+> repo was renamed and Vercel had created the project as `carbonify-gilt` because `carbonify` was
+> taken by an unrelated app. The pipeline never broke; only the docs naming the URL did.
 >
-> ✅ **The backend is fully current.** All five `20260804*` migrations applied 2026-08-05, all three
-> money edge functions redeployed, `main` pushed. Suite **1278 green** across 111 files, lint 0,
-> build green.
+> ✅ **Everything is applied, pushed and live.** Five `20260804*` migrations, three money edge
+> functions, and the frontend price fix — all confirmed present in the deployed bundle. Suite
+> **1278 green** across 111 files, lint 0, build green.
 >
-> **Once the site is back, the one thing gating a pilot seller invite is `ESC-01…06`** — the escrow
-> behaviour checks. Escrow is applied and holding balances; nobody has watched it behave on a real
-> purchase. Run `ESC-02` **on GCash specifically**.
+> **The one thing gating a pilot seller invite is `ESC-01…06`** — the escrow behaviour checks.
+> Escrow is applied and holding balances; nobody has watched it behave on a real purchase. Run
+> `ESC-02` **on GCash specifically** — wallet balance alone does not exercise the branch that was
+> broken.
 >
 > **Real money is still gated on the independent penetration test.** Test keys only until then.
 >

@@ -21,8 +21,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | 🔴 **The database half is done; the site is missing.** All five migrations applied and `main` pushed — but `carbonify13.vercel.app` now returns **404 DEPLOYMENT_NOT_FOUND**, and `carbonify.vercel.app` serves an unrelated React app. The GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel link did not survive it. See DEPLOY STATE. |
-> | Can I run the closed beta on **test keys**? | 🔴 **No — there is no reachable site.** Once that is fixed, the only remaining gate is the escrow behaviour checks (`ESC-01…06`), which **could not have passed** before `20260804000300` and now can. `access_posture_audit.sql` has been run and both findings are closed. |
+> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. |
+> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -355,62 +355,66 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### 🔴 DEPLOY STATE — database DONE, `main` pushed, and **THE SITE IS GONE**
+> ### ✅ DEPLOY STATE — everything is applied, pushed, **and live**
 >
-> **All five `20260804*` migrations are applied** (each returned "Success. No rows returned"), the
-> money edge functions were redeployed, and `main` is pushed — `origin/main` and `main` are level at
-> `91ec42d`. **The frontend is a different story, and it is the most urgent thing on this page.**
+> **Production is `https://carbonify-gilt.vercel.app`.** Not `carbonify13.vercel.app`, which now
+> returns `404 DEPLOYMENT_NOT_FOUND`. Verified 2026-08-05 by walking the deployed bundle, not by
+> loading the page:
 >
-> 🔴 **`carbonify13.vercel.app` returns `404 DEPLOYMENT_NOT_FOUND`.** Measured 2026-08-05 immediately
-> after the push, not inferred. The documented production URL — the one verified by fetching it on
-> 2026-08-01, the one in the runbooks, the UAT script and the pilot invitations — **has no deployment
-> behind it at all.**
+> ```
+> node scripts/analysis/verify-deploy.mjs https://carbonify-gilt.vercel.app   → exit 0
 >
-> 🟠 **And `carbonify.vercel.app` answers `200` with somebody else's app.** Its title says
-> "Carbonify"; its bundle is **React**, 553 KB in a single `/assets/index-*.js`, and contains **none**
-> of this codebase's markers — no `policy_acceptances`, no `credit_listings`, no
-> `process_wallet_purchase`, no Supabase client, no Vue runtime. `/sw.js` and `/manifest.webmanifest`
-> both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a PWA manifest.
-> ⚠️ **Re-checked 2026-08-05 (later): it is NOT `ecolink`, and that correction matters.** The first
-> read attributed this host to the `ecolink` project, inferred from the standing note that a second
-> Vercel project serves an unrelated React app. Measuring both disproves it: `ecolink.vercel.app`
-> answers `200` with `<title>Vite + React + TS</title>` and a **188 KB** bundle, while
-> `carbonify.vercel.app` serves a **553 KB** one titled `Carbonify`. **Different deployments — so
-> there are at least three Vercel projects**, and the dashboard search should not assume `ecolink`
-> took the name.
+>   PASS  service worker   /sw.js serves CACHE_VERSION = 'v5'
+>   PASS  chunk graph      walked 106 file(s) to closure
+>   PASS  app identity     all 3 markers found across the bundle
+>   PASS  build vintage    per-account onboarding key present (HomepageView-*)
+>   PASS  build vintage    cart checkout session binding present (cart-*)
+>   PASS  build vintage    the analytics wrapper's metric names are gone
+> ```
 >
-> **What changed:** `git push` reported *"This repository moved. Please use the new location:
-> `https://github.com/johnlouiecaparoso/carbonify.git`"* — **the GitHub repo was renamed
-> `carbonify13` → `carbonify`.** Two explanations fit and the dashboard settles which:
-> the rename broke the Vercel project's Git link so nothing built, or the project itself was
-> renamed/deleted and another project took the freed name. Either way **no Vercel project is known to have
-> built this push**, and none of the 2026-08-04 or 08-05 frontend work is reachable.
+> **106 files — exactly the local build's file count.** The deployed marketplace chunk carries
+> `k.price_per_credit ?? y.price_per_credit ?? d.credit_price ?? 0`, byte-identical to the local
+> build: **the 2026-08-04 price fix is live.** All five migrations are applied, all three money edge
+> functions redeployed, `main` pushed.
 >
-> 👤 **Owner — this is now step 0 of everything.** Open the Vercel dashboard and answer three
-> questions: which project is connected to `johnlouiecaparoso/carbonify`, did it build commit
-> `91ec42d`, and which domain is aliased to it. Then fix the alias or reconnect the Git integration.
-> **A pilot cannot start against a 404**, and every UAT/runbook URL needs updating to whatever the
-> answer is.
+> ✅ **`VITE_GA_TRACKING_ID` is now safe to set.** The deployed bundle has no `api_error_` anywhere,
+> so the `window.fetch` wrapper is genuinely gone from what is being served.
 >
-> ⚠️ **`VITE_GA_TRACKING_ID` — keep it unset until a deploy of THIS code is confirmed reachable.**
-> The reasoning is unchanged and the uncertainty makes it stronger: on any build predating
-> 2026-08-04, that one field turns the `window.fetch` wrapper into a live stream of user identifiers
-> and signed storage tokens to Google Analytics. The wrapper is deleted in the code that is now
-> pushed — but "pushed" is exactly the word this box has just been caught over-reading. **Confirm the
-> deployment serves the new bundle first.**
+> #### What actually happened, because the first read of it was wrong twice
 >
-> > **This is the seventh instance, and the first where the gap was the deployment target itself.**
-> > The previous six were built-not-deployed or written-not-saved. This one is *deployed-to-nowhere*:
-> > the push succeeded, the CI is irrelevant, git is clean and level — and there is no site. Every
-> > signal a developer normally trusts was green. **The only check that caught it was fetching the
-> > URL**, which is the same check that proved the 08-01 deploy real.
+> The GitHub repo was renamed `carbonify13` → `carbonify` (visible in `git push`'s
+> *"This repository moved"*). **The Vercel project kept building the whole time** — it had simply
+> been created as `carbonify-gilt`, because Vercel appends a random word when the project name it
+> wants is taken, and `carbonify.vercel.app` was already held by an unrelated React app.
+>
+> So the pipeline was never broken. **The only thing that was broken was every document naming the
+> URL** — and no artifact in this repo could have revealed that, because the deployment target lives
+> in a dashboard.
+>
+> > ⚠️ **Two corrections worth keeping, because both were confident and wrong.**
 > >
-> > It is now one command, because "fetch it and look" has a failure mode of its own —
-> > `carbonify.vercel.app` returned `200` with `<title>Carbonify</title>`, and a human glance passes
-> > that: **`node scripts/analysis/verify-deploy.mjs <url>`**. It checks the response, `/sw.js`'s
-> > `CACHE_VERSION`, three schema markers in the entry bundle, and that the deleted `window.fetch`
-> > wrapper is absent — exiting 0 only if the URL serves *this* app at *this* vintage. It reports
-> > FAIL against both hosts today, which is how it was verified.
+> > **(1) "`carbonify.vercel.app` is the `ecolink` project"** — inferred from the standing note that a
+> > second Vercel project serves an unrelated React app. Measuring both disproved it:
+> > `ecolink.vercel.app` answers with `<title>Vite + React + TS</title>` and a 188 KB bundle;
+> > `carbonify.vercel.app` serves 553 KB titled `Carbonify`. Different projects.
+> >
+> > **(2) "there is no deployment of this codebase"** — stated after fetching two hostnames and
+> > sweeping nine guesses. All that supported was *"not at any URL I guessed"*. The site was up the
+> > entire time. **A negative result from an enumeration is a statement about the enumeration.**
+> > The owner supplied the URL in one message; nothing in the repo would ever have produced it.
+>
+> > **The verifier shipped with two bugs of its own, and both were found by pointing it at the truth.**
+> > It reported real production as *"not this application"* because it searched only the entry bundle
+> > — `credit_listings` and `process_wallet_purchase` live in lazily-loaded chunks. Fixed to walk the
+> > chunk graph **transitively**: a one-level walk still missed `cart-*.js`, which is referenced by
+> > `CartView` and `PaymentCallbackView` and never by the entry. Then it reported the build as stale
+> > because `window.fetch=` "was still present" — in **html2canvas**, a vendor library that patches
+> > `window.fetch` itself, and which is in the known-good local build too. The needle is now
+> > `api_error_`, a string that only ever existed in our wrapper.
+> >
+> > *A verifier that cries wolf on the correct answer is worse than none* — it spends the credibility
+> > you need on the day it is right. Each fix was confirmed against a **known-good local build**,
+> > which is the control this kind of tool cannot be written without.
 >
 > ⚠️ **One thing to confirm rather than assume: `paymongo-checkout`.** The redeploy list said *two*
 > functions until 2026-08-05 and the real answer is *three*. If only `paymongo-webhook` and

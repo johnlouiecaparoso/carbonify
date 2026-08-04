@@ -76,19 +76,21 @@
 > every profile save on production and had never been reported. Detail in [HANDOFF.md](HANDOFF.md)
 > § *2026-08-05*.
 >
-> > 🔴 **And one item replaced it, routed 👤 owner and outranking everything on this page: there is no
-> > production site.** `carbonify13.vercel.app` returns `404 DEPLOYMENT_NOT_FOUND`;
-> > `carbonify.vercel.app` answers `200` with this app's title and is an unrelated React app — and
-> > **not** `ecolink`, which answers separately as a bare Vite starter, so at least three Vercel
-> > projects exist. The GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git
-> > integration did not follow. Only the Vercel dashboard can route this one —
-> > [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md) carries the ordered fix.
+> > ✅ **And the frontend is live too — at `carbonify-gilt.vercel.app`, not the URL every doc named.**
+> > `carbonify13.vercel.app` 404s since the GitHub repo was renamed; Vercel had created the project
+> > as `carbonify-gilt` because it appends a random word when the name is taken. **The pipeline was
+> > never broken.** Verified across all 106 deployed chunks.
 > >
 > > **The routing lesson, and it is the sharpest one this page has recorded.** Every lane on this
-> > register describes work on the *codebase*. This item is not in the codebase, not in the database,
-> > and not in any document — it is in a third-party dashboard, and no artifact in this repo could
-> > have shown it. It was found by fetching a URL after a push that reported success. *A register
-> > routes work it can see; the deploy target was never a lane.* Now closable by
+> > register describes work on the *codebase*. The deploy **target** is not in the codebase, not in
+> > the database, and not in any document — it lives in a third-party dashboard, and no artifact in
+> > this repo could have produced it. It was surfaced by fetching a URL after a push that reported
+> > success, and *resolved* only when the owner supplied the address in one message.
+> >
+> > Two claims were made in between that the evidence did not support: that the responding host was
+> > the known `ecolink` project (it was a third, unaccounted-for one), and that **no deployment
+> > existed** — which nine hostname guesses cannot establish. *A negative result from an enumeration
+> > is a statement about the enumeration.* The site was up the whole time. Now checkable with
 > > `node scripts/analysis/verify-deploy.mjs <url>`.
 >
 > **⚠️ Historical — Lane 2 was NOT empty of migrations.** The money-path defect

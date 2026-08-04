@@ -1,5 +1,12 @@
 # Carbonify — Test Script for Every Role
 
+> ## 🔗 The site to test is **https://carbonify-gilt.vercel.app**
+>
+> Confirmed 2026-08-05. **Two nearby addresses are wrong and one of them is convincing:**
+> `carbonify13.vercel.app` is dead (404), and `carbonify.vercel.app` loads a completely different
+> application that is *also* titled "Carbonify". If a tester reports that nothing works and nothing
+> looks familiar, check which URL they opened before anything else.
+
 **Simple, step-by-step tests for the closed beta.** Each test has a **name/ID**, a goal, the steps, and
 what "pass" looks like. Tick the box when it passes. If a step fails, write it on the
 **[TEST_REPORT_FORM.md](TEST_REPORT_FORM.md)** — that form is what comes back to the build side, and it
@@ -61,7 +68,7 @@ SQL Editor, run it, and **read the LAST table it prints**.
 | ☐ OWN-06 | The PayMongo webhook is **enabled** | PayMongo dashboard | Shows enabled, points at the Supabase functions URL, event `checkout_session.payment.paid`. *It auto-disables after repeated failures — confirm, don't assume* |
 | ☐ OWN-07 | The payout worker is alive | `select * from net._http_response order by id desc limit 5;` | Recent rows show `status_code 200` |
 | ☐ OWN-08 | Signups actually work | `npx playwright test src/test/e2e/pilot-readiness.spec.js` | *"the backend accepts new signups"* is **green**. ✅ Went green 2026-07-31 — re-run it anyway, a setting can be changed back |
-| ☐ OWN-09 | The frontend is the current build | Load the site | 🔴 **BLOCKED 2026-08-05 — there is no site.** `carbonify13.vercel.app` returns `404 DEPLOYMENT_NOT_FOUND`; `carbonify.vercel.app` is a different (React) app. The GitHub repo was renamed and the Vercel Git integration did not follow — fix per [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md), then **write the working URL at the top of this script** before handing it to anyone. Confirm it is *this* app with `node scripts/analysis/verify-deploy.mjs <url>` — a `200` and a matching page title are not evidence, which is exactly how this was missed |
+| ☐ OWN-09 | The frontend is the current build | Load the site | ✅ **Verified 2026-08-05 — the site is `https://carbonify-gilt.vercel.app`.** ⚠️ **Not `carbonify13.vercel.app`** (404s) and **not `carbonify.vercel.app`** (a different React app that is nonetheless titled "Carbonify" — do not let a tester land there). Re-confirm after any deploy with `node scripts/analysis/verify-deploy.mjs https://carbonify-gilt.vercel.app`; a `200` and a matching page title are not evidence |
 | ☐ OWN-10 | Errors are being recorded | Trigger one handled error | It lands in Sentry |
 
 > **OWN-08 used to be the gate** — while it was red, no invited person could create an account. It

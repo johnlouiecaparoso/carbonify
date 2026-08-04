@@ -47,41 +47,38 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
-> ### 🔴 2026-08-05 — the database is done, and **the website is gone**
+> ### ✅ 2026-08-05 — everything is applied, pushed and LIVE
 >
-> **Do this before anything else: open the Vercel dashboard.**
+> ## 🔗 Production is **https://carbonify-gilt.vercel.app**
 >
-> `carbonify13.vercel.app` returns **404 DEPLOYMENT_NOT_FOUND**. I fetched it straight after pushing.
-> The push itself worked — but it also printed *"This repository moved… new location
-> `johnlouiecaparoso/carbonify`"*, so **your GitHub repo was renamed `carbonify13` → `carbonify`**,
-> and the Vercel Git integration did not follow it.
+> **Not `carbonify13.vercel.app`** — that one now returns `404 DEPLOYMENT_NOT_FOUND`, which is what
+> sent me looking. Your GitHub repo was renamed `carbonify13` → `carbonify`, and Vercel had created
+> the project as **`carbonify-gilt`** because it appends a random word when the name it wants is
+> taken (`carbonify.vercel.app` is held by an unrelated React app). **Your deploy pipeline was never
+> broken — it has been building this whole time.** Only the docs naming the URL were wrong, and
+> they are fixed now.
 >
-> `carbonify.vercel.app` does answer, but **it is not your app** — a 553 KB React bundle with no
-> Supabase, no Vue and no `credit_listings`; `/sw.js` and the PWA manifest both 404. It is branded
-> "Carbonify", which is what makes it dangerous to glance at.
+> Verified by walking all 106 deployed chunks rather than loading the page:
 >
-> ⚠️ **And it is not `ecolink` either** — I said it was, and re-measuring disproved it.
-> `ecolink.vercel.app` separately answers `200` with `<title>Vite + React + TS</title>` and a 188 KB
-> bundle. **So you have at least three Vercel projects**, and one of them is a React app wearing your
-> product's name. Expect that when you open the dashboard.
+> ```bash
+> node scripts/analysis/verify-deploy.mjs https://carbonify-gilt.vercel.app
+> ```
 >
-> Three questions to answer in the dashboard, in order:
+> Every check passes, including that the deployed marketplace chunk quotes the **listing** price
+> first — the 2026-08-04 fix that stops a buyer being shown one number and charged another.
 >
-> 1. **Which Vercel project is connected to `johnlouiecaparoso/carbonify`?**
-> 2. **Did it build commit `91ec42d`?** (that is the top of `main` now)
-> 3. **Which domain is aliased to it?** — that is your new production URL, and every runbook, the UAT
->    script and any pilot invite needs to say it instead of `carbonify13.vercel.app`.
+> ✅ **`VITE_GA_TRACKING_ID` is safe to set now.** The deployed bundle contains no `api_error_`
+> anywhere, so the `window.fetch` wrapper is genuinely gone from what is being served.
 >
-> Then either re-point the Git integration at the renamed repo or re-alias the domain. **A pilot
-> cannot start against a 404.**
->
-> ⚠️ **Keep `VITE_GA_TRACKING_ID` unset until a deploy of the current code is confirmed reachable.**
-> On any build from before 2026-08-04 that one field starts streaming user identifiers and signed
-> storage tokens to Google Analytics. The fix is in the pushed code; "pushed" is not "served".
+> **One tidy-up worth doing while you are in the dashboard:** you have at least three Vercel
+> projects, one of them a React app sitting on `carbonify.vercel.app` — your product's name. If you
+> want that hostname, release it there first; a domain belongs to one project at a time (§*Order of
+> operations* in [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md)), and copy the
+> `VITE_*` env vars **before** moving anything, or the new project builds green and fails at runtime.
 >
 > ---
 >
-> ### ✅ The database half IS done — nothing there is waiting on you
+> ### ✅ The database half is done too — nothing there is waiting on you
 >
 > You ran `access_posture_audit.sql` (5 rows, both findings now closed) and applied
 > `20260804000100`–`000500` — each returned *"Success. No rows returned"* — and redeployed the edge
@@ -91,16 +88,12 @@
 > `paymongo-checkout` (the last one 2026-08-05, closing the wallet **top-up** suspension check).
 > **The entire backend side of this pass is now live.**
 >
-> **What carries forward is all frontend:**
+> **One thing carries forward, and it is the last functional gate:**
 >
-> 1. 🔴 **The site does not resolve** — see the box above. Nothing user-facing from 2026-08-04 or
->    08-05 is reachable, including the price fix.
-> 2. 🔴 **`ESC-01…06` is the last functional gate**, and it needs a working site to run against.
->    `20260804000300` is applied, which is what makes `ESC-02` able to pass. **Run it with GCash
->    specifically** — wallet balance alone does not exercise the branch that was broken.
->
-> ⚠️ **`VITE_GA_TRACKING_ID` stays unset** until a deployment of the current code is confirmed
-> reachable — not merely pushed.
+> 🔴 **`ESC-01…06` — the escrow behaviour checks.** `20260804000300` is applied, which is what makes
+> `ESC-02` able to pass at all. **Run it with GCash specifically** — wallet balance alone does not
+> exercise the branch that was broken. Run them against
+> **https://carbonify-gilt.vercel.app**.
 >
 > > 🔎 **What the audit found, because it is worth knowing which way it went.** Finding **C** was
 > > `plan` and `plan_expires_at` — **not** `kyb_verified` or `is_active`. That means `20260703000300`

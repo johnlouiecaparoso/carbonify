@@ -48,11 +48,11 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 > control and carry **no tracked RLS policy** — their posture exists only on the live database, which
 > is exactly the class of thing a pre-flight is for.
 >
-> - [ ] 🔴 **THE SITE RESOLVES AT ALL.** Measured 2026-08-05: `carbonify13.vercel.app` returns
->   **404 DEPLOYMENT_NOT_FOUND**, and `carbonify.vercel.app` serves an unrelated React app. The
->   GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel link did not follow.
->   **Nothing else in this runbook can run until a URL serves this codebase.** Fix in the Vercel
->   dashboard, then replace `carbonify13.vercel.app` everywhere in these docs and in the UAT script.
+> - [x] ✅ **Production URL — `https://carbonify-gilt.vercel.app`.** ⚠️ **Not `carbonify13.vercel.app`**,
+>   which returns `404 DEPLOYMENT_NOT_FOUND` since the GitHub repo was renamed. Vercel had created the
+>   project as `carbonify-gilt` (it appends a random word when the name is taken). Verified
+>   2026-08-05 across all 106 deployed chunks with
+>   `node scripts/analysis/verify-deploy.mjs https://carbonify-gilt.vercel.app`.
 > - [x] ✅ **The five `20260804*` migrations are applied** (2026-08-05, each *"Success. No rows
 >   returned"*), `main` is pushed, and **all three** money edge functions are redeployed —
 >   `paymongo-webhook`, `paymongo-resettle` and `paymongo-checkout`. `20260804000300` gates §3's
@@ -99,12 +99,11 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 - [ ] **1f. Sentry is receiving events** (if a `VITE_SENTRY_DSN` is configured) — trigger any handled
   error and confirm it lands, so you have eyes on the pilot.
 
-- [ ] 🔴 **1g. Frontend deployed** — ⚠️ **REGRESSED 2026-08-05.** It was ✅ on 2026-08-01: PR #14
-      merged and production (`carbonify13.vercel.app`) verified by fetching it, not by reading a CI
-      badge. **That host now returns `404 DEPLOYMENT_NOT_FOUND`** — see the 🔴 item at the top of this
-      pre-flight. Re-tick this only once you have confirmed the new URL serves *this* app:
+- [x] ✅ **1g. Frontend deployed** — verified 2026-08-05 at **`https://carbonify-gilt.vercel.app`**,
+      carrying the 2026-08-04 defect hunt and the money-path price fix. ⚠️ The old
+      `carbonify13.vercel.app` 404s; use the new host everywhere. Re-confirm after any deploy with:
       ```bash
-      node scripts/analysis/verify-deploy.mjs https://<the-new-url>
+      node scripts/analysis/verify-deploy.mjs https://carbonify-gilt.vercel.app
       ```
       Then eyeball it too — the header/login logo renders (the green-leaf badge) and `/` hero stats
       load real numbers, not `—`.

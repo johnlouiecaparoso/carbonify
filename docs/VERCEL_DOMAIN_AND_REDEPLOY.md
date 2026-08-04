@@ -1,65 +1,52 @@
 # Vercel — redeploying, deleting the spare project, and pinning the domain
 
-> ## 🔴 2026-08-05 — THIS IS NOW THE ACTIVE DOC. The site is gone, and this page predicted why.
+> ## ✅ 2026-08-05 — RESOLVED. Production is **`https://carbonify-gilt.vercel.app`**
 >
-> Measured straight after pushing `main` (`d88de64`):
+> **The deploy pipeline was never broken.** The GitHub repo was renamed `carbonify13` → `carbonify`
+> (visible in `git push`'s *"This repository moved…"*), which killed `carbonify13.vercel.app` — but
+> the Vercel project had been created as **`carbonify-gilt`**, because Vercel appends a random word
+> when the project name it wants is already taken, and `carbonify` was. It has been building every
+> push the whole time. **Only the documents naming the URL were wrong.**
 >
-> | Host | Result |
+> Verified across all 106 deployed chunks — `node scripts/analysis/verify-deploy.mjs
+> https://carbonify-gilt.vercel.app` exits 0, and the deployed marketplace chunk carries the
+> 2026-08-04 price fix byte-identically to a local build.
+>
+> ### The four hosts, so nobody re-investigates this
+>
+> | Host | What it is |
 > |---|---|
-> | `carbonify13.vercel.app` | **`404 DEPLOYMENT_NOT_FOUND`** — the documented production URL, verified live on 2026-08-01 |
-> | `carbonify.vercel.app` | `200`, `<title>Carbonify</title>` — **and it is not this codebase.** One 553 KB React `/assets/index-*.js` with no `policy_acceptances`, no `credit_listings`, no Supabase client, no Vue runtime; `/sw.js` and `/manifest.webmanifest` both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a manifest |
-> | `ecolink.vercel.app` | `200`, `<title>Vite + React + TS</title>` — a 188 KB bare starter template. **A different deployment from the one above** |
+> | **`carbonify-gilt.vercel.app`** | ✅ **Production.** This codebase, current build |
+> | `carbonify13.vercel.app` | ❌ `404 DEPLOYMENT_NOT_FOUND` — the old name, dead since the repo rename |
+> | `carbonify.vercel.app` | ⚠️ **A different application**, React, 553 KB — and titled `Carbonify`, which is what makes it dangerous. Not this codebase, and **not `ecolink`** |
+> | `ecolink.vercel.app` | A 188 KB bare `Vite + React + TS` starter. A third project |
 >
-> ⚠️ **Corrected — there are THREE projects here, not two, and the first read of this got it wrong.**
-> `carbonify.vercel.app` was initially reported as "the `ecolink` React app", inferred from the
-> long-standing note that a second project called `ecolink` serves an unrelated React app. Measuring
-> both hosts disproves it: **different bundles (553 KB vs 188 KB), different titles.**
-> `carbonify.vercel.app` is a React app *branded Carbonify*; `ecolink.vercel.app` is an untouched
-> Vite starter. **Do not go into the dashboard expecting `ecolink` to have taken the name** — expect
-> a third project you may have forgotten about.
+> **So there are at least three Vercel projects**, one of them squatting your product's name. Tidying
+> that up is optional and is what §*Order of operations* below is for — a domain belongs to one
+> project at a time, so release it from the old project first, and copy the `VITE_*` env vars
+> **before** moving anything or the new project builds green and fails at runtime.
 >
-> **The cause is row #1 of the table below, which this page wrote down three days earlier:**
-> *`<project>.vercel.app` changes only if you rename the Vercel project.* `git push` reported
-> *"This repository moved… new location `johnlouiecaparoso/carbonify`"* — **the GitHub repo was
-> renamed `carbonify13` → `carbonify`.** Two explanations fit; only the dashboard distinguishes them:
+> ### If you move to a custom domain later
 >
-> - the rename broke the `carbonify13` project's Git link, so nothing has built since; or
-> - `carbonify13` was renamed/deleted and another project already held or took the `carbonify` name.
+> Update **Supabase → Auth → URL Configuration** (§*After the domain is final*), or every
+> password-reset and confirmation link keeps pointing at the old host — the app itself is
+> domain-agnostic, so this fails silently.
 >
-> **Four questions to answer in the dashboard, in order:**
->
-> 1. **How many projects are there, and what is each one building?** At least three exist.
-> 2. Which project is connected to `johnlouiecaparoso/carbonify`?
-> 3. Did it build the latest commit on `main`?
-> 4. Which domain is aliased to it? — that is the new production URL.
->
-> **Then confirm the answer instead of assuming it** — the impostor above answered `200` with the
-> right page title, so eyeballing it is not enough:
->
-> ```bash
-> node scripts/analysis/verify-deploy.mjs https://<the-url-you-found>
-> ```
->
-> It checks that the host responds, that `/sw.js` serves a `CACHE_VERSION`, that the entry bundle
-> contains `credit_listings` / `policy_acceptances` / `process_wallet_purchase`, and that the
-> 2026-08-04 analytics `window.fetch` wrapper is **gone** (its presence means an old build, and
-> `VITE_GA_TRACKING_ID` is unsafe against it). Exit 0 = this app.
->
-> Then work §*Order of operations* below, which is written for exactly this move. **Do §*Environment
-> variables* before pointing any domain**: `VITE_*` values are inlined at build time, so a project
-> without them builds green and fails at runtime. And when a URL is chosen, replace
-> `carbonify13.vercel.app` in [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md),
-> [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) and any pilot invite, and update **Supabase → Auth → URL
-> Configuration** (§*After the domain is final*) or every password-reset and confirmation link will
-> point at a dead host.
->
-> ⚠️ **Two local one-liners, both still outstanding** (a tool restriction blocked me from running the
-> first, and the second is your local state to remove):
+> ⚠️ **Two local one-liners still outstanding** (a tool restriction blocked me from running the
+> first; the second is your local state):
 >
 > ```bash
 > git remote set-url origin https://github.com/johnlouiecaparoso/carbonify.git   # still points at carbonify13.git, works only by redirect
 > rm -rf .vercel                                                                  # still linked to `ecolink` — see §Before you deploy from this folder
 > ```
+>
+> > **What this cost, and the two claims that were wrong.** The investigation asserted that
+> > `carbonify.vercel.app` was the known `ecolink` project — it is a third, unaccounted-for one — and
+> > then that **no deployment of this codebase existed**, on the strength of two fetches and nine
+> > guessed hostnames. *A negative result from an enumeration is only a statement about the
+> > enumeration.* The site was up the entire time, and one message from the owner produced what no
+> > amount of probing would have. **The deploy target is not discoverable from the repo**; when it is
+> > unknown, ask rather than sweep.
 >
 > **Written 2026-08-02**, for the redeploy where the second Vercel project (`ecolink`) is removed and
 > a final domain is chosen. The question that prompted it: *"will the link get renamed to the GitHub
