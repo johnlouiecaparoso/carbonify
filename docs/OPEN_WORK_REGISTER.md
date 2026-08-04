@@ -74,11 +74,13 @@
 >
 > **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1226** (107 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
-> needed. Six further defects, **none of which any entry on this page predicted**:
+> needed.
 >
-> > ⚠️ **Routing note: the whole 2026-08-04 pass is committed but NOT pushed.** Held at the owner's instruction, so the work
-> > sits in **Lane 2 (owner)** as a deploy, not in Lane 1 as code. Nothing here needs a migration —
-> > pushing `main` is the whole of it. Tracked as YOUR_ACTION_ITEMS item 0.
+> > ⚠️ **Routing note: the whole 2026-08-04 pass is committed but NOT pushed.** Held at the owner's
+> > instruction, so the work sits in **Lane 2 (owner)** as a deploy, not in Lane 1 as code. Nothing
+> > here needs a migration — pushing `main` is the whole of it. Tracked as YOUR_ACTION_ITEMS item 0.
+>
+> **Seven further defects, none of which any entry on this page predicted:**
 >
 > - the production bundle **replaced `window.fetch`** and named each metric after the full request
 >   URL — query strings included — forwarding them to GA the moment a measurement ID is set;
