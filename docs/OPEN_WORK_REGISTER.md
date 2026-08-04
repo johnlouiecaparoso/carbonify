@@ -76,6 +76,10 @@
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed. Six further defects, **none of which any entry on this page predicted**:
 >
+> > ⚠️ **Routing note: these 6 commits are NOT pushed.** Held at the owner's instruction, so the work
+> > sits in **Lane 2 (owner)** as a deploy, not in Lane 1 as code. Nothing here needs a migration —
+> > pushing `main` is the whole of it. Tracked as YOUR_ACTION_ITEMS item 0.
+>
 > - the production bundle **replaced `window.fetch`** and named each metric after the full request
 >   URL — query strings included — forwarding them to GA the moment a measurement ID is set;
 > - an **abandoned cart checkout deleted an unpaid item** from the basket on the buyer's next

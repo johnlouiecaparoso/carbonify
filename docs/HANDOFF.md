@@ -72,6 +72,19 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
+> ### ⚠️ DEPLOY STATE — everything below is committed locally and **NOT pushed** (6 commits)
+>
+> Held deliberately at the owner's instruction; pushing `main` is the production deploy. **Until it
+> is pushed, every fix on this page is inert on `carbonify13.vercel.app`.** That matters most for one
+> of them: 🔴 **do not set `VITE_GA_TRACKING_ID` in Vercel before deploying** — on the currently-live
+> build, that single field turns the `window.fetch` wrapper described below into a live stream of
+> user identifiers and signed storage tokens to Google Analytics. See YOUR_ACTION_ITEMS item 0.
+>
+> *This is the fifth time on this project that "built" and "live" have come apart* — after the
+> unscheduled payout worker, the misnamed `account-deletion` secret, the three undeployed function
+> fixes, and the frontend that trailed `main` by 153 commits. It is written at the top of the entry
+> rather than the bottom for that reason.
+>
 > 🔴 **The production bundle replaced `window.fetch`, and the replacement put request URLs somewhere
 > they could leave the browser.** `utils/analytics.js` wrapped global `fetch` and recorded a metric
 > per request named ``api_${url}`` — the **full URL, query string included**. A PostgREST URL carries

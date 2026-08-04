@@ -44,11 +44,12 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **1131 green** across 95 files
-> (920 earlier on 2026-08-01, 908 on 2026-07-31, 801 the morning before), plus a 37-test responsive
-> spec plus a new 22-test authenticated one. Lint 0, build green. **One migration is waiting on you**
-> — `20260802000200` (item 7 below). `20260801000100` and `20260802000100` are both applied and were
-> both verified by probe; everything else is frontend and ships with your next deploy.
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1226 green** across 107
+> files (1185 on 2026-08-03, 1131 on 08-02, 920 on 08-01, 908 on 07-31, 801 the morning before), plus
+> a 37-test responsive spec and a 22-test authenticated one. Lint 0, build green. **No migration is
+> waiting on you** — every one is applied and probe-verified except `20260802000200`, whose
+> *validity* is unconfirmed only because constraint state is not readable through the anon API (item
+> 7 below). **Everything else is frontend and is sitting in 6 unpushed commits — item 0.**
 >
 > ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
 >
@@ -136,10 +137,12 @@
 > anything marked 🔴 here should be re-checked against its source before you act on it, and the
 > source is HANDOFF for what happened and the live database for what is true.
 >
-> **You have four things left** (four closed, two of them merely unrecorded):
+> **You have five things left** (four closed, two of them merely unrecorded). **Row 0 is new and it
+> did not exist this morning** — see the box below it.
 >
 > | # | Do this | Blocks |
 > |---|---|---|
+> | 0 | 🔴 **Deploy — 6 commits from 2026-08-04 are sitting unpushed on `main`.** Every fix from the pre-pilot defect hunt is inert until you do | Nothing gates on it, but two of the fixes are the kind you want live *before* a pilot |
 > | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
@@ -148,6 +151,43 @@
 > | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
 > | 7 | 🟡 **Confirm `20260802000200` took** — backlog #4. You reported running it; it is the one item never independently verified, because constraint validity is not readable through the anon API. One query settles it: `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';` | Nothing. But it answers a question nobody has asked |
 > | 8 | ~~Apply `20260802000300` → deploy → `20260802000400`~~ ✅ **done 2026-08-02, in the right order.** `notify_counterparty` answers `401 42501` to `anon`, which is the grant-hygiene block doing its job | — |
+
+> ### 🔴 #0 — deploy, and one thing to NOT do before you deploy
+>
+> The 2026-08-04 defect hunt produced **6 commits that have not been pushed.** Nothing on this page
+> gated on them, which is exactly why they need saying out loud: *built ≠ live* has now been the
+> failure mode four times on this project (the unscheduled payout worker, the misnamed
+> `account-deletion` secret, the undeployed function fixes, the frontend that lagged `main` by 153
+> commits). **Pushing `main` is the deploy** — Vercel's Git integration builds it.
+>
+> 🔴 **Do not set `VITE_GA_TRACKING_ID` in Vercel until this is deployed.** Until 2026-08-04 the
+> production bundle **replaced `window.fetch`** and recorded one metric per request named after the
+> **full URL, query string included** — which is where PostgREST puts its filters
+> (`?email=eq.<address>`) and where a signed storage URL puts its token — then forwarded those names
+> to Google Analytics whenever `window.gtag` existed. Nothing was ever sent **only because that
+> measurement ID has never been set.** Setting it is one field in the dashboard, it is a completely
+> reasonable thing to do before a pilot to get traffic numbers, and on the currently-deployed build
+> that single keystroke would start streaming user identifiers and signed tokens to Google. It is
+> fixed in these commits and inert until they ship. Deploy first, then set the ID if you want it.
+>
+> **What else goes live with it**, in the order that matters to a pilot:
+>
+> | Fix | Why you care |
+> |---|---|
+> | The `window.fetch` wrapper is **deleted** | Above. The one that changes what you may safely do in the dashboard |
+> | An abandoned cart checkout **deleted an unpaid item from the basket** and told the buyer they had bought it | A pilot buyer losing a basket item and being told it was purchased is a support ticket you cannot answer |
+> | Cart, search history and the homepage onboarding guide are now **keyed by account, not device** | Shared devices — a co-op office, an LGU desk — are the normal case for this pilot, not the edge case |
+> | The payment confirmation screen no longer **throws inside its own render** when the provider omits `amount` | It blanked at the exact moment a buyer needs to see their payment went through |
+> | `wallet_topup_user_id` is now **actually checked** | It had always been written and never read |
+> | The **"allow analytics" switch now works** | It did nothing at all before |
+>
+> ⚠️ **One deliberate, one-time cost:** any cart a user has open at the moment you deploy is
+> dropped. The old cart key held whatever the last person on that device put there, and adopting it
+> for the next person to sign in is the exact defect being closed — so it is deleted rather than
+> migrated. Device-local, public listing data, rebuilt in two clicks. Same for a dismissed
+> onboarding guide: it reappears once per account.
+>
+> **No migrations.** Nothing to apply, nothing to order. Push and you are done.
 
 **#7 is not urgent, and it is the most interesting thing on this list.** Four constraints on live
 were added `NOT VALID`, which means Postgres enforces them on every new write but **skipped the check
@@ -680,7 +720,7 @@ emails are `console.log` stubs — only the approval email really sends.
 | **BIR** | Registration + accredited receipts | Invoices stop being watermarked PROVISIONAL |
 | **A tax advisor** | **Seller-of-record determination** — in a marketplace sale, is Carbonify the seller issuing on the developer's behalf, or an agent between two parties who each issue their own? | Whose TIN goes on a seller invoice (#22). **A tax question, not an implementation choice** — nobody on the build side should guess it. |
 | **PayMongo + a licensed PSP/EMI** | Live keys + a custody arrangement | Real money. Gated on 6a. |
-| **National Privacy Commission** | DPO appointment + registration | Export/deletion already ship; only registration is outstanding |
+| **National Privacy Commission** | DPO appointment + registration, **plus a ruling on analytics consent: opt-out or opt-in?** (#37) | Export/deletion already ship; only registration is outstanding. The consent question now has a working switch behind it, so it is answerable rather than academic |
 | **AMLC + a screening vendor** | AML program + a sanctions data feed | Screening runs against a local watchlist today — real, but not a commercial feed |
 
 ### 6d. The carbon-market track
@@ -701,6 +741,8 @@ None of these block the beta. Each one unblocks work that is otherwise held.
 | Decision | Why it's yours |
 |---|---|
 | **Is a farmer a buyer?** | They can reach checkout by URL today but aren't offered it in the sidebar (#31). Either give them the buying nav or block the routes — the contradiction is the problem. |
+| 🆕 **Which notification-preference surface survives?** | There are **two live ones and they disagree** (#37): twelve toggles in `localStorage` from the preferences page, four on `profiles.notification_preferences` from the profile page. **Neither is read by anything that sends** — that column has zero hits across all of `supabase/`. Pick one before anyone builds enforcement, or shipping it makes the disagreement visible instead of merely latent. |
+| 🆕 **May analytics consent default to ON?** | A **DPA question, not an implementation choice** (#37) — opt-out vs opt-in. It is `true` today only because that is what the switch already showed users. Ask the DPO / NPC track in 6c. Nobody on the build side should guess it. |
 | ~~**Merge PR #14?**~~ | ✅ **Merged 2026-08-01** — 153 commits. `main` is current and production runs it. |
 | **Provider layer: route through it, or delete it?** | ~40 tests currently overstate money-path coverage (#21). |
 | **Organization accounts: go/no-go?** | Phase 1 is safe to build now. Phase 2 must wait until after the beta — it rewrites the same RPC as escrow. |
