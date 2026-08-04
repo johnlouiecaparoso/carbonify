@@ -34,7 +34,37 @@ interface ProviderSettlement {
   paid: boolean
   amount: number | null // currency units
   paymentId: string | null
+  paymentMethod: string | null // 'card' | 'gcash' | 'maya' | 'grab_pay'
   error?: string
+}
+
+/**
+ * Normalise PayMongo's payment method to the vocabulary the rest of the system
+ * uses. Kept in step with resolvePaymentMethod() in paymongo-webhook — a healed
+ * intent must settle with the same escrow window as one settled by the webhook,
+ * or the hold a seller gets depends on which path happened to fulfil it.
+ */
+const PAYMENT_METHOD_ALIASES: Record<string, string> = {
+  card: 'card',
+  credit_card: 'card',
+  debit_card: 'card',
+  gcash: 'gcash',
+  paymaya: 'maya',
+  maya: 'maya',
+  grab_pay: 'grab_pay',
+}
+
+function resolvePaymentMethod(attrs: any): string | null {
+  const raw =
+    attrs?.payment_method_used ??
+    attrs?.payment_method_type ??
+    attrs?.payment_method?.type ??
+    attrs?.source?.type ??
+    attrs?.payment_method_details?.type ??
+    null
+  if (!raw || typeof raw !== 'string') return null
+  const key = raw.trim().toLowerCase()
+  return PAYMENT_METHOD_ALIASES[key] ?? key
 }
 
 /** Ask PayMongo whether a checkout session is paid, and get its payment id. */
@@ -45,12 +75,18 @@ async function getProviderSettlement(sessionId: string): Promise<ProviderSettlem
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    return { paid: false, amount: null, paymentId: null, error: err?.errors?.[0]?.detail || `session lookup ${res.status}` }
+    return { paid: false, amount: null, paymentId: null, paymentMethod: null, error: err?.errors?.[0]?.detail || `session lookup ${res.status}` }
   }
   const data = await res.json()
-  const payments = data?.data?.attributes?.payments ?? []
+  const sessionAttrs = data?.data?.attributes ?? {}
+  // The method can arrive at either level: the payment resource carries it as
+  // `source.type`, the checkout session as `payment_method_used`. Read the
+  // session once here so a payment resource that omits it still settles with
+  // the right escrow window rather than silently falling back to the card hold.
+  const sessionMethod = resolvePaymentMethod(sessionAttrs)
+  const payments = sessionAttrs.payments ?? []
   if (!Array.isArray(payments) || payments.length === 0) {
-    return { paid: false, amount: null, paymentId: null }
+    return { paid: false, amount: null, paymentId: null, paymentMethod: null }
   }
   for (const p of payments) {
     let attrs = p?.attributes
@@ -60,17 +96,42 @@ async function getProviderSettlement(sessionId: string): Promise<ProviderSettlem
       if (pr.ok) attrs = (await pr.json())?.data?.attributes
     }
     if (attrs?.status === 'paid') {
-      return { paid: true, amount: (Number(attrs.amount) || 0) / 100, paymentId }
+      return {
+        paid: true,
+        amount: (Number(attrs.amount) || 0) / 100,
+        paymentId,
+        paymentMethod: resolvePaymentMethod(attrs) ?? sessionMethod,
+      }
     }
   }
-  return { paid: false, amount: null, paymentId: null }
+  return { paid: false, amount: null, paymentId: null, paymentMethod: null }
 }
 
 /** Settle one already-loaded, PayMongo-confirmed-paid intent by its purpose. */
-async function settleIntent(supabase: any, intent: any, paymentId: string | null): Promise<{ outcome: string; detail?: string; transactionId?: string }> {
+async function settleIntent(
+  supabase: any,
+  intent: any,
+  paymentId: string | null,
+  paymentMethod: string | null = null,
+): Promise<{ outcome: string; detail?: string; transactionId?: string }> {
   const purpose = intent.purpose
 
   if (purpose === 'marketplace_purchase') {
+    // Record the real method before settling, exactly as the webhook does: the
+    // RPC reads it for the escrow hold window and for
+    // credit_transactions.payment_method. Best-effort — it must never stop a
+    // confirmed-paid intent from being healed, and the RPC falls back to the
+    // intent's `provider` (the conservative card window) when it is absent.
+    if (paymentMethod) {
+      const { error: methodErr } = await supabase
+        .from('payment_intents')
+        .update({ payment_method: paymentMethod })
+        .eq('id', intent.id)
+      if (methodErr) {
+        console.warn('could not record payment method (continuing):', methodErr.message)
+      }
+    }
+
     // process_marketplace_purchase is idempotent (returns the existing txn if the
     // intent is already paid) and marks the intent paid itself.
     const { data: txnId, error } = await supabase.rpc('process_marketplace_purchase', {
@@ -195,7 +256,7 @@ serve(async (req) => {
         results.push({ intent_id: intent.id, purpose: intent.purpose, outcome: 'skipped_unpaid' })
         continue
       }
-      const r = await settleIntent(supabase, intent, provider.paymentId)
+      const r = await settleIntent(supabase, intent, provider.paymentId, provider.paymentMethod)
       if (r.outcome === 'settled') healed++
       results.push({ intent_id: intent.id, purpose: intent.purpose, ...r })
     }

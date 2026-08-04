@@ -448,6 +448,22 @@ async function createWalletTopupCheckout(body: any, verifiedUserId: string | nul
   const userId = verifiedUserId
   if (!Number.isFinite(amount) || amount <= 0) throw new Error('A positive amount is required')
 
+  // Suspension — but deliberately NOT the KYC trade gate. Adding money to your
+  // own wallet is not trading, and a user completing KYC may legitimately fund
+  // an account first; process_wallet_purchase is where the KYC threshold is
+  // enforced. A SUSPENDED account is different: it must not be able to move
+  // money onto the platform it is barred from transacting on, or the balance
+  // just sits there needing a refund. Checked before the intent exists, so
+  // nothing is charged.
+  const { error: suspErr } = await supabase.rpc('assert_not_suspended', { p_user_id: userId })
+  if (suspErr) {
+    throw new Error(
+      /suspended/i.test(suspErr.message || '')
+        ? suspErr.message
+        : 'Top-up could not be authorized. Please try again later.',
+    )
+  }
+
   const currency = 'PHP'
 
   const { data: intent, error: intentErr } = await supabase

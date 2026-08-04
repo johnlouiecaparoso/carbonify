@@ -418,10 +418,20 @@ export async function getMarketplaceListings(filters = {}) {
     // Source of truth: never show more than (total pool - already sold)
     availableQuantity = Math.min(availableQuantity, availableFromTransactions)
 
+    // The listing price is what the buyer is actually CHARGED — the checkout
+    // edge function recomputes the amount from credit_listings.price_per_credit,
+    // and so does process_wallet_purchase. It has to be what we display too.
+    //
+    // This used to prefer projects.credit_price (the price the verifier sets at
+    // validation). That was equivalent right up until sellers could edit their
+    // own price: update_my_listing (20260721000400) writes price_per_credit and
+    // never touches projects.credit_price, so after the first price edit the
+    // card showed the stale validation price while checkout charged the new one.
+    // The remaining fallbacks are for rows that predate a listing price.
     const pricePerCredit =
-      project.credit_price ??
-      credit.price_per_credit ??
       listing.price_per_credit ??
+      credit.price_per_credit ??
+      project.credit_price ??
       0
 
     dedupeMap.set(cacheKey, {
@@ -647,8 +657,13 @@ export async function purchaseCredits(listingId, purchaseData) {
       .eq('id', listing.project_credits.project_id)
       .single()
 
-    // Use project.credit_price (developer-set) if available, otherwise fall back to listing price
-    const actualPricePerCredit = project?.credit_price || listing.price_per_credit
+    // Quote from the LISTING price, because that is the one that gets charged:
+    // createMarketplaceCheckout recomputes the amount from
+    // credit_listings.price_per_credit, and process_wallet_purchase reads the
+    // same column. Preferring projects.credit_price here (as this did) meant the
+    // confirmation and the returned receipt total could quote a price the buyer
+    // was not charged, from the moment a seller edited their listing.
+    const actualPricePerCredit = listing.price_per_credit || project?.credit_price
     const totalCost = actualPricePerCredit * purchaseData.quantity
 
     // CRITICAL: Get current available credits for THIS listing's project_credits row (by id)

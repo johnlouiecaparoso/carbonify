@@ -106,6 +106,48 @@ async function verifyWebhookSignature(
     : { ok: false, reason: 'signature mismatch' }
 }
 
+/**
+ * The method the customer actually paid with, normalised to the vocabulary the
+ * rest of the system uses ('card' | 'gcash' | 'maya' | 'grab_pay').
+ *
+ * PayMongo puts this in a different place depending on the resource shape, so
+ * every known location is tried before giving up. Returns null when none of
+ * them carry it — the settlement RPC then falls back to the intent's `provider`
+ * and applies the conservative card hold window, which is the pre-existing
+ * behaviour.
+ *
+ * This exists because `payment_intents.provider` is the GATEWAY and is always
+ * 'paymongo'. Settling on it made the escrow method-gate dead code (every sale,
+ * including GCash and Maya, took the 7-day card hold) and wrote 'paymongo' into
+ * credit_transactions.payment_method for every online purchase.
+ */
+const PAYMENT_METHOD_ALIASES: Record<string, string> = {
+  card: 'card',
+  credit_card: 'card',
+  debit_card: 'card',
+  gcash: 'gcash',
+  paymaya: 'maya',
+  maya: 'maya',
+  grab_pay: 'grab_pay',
+}
+
+function resolvePaymentMethod(payment: any): string | null {
+  const attrs = payment?.attributes ?? payment ?? {}
+  const raw =
+    attrs.payment_method_used ??
+    attrs.payment_method_type ??
+    attrs.payment_method?.type ??
+    attrs.source?.type ??
+    attrs.payment_method_details?.type ??
+    null
+  if (!raw || typeof raw !== 'string') return null
+  const key = raw.trim().toLowerCase()
+  // Pass an unrecognised value through rather than dropping it: an unknown
+  // method is still better evidence than 'paymongo', and the RPC's escrow gate
+  // treats anything it does not recognise as a card (the safe default).
+  return PAYMENT_METHOD_ALIASES[key] ?? key
+}
+
 /** Mark a recorded webhook event as fully processed (best-effort). */
 async function markEventProcessed(supabase: any, eventId: string) {
   try {
@@ -548,6 +590,29 @@ serve(async (req) => {
           JSON.stringify({ success: true, message: 'Subscription activated', plan: planKey, expiresAt: newExpiry }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         )
+      }
+
+      // Record the real payment method on the intent BEFORE settling. The RPC
+      // reads it for the escrow hold window and writes it to
+      // credit_transactions.payment_method. Best-effort on purpose: a failure
+      // here must not block a paid purchase from settling, and the RPC falls
+      // back to `provider` (the conservative card window) when it is absent.
+      //
+      // Two lookups, because the method can arrive at either level: the payment
+      // resource carries it as `source.type`, while the checkout SESSION carries
+      // it as `payment_method_used`. `payment` falls back to the bare resource
+      // when there is no `payments` array, in which case both lookups read the
+      // same object and the second is a no-op.
+      const resolvedMethod =
+        resolvePaymentMethod(payment) ?? resolvePaymentMethod(resourceAttrs)
+      if (resolvedMethod) {
+        const { error: methodErr } = await supabase
+          .from('payment_intents')
+          .update({ payment_method: resolvedMethod })
+          .eq('id', paymentIntentId)
+        if (methodErr) {
+          console.warn('could not record payment method (continuing):', methodErr.message)
+        }
       }
 
       const { data: txnId, error: rpcError } = await supabase.rpc('process_marketplace_purchase', {
