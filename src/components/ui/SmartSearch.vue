@@ -19,8 +19,19 @@
  * marketplace and the registry keep separate lists. It is deliberately not
  * server-side: a search term is a weak signal, and storing everyone's queries
  * against their account is a privacy cost this feature does not need to pay.
+ *
+ * ⚠️ It is ALSO keyed by account (2026-08-04), which the original key was not.
+ * Per-device was doing more work in that sentence than intended: sign-out
+ * clears only `sb-*` / `supabase.*`, so on a shared device — a co-op office, an
+ * LGU desk — the next person to sign in was shown the previous person's search
+ * terms in a dropdown, on focus, without asking. That is the same defect as the
+ * cart (backlog #35) in its neighbouring branch, and it reads worse here: a
+ * basket is a list of public listings, whereas "what was this buyer looking
+ * for" is commercially sensitive. Keeping it off the server was the right call
+ * and never addressed who can read it locally.
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useUserStore } from '@/store/userStore'
 
 const props = defineProps({
   /** The committed search term. */
@@ -46,7 +57,13 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'search', 'clear-filters'])
 
 const HISTORY_LIMIT = 6
-const historyKey = computed(() => `carbonify_search_history_${props.storageKey}`)
+const userStore = useUserStore()
+const historyKey = computed(() => {
+  // `guest` rather than an empty segment, so signed-out history is its own
+  // bucket instead of colliding with a malformed key.
+  const owner = userStore.session?.user?.id || 'guest'
+  return `carbonify_search_history_${props.storageKey}_${owner}`
+})
 
 const root = ref(null)
 const inputEl = ref(null)
@@ -153,6 +170,13 @@ function onKeydown(event) {
     inputEl.value?.blur()
   }
 }
+
+// The session is restored asynchronously, so the key this component mounted
+// with is often the guest one even for a signed-in user. Reloading when the key
+// changes is what makes the scoping hold — without it, a signed-in user would
+// keep reading and WRITING the guest bucket for the life of the page, which is
+// the leak with an extra step.
+watch(historyKey, () => loadHistory())
 
 onMounted(() => {
   loadHistory()

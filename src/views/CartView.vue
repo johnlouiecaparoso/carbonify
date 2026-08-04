@@ -92,7 +92,12 @@ import { useCartStore } from '@/store/cartStore'
 import { useUserStore } from '@/store/userStore'
 import { createMarketplaceCheckout } from '@/services/paymongoService'
 import { assertCanTrade } from '@/services/kycService'
-import { CART_CHECKOUT_ACTIVE, CART_PENDING_LISTING } from '@/constants/cart'
+import {
+  CART_CHECKOUT_ACTIVE,
+  CART_PENDING_LISTING,
+  CART_PENDING_SESSION,
+  clearCartCheckoutFlags,
+} from '@/constants/cart'
 import KycGateBanner from '@/components/ui/KycGateBanner.vue'
 import { useTradeEligibility } from '@/composables/useTradeEligibility'
 
@@ -124,11 +129,6 @@ async function startCheckout() {
     // PayMongo session exists so a rejection never strands a paid-for order.
     await assertCanTrade()
 
-    // Mark a sequential checkout in progress so the payment callback can clear
-    // the paid item and bring the buyer back here for the next one.
-    localStorage.setItem(CART_CHECKOUT_ACTIVE, '1')
-    localStorage.setItem(CART_PENDING_LISTING, next.listingId)
-
     const result = await createMarketplaceCheckout({
       listingId: next.listingId,
       quantity: next.quantity,
@@ -144,13 +144,22 @@ async function startCheckout() {
       if (result.paymentIntentId) {
         localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
       }
+
+      // Mark a sequential checkout in progress so the payment callback can
+      // clear the paid item and bring the buyer back here for the next one.
+      // Written only now that a session exists to bind them to: a flag set
+      // before the call is a flag that outlives a checkout which never began.
+      // See constants/cart.js for what the unbound pair did on abandonment.
+      localStorage.setItem(CART_CHECKOUT_ACTIVE, '1')
+      localStorage.setItem(CART_PENDING_LISTING, next.listingId)
+      localStorage.setItem(CART_PENDING_SESSION, result.sessionId || '')
+
       window.location.href = url
     } else {
       throw new Error('Could not start checkout.')
     }
   } catch (err) {
-    localStorage.removeItem(CART_CHECKOUT_ACTIVE)
-    localStorage.removeItem(CART_PENDING_LISTING)
+    clearCartCheckoutFlags()
     error.value = err?.message || 'Checkout failed. Please try again.'
     checkingOut.value = false
   }
@@ -166,7 +175,7 @@ onMounted(() => {
     if (cart.items.length > 0) {
       resuming.value = true
     } else {
-      localStorage.removeItem(CART_CHECKOUT_ACTIVE)
+      clearCartCheckoutFlags()
     }
   }
 })

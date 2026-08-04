@@ -103,7 +103,13 @@ test.describe('Marketplace Flow', () => {
     // Wait for the page to load completely
     await page.waitForLoadState('networkidle')
 
-    await page.fill('.search-input', 'forest')
+    // `.search-input` has not existed since the SmartSearch rebuild — the bar is
+    // now one component shared by the marketplace and the registry, and its
+    // field is `.ss-input`. This spec kept pointing at the old class and so had
+    // been failing continuously; because the Playwright job is
+    // `continue-on-error` in CI, nobody saw it, and search on the buyer's
+    // primary surface has had NO end-to-end coverage since.
+    await page.fill('.ss-input', 'forest')
     await page.waitForTimeout(1000) // Wait for debounced search
 
     // Should show filtered results or maintain current state
@@ -129,10 +135,17 @@ test.describe('Marketplace Flow', () => {
     // Wait for the page to load completely
     await page.waitForLoadState('networkidle')
 
-    // The sort control is one of the `.filter-select` dropdowns, identified by
-    // its aria-label. There has never been a `.sort-select` class — the
-    // 2026-07-26 filter-bar rebuild is not what broke this.
-    await page.selectOption('select[aria-label="Sort listings"]', 'price-low')
+    // The sort control moved again with SmartSearch: the filters now live in a
+    // panel behind a button inside the search bar, and the select carries an
+    // id with a real <label>, not an aria-label. Open the panel first — the
+    // control does not exist in the DOM until it is expanded.
+    //
+    // The comment this replaces was itself a correction of an earlier wrong
+    // selector. Three selectors for one control across three rebuilds is the
+    // argument for the id: `#mk-sort` is addressable and survives restyling.
+    await page.click('.ss-filter-btn')
+    await page.waitForTimeout(300)
+    await page.selectOption('#mk-sort', 'price-low')
 
     // Should show sorted results
     await expect(page.locator('.projects-grid, .empty-state, .loading-state')).toBeVisible()

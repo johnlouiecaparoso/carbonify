@@ -251,8 +251,24 @@ function togglePasswordVisibility() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  /*
+   * 40px is the TAP TARGET, not the icon — the SVG inside stays 18px, so this
+   * looks identical and simply stops being a 24px target on a phone.
+   *
+   * It was 24×24: at the WCAG 2.5.8 floor exactly, under this app's own 40px
+   * comfortable floor, and the single control `responsive.spec.js` has been
+   * failing on. It is also the first control a pilot user meets — the show/hide
+   * on the login password field — and the one people jab at repeatedly when a
+   * password will not go in.
+   *
+   * Sized on this class alone, deliberately. The 2026-08-03 pass had to undo a
+   * blanket `button, a, input, select { min-height: 44px }` injected at runtime,
+   * which overrode every component's own dimensions (checkboxes rendered 44px
+   * instead of 15px). A minimum size applied to everything is not the same as a
+   * minimum hit area applied where one is missing.
+   */
+  width: 40px;
+  height: 40px;
   z-index: 10;
 }
 
@@ -273,7 +289,9 @@ function togglePasswordVisibility() {
 }
 
 .enhanced-input__field--with-toggle {
-  padding-right: 3rem;
+  /* Clears the toggle's new 40px width plus its 0.75rem offset, so a long
+     password still stops before the button rather than running under it. */
+  padding-right: 3.5rem;
 }
 
 /* Ensure placeholder doesn't overlap with password toggle */

@@ -5,7 +5,14 @@ import { processPaymentCallback } from '@/services/paymongoService'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import { useCartStore } from '@/store/cartStore'
-import { CART_CHECKOUT_ACTIVE, CART_PENDING_LISTING } from '@/constants/cart'
+import { useUserStore } from '@/store/userStore'
+import {
+  CART_CHECKOUT_ACTIVE,
+  CART_PENDING_SESSION,
+  CART_PENDING_LISTING,
+  cartCheckoutState,
+  clearCartCheckoutFlags,
+} from '@/constants/cart'
 
 const {
   promptState,
@@ -18,6 +25,7 @@ const {
 const router = useRouter()
 const route = useRoute()
 const cart = useCartStore()
+const userStore = useUserStore()
 
 const loading = ref(true)
 const success = ref(false)
@@ -150,7 +158,26 @@ onMounted(async () => {
 
       // Wallet top-up completion (legacy path; migrated to payment_intents in P5).
       const topUpSession = localStorage.getItem('wallet_topup_session')
-      const wasTopUp = topUpSession && topUpSession === sessionId
+      let wasTopUp = topUpSession && topUpSession === sessionId
+
+      // TopUp.vue has always stored who started the top-up, and until now
+      // NOTHING read it back — this view's only mention of the key was to
+      // remove it. A guard that is written but never checked reads, to anyone
+      // auditing the money path, as protection that does not exist.
+      //
+      // These keys are device-global, so on a shared machine they can outlive
+      // the account that wrote them. If the pending top-up was started by
+      // somebody else, this is not that person's payment to report on: say
+      // nothing about it and drop the stale keys.
+      const topUpOwner = localStorage.getItem('wallet_topup_user_id')
+      const currentUserId = userStore.session?.user?.id || null
+      if (wasTopUp && topUpOwner && currentUserId && topUpOwner !== currentUserId) {
+        console.warn('⚠️ Pending top-up belongs to a different account; ignoring it')
+        localStorage.removeItem('wallet_topup_session')
+        localStorage.removeItem('wallet_topup_amount')
+        localStorage.removeItem('wallet_topup_user_id')
+        wasTopUp = false
+      }
 
       // Server-authoritative marketplace settlement. Skipped for top-ups (which
       // are not marketplace purchases). Runs before cart sequencing so the item
@@ -165,10 +192,19 @@ onMounted(async () => {
 
       // Sequential cart checkout: remove the item just paid for and, if more
       // remain, send the buyer back to the cart to continue.
-      if (localStorage.getItem(CART_CHECKOUT_ACTIVE) === '1') {
+      //
+      // The flags alone are NOT sufficient authority to delete a basket item.
+      // Nothing clears them when a buyer abandons at PayMongo, so they can be
+      // left over from a checkout that was never paid for; the next successful
+      // payment of any kind — a direct marketplace purchase, say — then found
+      // them set and removed the abandoned listing, telling the buyer it had
+      // been bought. Only the session this cart actually started may act.
+      const cartState = cartCheckoutState(sessionId)
+      if (cartState === 'match') {
         const pending = localStorage.getItem(CART_PENDING_LISTING)
         if (pending) cart.removeItem(pending)
         localStorage.removeItem(CART_PENDING_LISTING)
+        localStorage.removeItem(CART_PENDING_SESSION)
         if (cart.items.length > 0) {
           await showSuccess({
             title: 'Item purchased',
@@ -179,6 +215,11 @@ onMounted(async () => {
           return
         }
         localStorage.removeItem(CART_CHECKOUT_ACTIVE)
+      } else if (cartState === 'stale') {
+        // A cart checkout was started and abandoned, and this payment is a
+        // different one. Leave the basket untouched and clear the flags so they
+        // cannot mislead the next payment either.
+        clearCartCheckoutFlags()
       }
 
       if (wasTopUp) {
@@ -246,11 +287,18 @@ onMounted(async () => {
         <div class="success-icon"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></div>
         <h2>Payment Successful!</h2>
         <p>Your payment has been confirmed</p>
+        <!--
+          `amount` is read defensively: a provider response that omits it used
+          to throw inside the render, which blanks the confirmation screen at
+          the exact moment a buyer needs to see that their payment went
+          through. v-if guarded the object, never the field.
+        -->
         <div v-if="paymentDetails" class="payment-summary">
-          <p><strong>Amount:</strong> ₱{{ paymentDetails.amount.toLocaleString() }}</p>
-          <p><strong>Status:</strong> {{ paymentDetails.status }}</p>
+          <p><strong>Amount:</strong> ₱{{ Number(paymentDetails.amount || 0).toLocaleString() }}</p>
+          <p><strong>Status:</strong> {{ paymentDetails.status || 'paid' }}</p>
         </div>
-        <p class="redirect-message">Redirecting to retire dashboard...</p>
+        <!-- Names where it actually goes: redirectPath is /wallet. -->
+        <p class="redirect-message">Redirecting to your wallet...</p>
       </div>
 
       <div v-else class="error-container">

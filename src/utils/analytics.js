@@ -2,6 +2,26 @@
  * Analytics tracking utilities
  */
 
+/**
+ * Ceiling on each in-memory buffer.
+ *
+ * These arrays are append-only in practice: `flushEvents()` returns early
+ * whenever `apiEndpoint` is relative, and it is — `/api/analytics` does not
+ * exist (Vercel's `/(.*)` rewrite would answer a POST to it with index.html).
+ * So nothing drains them, and an admin who leaves a polling dashboard open all
+ * day grows them without limit.
+ *
+ * A ring rather than a hard stop: the newest entries are the ones worth having
+ * if a flush target is ever added, and dropping the oldest is silent and cheap.
+ */
+const MAX_BUFFERED = 200
+
+/** Append, discarding the oldest entries once the buffer is full. */
+function pushBounded(buffer, entry) {
+  buffer.push(entry)
+  if (buffer.length > MAX_BUFFERED) buffer.splice(0, buffer.length - MAX_BUFFERED)
+}
+
 class AnalyticsTracker {
   constructor() {
     this.isEnabled = import.meta.env.PROD
@@ -82,7 +102,7 @@ class AnalyticsTracker {
       user_id: this.userId,
     }
 
-    this.pageViews.push(pageData)
+    pushBounded(this.pageViews, pageData)
 
     if (this.isEnabled && window.gtag) {
       gtag('config', this.config.trackingId, {
@@ -109,7 +129,7 @@ class AnalyticsTracker {
       },
     }
 
-    this.events.push(eventData)
+    pushBounded(this.events, eventData)
 
     if (this.isEnabled && window.gtag) {
       gtag('event', eventName, parameters)
@@ -140,7 +160,7 @@ class AnalyticsTracker {
       page_url: window.location.href,
     }
 
-    this.userActions.push(actionData)
+    pushBounded(this.userActions, actionData)
     this.trackEvent('user_action', actionData)
   }
 
@@ -157,7 +177,7 @@ class AnalyticsTracker {
       user_id: this.userId,
     }
 
-    this.performanceMetrics.push(metricData)
+    pushBounded(this.performanceMetrics, metricData)
 
     if (this.isEnabled && window.gtag) {
       gtag('event', 'performance_metric', {
@@ -270,8 +290,8 @@ class AnalyticsTracker {
       this.trackCoreWebVitals()
     })
 
-    // Track API performance
-    this.trackApiPerformance()
+    // NOTE: there is deliberately no API-performance hook here. See the block
+    // where trackApiPerformance used to be, below.
   }
 
   /**
@@ -311,32 +331,45 @@ class AnalyticsTracker {
     }
   }
 
-  /**
-   * Track API performance
+  /*
+   * REMOVED 2026-08-04: `trackApiPerformance()` replaced `window.fetch` with a
+   * wrapper, in PRODUCTION ONLY (`isEnabled = import.meta.env.PROD`), and it
+   * shipped — `window.fetch=function` and `api_error_` were both present in the
+   * built bundle.
+   *
+   * It recorded a metric per request named:
+   *
+   *     `api_${url}`        // url = the FULL request URL, query string included
+   *
+   * Two problems, and the first is the serious one.
+   *
+   * 1. It put request URLs somewhere they can leave the browser. A PostgREST
+   *    URL carries its filter in the query string — `?id=eq.<uuid>`,
+   *    `?email=eq.<address>` — and signed storage URLs carry a token. Every one
+   *    became a `metric_name`, and `trackPerformance` forwards metric names to
+   *    `gtag('event', 'performance_metric', …)` whenever `window.gtag` exists.
+   *    Nobody has set `VITE_GA_TRACKING_ID` yet, so nothing has been sent; the
+   *    moment anyone does, before a pilot say, user identifiers and signed
+   *    tokens start flowing to Google Analytics. That is the opposite of the
+   *    posture taken everywhere else here — Sentry runs `sendDefaultPii: false`
+   *    and the build strips `console.log` precisely to keep ids out of logs.
+   *
+   * 2. It leaked memory with certainty rather than possibility. Each call
+   *    pushes an object onto `performanceMetrics`, and `flushEvents()` returns
+   *    early for a relative `apiEndpoint` (there is no `/api/analytics` — the
+   *    Vercel rewrite would answer it with index.html), so nothing ever drains
+   *    the array. One entry per fetch, for the life of the tab, on a dashboard
+   *    that polls.
+   *
+   * Deleted rather than sanitised. The data had no sink: no backend receives
+   * it, and per-URL timings are useless in GA anyway at that cardinality. If
+   * API timing is ever wanted, the honest place is Sentry's tracing — already
+   * configured, already sampling, already PII-aware — not a global override of
+   * `fetch` that every Supabase call, the Sentry transport itself, and the
+   * service worker registration all pass through.
+   *
+   * The array cap in the constructor stays regardless: see MAX_BUFFERED.
    */
-  trackApiPerformance() {
-    const originalFetch = window.fetch
-    const self = this
-
-    window.fetch = function (...args) {
-      const startTime = performance.now()
-      const url = args[0]
-
-      return originalFetch
-        .apply(this, args)
-        .then((response) => {
-          const endTime = performance.now()
-          self.trackPerformance(`api_${url}`, endTime - startTime)
-          return response
-        })
-        .catch((error) => {
-          const endTime = performance.now()
-          self.trackPerformance(`api_error_${url}`, endTime - startTime)
-          self.trackError(error, { url, method: 'fetch' })
-          throw error
-        })
-    }
-  }
 
   /**
    * Setup error tracking

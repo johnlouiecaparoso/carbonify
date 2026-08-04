@@ -19,7 +19,10 @@ import { useUserStore } from '@/store/userStore'
  * "reload the page" expressible here.
  */
 
-const STORAGE_KEY = 'ecolink_cart'
+// The cart is namespaced per account (backlog #35). These tests never sign
+// anyone in, so they exercise the signed-out bucket.
+// Cross-account behaviour lives in cartAccountScoping.test.js.
+const STORAGE_KEY = 'ecolink_cart::guest'
 
 const LISTING = {
   listing_id: 'listing-1',
@@ -129,12 +132,12 @@ describe('quantities are clamped to what is actually for sale', () => {
   })
 })
 
-describe('signing out does not empty the cart — deliberate, and recorded here', () => {
+describe('signing out leaves the cart key alone — the basket is not auth state', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
 
-  it('the cart key does not match isAuthStorageKey, so it survives sign-out', () => {
+  it('the cart key does not match isAuthStorageKey, so clearing auth spares it', () => {
     useCartStore().addItem(LISTING, 2)
     localStorage.setItem('sb-abcdefgh-auth-token', 'secret')
 
@@ -144,12 +147,12 @@ describe('signing out does not empty the cart — deliberate, and recorded here'
     expect(reload().items).toHaveLength(1)
   })
 
-  // NOTE: that behaviour is the correct fix for the old `localStorage.clear()`
-  // (which wiped theme, language and accessibility settings on every sign-out),
-  // but it does leave one open question: on a SHARED device the next person to
-  // sign in inherits the previous person's basket. It holds public listing data
-  // and no payment detail, and checkout is authorised server-side against the
-  // signed-in buyer, so it is a privacy wrinkle rather than a money defect —
-  // recorded in DEFERRED_BACKLOG rather than changed unilaterally, because
-  // "clear the cart on sign-out" is a product decision.
+  // This assertion used to carry a note saying the consequence — that on a
+  // SHARED device the next person to sign in inherited the previous person's
+  // basket — was left open because "clear the cart on sign-out" is a product
+  // decision. It was, and the answer turned out not to require that decision:
+  // the basket is now keyed by account, so nothing has to be discarded to stop
+  // it being handed on. `clearLocalStorage` is still right to spare it, since
+  // that function's job is auth state and a cart is not auth state.
+  // See cartAccountScoping.test.js.
 })
