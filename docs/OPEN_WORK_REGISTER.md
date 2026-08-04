@@ -69,9 +69,28 @@
 > > register of known items cannot route work nobody has written down yet, and the highest-severity
 > > findings today were in that category. Lane 1 being short is not the same as Lane 1 being done.
 >
-> One branch is open and unmerged: **`fix-mobile-cart-and-earnings`** — it has grown past its name and
-> now carries the cart row layout, the Recent-sales/Withdrawals collapse, the consent-gate hardening,
-> the certificate verification-URL fix, and `VERCEL_DOMAIN_AND_REDEPLOY.md`.
+> ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
+> (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
+>
+> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1213** (105 files), build green,
+> lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
+> needed. Five further defects, **none of which any entry on this page predicted**:
+>
+> - the production bundle **replaced `window.fetch`** and named each metric after the full request
+>   URL — query strings included — forwarding them to GA the moment a measurement ID is set;
+> - an **abandoned cart checkout deleted an unpaid item** from the basket on the buyer's next
+>   successful payment, and told them it had been purchased;
+> - **search history was keyed by device, not by account**, so the next person to sign in was shown
+>   the previous person's search terms — #35's own defect in a neighbouring branch, found by asking
+>   "what else is keyed this way?" after fixing the cart. One grep of `localStorage.setItem`;
+> - `wallet_topup_user_id` was **written and never read** — a guard that existed only as decoration;
+> - the payment confirmation screen **threw inside its own render** if the provider omitted `amount`.
+>
+> > The routing lesson, again and more sharply than on 08-02: the analytics defect was reachable in
+> > **no** development environment. `isEnabled` is `import.meta.env.PROD`, so it was absent from
+> > `npm run dev`, absent from vitest, and present in `dist/`. **Build green, lint 0 and a full green
+> > suite can all be true of a bug that only exists once deployed** — the second such case in two
+> > days, after the CSP font outage. Reading the built bundle is now part of the check.
 >
 > **The consent gate was re-reported and the database came back clean.** Every check PASS; 0 accounts
 > without a row, 7 on the current version, 0 stranded under another. The service worker was ruled out
@@ -190,7 +209,7 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | ~~32~~ | ~~**Google and phone sign-in are advertised in the UI and disabled on the backend**~~ | ✅ **fixed 2026-07-30 — and the decision no longer blocks anything.** Rather than pick one of the two answers, the forms now ask GoTrue `/auth/v1/settings` which providers are enabled and render accordingly (`useAuthProviders`). Enable Google in the dashboard and the button appears with **no redeploy**; leave it off and nobody is offered a dead path. Fails closed |
 | 21 | Provider layer imported only by tests | Route through the seam, or delete 11 files + port the signature test |
 | 25 | Reviews aren't assigned; concurrent reviewers invisible | Claimed vs merely advertised |
-| 35 | 🆕 **The cart survives sign-out, so a shared device hands it to the next person** | Clear it on sign-out (loses a legitimate basket) vs namespace it per user id (**better**, ~an afternoon). Low severity: public listing data only, and checkout is authorised server-side | 
+| ~~35~~ | ~~**The cart survives sign-out, so a shared device hands it to the next person**~~ | ✅ **CLOSED 2026-08-04 — the decision was a false blocker.** The cost that made this a choice ("clearing loses a legitimate basket") belonged to option (a) only; option (b), namespacing per user id, never had it. What neither option named was the **guest bucket** — browse signed-out, then sign in to pay — so the guest cart now merges forward at sign-in and is emptied. Nothing discarded, nobody inherits anybody. **A second, worse cart defect surfaced while fixing it** (see 2026-08-04 above) | 
 | 23 | Developer forward/projection view | An IRR in front of a project owner invites it into a funding conversation |
 | 20 | **Cart charges once per listing, not once per cart** | Multi-seller escrow split — take it **with #14, not after** |
 | 18 | Organization accounts, 5 phases | Phase 1 safe now; **Phase 2 must follow the beta** — it rewrites the same RPC as escrow |

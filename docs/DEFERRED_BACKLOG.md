@@ -1426,9 +1426,43 @@ production diverge, and each one hides a class of bug until it reaches a real us
 
 ---
 
-### 35. The cart survives sign-out, so a shared device hands it to the next person 🟢
+### 35. The cart survives sign-out, so a shared device hands it to the next person ✅ CLOSED 2026-08-04
 **Found 2026-08-02**, while making the cart testable for the first time (`localStorage` in unit tests
 had been a no-op that stored nothing, so nothing about persistence could be asserted).
+
+> ## ✅ Closed 2026-08-04 — and the decision this entry was waiting on was not needed
+>
+> The cart is now keyed by account: `ecolink_cart::<user id>`, with `ecolink_cart::guest` for
+> signed-out browsing. A basket built under account A stays under A's key and is invisible to B.
+>
+> **The blocker below was real but avoidable.** This entry frames the fix as a product decision
+> because option (a) punishes the single-user case — sign out mid-basket on your own laptop and lose
+> your work. That cost belongs to option (a) alone. Option (b) never had it, and the reason it looked
+> like it might is that the **guest bucket** was not part of either option as written: browsing
+> signed-out and *then* signing in to pay is a normal and important flow, and namespacing naively
+> would break it. Handled explicitly — the guest cart **merges forward** into the account at sign-in
+> (quantities take the larger of the two, not the sum: one intent to buy, not two) and the guest
+> bucket is then emptied so the next signed-out visitor does not inherit it either. Nothing is
+> discarded, and nobody inherits anybody.
+>
+> The legacy `ecolink_cart` key is **dropped, not migrated**. Its contents belong to whoever last
+> used the device, so adopting them for the next person to sign in would reproduce this exact defect
+> once, at deploy. The cost is a cart open at deploy time being lost — device-local, public listing
+> data, rebuilt in two clicks.
+>
+> **Third consecutive entry where a named decision turned out to be a false blocker** (#24: neither
+> an afternoon nor a schema; #32: ask GoTrue instead of choosing). *An entry that offers two options
+> is offering two proposed routes to an outcome, not an exhaustive list of them.*
+>
+> Pinned by [`cartAccountScoping.test.js`](../src/test/store/cartAccountScoping.test.js) (10 tests,
+> mutation-checked — collapsing the key back to one bucket turns four red). The assertion in
+> `cartPersistence.test.js` that the cart key survives `clearLocalStorage()` **stays and is still
+> correct**: that function's job is auth state, and a basket is not auth state.
+>
+> ⚠️ **A second cart defect was found while doing this, and it was the more serious one** — the
+> `CART_*` checkout-coordination keys named in option (a) were never cleared on abandonment, so the
+> next successful payment of any kind removed an unpaid item from the basket and reported it as
+> purchased. See HANDOFF 2026-08-04. That one was nowhere in this entry.
 
 `userStore.clearLocalStorage()` deliberately removes **only** keys matching `isAuthStorageKey`
 (`sb-*`, `supabase.*`). The cart lives under `ecolink_cart` and therefore survives. **That is the

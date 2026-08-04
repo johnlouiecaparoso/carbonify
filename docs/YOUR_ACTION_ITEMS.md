@@ -120,7 +120,23 @@
 > > (see HANDOFF 2026-08-01 late). Now that it is applied, run the `VERIFY` block at the bottom of the
 > > migration if you want the four PASS rows on record.
 >
-> **You have six things left** (two closed 2026-08-02, two new):
+> ## ⚠️ Reconciled 2026-08-04 — this page was a day behind, and it was telling you to redo finished work
+>
+> The table below carried 🔴 against **two things you had already completed on 2026-08-02**: the
+> `paymongo-webhook` redeploy (row 5) and the three-step notification fix (row 8). HANDOFF and
+> OPEN_WORK_REGISTER both recorded them as done and probe-verified that same day; only this page
+> still said otherwise. Corrected below.
+>
+> **That is worth more than the correction itself.** This page opens by saying it holds
+> *instructions, not status* — and a row reading 🔴 **is** status, whatever the header says. It is
+> the same failure OPEN_WORK_REGISTER had to be reconciled for on 2026-08-01, arriving from the
+> other side: there, a routing doc claimed a red blocker; here, an instruction doc claimed unfinished
+> work. **A page that ranks by urgency cannot avoid carrying status.** The rule that follows is the
+> one already applied to code in this repo — *a claim is not a measurement* — pointed at the docs:
+> anything marked 🔴 here should be re-checked against its source before you act on it, and the
+> source is HANDOFF for what happened and the live database for what is true.
+>
+> **You have four things left** (four closed, two of them merely unrecorded):
 >
 > | # | Do this | Blocks |
 > |---|---|---|
@@ -128,10 +144,10 @@
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
-> | 5 | 🔴 **Redeploy ONE edge function: `supabase functions deploy paymongo-webhook`** (~1 min) | Two live money-path defects |
+> | 5 | ~~Redeploy `paymongo-webhook`~~ ✅ **done 2026-08-02.** The saga's retry cap and its second-supplier-order fix are live | — |
 > | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
-> | 7 | 🆕 **Apply `20260802000200_validate_not_valid_constraints.sql`** — backlog #4 | Nothing. But it answers a question nobody has asked |
-> | 8 | 🆕 **Apply `20260802000300`, deploy the frontend, then apply `20260802000400`** — backlog #36, **in that order** | The notification spoofing hole |
+> | 7 | 🟡 **Confirm `20260802000200` took** — backlog #4. You reported running it; it is the one item never independently verified, because constraint validity is not readable through the anon API. One query settles it: `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';` | Nothing. But it answers a question nobody has asked |
+> | 8 | ~~Apply `20260802000300` → deploy → `20260802000400`~~ ✅ **done 2026-08-02, in the right order.** `notify_counterparty` answers `401 42501` to `anon`, which is the grant-hygiene block doing its job | — |
 
 **#7 is not urgent, and it is the most interesting thing on this list.** Four constraints on live
 were added `NOT VALID`, which means Postgres enforces them on every new write but **skipped the check

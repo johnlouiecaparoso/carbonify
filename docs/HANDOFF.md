@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -48,8 +48,8 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1185 unit tests green across 101 files**
-> (re-verified 2026-08-03, after the mobile UX pass).
+> **Current build state:** build green, lint 0, **1213 unit tests green across 105 files**
+> (re-verified 2026-08-04, after the pre-pilot defect hunt).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
@@ -59,14 +59,125 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1213 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-03 (latest) — mobile UX pass, and the icon font was blocked by our own CSP
+> ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
+>
+> Suite **1185 → 1213** (101 → 105 files). Build green, lint 0. **No migrations.** Nothing here was
+> on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
+> a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
+>
+> 🔴 **The production bundle replaced `window.fetch`, and the replacement put request URLs somewhere
+> they could leave the browser.** `utils/analytics.js` wrapped global `fetch` and recorded a metric
+> per request named ``api_${url}`` — the **full URL, query string included**. A PostgREST URL carries
+> its filter there (`?id=eq.<uuid>`, `?email=eq.<address>`); a signed storage URL carries a token
+> there. `trackPerformance` forwards metric names to `gtag('event', 'performance_metric', …)`
+> whenever `window.gtag` exists.
+>
+> Nothing has been sent, because `VITE_GA_TRACKING_ID` has never been set. **That is the whole
+> problem** — setting it is a one-field change in the Vercel dashboard that anyone might make before
+> a pilot to get basic traffic numbers, and the same keystroke would have started streaming user
+> identifiers and signed tokens to Google Analytics. It is also the exact opposite of the posture
+> taken everywhere else: Sentry runs `sendDefaultPii: false`, and the build sets
+> `esbuild.pure: ['console.log', …]` specifically to keep ids out of production logs.
+>
+> > **Why it survived every previous pass.** `AnalyticsTracker.isEnabled` is `import.meta.env.PROD`,
+> > so the wrapper never installed under `npm run dev` and never under vitest. It was not
+> > hypothetical: `window.fetch=function` and `api_error_` are both present in the built output. **A
+> > code path that only exists in the production bundle is invisible to a green suite, a clean lint
+> > and a working dev server simultaneously** — the same blind spot as the CSP outage on 08-03, which
+> > also only existed once deployed. Reading `dist/` is now part of the check.
+>
+> Deleted rather than sanitised: the data had no sink (there is no `/api/analytics` — the Vercel
+> catch-all would answer a POST to it with index.html), and per-URL timings are useless at that
+> cardinality anyway. If API timing is ever wanted, Sentry tracing is already configured, already
+> sampling, already PII-aware — and does not put every Supabase call, the Sentry transport itself and
+> the service-worker registration through an app-level wrapper.
+>
+> 🐛 **Second half of the same file: four unbounded buffers.** `events`, `pageViews`, `userActions`
+> and `performanceMetrics` are appended to and **never drained** — `flushEvents()` returns early for
+> a relative `apiEndpoint`, which it always has. One entry per fetch, per navigation, for the life of
+> the tab. Capped at 200 with the newest kept. Pinned by
+> [`analyticsNoFetchPatch.test.js`](../src/test/utils/analyticsNoFetchPatch.test.js), which forces
+> `isEnabled` on because that is the only way to reach production behaviour from a test.
+> Mutation-checked: restoring either half turns all six red.
+>
+> 🐛 **An abandoned cart checkout silently deleted an unpaid item from the basket.** `CartView` set
+> `CART_CHECKOUT_ACTIVE` + `CART_PENDING_LISTING` before redirecting to PayMongo, and **nothing
+> cleared them on abandonment** — its `catch` only fires when the redirect never happened, and
+> `PaymentCallbackView` only cleans up after a payment that *succeeded*. Close the tab, have a card
+> declined, take a phone call, and the pair survives indefinitely.
+>
+> The flags said "a cart checkout is in progress" but not **which payment it was waiting for**, so
+> the next successful payment of any kind inherited them. Buy something directly from the marketplace
+> afterwards and the callback removed the *abandoned* listing from the cart and announced **"Item
+> purchased"** over it — a basket item lost, and the buyer told they had bought it.
+>
+> > `CART_PENDING_SESSION` now binds the sequence to one checkout session, and the verdict moved out
+> > of the view into `cartCheckoutState()`. **It lived inside `PaymentCallbackView.onMounted`, where
+> > testing it means mounting a view that redirects to a payment provider and polls Supabase — so it
+> > was never tested, and the missing case sat there.** The judgement being made is *"may I delete an
+> > item from this buyer's basket?"*; that belongs somewhere reachable. Unbound flags now resolve to
+> > `stale`, not `match`: leaving a paid item in a basket is recoverable, deleting an unpaid one is
+> > not.
+>
+> 🐛 **#35 closed, and it did not need the decision it was waiting on.** The backlog framed the cart
+> surviving sign-out as a choice — clear it (losing a legitimate basket) versus namespace it per user.
+> Namespacing wins outright once the **guest bucket** is handled: browsing signed-out and then
+> signing in to pay is a normal flow, so the guest cart merges forward at sign-in and is emptied.
+> A basket built under account A stays under A's key and is invisible to B. The legacy key is
+> **dropped, not migrated** — its contents belong to whoever last used the device, and adopting them
+> for the next person to sign in is precisely the defect being closed.
+>
+> > Third entry in a row where a "decision" turned out to be a false blocker, after #24 (the
+> > verifier's decision history needed neither an afternoon nor a schema) and #32 (ask GoTrue which
+> > providers are enabled rather than choosing). **An entry that names two options is still only two
+> > proposed routes to the outcome.**
+>
+> 🐛 **…and the same leak in its neighbouring branch: search history.** `SmartSearch` keyed its
+> history `carbonify_search_history_<surface>` — scoped to the marketplace or the registry, and to
+> no account. So the person who signed in next was shown the previous person's search terms, in a
+> dropdown, on focus, without asking. The component's docblock argues carefully that keeping search
+> terms **off the server** is a privacy choice; it is, and it never addressed who can read them
+> locally. **Sixth instance of this repo's signature pattern, found by deliberately going to look
+> for it** — having fixed the cart, the question "what else is keyed by device and not by account?"
+> took one grep of `localStorage.setItem`. That grep is the cheapest thing in this whole pass and it
+> should have been run on 08-02 when #35 was written down.
+>
+> > Worse than the cart, on reflection: a basket holds public listing data, whereas *what a buyer was
+> > looking for* is commercially sensitive. The re-read on session arrival matters as much as the key
+> > does — the marketplace is public, so the component routinely mounts before the session lands, and
+> > without it a signed-in user would keep reading and writing the guest bucket for the life of the
+> > page. That is the leak with an extra step.
+>
+> 🐛 **A guard that was written and never read.** `TopUp.vue` has always stored
+> `wallet_topup_user_id`; the only other mention of that key in the entire repo was
+> `localStorage.removeItem`. On a shared device these keys outlive the account that wrote them, so
+> the callback would report on a pending top-up started by somebody else. Now checked. *To anyone
+> auditing the money path, a stored guard reads as protection — this one was decoration.* Same family
+> as the five views whose error handling could never run.
+>
+> **Also:** the confirmation screen threw inside its own render when a provider response omitted
+> `amount` (`v-if` guarded the object, never the field) — blanking the page at the moment a buyer
+> most needs to see that their payment went through; and it promised "Redirecting to retire
+> dashboard" while `redirectPath` is `/wallet`.
+>
+> ✅ **Checked and found sound, recorded so nobody re-checks them:** the CSP (`connect-src` covers the
+> worker's font fetch since 08-03; `api.paymongo.com` is omitted *deliberately*, so a leaked secret
+> key fails loudly); `console.log` stripping actually works in `dist`; Sentry sends no PII;
+> `TEST_ACCOUNTS` tree-shakes to `{}` in production; the two `v-html` sinks are an escaped formatter
+> and Supabase's own MFA QR SVG; and the `download.js` consolidation left no same-tick revoke behind.
+> The purchase-side equivalent of the top-up guard needs **no** client-side fix: `paymongo-checkout`'s
+> `verify` has required a JWT and checked intent ownership since 07-30, so a stale
+> `pending_purchase_session` cannot be settled by another account. That is the server-side guard
+> doing its job.
+>
+> ### 🆕 2026-08-03 — mobile UX pass, and the icon font was blocked by our own CSP
 >
 > Suite **1176 → 1185** (99 → 101 files). Build green, lint 0. **No migrations.** Eight reported
 > items, all fixed and each verified on a real mobile viewport rather than by reading the CSS.
