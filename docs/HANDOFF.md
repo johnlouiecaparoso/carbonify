@@ -72,7 +72,7 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### ⚠️ DEPLOY STATE — everything below is committed locally and **NOT pushed** (6 commits)
+> ### ⚠️ DEPLOY STATE — everything below is committed locally and **NOT pushed**
 >
 > Held deliberately at the owner's instruction; pushing `main` is the production deploy. **Until it
 > is pushed, every fix on this page is inert on `carbonify13.vercel.app`.** That matters most for one

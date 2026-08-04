@@ -49,7 +49,7 @@
 > a 37-test responsive spec and a 22-test authenticated one. Lint 0, build green. **No migration is
 > waiting on you** — every one is applied and probe-verified except `20260802000200`, whose
 > *validity* is unconfirmed only because constraint state is not readable through the anon API (item
-> 7 below). **Everything else is frontend and is sitting in 6 unpushed commits — item 0.**
+> 7 below). **Everything else is frontend and is sitting in unpushed commits on `main` — item 0.**
 >
 > ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
 >
@@ -142,7 +142,7 @@
 >
 > | # | Do this | Blocks |
 > |---|---|---|
-> | 0 | 🔴 **Deploy — 6 commits from 2026-08-04 are sitting unpushed on `main`.** Every fix from the pre-pilot defect hunt is inert until you do | Nothing gates on it, but two of the fixes are the kind you want live *before* a pilot |
+> | 0 | 🔴 **Deploy — the whole 2026-08-04 pass is sitting unpushed on `main`** (`git log origin/main..main` to see it). Every fix from the pre-pilot defect hunt is inert until you do | Nothing gates on it, but two of the fixes are the kind you want live *before* a pilot |
 > | 1 | 🔴 **Run the 4 escrow behaviour checks** — `ESC-01…06`, Step 1b | Inviting any seller |
 > | 2 | ~~Deploy the frontend~~ ✅ **done 2026-08-01** · **purge test data** still open — Step 3 | The pilot |
 > | 3 | Buy + verify the email domain — Step 6b | The 8 stub emails, MRV reminders |
@@ -154,7 +154,7 @@
 
 > ### 🔴 #0 — deploy, and one thing to NOT do before you deploy
 >
-> The 2026-08-04 defect hunt produced **6 commits that have not been pushed.** Nothing on this page
+> The 2026-08-04 defect hunt is **committed but not pushed.** Nothing on this page
 > gated on them, which is exactly why they need saying out loud: *built ≠ live* has now been the
 > failure mode four times on this project (the unscheduled payout worker, the misnamed
 > `account-deletion` secret, the undeployed function fixes, the frontend that lagged `main` by 153
