@@ -82,7 +82,8 @@ editor shows only the last statement's result when a whole file is pasted.
 | [`escrow_verification.sql`](../supabase/diagnostics/escrow_verification.sql) | Is escrow behaving? Run after each `ESC-01…06` test |
 | [`feedstock_verification.sql`](../supabase/diagnostics/feedstock_verification.sql) | Farmer payment record — row 6 (money core untouched) matters most |
 | [`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql) | Is the consent box shown once per user per version, and is the UNIQUE index still there? |
-| [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) | Is the money-table RLS posture **declared** correctly? |
+| [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) | Is the money-table **write** posture declared correctly? Note it inspects only `INSERT/UPDATE/DELETE/ALL` policies — an open **SELECT** policy passes it silently, which is what the next file exists for |
+| [`access_posture_audit.sql`](../supabase/diagnostics/access_posture_audit.sql) | 🆕 Who can **read** it, and what can a client write to a profile? Covers `profiles` + `certificates` (neither has a tracked RLS policy) and the profiles column grants. 0 rows = correct |
 | [`daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql) | Run every morning during the pilot |
 | [`find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs) | 🆕 `node scripts/analysis/find-dead-exports.mjs` — which exports nothing references. **Candidates, not a verdict**: deliberately conservative, and deleting one took down a live surface on 2026-08-02 |
 

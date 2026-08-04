@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · **money-path defect pass 2026-08-04 (5 migrations now waiting)**
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -21,8 +21,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Yes.** No migrations, no ordering, no external dependency. Push `main`. |
-> | Can I run the closed beta on **test keys**? | 🟡 **Almost.** One thing gates it: the four escrow behaviour checks (`ESC-01…06`). |
+> | Can I deploy the current code to production today? | 🟡 **The frontend, yes.** But this is **no longer migration-free** — the 2026-08-04 money-path pass added **five migrations and three edge-function redeploys**, and the frontend price fix is inert without them. See the DEPLOY STATE box below for the order. |
+> | Can I run the closed beta on **test keys**? | 🟡 **Almost.** Two things gate it now: the escrow behaviour checks (`ESC-01…06`) — which **could not have passed** before `20260804000300`, see below — and the `access_posture_audit.sql` result on `profiles` / `certificates`. |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -34,7 +34,8 @@
 > | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
-> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration |
+> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. ⚠️ **But "all money tables" was never all of them** — `certificates` and `profiles` carry no tracked RLS at all (2026-08-04) |
+> | KYC / suspension gate on **both** purchase paths | 🆕 Written 2026-08-04 (`20260804000100`), **not applied**. Until then the wallet path enforces neither |
 > | Webhook security | ✅ Signed, replay-protected (300s), atomic idempotency claims, retry cap — and the replay window, the `ALLOW_UNSIGNED_WEBHOOKS` default and the two copies' tolerance agreeing are now **ratcheted by tests**, not re-checked by a person |
 > | RBAC + router guards | ✅ Both auth paths enforce; a farmer cannot reach `/admin` |
 > | KYC / KYB gates | ✅ Buy gate + payout gate |
@@ -44,7 +45,7 @@
 > | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe, 0 violations on the public routes** — manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
-> | Test suite | ✅ **1256 unit across 110 files** · Playwright **46 public + 22 authenticated + 37 responsive + 18 accessibility + 9 runtime smoke** · lint 0 · build green |
+> | Test suite | ✅ **1278 unit across 111 files** · Playwright **46 public + 22 authenticated + 37 responsive + 18 accessibility + 9 runtime smoke** · lint 0 · build green |
 >
 > ### What is NOT implemented
 >
@@ -65,9 +66,12 @@
 >
 > ### The three lanes — who does what next
 >
-> **🤖 Me (in-repo, no external dependency): Lane 1 is now empty of unblocked work.** P5 and the
-> automated accessibility pass both closed on 2026-08-04, which were the last two items that needed
-> no decision from anyone. What is left divides cleanly into two piles, and neither is "not done
+> **🤖 Me (in-repo, no external dependency): Lane 1 is empty again — but note how it emptied.** P5
+> and the automated accessibility pass closed on 2026-08-04, and the money-path pass later that day
+> closed five more. **None of those five were on this list.** They were found by reading the money
+> surface against the code, and one of them (the dead escrow gate) would have failed the very checks
+> that gate the beta. *"Lane 1 is empty" describes the list, not the codebase* — it has now been
+> wrong in exactly this way twice in one day. What is left divides cleanly into two piles, and neither is "not done
 > yet":
 >
 > | Remaining | Why it is not simply "next" |
@@ -80,8 +84,11 @@
 > *So "what should I build next" is currently the wrong question.* The next useful thing on this
 > project is a **deploy** and the **escrow behaviour checks**, and both are owner actions.
 >
-> **👤 Owner:** ① **deploy** — the whole 2026-08-04 pass is committed and unpushed, and *do not set
-> `VITE_GA_TRACKING_ID` before you do*; ② the **four escrow checks**; ③ **purge the test data**;
+> **👤 Owner:** ⓪ **run `access_posture_audit.sql`** — read-only, decides the urgency of everything
+> else; ① **apply the five `20260804*` migrations, redeploy the two edge functions, then deploy** —
+> the whole 2026-08-04 pass is committed and unpushed, and *do not set `VITE_GA_TRACKING_ID` before
+> you do*; ② the **escrow checks** (`ESC-01…06`) — **only after `20260804000300`, which is what makes
+> them able to pass**; ③ **purge the test data**;
 > ④ **buy + verify the email domain**; ⑤ the one-line `convalidated` query; ⑥ run the closed beta;
 > ⑦ the open decisions (#21, #37 ×2, #18, #27, #31, fee amounts, DR policy).
 >
@@ -135,8 +142,14 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1256 unit tests green across 110 files**
-> (re-verified 2026-08-04, after the pre-pilot defect hunt).
+> **Current build state:** build green, lint 0, **1278 unit tests green across 111 files**
+> (re-measured 2026-08-05 — suite, lint and build all run, not carried forward from the previous
+> entry).
+>
+> ⚠️ **The three money edge functions are `deno check`-clean *as of the last machine that had Deno*.**
+> Deno is not installed here, so 2026-08-05 could only verify that all three **parse** as TypeScript
+> (esbuild), which catches syntax and nothing else. Re-run `deno check` on the machine you deploy
+> from — it costs one command and this project's whole method is not carrying claims forward.
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
 > so it is not directly comparable to the 959 before it.*
@@ -146,14 +159,158 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1278 · 1275 · 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
+> ### 🆕 2026-08-05 (latest) — the money-path pass was verified, and it had a hole in the middle of it
+>
+> A verification pass over the 2026-08-04 work before committing it: read every migration and every
+> diff, run the suite, and check the deploy instructions against what actually changed on disk.
+> Three things came out of it, and two are the same defect class this project keeps producing.
+>
+> 🔴 **The pass was never committed.** The DEPLOY STATE box said "committed locally and NOT pushed".
+> The 14 commits it was describing were real, but the money-path work itself — five untracked
+> migrations, `access_posture_audit.sql`, `moneyPathGuards.test.js`, the price fix and all three
+> edge functions — was **still in the working tree**. See the correction box above. Committed now.
+>
+> 🔴 **The deploy list named two edge functions and the pass changed three.**
+> `paymongo-checkout` carries the wallet **top-up** suspension check — the second half of defect 2,
+> described in the 08-04 entry and in YOUR_ACTION_ITEMS — and it appeared in **no** deploy
+> instruction anywhere in the docs. Following the runbook exactly would have applied all five
+> migrations, redeployed the webhook and the healer, and left the top-up guard permanently inert on
+> live, with every document reporting it as shipped. Now step 6b.
+>
+> 🐛 **The escrow fix could still have resolved to null — which is the defect it exists to close.**
+> Both `resolvePaymentMethod` implementations read the method from the **payment** resource only
+> (`source.type`, `payment_method_type`, …). PayMongo also carries it on the **checkout session** as
+> `payment_method_used`, and the session is the resource the webhook is actually delivered. When only
+> the session has it, the resolver returned null, the RPC fell back to `provider` — and `provider` is
+> the literal `'paymongo'`, so the hold silently reverted to the 7-day card window. **That is
+> `20260804000300`'s own bug, surviving inside its own fix**, and it would have shown up as
+> `ESC-02` failing with no visible cause. Both resolvers now read `payment_method_used` first, and
+> both settlement paths fall back to the session when the payment resource omits it.
+>
+> > **The mutation check caught one of my own tests being fake.** The first version asserted
+> > `payment_method_used` appeared anywhere in the function source — and it passed against a source
+> > with the lookup deleted, because the **comment explaining the field** still contained the string.
+> > Removing the lookup from `paymongo-resettle` turned exactly one test red when it should have
+> > turned two. The assertion now extracts the lookup chain and tests that. *An artifact assertion
+> > that greps the whole file is testing the prose.* Three ratchets added (19 → 22), each
+> > mutation-checked; the strongest is the one requiring both resolvers' lookup chains to be
+> > **identical**, since a field present in one and not the other means a seller's escrow window
+> > depends on whether the webhook or the healer happened to settle them.
+>
+> ✅ **Read and found sound, recorded so nobody re-reads them:** all five migrations (each is a
+> `create or replace` at an unchanged signature with a ROLLBACK block naming the file to re-apply);
+> the deny-list in `20260804000200` enumerates live columns at apply time, so re-running it is safe;
+> `credit_transactions.payment_method` carries no CHECK constraint in any tracked migration, so
+> writing `'gcash'` where `'paymongo'` used to go cannot throw; and `assert_not_suspended` has
+> existed since `20260722000800`, so the `paymongo-checkout` redeploy has no ordering dependency on
+> anything in this pass.
+>
+> ⚠️ **One claim in this document could not be verified and has been narrowed.** The 08-04 entry
+> said all three money edge functions "pass `deno check` clean". **Deno is not installed on this
+> machine**, so that was not re-measurable. What is measured: all three parse clean as TypeScript
+> (esbuild), which catches syntax and nothing more. Type-checking them needs `deno check` on a
+> machine that has Deno.
+>
+> ### 2026-08-04 — money-path defect pass: five defects, and the escrow gate was dead code
+>
+> Suite **1256 → 1275** (110 → 111 files). Build green, lint 0, `deno check` clean on all three money
+> edge functions. **Five migrations (`20260804000100`–`000500`) and three edge-function redeploys are
+> now waiting on the owner** — this is the first time since 08-02 that Lane 2 is not empty, and
+> YOUR_ACTION_ITEMS / OPEN_WORK_REGISTER have both been corrected to say so.
+>
+> A read of the transaction/money surface **against the code rather than the docs**, prompted by
+> "is the money side hackable, and can another user reach it?". The answer to the direct question is
+> **no** — no path found lets one user spend another's money or take their credits. Identity comes
+> from the JWT, amounts are recomputed server-side, the settlement RPCs are `service_role`-only, and
+> `payment_intents` / `ledger_entries` / `escrow_holds` / `payout_requests` all have RLS on with
+> read-own and no client write policy. What the pass found instead was **five guards that existed on
+> one branch and not its sibling** — the same shape as every other defect on this project.
+>
+> **1. 🔴 The escrow method-gate has never been able to fire.** `20260725000200` branches on
+> `lower(v_intent.provider) ~ '(gcash|maya|paymaya|grab)'` — but `payment_intents.provider` is the
+> **gateway**, not the method. It is set to the literal `'paymongo'` at checkout creation and its
+> column default is `'paymongo'`. The regex can never match, so **every** online settlement took the
+> 7-day card hold, GCash and Maya included, and `credit_transactions.payment_method` recorded
+> `'paymongo'` for every online purchase — no receipt or export could tell a card sale from a GCash
+> one. **`ESC-02` ("buy on GCash/Maya → proceeds credit `seller_payable` directly") could not have
+> passed.** The escrow checks were the last thing gating the beta, and they were about to fail
+> against a defect that had nothing to do with escrow. Fixed by `20260804000300`: a new
+> `payment_intents.payment_method`, written by both the webhook and `paymongo-resettle` before
+> settling, read by the RPC for the hold window and for the recorded method. Falls back to `provider`
+> when absent, so **apply order does not matter** and an un-redeployed webhook keeps today's
+> conservative behaviour.
+>
+> **2. 🔴 The wallet branch enforced neither KYC nor suspension.** `assert_can_trade` had exactly
+> **one** call site in the entire system — the card path in `paymongo-checkout`.
+> `process_wallet_purchase` is granted to `authenticated`, so the browser's `assertCanTrade` was not
+> a boundary: a suspended or unverified user could POST straight to the RPC and settle a purchase,
+> with only the velocity cap (₱10k/day at level 0) left standing. A spending cap is not a substitute
+> for a sanction. `20260721000100` had documented this gap deliberately and deferred it; this is that
+> follow-up (`20260804000100`), plus a suspension check on wallet top-up.
+>
+> **3. 🔴 `20260703000300` is a landmine, and either state it is in is wrong.** It revokes table
+> UPDATE on `profiles` and re-grants it column by column from an **allow**-list of two names — then
+> tells you to *"re-run after adding new profile columns."* Following that instruction re-grants
+> `kyb_verified` (undoing `20260709000000` — self-approve KYB, then withdraw) and `is_active`
+> (self-unsuspend). **Not** following it means every column added since 2026-07-03 is unwritable by
+> its owner — `municipality`/`province` are in the profile edit form and `updateProfile` sends the
+> whole form in one PATCH, so **the entire profile save fails 42501**, and
+> `onboarding_tour_version` silently never persists (`onboardingService` only tolerates `42703`).
+> Which state live is in is not knowable from the repo — **run the query**. `20260804000200` inverts
+> it to a nine-name deny-list, revoking before granting, so re-running it is now the correct action.
+>
+> **4. 🟠 The quoted price was not the charged price.** Settlement recomputes from
+> `credit_listings.price_per_credit`; the marketplace card and the purchase modal preferred
+> `projects.credit_price`. Those were the same number right up until sellers could edit their own
+> price — `update_my_listing` (shipped 07-21) writes `price_per_credit` and never touches
+> `projects.credit_price`. So from the first seller price edit onward, a buyer saw one number and was
+> charged another. Fixed in `marketplaceService`; **frontend-only, live as soon as it is pushed.**
+>
+> **5. 🟡 Payouts ignored suspension, and the idempotency key was global.** A seller suspended for
+> fraud could still withdraw the proceeds — the one movement a sanction most needs to stop, since
+> after it the money is gone. And `request_payout`'s key lookup was unscoped, so a collision returned
+> **another seller's** payout id and silently dropped this one's request. Latent (the client passes
+> `null`), which is when it is cheap to fix. `20260804000400`.
+>
+> **The one that cannot be fixed from the repo — and it is the biggest.** `profiles` and
+> `certificates` **predate version control and carry no RLS policy in any migration.**
+> `20260722000200` says so in passing about `profiles`; nothing says it about `certificates` at all.
+> A fresh environment rebuilt from `supabase/migrations/` has a **completely open certificates
+> table** — and the browser INSERTs and UPDATEs it directly, so that is read *and* write on everyone
+> else's certificates. `profiles` is worse to guess at, because six services legitimately read other
+> users' rows (`receiptService` needs the counterparty's name for a receipt). New:
+> **`supabase/diagnostics/access_posture_audit.sql`** — one consolidated findings query, 0 rows =
+> correct. It covers four things `money_table_rls_audit.sql` structurally cannot see, the important
+> one being **open SELECT policies**: that audit's finding (A) only inspects
+> `INSERT/UPDATE/DELETE/ALL`, so a `using (true)` read policy on `wallet_accounts` would pass it
+> silently. `certificates` RLS is written and **GATED** (`20260804000500`) pending its pre-flight.
+>
+> > **Why none of this was caught before.** Every one of these is a *rule that is not encoded
+> > anywhere a test could check it*: "the gate applies to both purchase paths", "the column the
+> > escrow branch reads is the one the webhook writes", "display price = charged price". Build, lint
+> > and 1256 tests were green against all five. The pass added **22 ratchets**
+> > (`moneyPathGuards.test.js`) in this repo's artifact-assertion style, including one that keeps the
+> > webhook's and resettle's method-alias tables identical — because that is exactly the drift that
+> > produced the `MAX_FULFILLMENT_ATTEMPTS` bug. *A green suite is evidence about the rules someone
+> > thought to write down.*
+>
+> **Not fixed, on purpose — three decisions, now `DEFERRED_BACKLOG` #38–40.** #38: the certificate
+> "tamper-evident signature" is an **unkeyed SHA-256 over public fields, computed in the browser** —
+> it detects corruption, not tampering, because forging it needs no secret. The fix is a key-custody
+> decision (HMAC vs. asymmetric), not a patch. #39: the `profiles` SELECT policy needs designing
+> alongside converting those six cross-user reads to narrow definer RPCs. #40: `is_admin(uuid)` and
+> `is_verifier(uuid)` exist **only on live** — so `20260725000100`, the migration whose entire purpose
+> is making the money RLS posture reproducible, cannot itself be replayed. *The proof does not
+> currently prove.*
+>
+> ### 2026-08-04 — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
 >
 > Suite **1185 → 1256** (101 → 110 files). Build green, lint 0. **No migrations.** Nothing here was
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
@@ -166,6 +323,44 @@
 > of them: 🔴 **do not set `VITE_GA_TRACKING_ID` in Vercel before deploying** — on the currently-live
 > build, that single field turns the `window.fetch` wrapper described below into a live stream of
 > user identifiers and signed storage tokens to Google Analytics. See YOUR_ACTION_ITEMS item 0.
+>
+> > ⚠️ **Corrected 2026-08-05 — this box said "committed" and the money-path pass was not.** The 14
+> > commits from the defect hunt, the a11y pass and P5 were real. **The whole 2026-08-04 money-path
+> > pass was still sitting in the working tree** — five untracked migrations, `access_posture_audit.sql`,
+> > `moneyPathGuards.test.js`, the price fix and all three edge functions, uncommitted. Committed
+> > 2026-08-05.
+> >
+> > *This is the sixth instance of the same failure and the first one at a new depth.* The previous
+> > five were built-but-not-deployed; this was **written but not saved** — a `git checkout .` would
+> > have taken it, and the docs describing it in detail would have survived to describe work that no
+> > longer existed. **"Committed" is a measurement too.** `git status` before writing a deploy box,
+> > the same rule as every other claim on this page.
+>
+> #### 🆕 And as of the 2026-08-04 money-path pass, this is no longer frontend-only
+>
+> **Five migrations and three edge-function redeploys.** Every migration keeps its function signature,
+> so there is no drop/recreate anywhere and **no strict ordering between them** — the one real
+> sequencing rule is the query in step 0, because what it returns decides step 3.
+>
+> | # | Do | Why the order |
+> |---|---|---|
+> | 0 | Run `supabase/diagnostics/access_posture_audit.sql` | **First.** Read-only. Its result decides steps 3 and 5, and one possible answer (finding C) is more urgent than anything else on this page |
+> | 1 | Apply `20260804000100` (wallet trade gate) | Independent. Closes the KYC + suspension bypass on wallet purchases |
+> | 2 | Apply `20260804000300` (real payment method) | Independent. **Do this before `ESC-01…06`** — the escrow checks cannot pass without it |
+> | 3 | Apply `20260804000200` (profiles deny-list) | Urgency set by step 0: finding **C** = users can self-approve KYB → do it today; finding **D** = profile saves are failing → do it today for a different reason |
+> | 4 | Apply `20260804000400` (payout suspension + idempotency scope) | Independent |
+> | 5 | 🔒 **GATED:** `20260804000500` (certificates RLS) | Run **its own pre-flight query** (in the migration header) first. Enabling RLS on a live table the browser writes to deserves a look before a run |
+> | 6 | `supabase functions deploy paymongo-webhook` and `paymongo-resettle` | After step 2. Both now record the real payment method. Safe in either order — the RPC falls back to `provider` while they are old |
+> | 6b | 🆕 `supabase functions deploy paymongo-checkout` | **This row was missing until 2026-08-05.** It carries the wallet **top-up** suspension check (defect 2's second half), and without it that guard never ships. No ordering constraint: `assert_not_suspended` has existed since `20260722000800`, which is applied |
+> | 7 | Push `main` | The price fix (#4 above) is frontend-only and inert until this |
+>
+> **Nothing here is a one-way door.** Every migration carries its own ROLLBACK block naming the exact
+> file to re-apply. `20260804000300` degrades to today's behaviour if step 6 never happens; the only
+> cost is that GCash sales keep taking the card hold.
+>
+> > ⚠️ **`20260804000200` supersedes `20260703000300`. Do not re-run `20260703000300` again, ever** —
+> > its header tells you to, and following that instruction is what re-opens the KYB self-approval
+> > hole. The new migration is the re-runnable one.
 >
 > *This is the fifth time on this project that "built" and "live" have come apart* — after the
 > unscheduled payout worker, the misnamed `account-deletion` secret, the three undeployed function

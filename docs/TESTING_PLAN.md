@@ -44,8 +44,8 @@
 | 9 | **Negative RLS / privilege suite** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | ✅ **5 PASS · 3 UNPROVEN · 0 FAIL** | *Performs* the attacks, not reads the policies. Re-run against a victim **with data** during the pilot |
 | 10 | **Integration (positive RPC path)** ([§1.2](#12-integration-tests--rpc--rls-on-a-real-postgres-)) | 🟡 **written 2026-08-01, owner-run** | [`rpc_positive_suite.sql`](../supabase/diagnostics/rpc_positive_suite.sql). Transaction ending in `ROLLBACK`; vacuous probes report `UNPROVEN`. Needs the live DB |
 | 11 | **Payment & reconciliation** ([§1.4](#14-payment--reconciliation-testing-money-specific-)) | 🔴 | All 6 flows on test keys + **failure injection**: double-fired webhook, expired intent, forced error healing via `paymongo-resettle` |
-| 12 | **Escrow behaviour** (`ESC-01…06`) | 🔴 **never run — the current gate** | Escrow is live and the Terms promise sellers a hold window nobody has watched behave |
-| 13 | **Diagnostics / operational health** | ✅ 6 files | `pilot_preflight` · `escrow_verification` · `feedstock_verification` · `daily_beta_health` · `money_table_rls_audit` · `policy_consent_verification` |
+| 12 | **Escrow behaviour** (`ESC-01…06`) | 🔴 **never run — the current gate.** ⚠️ **Blocked on `20260804000300`**: the method-gate read `payment_intents.provider` (always `'paymongo'`), so the GCash branch never executed and **ESC-02 could not have passed** | Escrow is live and the Terms promise sellers a hold window nobody has watched behave |
+| 13 | **Diagnostics / operational health** | ✅ **7 files** | `pilot_preflight` · `escrow_verification` · `feedstock_verification` · `daily_beta_health` · `money_table_rls_audit` · `policy_consent_verification` · 🆕 `access_posture_audit` (2026-08-04 — RLS **read** posture + profiles column grants; covers the blind spots `money_table_rls_audit` has by construction) |
 
 ### Tier 3 — Human (the closed beta)
 

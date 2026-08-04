@@ -1,5 +1,44 @@
 # Security Close-out & Hardening — Status + Test Runbook
 
+> ## 🆕 2026-08-04 — money-path defect pass. Five new items, none of them applied yet.
+>
+> This page's §4 gate has read all-ticked-but-the-pentest since 2026-07-04. A read of the money
+> surface **against the code rather than this page** found five defects that the gate's wording did
+> not cover, because each is a rule the gate never stated. Full write-up in [HANDOFF.md](HANDOFF.md)
+> § *2026-08-04 money-path defect pass*; ordered apply steps in its § *DEPLOY STATE*.
+>
+> | # | Finding | Fix | State |
+> |---|---|---|---|
+> | 1 | The escrow method-gate reads `payment_intents.provider`, which is always `'paymongo'` — the GCash/Maya branch has **never executed**, and `credit_transactions.payment_method` recorded `'paymongo'` for every online sale | `20260804000300` + redeploy `paymongo-webhook`, `paymongo-resettle` | ⬜ written, not applied |
+> | 2 | `assert_can_trade` had **one** call site (the card path). `process_wallet_purchase` is granted to `authenticated`, so KYC **and account suspension** were bypassable by calling the RPC directly | `20260804000100` + redeploy **`paymongo-checkout`** (the wallet **top-up** suspension check lives there) | ⬜ written, not applied |
+> | 3 | `20260703000300` grants profiles UPDATE from a two-name **allow**-list and says "re-run after adding columns" — doing so re-grants `kyb_verified` (self-approve KYB → withdraw) and `is_active` (self-unsuspend); *not* doing so breaks every profile save | `20260804000200` (deny-list) | ⬜ written, not applied |
+> | 4 | Payouts ignored suspension; `request_payout`'s idempotency key was global, so a collision returned **another seller's** payout id | `20260804000400` | ⬜ written, not applied |
+> | 5 | **`certificates` has no RLS in any migration** and the browser INSERTs/UPDATEs it directly — on a fresh env, read *and* write on everyone's certificates | `20260804000500` | 🔒 **gated** on its pre-flight query |
+>
+> **Run `supabase/diagnostics/access_posture_audit.sql` before any of them.** It is read-only, returns
+> 0 rows when the posture is correct, and covers four things `money_table_rls_audit.sql`
+> **structurally cannot see** — most importantly **open SELECT policies**, since that audit's finding
+> (A) only inspects `INSERT/UPDATE/DELETE/ALL`. A `using (true)` read policy on `wallet_accounts`
+> would pass it silently today.
+>
+> **Two items are decisions, not fixes** — [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #38 and #39.
+> #38 belongs on the pentest brief and in any wording review: the certificate `signature_hash` is an
+> **unkeyed SHA-256 over public fields computed in the browser**, so it detects corruption, not
+> tampering. Until that is a keyed or asymmetric signature, **do not describe these certificates as
+> tamper-evident** to a pilot user or in the Terms.
+>
+> §4's real-money gate should be read as gaining a line: **all five applied and re-verified, and
+> `access_posture_audit.sql` returning 0 rows**, before live keys.
+>
+> > 🔎 **Verified 2026-08-05 before commit, and finding 1's fix had finding 1 inside it.** Both
+> > `resolvePaymentMethod` implementations read the method from the **payment** resource only.
+> > PayMongo also carries it on the **checkout session** — which is the resource the webhook is
+> > delivered — as `payment_method_used`. Where only the session had it, the resolver returned null,
+> > settlement fell back to `provider`, and `provider` is the literal `'paymongo'`: **the dead gate,
+> > restored inside the migration written to kill it**, and visible only as `ESC-02` failing for no
+> > stated reason. Fixed on both paths and ratcheted. The deploy list was also short by one function
+> > — see the row 2 correction above.
+
 > **Updated:** 2026-07-04 · **Branch:** `feature-user-onboarding-ux` (pushed)
 > Companion to [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) and [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md).
 > **Use §3 as your test plan for tomorrow.** §1 = already done + verified; §2 = still pending deploy/test; §4 = the go/no-go gate.
@@ -92,6 +131,9 @@ On the deployed URL, open DevTools console and click through map / checkout / al
 - [x] Rate limiting + velocity caps (value abuse) — *velocity pending tomorrow's apply (§3.2)*
 - [x] Error tracking (Sentry) live
 - [x] External settlement reconciliation + heal path
+- [ ] 🆕 **The five `20260804*` migrations applied and re-verified** (see the 2026-08-04 box at the top)
+- [ ] 🆕 **`access_posture_audit.sql` returns 0 rows** — in particular, `certificates` and `profiles` have RLS with a scoped read policy
+- [ ] 🆕 **Certificates are not described as "tamper-evident"** until the signature is keyed (backlog #38)
 - [ ] **Independent penetration test** ← the last blocker before LIVE keys
 - [ ] CSP switched to enforcing (§3.5)
 

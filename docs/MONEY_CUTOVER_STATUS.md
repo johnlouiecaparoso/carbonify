@@ -1,5 +1,30 @@
 # Money-path cutover (Phase 1 P2/P3/P5/P1) — status & verification
 
+> ## ⚠️ 2026-08-04 — the settlement RPCs on this page have both been superseded
+>
+> This page records the cutover as complete and reconciling to 0, which remains true. Two of the
+> functions it describes have since been re-issued, and one of them was carrying a branch that had
+> **never executed**:
+>
+> - **`process_marketplace_purchase`** → latest is `20260804000300`. The escrow method-gate added by
+>   `20260725000200` reads `payment_intents.provider`, which is always the literal `'paymongo'` —
+>   so the GCash/Maya "no hold" branch was unreachable and `credit_transactions.payment_method`
+>   recorded `'paymongo'` for every online purchase. Now gated on a real `payment_intents.payment_method`
+>   written by the webhook and by `paymongo-resettle`.
+> - **`process_wallet_purchase`** → latest is `20260804000100`. It never called `assert_can_trade`,
+>   so the KYC threshold and account suspension were enforced on the card path and not the wallet
+>   path — and the RPC is granted to `authenticated`, so the browser check was not a boundary.
+> - **Wallet top-up (P5) gained a suspension check**, in `paymongo-checkout` rather than in a
+>   migration — deliberately *not* the full KYC trade gate, since funding an account is not trading,
+>   but a sanctioned account should not be able to move money onto a platform it is barred from
+>   transacting on. **This one ships by redeploying `paymongo-checkout`**, which was missing from
+>   every deploy instruction until 2026-08-05.
+>
+> Neither is applied yet. Both keep their signature, so the checklist below is unaffected — but
+> **step 3 (wallet purchase) now has a second expected outcome to check**: an unverified or suspended
+> buyer must be *refused*, not merely capped by the velocity limit. See [HANDOFF.md](HANDOFF.md)
+> § *DEPLOY STATE* for the apply order.
+
 > **Created:** 2026-07-01 · **Updated:** 2026-07-02 · **Branch:** `feature-user-onboarding-ux`
 > Companion to [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) (P1–P5) and
 > [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md) Wave 3.

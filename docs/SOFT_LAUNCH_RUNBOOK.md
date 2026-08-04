@@ -31,6 +31,29 @@ catch UX/role bugs that unit tests can't.
 Run each and confirm the expected result. The SQL runs in the Supabase **SQL Editor** (it executes with
 elevated rights, so the `service_role`-only grant on the reconcile function is fine there).
 
+> ## 🆕 1z. Do this one FIRST — added 2026-08-04
+>
+> - [ ] **Run [`supabase/diagnostics/access_posture_audit.sql`](../supabase/diagnostics/access_posture_audit.sql).**
+>   Read-only. **0 rows = pass.** Any row is a problem, and `check_name` says which.
+>
+> It is first because it answers a question no other check on this page asks — *who can read this,
+> and what can a client write to a profile?* — and because one possible answer changes what you do
+> next. Finding **C** ("client can write a protected profiles column") means any signed-in user can
+> set their own `kyb_verified` and withdraw money; if that comes back, apply `20260804000200`
+> **before** anything else on this list.
+>
+> `pilot_preflight.sql` does not cover this, and neither does `money_table_rls_audit.sql`: the latter
+> inspects only `INSERT/UPDATE/DELETE/ALL` policies, so an open **SELECT** policy passes it silently,
+> and `certificates` and `profiles` were never in its table list at all. Both tables predate version
+> control and carry **no tracked RLS policy** — their posture exists only on the live database, which
+> is exactly the class of thing a pre-flight is for.
+>
+> - [ ] **The five `20260804*` migrations are applied**, and **all three** money edge functions
+>   redeployed — `paymongo-webhook`, `paymongo-resettle` **and `paymongo-checkout`**. Ordered list in
+>   [HANDOFF.md](HANDOFF.md) § *DEPLOY STATE*. `20260804000300` in particular gates §3's escrow checks
+>   — without it, ESC-02 cannot pass. *(This line said two functions until 2026-08-05; `paymongo-checkout`
+>   carries the wallet top-up suspension guard and was named in no deploy instruction anywhere.)*
+
 > 💡 **Shortcut:** every SQL check below (1a, 1b) plus the money-table RLS audit, the escrow
 > apply-status question and the `20260718*` apply-status question are bundled into one read-only
 > script — [`supabase/diagnostics/pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql).

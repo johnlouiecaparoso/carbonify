@@ -75,13 +75,30 @@ SQL Editor, run it, and **read the LAST table it prints**.
 window, but nobody has checked what it does to a real purchase. **Do these before inviting a pilot
 seller** — a seller whose money is stuck permanently is the worst thing this pilot could produce.
 
+> ## 🔴 PREREQUISITE — apply `20260804000300` first, or ESC-02 cannot pass
+>
+> Found 2026-08-04 by reading the settlement RPC. The escrow method-gate branches on
+> `payment_intents.provider` — but that column is the **gateway**, not the method, and is always the
+> literal `'paymongo'`. The GCash/Maya "no hold" branch has therefore **never executed**: every
+> online sale took the 7-day card hold, and `credit_transactions.payment_method` recorded
+> `'paymongo'` for all of them.
+>
+> **ESC-02 would have failed, and it would have looked like an escrow bug.** It is not — the hold
+> logic is correct; it was reading the wrong column. `20260804000300` adds a real
+> `payment_intents.payment_method`, written by `paymongo-webhook` and `paymongo-resettle` before
+> settling. **Apply it and redeploy both functions before running this section.**
+>
+> Note the wallet half of ESC-02 was never affected: `process_wallet_purchase` credits
+> `seller_payable` directly and holds nothing. **Run ESC-02 with GCash specifically** — testing it
+> with wallet balance alone passes without exercising the branch that was broken.
+
 Needs: the Owner (for one setting change), one **Buyer** account, one **Seller/Developer** account with
 a credit listed.
 
 | ID | Test name | Steps | Pass when |
 |---|---|---|---|
 | ☐ ESC-01 | Card money is **held** | Buyer buys a credit with the **test card** → Seller opens Seller Earnings | The amount shows under **"Held in escrow"**, **not** "Available to withdraw" |
-| ☐ ESC-02 | GCash / wallet money is **immediate** | Buyer buys with **wallet balance** (or GCash/Maya) → Seller opens Seller Earnings | The amount shows as **"Available to withdraw"** straight away, with **no** hold |
+| ☐ ESC-02 | GCash money is **immediate** | Buyer buys with **GCash** (not wallet balance — see the prerequisite above) → Seller opens Seller Earnings | The amount shows as **"Available to withdraw"** straight away, with **no** hold. Also check `credit_transactions.payment_method` reads `gcash`, not `paymongo` |
 | ☐ ESC-03 | A held amount is **released** on time | *Owner:* lower `escrow_hold_days_card` in `app_settings` to `0` → wait for the 15-minute cron → Seller reloads Earnings | The amount moves **Held → Available**. ⚠️ **Owner: set the value back to `7` immediately after.** A test value left in production is exactly how this project's worst bugs happened |
 | ☐ ESC-04 | A refund **while held** reverses cleanly | Admin refunds the ESC-01 purchase while it is still held → Seller opens Earnings | The held amount **disappears**, and no *already-available* money is taken away |
 | ☐ ESC-05 | The books survived all of it | *Owner:* run [`escrow_verification.sql`](../supabase/diagnostics/escrow_verification.sql) after **each** of ESC-01…04 | Rows 4, 5 and 6 turn from `INFO` to `PASS`; **row 7 (Books) stays PASS**; row 3 stops saying `UNPROVEN` |

@@ -1808,3 +1808,99 @@ accessible view.
 
 **Still open:** P&L vs market over time, retirement pacing against the calculator's target, and
 vintage ageing. All three are the same shape as concentration — existing data, not yet charted.
+
+---
+
+## From the 2026-08-04 money-path defect pass
+
+A read of the transaction/money surface against the code rather than the docs. Five defects were
+found and **fixed** in that pass — the wallet branch of the trade gate (`20260804000100`), the
+profiles column-grant landmine (`20260804000200`), the dead escrow method-gate (`20260804000300`),
+payout suspension + idempotency scope (`20260804000400`), and the quoted-vs-charged price divergence
+in `marketplaceService`. `certificates` RLS is written and **gated** (`20260804000500`) pending its
+pre-flight query. The three below are **not** defects with an obvious fix — two are decisions and one
+needs a live answer first.
+
+### 38. The certificate signature is not tamper-evident 🔴
+
+**Where:** [certificateService.js](../src/services/certificateService.js) —
+`buildCertificateSignaturePayload` / `computeCertificateHash` / `signCertificateRecord`, verified by
+`verify_certificate_public(text)` (`20260607000300`).
+
+The certificate carries a `signature_hash` described throughout the docs as a "SHA-256 tamper-evident
+digital signature". It is a plain, **unkeyed** SHA-256 over seven public fields — certificate number,
+type, project title, category, quantity, vintage, beneficiary — computed **in the browser**, and the
+public verify page recomputes the same digest from the same public fields.
+
+An unkeyed hash over public inputs detects **corruption**, not **tampering**. Anyone who can change
+the row can recompute a digest that verifies, because the digest needs no secret. And the row is
+client-writable: the browser INSERTs and UPDATEs `certificates` directly (that is why
+`20260804000500` exists). Change `credits_quantity`, re-run the same public formula, and the verify
+page reports the certificate as valid.
+
+**Why it is here and not fixed.** The fix is not a code change in one place — it is a decision about
+where the signing key lives and what signs:
+
+- **HMAC with a server-held key** — smallest change. Move signing into a SECURITY DEFINER function
+  (or the webhook) that reads a key from a secret, so the client can never produce a valid digest.
+  `verify_certificate_public` recomputes with the same key. Downside: verification becomes a claim by
+  this platform, unverifiable by anyone else.
+- **Asymmetric signature** — sign server-side with a private key, publish the public key so an
+  auditor can verify a certificate **without trusting Carbonify**. That is what a registry-grade
+  artifact wants, and it is the only version that survives the "who verifies the verifier" question
+  the whole product is built around. More work: key custody, rotation, and a published verification
+  procedure.
+
+Either way the payload should also commit to the fields that make the claim *specific* — the
+transaction id, the retirement id and the serial — not just the descriptive ones. And existing rows
+need a decision: re-sign them under the new scheme (and record that they were re-signed) or mark them
+legacy-verified.
+
+**Blocks:** calling these certificates tamper-evident in the Terms or to a pilot user. Does not block
+the beta on test keys, provided the wording is honest until it is done.
+
+### 39. `profiles` has no tracked SELECT policy, and the app reads other people's rows 🟠
+
+**Where:** every migration touching `public.profiles`; noted in passing by `20260722000200`
+("this repo has no tracked SELECT policy on public.profiles (the table predates the migrations)").
+
+`profiles` is the oldest table in the system and its read posture exists **only on the live
+database**. Nothing in `supabase/migrations/` reproduces it, so a fresh environment — staging, a DR
+restore, a local rebuild — does not reproduce it either, and the repo cannot state what it is.
+
+That would be a documentation problem if the app only read your own row. It does not:
+[receiptService](../src/services/receiptService.js) fetches the counterparty's `full_name` and
+`email` for a receipt; `assetLedgerService`, `emailService`, `kycService`, `amlService`,
+`projectApprovalService` and `certificateService` all read other users' profile rows directly. Those
+queries only work if the live policy is permissive to `authenticated` — in which case every signed-in
+user can enumerate every user's name, email, role, `kyc_level` and `kyb_verified`.
+
+**Why it is here and not fixed.** Writing a policy blind would break whichever of those reads it did
+not anticipate, and the right answer is a product decision, not a patch: which of those reads should
+be a **narrow SECURITY DEFINER RPC** returning only what the screen needs (the pattern
+`list_verifiers()` already establishes), and which are legitimate staff reads. Sequence: run the
+audit query, write down the current posture, then convert the cross-user reads one at a time before
+tightening the table.
+
+Note `supabase/diagnostics/money_table_rls_audit.sql` **cannot** catch this class: its finding (A)
+only inspects `INSERT/UPDATE/DELETE/ALL` policies, so an over-permissive **SELECT** policy passes it
+silently. Whatever posture is chosen, the audit needs a read-side check to hold it.
+
+### 40. Two RLS helper functions exist only on live 🟡
+
+**Where:** [20260718000800](../supabase/migrations/20260718000800_lock_credit_pool_and_listing_writes.sql)
+and [20260725000100](../supabase/migrations/20260725000100_capture_money_table_rls.sql) both call
+`is_admin(auth.uid())` and `is_verifier(auth.uid())`.
+
+Neither single-argument form is defined in any tracked migration — the repo only defines the no-arg
+`is_admin()` (`20260604020200`), `is_verifier_or_admin()` (`20260615000100`) and `is_mrv_staff()`
+(`20260604010000`). They exist on the live database, which is why those migrations applied there.
+
+The consequence is narrow but exact: **`20260725000100` cannot be replayed into a fresh environment**,
+and that migration is the one whose stated purpose is to make the money-table RLS posture
+reproducible outside live. The proof does not currently prove.
+
+Fix is small — capture both helpers in a migration, or rewrite the two call sites onto the tracked
+helpers — but it should be done by **dumping the live definitions**, not by guessing at them, since
+the live ones are what the applied policies are already bound to. `20260804000500` deliberately uses
+`is_verifier_or_admin()` so it does not add to this.

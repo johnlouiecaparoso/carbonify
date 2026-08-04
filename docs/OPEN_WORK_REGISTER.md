@@ -70,6 +70,26 @@
 > > register of known items cannot route work nobody has written down yet, and the highest-severity
 > > findings today were in that category. Lane 1 being short is not the same as Lane 1 being done.
 >
+> **⚠️ Corrected 2026-08-04 — Lane 2 is NOT empty of migrations any more.** The money-path defect
+> pass added **five (`20260804000100`–`000500`) plus three edge-function redeploys**, routed 👤 owner.
+> *(Corrected 2026-08-05 — it said two. `paymongo-checkout` was modified by the pass and named in no
+> deploy instruction anywhere, which would have shipped four of the five fixes and silently left the
+> wallet top-up suspension guard on the floor.)*
+> The ordered list lives in [HANDOFF.md](HANDOFF.md) § *DEPLOY STATE*; the decisions the pass
+> deliberately did **not** take are [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) **#38–40**.
+>
+> One of the five, `20260804000500` (certificates RLS), is **🔒 gated** on a pre-flight query rather
+> than simply pending — and one item routes to **neither lane cleanly**: `profiles` has no tracked
+> SELECT policy, and closing that needs an owner query *first* and then in-repo work to convert six
+> cross-user reads. It is #39, and it is the only open item on this page whose lane depends on an
+> answer nobody has yet.
+>
+> > The same routing lesson, from the money side this time. **None of the five were on this
+> > register.** Two were guards that existed on one purchase path and not its sibling; one was a
+> > branch that had never once executed. A green suite, lint 0 and a working deploy were all true of
+> > every one of them. *The register routes what has been written down; it cannot route a rule nobody
+> > encoded.*
+>
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
@@ -80,6 +100,15 @@
 > > ⚠️ **Routing note: the whole 2026-08-04 pass is committed but NOT pushed.** Held at the owner's
 > > instruction, so the work sits in **Lane 2 (owner)** as a deploy, not in Lane 1 as code. Nothing
 > > here needs a migration — pushing `main` is the whole of it. Tracked as YOUR_ACTION_ITEMS item 0.
+>
+> > 🔎 **Corrected 2026-08-05, and it is a routing failure rather than a status one.** The *defect
+> > hunt* above was committed. The *money-path pass* that landed later the same day was **not** — it
+> > was still uncommitted in the working tree while four documents, this one included, routed it to
+> > Lane 2 as an owner deploy. **Work that is not committed is not in Lane 2; it is still in Lane 1,
+> > and this register cannot see it.** This page's rule is that it holds routing and not status; what
+> > this shows is that routing *depends* on a status, and nobody measured that one. Committed
+> > 2026-08-05, along with three ratchets closing a hole in the escrow fix itself — see
+> > [HANDOFF.md](HANDOFF.md) § *2026-08-05*.
 >
 > **Eight further defects, none of which any entry on this page predicted:**
 >

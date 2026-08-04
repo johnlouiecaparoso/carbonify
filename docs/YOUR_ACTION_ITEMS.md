@@ -47,12 +47,40 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
+> ### 🔴 SUPERSEDED 2026-08-04 — five migrations ARE now waiting on you
+>
+> The paragraph below said *"no migration is waiting on you"*. **That was true when written and is
+> no longer true.** The 2026-08-04 money-path pass added **five migrations (`20260804000100`–
+> `000500`) and **three** edge-function redeploys.** The full ordered list, with what each one closes,
+> is in [HANDOFF.md](HANDOFF.md) § *DEPLOY STATE*. Four things to carry over here:
+>
+> - 🆕 **It is three functions, not two — corrected 2026-08-05.** `paymongo-webhook` and
+>   `paymongo-resettle` record the real payment method; **`paymongo-checkout`** carries the wallet
+>   **top-up** suspension check, and until 2026-08-05 it appeared in no deploy instruction in any
+>   document. Deploying only the first two leaves that guard inert while every doc calls it shipped.
+>   No ordering constraint — the RPC it calls has been live since `20260722000800`.
+>
+> - **Start with the query, not a migration.** `supabase/diagnostics/access_posture_audit.sql` is
+>   read-only and its result sets the urgency of the rest. One possible answer — finding **C**,
+>   "client can write a protected profiles column" — means any signed-in user can set their own
+>   `kyb_verified` and withdraw money. If that comes back, `20260804000200` is the most urgent thing
+>   on this page.
+> - **`20260804000300` must go in before the escrow checks.** `ESC-02` cannot pass without it: the
+>   escrow method-gate was reading `payment_intents.provider`, which is always the literal
+>   `'paymongo'`, so the GCash/Maya branch was dead code and every sale took the 7-day card hold.
+> - ⚠️ **Never re-run `20260703000300` again.** Its own header tells you to re-run it after adding
+>   profile columns; doing so re-grants `UPDATE` on `kyb_verified` and `is_active`, letting users
+>   self-approve KYB and self-unsuspend. `20260804000200` replaces it and is safe to re-run.
+>
+> Suite is now **1275 green** across 111 files. Lint 0, build green, `deno check` clean.
+
 > **The in-repo lane is clear of everything that gates the pilot.** Suite **1256 green** across 110
 > files (1185 on 2026-08-03, 1131 on 08-02, 920 on 08-01, 908 on 07-31, 801 the morning before), plus
-> a 37-test responsive spec and a 22-test authenticated one. Lint 0, build green. **No migration is
-> waiting on you** — every one is applied and probe-verified except `20260802000200`, whose
-> *validity* is unconfirmed only because constraint state is not readable through the anon API (item
-> 7 below). **Everything else is frontend and is sitting in unpushed commits on `main` — item 0.**
+> a 37-test responsive spec and a 22-test authenticated one. Lint 0, build green. ~~**No migration is
+> waiting on you**~~ — *see the correction above.* Every migration before 08-04 is applied and
+> probe-verified except `20260802000200`, whose *validity* is unconfirmed only because constraint
+> state is not readable through the anon API (item 7 below). **Everything else is frontend and is
+> sitting in unpushed commits on `main` — item 0.**
 >
 > ### ✅ PR #14 IS MERGED AND PRODUCTION IS RUNNING IT (2026-08-01)
 >
@@ -163,6 +191,13 @@
 > `account-deletion` secret, the undeployed function fixes, the frontend that lagged `main` by 153
 > commits). **Pushing `main` is the deploy** — Vercel's Git integration builds it.
 >
+> > ⚠️ **Corrected 2026-08-05: the money-path half of this was not committed either.** The defect
+> > hunt's 14 commits were real; the five migrations, the diagnostic, the guard tests, the price fix
+> > and the three edge functions from the money-path pass were **still uncommitted in the working
+> > tree** while four documents described them as committed. They are committed now. Nothing about
+> > your steps changes — but if you ever read a status doc and a `git status` and they disagree,
+> > the `git status` is the one that is true.
+>
 > 🔴 **Do not set `VITE_GA_TRACKING_ID` in Vercel until this is deployed.** Until 2026-08-04 the
 > production bundle **replaced `window.fetch`** and recorded one metric per request named after the
 > **full URL, query string included** — which is where PostgREST puts its filters
@@ -190,7 +225,10 @@
 > migrated. Device-local, public listing data, rebuilt in two clicks. Same for a dismissed
 > onboarding guide: it reappears once per account.
 >
-> **No migrations.** Nothing to apply, nothing to order. Push and you are done.
+> ~~**No migrations.** Nothing to apply, nothing to order. Push and you are done.~~ **← true of the
+> defect hunt only.** The money-path pass landed on top of it later the same day and brought five
+> migrations and three function redeploys with it. **Follow the ordered list in
+> [HANDOFF.md](HANDOFF.md) § *DEPLOY STATE*, not this line.**
 
 **#7 is not urgent, and it is the most interesting thing on this list.** Four constraints on live
 were added `NOT VALID`, which means Postgres enforces them on every new write but **skipped the check
