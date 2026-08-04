@@ -12,6 +12,81 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
+> ---
+>
+> ## 🧭 2026-08-04 — CONSOLIDATED STATUS. Is this ready to go live?
+>
+> **Short answer: ready to *deploy*, not ready to take *real money*. Those are two different
+> questions and this project has confused them before.**
+>
+> | Question | Answer |
+> |---|---|
+> | Can I deploy the current code to production today? | ✅ **Yes.** No migrations, no ordering, no external dependency. Push `main`. |
+> | Can I run the closed beta on **test keys**? | 🟡 **Almost.** One thing gates it: the four escrow behaviour checks (`ESC-01…06`). |
+> | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
+> | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
+>
+> ### What is IMPLEMENTED (and verified)
+>
+> | Area | State |
+> |---|---|
+> | Marketplace, cart, checkout, orders | ✅ Server-authoritative amounts; identity from JWT |
+> | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
+> | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
+> | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
+> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration |
+> | Webhook security | ✅ Signed, replay-protected (300s), atomic idempotency claims, retry cap |
+> | RBAC + router guards | ✅ Both auth paths enforce; a farmer cannot reach `/admin` |
+> | KYC / KYB gates | ✅ Buy gate + payout gate |
+> | Auth, consent gate, policy versioning | ✅ Signups on, consent recorded per version |
+> | DPA export + deletion | ✅ Shipping and live (the secret was misnamed until 07-30) |
+> | Feedstock / farmer payment record (two-sided) | ✅ Incl. dispute → admin console |
+> | Accessibility: modals, contrast, 6 real settings | ✅ (full a11y pass still outstanding) |
+> | PWA, offline shell, responsive to 320px | ✅ |
+> | Test suite | ✅ **1240 unit across 108 files**, 46+22+9 Playwright, lint 0, build green |
+>
+> ### What is NOT implemented
+>
+> | Gap | Why it is not done | Whose |
+> |---|---|---|
+> | **Registry backing** (Verra / Gold Standard) | Institutional — accreditation, not code | 🏢 third party |
+> | **Real payouts** | `disburse()` is a **mock**; a "settled" payout moves no money | 🏢 needs a licensed PSP/EMI |
+> | **8 of 9 transactional emails** | `console.log` stubs — blocked on a verified sender domain | 👤 owner |
+> | **Live payment keys** | Gated on the pentest | 🏢 + 👤 |
+> | **BIR-accredited invoices** | Provisional, watermarked, no buyer TIN | 🏢 |
+> | **AML screening against a commercial feed** | Runs on a local watchlist today | 🏢 |
+> | **Notification + privacy preference enforcement** | 17 controls read by nothing (#37) — needs a decision first | 🤖 blocked on 👤 |
+> | **i18n (~375 strings)** | Blocked on translation **content**, not code (#27) | 👤 decision |
+> | **Organization accounts** | Phase 2 rewrites the same RPC as escrow — must follow the beta (#18) | 👤 decision |
+> | **Load / performance testing** | Before scaling, not before soft launch | 🤖 later |
+> | **Provider layer** (#21) | Route through it or delete it — **now safe to decide either way** | 👤 decision |
+>
+> ### The three lanes — who does what next
+>
+> **🤖 Me (in-repo, no external dependency):** nothing blocking. P5 (wallet top-ups onto
+> `payment_intents`) is the natural next piece. #30's 55 dead-export candidates are deliberately
+> left — most want the `export` keyword removed rather than deletion, which is churn with a real
+> regression budget. Everything else in Lane 1 is waiting on a decision, not on effort.
+>
+> **👤 Owner:** ① **deploy** — the whole 2026-08-04 pass is committed and unpushed, and *do not set
+> `VITE_GA_TRACKING_ID` before you do*; ② the **four escrow checks**; ③ **purge the test data**;
+> ④ **buy + verify the email domain**; ⑤ the one-line `convalidated` query; ⑥ run the closed beta;
+> ⑦ the open decisions (#21, #37 ×2, #18, #27, #31, fee amounts, DR policy).
+>
+> **🏢 Third party:** ① the **independent penetration test** — the last P0, external, weeks of lead
+> time, and the only gate no code closes; ② SEC / BIR / NPC registration; ③ a licensed PSP/EMI for
+> custody and real disbursement; ④ a tax advisor on the **seller-of-record** question (#22 — whose
+> TIN goes on a seller invoice); ⑤ AMLC + a sanctions data vendor; ⑥ the carbon-market track
+> (registry, accredited VVB, DENR/CCC).
+>
+> > ⚠️ **The failure mode to guard against is not "unfinished" — it is "finished but not live".**
+> > That has now happened five times: the unscheduled payout worker, the misnamed
+> > `account-deletion` secret, three undeployed function fixes, a frontend 153 commits behind, and
+> > today an entire defect pass sitting unpushed. **Built ≠ live. Applied ≠ verified. A claim is not
+> > a measurement.**
+>
+> ---
+>
 > ### ✅ The owner's queue is clear — verified on live 2026-08-02
 >
 > 1. ~~`supabase functions deploy paymongo-webhook`~~ — **deployed by the owner 2026-08-02.** The

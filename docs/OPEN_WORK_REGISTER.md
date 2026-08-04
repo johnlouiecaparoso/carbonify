@@ -19,6 +19,7 @@
 > | [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md) | Sub-item gaps inside "shipped" features |
 > | [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | The 2026-07-25 expansion workstream, Built/Partial/To-build |
 > | [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) | The pilot pre-flight and click-through |
+> | [HANDOFF.md](HANDOFF.md) § *Consolidated status* | 🆕 **2026-08-04** — implemented vs not, and the one-table answer to *"is this ready to go live?"*. Start there if you want the whole picture rather than a lane |
 >
 > Routing changes rarely; status changes constantly. Duplicating status across files is what produced
 > the drift the 2026-07-26 reconciliation pass had to clean up. **If a row here disagrees with its

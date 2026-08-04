@@ -218,3 +218,28 @@ Until every box is checked, run in **sandbox/test mode only.**
 > (07-30), the webhook secrets (07-30), and escrow being applied (07-29). A go/no-go checklist that
 > under-reports its own progress is the same defect class as one that over-reports it: in both cases
 > the document has stopped tracking the system. Re-measure this list before trusting it.
+>
+> ### 🧭 Re-measured 2026-08-04 — the gate is UNCHANGED, and that is the finding
+>
+> The pre-pilot defect hunt found ten defects and **moved none of these boxes.** Worth stating
+> plainly, because a busy day of fixes can easily read as progress toward launch when it is not:
+> every one of them was a *correctness or privacy* defect on the user-facing side, not a money-path
+> blocker. The real-money gate is exactly where it was on 2026-08-01.
+>
+> **Two things it did add, neither of them a new box:**
+>
+> 1. 🔴 **A deploy is now outstanding.** The whole 2026-08-04 pass is committed and **not pushed**,
+>    so none of it is live. See [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) item 0. **Do not set
+>    `VITE_GA_TRACKING_ID` in Vercel before deploying** — on the currently-live build that one field
+>    starts streaming user identifiers and signed storage tokens to Google Analytics.
+> 2. 📋 **Two items for the pentest brief**, both closed in code but worth handing over as scope:
+>    the `system_notifications` INSERT policy (#36 — any signed-in user can write into anyone's
+>    bell; the client half is fixed, the RLS half is staged), and the analytics/consent surface
+>    (#37 — 17 preference controls that are read by nothing, and the DPA question of whether
+>    analytics consent may default to ON).
+>
+> **One box worth re-reading rather than re-ticking:** *"`ALLOW_UNSIGNED_WEBHOOKS` unset"*. It is
+> still unset, and it is now **ratcheted in the suite** — `webhookSignatureParity.test.js` fails if
+> that flag is ever defaulted to `true`, if the 300s replay window stops being enforced, or if the
+> two copies' tolerance constants diverge. A configuration box that only a human re-checks is a box
+> that drifts; this one now has a test behind it.

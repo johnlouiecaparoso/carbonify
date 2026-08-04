@@ -8,7 +8,10 @@
 > **This page holds instructions, not status.** Where a step has a source of truth it links there:
 > [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) owns the pilot procedure,
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) owns the real-money gate,
-> [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) owns who-can-do-what.
+> [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) owns who-can-do-what, and
+> [HANDOFF.md](HANDOFF.md) § *Consolidated status* (🆕 2026-08-04) answers *"is this ready to go live?"*
+> in one table — including the distinction this project has confused before: **ready to deploy** and
+> **ready to take real money** are different questions with different answers.
 
 > ## 🧭 2026-08-02 — where this stands, in one box
 >
