@@ -270,6 +270,23 @@ takes only a SHARE UPDATE EXCLUSIVE lock — reads and writes continue while it 
 > [OPEN_WORK_REGISTER.md](OPEN_WORK_REGISTER.md) Lane 1 — **none of it gates go-live.** The long pole
 > remains the **independent penetration test** (Step 6a), which is external and is not needed for a
 > test-mode pilot but *is* needed before live payment keys.
+>
+> ### 🧭 2026-08-04 — the build side has run out of things it can do without you
+>
+> Worth saying plainly, because for weeks this page could assume more code was coming. P5 and the
+> automated accessibility pass closed the last two in-repo items that needed **no decision from
+> anyone**. Everything still open on the build side is now one of:
+>
+> - **waiting on a decision of yours** — #21, #37, #18, #27, #31. Building either way before the
+>   call is made is the work most likely to be thrown out, and for #21 and #37 the *wrong* choice is
+>   actively harmful, which is why both were pinned with tests and written up rather than guessed;
+> - **deliberately declined** — #30's dead-export cleanup is churn with a real regression budget;
+> - **not a coding task** — load testing belongs before scaling, and manual screen-reader testing
+>   needs a real person with a real screen reader.
+>
+> **So the bottleneck is now entirely on this page.** The two things that actually move the project
+> are **item 0 (deploy)** and **item 1 (the four escrow checks)**. Neither takes long; both have
+> been the top of this list for a while.
 
 ## How to run any SQL on this page
 

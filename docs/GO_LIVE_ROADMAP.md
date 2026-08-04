@@ -243,3 +243,20 @@ Until every box is checked, run in **sandbox/test mode only.**
 > that flag is ever defaulted to `true`, if the 300s replay window stops being enforced, or if the
 > two copies' tolerance constants diverge. A configuration box that only a human re-checks is a box
 > that drifts; this one now has a test behind it.
+>
+> ### 🧭 Later the same day — P5 and accessibility also closed, and the gate STILL did not move
+>
+> Both were real work (wallet top-ups now resolve their purpose from `payment_intents` rather than
+> from browser storage; WCAG 2.1 A+AA is automated and green on the public routes, having found that
+> the app had **no `main` landmark on any route** and that **every route served the same
+> `<title>`**). Neither is on this list, and neither should be.
+>
+> **That is now three separate bodies of work in one day that moved nothing here** — which is the
+> point of keeping this page narrow. This gate asks one question: *may real money move?* Correctness,
+> privacy and accessibility fixes make the product better and safer without answering it. The answer
+> is still no, and the reason is still the **independent penetration test**.
+>
+> ⚠️ **Accessibility is worth one caveat on the pentest brief rather than a tick here.** Automated
+> rules cover roughly a third of WCAG. "0 axe violations" is not "accessible", authenticated routes
+> are not yet covered, and no screen-reader user has tried to complete a purchase. If an
+> accessibility conformance statement is ever published, it must say that.

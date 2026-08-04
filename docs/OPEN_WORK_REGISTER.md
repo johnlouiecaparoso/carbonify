@@ -386,6 +386,18 @@ production is running it · ~~set the three `VERCEL_*` secrets or delete `ci.yml
 The **engineering** track is essentially clear. Both pre-live-keys code blockers are closed (#13c, #14
 decided + staged), and Lane 1 is quality and product work — none of it gates go-live.
 
+> **Updated 2026-08-04 — Lane 1 is now empty of *unblocked* work.** P5 and the automated
+> accessibility pass closed the last two items that needed no decision. What remains splits into
+> **decision-gated** (#21, #37, #18, #27, #31 — where building before the call is the work most
+> likely to be discarded, and for #21/#37 the wrong choice is actively harmful), **deliberately
+> declined** (#30's dead exports: churn with a real regression budget, and the 08-02 `.bind()`
+> outage came from exactly this kind of tidying), and **not-a-coding-task** (load testing before
+> scaling; manual screen-reader testing, which needs a real person).
+>
+> So the honest reading of this lane is no longer "more to build". **The next useful action on the
+> project is a deploy and the escrow behaviour checks — both Lane 2.** A register that keeps
+> offering engineering work when the bottleneck has moved is its own kind of stale.
+
 What gates go-live is Lanes 2 and 3. **The single longest pole is the penetration test**: it is
 external, it costs money, and it is the one P0 that no amount of code closes.
 

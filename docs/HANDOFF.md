@@ -35,7 +35,7 @@
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
 > | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration |
-> | Webhook security | ✅ Signed, replay-protected (300s), atomic idempotency claims, retry cap |
+> | Webhook security | ✅ Signed, replay-protected (300s), atomic idempotency claims, retry cap — and the replay window, the `ALLOW_UNSIGNED_WEBHOOKS` default and the two copies' tolerance agreeing are now **ratcheted by tests**, not re-checked by a person |
 > | RBAC + router guards | ✅ Both auth paths enforce; a farmer cannot reach `/admin` |
 > | KYC / KYB gates | ✅ Buy gate + payout gate |
 > | Auth, consent gate, policy versioning | ✅ Signups on, consent recorded per version |
@@ -43,7 +43,8 @@
 > | Feedstock / farmer payment record (two-sided) | ✅ Incl. dispute → admin console |
 > | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe, 0 violations on the public routes** — manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
-> | Test suite | ✅ **1256 unit across 110 files**, 46+22+9 Playwright, lint 0, build green |
+> | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
+> | Test suite | ✅ **1256 unit across 110 files** · Playwright **46 public + 22 authenticated + 37 responsive + 18 accessibility + 9 runtime smoke** · lint 0 · build green |
 >
 > ### What is NOT implemented
 >
@@ -59,14 +60,25 @@
 > | **i18n (~375 strings)** | Blocked on translation **content**, not code (#27) | 👤 decision |
 > | **Organization accounts** | Phase 2 rewrites the same RPC as escrow — must follow the beta (#18) | 👤 decision |
 > | **Load / performance testing** | Before scaling, not before soft launch | 🤖 later |
+> | **Manual / assistive-technology a11y testing** | Automated WCAG A+AA is **green on the public routes** (18/18 axe). Automated rules cover ~⅓ of WCAG; the rest needs a real screen reader and a real person. Authenticated routes not yet covered | 🤖 + 👤 |
 > | **Provider layer** (#21) | Route through it or delete it — **now safe to decide either way** | 👤 decision |
 >
 > ### The three lanes — who does what next
 >
-> **🤖 Me (in-repo, no external dependency):** nothing blocking. P5 (wallet top-ups onto
-> `payment_intents`) is the natural next piece. #30's 55 dead-export candidates are deliberately
-> left — most want the `export` keyword removed rather than deletion, which is churn with a real
-> regression budget. Everything else in Lane 1 is waiting on a decision, not on effort.
+> **🤖 Me (in-repo, no external dependency): Lane 1 is now empty of unblocked work.** P5 and the
+> automated accessibility pass both closed on 2026-08-04, which were the last two items that needed
+> no decision from anyone. What is left divides cleanly into two piles, and neither is "not done
+> yet":
+>
+> | Remaining | Why it is not simply "next" |
+> |---|---|
+> | #21 provider layer · #37 preference enforcement · #18 org accounts · #27 i18n · #31 farmer-as-buyer | **Decision-gated.** Building either way before the call is made is the work most likely to be thrown away — and for #21 and #37 the *wrong* choice is actively harmful, which is why they were pinned and documented rather than guessed |
+> | #30's 55 dead-export candidates | **Deliberately declined.** Most want the `export` keyword removed, not the function deleted — churn with a real regression budget and no user-visible gain. The 08-02 `.bind()` outage came from exactly this kind of tidying, and build + lint + 957 tests all stayed green while the verifier could not sign in |
+> | Load / performance testing | Belongs before **scaling**, not before a soft launch of 8–15 people |
+> | Manual / assistive-technology accessibility testing | Needs a real screen reader and a real person. Automated rules cover about a third of WCAG; the other two thirds are not a coding task |
+>
+> *So "what should I build next" is currently the wrong question.* The next useful thing on this
+> project is a **deploy** and the **escrow behaviour checks**, and both are owner actions.
 >
 > **👤 Owner:** ① **deploy** — the whole 2026-08-04 pass is committed and unpushed, and *do not set
 > `VITE_GA_TRACKING_ID` before you do*; ② the **four escrow checks**; ③ **purge the test data**;
