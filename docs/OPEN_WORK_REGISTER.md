@@ -70,7 +70,12 @@
 > > register of known items cannot route work nobody has written down yet, and the highest-severity
 > > findings today were in that category. Lane 1 being short is not the same as Lane 1 being done.
 >
-> **⚠️ Corrected 2026-08-04 — Lane 2 is NOT empty of migrations any more.** The money-path defect
+> **✅ Closed 2026-08-05 — Lane 2 is empty again.** All five `20260804*` migrations are applied, the
+> edge functions redeployed and `main` pushed. The pre-flight audit returned 5 rows and both findings
+> are closed; the one that mattered was **D**, which was breaking every profile save on production
+> and had never been reported. Detail in [HANDOFF.md](HANDOFF.md) § *2026-08-05*.
+>
+> **⚠️ Historical — Lane 2 was NOT empty of migrations.** The money-path defect
 > pass added **five (`20260804000100`–`000500`) plus three edge-function redeploys**, routed 👤 owner.
 > *(Corrected 2026-08-05 — it said two. `paymongo-checkout` was modified by the pass and named in no
 > deploy instruction anywhere, which would have shipped four of the five fixes and silently left the

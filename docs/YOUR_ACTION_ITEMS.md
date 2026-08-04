@@ -47,7 +47,36 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
-> ### 🔴 SUPERSEDED 2026-08-04 — five migrations ARE now waiting on you
+> ### ✅ CLOSED 2026-08-05 — all five applied, functions redeployed, `main` pushed
+>
+> **Nothing on the database side is waiting on you.** You ran `access_posture_audit.sql` (5 rows,
+> both findings now closed), applied `20260804000100`–`000500` — each returned *"Success. No rows
+> returned"* — redeployed the edge functions, and `main` is pushed.
+>
+> **Two things carry forward:**
+>
+> 1. 🟡 **Confirm `paymongo-checkout` was in the redeploy set.** That row was added to the docs on
+>    2026-08-05, *after* the list you were working from. If it was not deployed, the wallet **top-up**
+>    suspension check is still inert. `supabase functions deploy paymongo-checkout` — idempotent,
+>    safe to run again, no ordering constraint.
+> 2. 🔴 **`ESC-01…06` is now the only thing gating the pilot.** `20260804000300` is applied, which is
+>    what makes `ESC-02` able to pass. **Run it with GCash specifically** — wallet balance alone does
+>    not exercise the branch that was broken.
+>
+> ✅ **`VITE_GA_TRACKING_ID` is safe to set now** (it was not before this deploy). Confirm the Vercel
+> build actually completed first.
+>
+> > 🔎 **What the audit found, because it is worth knowing which way it went.** Finding **C** was
+> > `plan` and `plan_expires_at` — **not** `kyb_verified` or `is_active`. That means `20260703000300`
+> > was applied once and never re-run, so the KYB-self-approval hole was **never open on your live
+> > database**, and the plan columns were additionally covered by a trigger that reverts client
+> > writes. Finding **D** was the live one: `municipality`, `province` and `onboarding_tour_version`
+> > were not writable by their own owner, so **every profile save was failing outright** and the
+> > welcome tour replayed on every device. Nobody had reported either. Both are closed.
+>
+> ---
+>
+> ### 🔴 SUPERSEDED 2026-08-04 — five migrations ARE now waiting on you *(historical — see above)*
 >
 > The paragraph below said *"no migration is waiting on you"*. **That was true when written and is
 > no longer true.** The 2026-08-04 money-path pass added **five migrations (`20260804000100`–

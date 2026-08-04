@@ -1,6 +1,6 @@
 # Security Close-out & Hardening — Status + Test Runbook
 
-> ## 🆕 2026-08-04 — money-path defect pass. Five new items, none of them applied yet.
+> ## ✅ 2026-08-04 — money-path defect pass. **All five applied 2026-08-05.**
 >
 > This page's §4 gate has read all-ticked-but-the-pentest since 2026-07-04. A read of the money
 > surface **against the code rather than this page** found five defects that the gate's wording did
@@ -9,17 +9,24 @@
 >
 > | # | Finding | Fix | State |
 > |---|---|---|---|
-> | 1 | The escrow method-gate reads `payment_intents.provider`, which is always `'paymongo'` — the GCash/Maya branch has **never executed**, and `credit_transactions.payment_method` recorded `'paymongo'` for every online sale | `20260804000300` + redeploy `paymongo-webhook`, `paymongo-resettle` | ⬜ written, not applied |
-> | 2 | `assert_can_trade` had **one** call site (the card path). `process_wallet_purchase` is granted to `authenticated`, so KYC **and account suspension** were bypassable by calling the RPC directly | `20260804000100` + redeploy **`paymongo-checkout`** (the wallet **top-up** suspension check lives there) | ⬜ written, not applied |
-> | 3 | `20260703000300` grants profiles UPDATE from a two-name **allow**-list and says "re-run after adding columns" — doing so re-grants `kyb_verified` (self-approve KYB → withdraw) and `is_active` (self-unsuspend); *not* doing so breaks every profile save | `20260804000200` (deny-list) | ⬜ written, not applied |
-> | 4 | Payouts ignored suspension; `request_payout`'s idempotency key was global, so a collision returned **another seller's** payout id | `20260804000400` | ⬜ written, not applied |
-> | 5 | **`certificates` has no RLS in any migration** and the browser INSERTs/UPDATEs it directly — on a fresh env, read *and* write on everyone's certificates | `20260804000500` | 🔒 **gated** on its pre-flight query |
+> | 1 | The escrow method-gate reads `payment_intents.provider`, which is always `'paymongo'` — the GCash/Maya branch has **never executed**, and `credit_transactions.payment_method` recorded `'paymongo'` for every online sale | `20260804000300` + redeploy `paymongo-webhook`, `paymongo-resettle` | ✅ **applied 2026-08-05** |
+> | 2 | `assert_can_trade` had **one** call site (the card path). `process_wallet_purchase` is granted to `authenticated`, so KYC **and account suspension** were bypassable by calling the RPC directly | `20260804000100` + redeploy **`paymongo-checkout`** (the wallet **top-up** suspension check lives there) | ✅ **applied 2026-08-05** |
+> | 3 | `20260703000300` grants profiles UPDATE from a two-name **allow**-list and says "re-run after adding columns" — doing so re-grants `kyb_verified` (self-approve KYB → withdraw) and `is_active` (self-unsuspend); *not* doing so breaks every profile save | `20260804000200` (deny-list) | ✅ **applied 2026-08-05** |
+> | 4 | Payouts ignored suspension; `request_payout`'s idempotency key was global, so a collision returned **another seller's** payout id | `20260804000400` | ✅ **applied 2026-08-05** |
+> | 5 | **`certificates` has no RLS in any migration** and the browser INSERTs/UPDATEs it directly — on a fresh env, read *and* write on everyone's certificates | `20260804000500` | ✅ **applied 2026-08-05** after its pre-flight |
 >
-> **Run `supabase/diagnostics/access_posture_audit.sql` before any of them.** It is read-only, returns
-> 0 rows when the posture is correct, and covers four things `money_table_rls_audit.sql`
+> **`access_posture_audit.sql` was run first, on 2026-08-05, and returned 5 rows.** It is read-only,
+> returns 0 rows when the posture is correct, and covers four things `money_table_rls_audit.sql`
 > **structurally cannot see** — most importantly **open SELECT policies**, since that audit's finding
 > (A) only inspects `INSERT/UPDATE/DELETE/ALL`. A `using (true)` read policy on `wallet_accounts`
 > would pass it silently today.
+>
+> | Finding | What it said | Read |
+> |---|---|---|
+> | **C ×2** | `plan`, `plan_expires_at` client-writable | 🟢 **Better than feared.** *Not* `kyb_verified`, `is_active`, `role` or `kyc_level` — so `20260703000300` was applied once and never re-run, and the later revokes held. **The KYB-self-approval hole was never open on live.** Exploitability was further blocked by `trg_protect_plan_columns`, which silently reverts non-service-role plan writes |
+> | **D ×3** | `municipality`, `province`, `onboarding_tour_version` not owner-writable | 🔴 **Live and broken.** `updateProfile` PATCHes the whole form at once, so **every profile save was failing `42501`**; `markTourSeen` tolerates only `42703`, so the welcome tour replayed on every device forever, silently. Nobody had reported either |
+>
+> **Both closed by `20260804000200`, applied 2026-08-05.** Re-run the audit and expect 0 rows.
 >
 > **Two items are decisions, not fixes** — [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #38 and #39.
 > #38 belongs on the pentest brief and in any wording review: the certificate `signature_hash` is an

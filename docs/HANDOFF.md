@@ -21,8 +21,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | 🟡 **The frontend, yes.** But this is **no longer migration-free** — the 2026-08-04 money-path pass added **five migrations and three edge-function redeploys**, and the frontend price fix is inert without them. See the DEPLOY STATE box below for the order. |
-> | Can I run the closed beta on **test keys**? | 🟡 **Almost.** Two things gate it now: the escrow behaviour checks (`ESC-01…06`) — which **could not have passed** before `20260804000300`, see below — and the `access_posture_audit.sql` result on `profiles` / `certificates`. |
+> | Can I deploy the current code to production today? | ✅ **Done 2026-08-05.** All five `20260804*` migrations applied, edge functions redeployed, `main` pushed. The one loose end is confirming `paymongo-checkout` was in the redeploy set — see DEPLOY STATE. |
+> | Can I run the closed beta on **test keys**? | 🟡 **One thing left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is now applied. `access_posture_audit.sql` has been run and both its findings are closed. |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -34,8 +34,9 @@
 > | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
-> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. ⚠️ **But "all money tables" was never all of them** — `certificates` and `profiles` carry no tracked RLS at all (2026-08-04) |
-> | KYC / suspension gate on **both** purchase paths | 🆕 Written 2026-08-04 (`20260804000100`), **not applied**. Until then the wallet path enforces neither |
+> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. `certificates` RLS applied 2026-08-05 (`20260804000500`). ⚠️ **`profiles` still has no tracked SELECT policy** — its read posture exists only on live (#39) |
+> | KYC / suspension gate on **both** purchase paths | ✅ **Applied 2026-08-05** (`20260804000100`). The wallet path now enforces the same KYC threshold and suspension check as the card path |
+> | Profiles column privileges | ✅ **Deny-list applied 2026-08-05** (`20260804000200`), closing both audit findings — self-granting a paid plan, and profile saves failing `42501` for every user |
 > | Webhook security | ✅ Signed, replay-protected (300s), atomic idempotency claims, retry cap — and the replay window, the `ALLOW_UNSIGNED_WEBHOOKS` default and the two copies' tolerance agreeing are now **ratcheted by tests**, not re-checked by a person |
 > | RBAC + router guards | ✅ Both auth paths enforce; a farmer cannot reach `/admin` |
 > | KYC / KYB gates | ✅ Buy gate + payout gate |
@@ -166,7 +167,46 @@
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-05 (latest) — the money-path pass was verified, and it had a hole in the middle of it
+> ### 🆕 2026-08-05 (latest) — ALL FIVE MIGRATIONS APPLIED, and the audit found one live breakage
+>
+> **The owner ran `access_posture_audit.sql`, then applied `20260804000100`–`000500` and redeployed
+> the edge functions. All five returned "Success. No rows returned."** Lane 2 is empty again.
+>
+> **The audit had two opposite bad answers available and returned one of each — five rows.**
+>
+> **Finding C ×2 — `plan` and `plan_expires_at` were client-writable.** And *only* those two.
+> **Not `kyb_verified`, not `is_active`, not `role`, not `kyc_level`.** That is the single most
+> useful thing this audit could have said, because it settles what "which state is live in?" meant:
+> `20260703000300` was applied **once, on 2026-07-03, and never re-run.** So the later revokes held —
+> `20260709000000` (kyb_verified) and `20260722000800` (is_active) were never undone. **The
+> KYB-self-approval-then-withdraw hole was never open on live.** The two plan columns simply existed
+> on 2026-07-03 and were swept into the original column-by-column grant.
+>
+> > Exploitability of C was **low, and by luck of a second defence**: `trg_protect_plan_columns`
+> > (`20260615000000`) is a BEFORE UPDATE trigger that silently restores the old plan values for any
+> > writer that is not `service_role`, so self-granting Pro would have been reverted rather than
+> > honoured. `20260804000200` makes it a **privilege** instead of a trigger that quietly discards the
+> > write — a boundary rather than a cleanup.
+>
+> 🔴 **Finding D ×3 — and this one was not theoretical, it was live and broken.**
+> `municipality`, `province` and `onboarding_tour_version` were **not writable by their own owner**,
+> exactly as predicted: they were all added *after* 2026-07-03, and a column-level grant does not
+> extend to columns created later. Consequences that were happening on production:
+>
+> - `municipality`/`province` are bound to the profile edit form, and `updateProfile` sends the whole
+>   form in **one PATCH** — so **every profile save was failing `42501` outright**, not partially.
+> - `onboarding_tour_version` is written by `onboardingService.markTourSeen`, which tolerates only
+>   `42703` — so the write failed, was swallowed, and **the welcome tour replayed on every device,
+>   forever**, with nothing in the console.
+>
+> > **Nobody reported either of them, and a read-only query found both in one run.** That is the
+> > argument for this class of diagnostic in one line. It is also the third time in two days that the
+> > thing which was actually broken on production was invisible to the suite, the lint and the build —
+> > after the `window.fetch` wrapper (only in `dist/`) and the CSP font outage (only once deployed).
+> > **This one was only in the live database's privilege catalog**, which no artifact in the repo can
+> > see. Both are fixed by `20260804000200`, now applied.
+>
+> ### 2026-08-05 — the money-path pass was verified, and it had a hole in the middle of it
 >
 > A verification pass over the 2026-08-04 work before committing it: read every migration and every
 > diff, run the suite, and check the deploy instructions against what actually changed on disk.
@@ -221,9 +261,8 @@
 > ### 2026-08-04 — money-path defect pass: five defects, and the escrow gate was dead code
 >
 > Suite **1256 → 1275** (110 → 111 files). Build green, lint 0, `deno check` clean on all three money
-> edge functions. **Five migrations (`20260804000100`–`000500`) and three edge-function redeploys are
-> now waiting on the owner** — this is the first time since 08-02 that Lane 2 is not empty, and
-> YOUR_ACTION_ITEMS / OPEN_WORK_REGISTER have both been corrected to say so.
+> edge functions. **Five migrations (`20260804000100`–`000500`) and three edge-function redeploys —
+> ✅ all applied and deployed 2026-08-05**, see the entry above for what the pre-flight audit found.
 >
 > A read of the transaction/money surface **against the code rather than the docs**, prompted by
 > "is the money side hackable, and can another user reach it?". The answer to the direct question is
@@ -316,13 +355,23 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### ⚠️ DEPLOY STATE — everything below is committed locally and **NOT pushed**
+> ### ✅ DEPLOY STATE — the database half is DONE (2026-08-05); `main` is pushed
 >
-> Held deliberately at the owner's instruction; pushing `main` is the production deploy. **Until it
-> is pushed, every fix on this page is inert on `carbonify13.vercel.app`.** That matters most for one
-> of them: 🔴 **do not set `VITE_GA_TRACKING_ID` in Vercel before deploying** — on the currently-live
-> build, that single field turns the `window.fetch` wrapper described below into a live stream of
-> user identifiers and signed storage tokens to Google Analytics. See YOUR_ACTION_ITEMS item 0.
+> **All five `20260804*` migrations are applied** (each returned "Success. No rows returned") and the
+> money edge functions were redeployed by the owner. `main` was pushed the same day, so the frontend
+> price fix and the whole 2026-08-04 defect hunt are live on `carbonify13.vercel.app`.
+>
+> ✅ **`VITE_GA_TRACKING_ID` is now safe to set**, and was not before. On the previously-live build
+> that single Vercel field turned the `window.fetch` wrapper described below into a live stream of
+> user identifiers and signed storage tokens to Google Analytics. The wrapper is deleted in the code
+> that is now deployed. *Confirm the deploy actually built before setting it* — the rule on this page
+> is that pushing is not the same as shipped.
+>
+> ⚠️ **One thing to confirm rather than assume: `paymongo-checkout`.** The redeploy list said *two*
+> functions until 2026-08-05 and the real answer is *three*. If only `paymongo-webhook` and
+> `paymongo-resettle` were redeployed, the **wallet top-up suspension check** is still inert — a
+> suspended account can still move money onto the platform. One command settles it:
+> `supabase functions deploy paymongo-checkout`. It is idempotent and safe to run again.
 >
 > > ⚠️ **Corrected 2026-08-05 — this box said "committed" and the money-path pass was not.** The 14
 > > commits from the defect hunt, the a11y pass and P5 were real. **The whole 2026-08-04 money-path
@@ -342,17 +391,17 @@
 > so there is no drop/recreate anywhere and **no strict ordering between them** — the one real
 > sequencing rule is the query in step 0, because what it returns decides step 3.
 >
-> | # | Do | Why the order |
+> | # | Do | State |
 > |---|---|---|
-> | 0 | Run `supabase/diagnostics/access_posture_audit.sql` | **First.** Read-only. Its result decides steps 3 and 5, and one possible answer (finding C) is more urgent than anything else on this page |
-> | 1 | Apply `20260804000100` (wallet trade gate) | Independent. Closes the KYC + suspension bypass on wallet purchases |
-> | 2 | Apply `20260804000300` (real payment method) | Independent. **Do this before `ESC-01…06`** — the escrow checks cannot pass without it |
-> | 3 | Apply `20260804000200` (profiles deny-list) | Urgency set by step 0: finding **C** = users can self-approve KYB → do it today; finding **D** = profile saves are failing → do it today for a different reason |
-> | 4 | Apply `20260804000400` (payout suspension + idempotency scope) | Independent |
-> | 5 | 🔒 **GATED:** `20260804000500` (certificates RLS) | Run **its own pre-flight query** (in the migration header) first. Enabling RLS on a live table the browser writes to deserves a look before a run |
-> | 6 | `supabase functions deploy paymongo-webhook` and `paymongo-resettle` | After step 2. Both now record the real payment method. Safe in either order — the RPC falls back to `provider` while they are old |
-> | 6b | 🆕 `supabase functions deploy paymongo-checkout` | **This row was missing until 2026-08-05.** It carries the wallet **top-up** suspension check (defect 2's second half), and without it that guard never ships. No ordering constraint: `assert_not_suspended` has existed since `20260722000800`, which is applied |
-> | 7 | Push `main` | The price fix (#4 above) is frontend-only and inert until this |
+> | 0 | Run `supabase/diagnostics/access_posture_audit.sql` | ✅ **run 2026-08-05 — 5 rows.** C ×2 (`plan`, `plan_expires_at` client-writable) and D ×3 (`municipality`, `province`, `onboarding_tour_version` not owner-writable). See the 08-05 entry: **not** `kyb_verified`/`is_active`, and D was live |
+> | 1 | Apply `20260804000100` (wallet trade gate) | ✅ applied 2026-08-05 |
+> | 2 | Apply `20260804000300` (real payment method) | ✅ applied 2026-08-05 — **`ESC-01…06` can now pass** |
+> | 3 | Apply `20260804000200` (profiles deny-list) | ✅ applied 2026-08-05 — closes both audit findings |
+> | 4 | Apply `20260804000400` (payout suspension + idempotency scope) | ✅ applied 2026-08-05 |
+> | 5 | 🔒 **GATED:** `20260804000500` (certificates RLS) | ✅ applied 2026-08-05 after its pre-flight |
+> | 6 | `supabase functions deploy paymongo-webhook` and `paymongo-resettle` | ✅ owner reports redeployed 2026-08-05 |
+> | 6b | `supabase functions deploy paymongo-checkout` | 🟡 **confirm.** This row did not exist until 2026-08-05, so it may not have been in the set that was deployed. Idempotent — just run it |
+> | 7 | Push `main` | ✅ pushed 2026-08-05 |
 >
 > **Nothing here is a one-way door.** Every migration carries its own ROLLBACK block naming the exact
 > file to re-apply. `20260804000300` degrades to today's behaviour if step 6 never happens; the only

@@ -48,11 +48,12 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 > control and carry **no tracked RLS policy** — their posture exists only on the live database, which
 > is exactly the class of thing a pre-flight is for.
 >
-> - [ ] **The five `20260804*` migrations are applied**, and **all three** money edge functions
->   redeployed — `paymongo-webhook`, `paymongo-resettle` **and `paymongo-checkout`**. Ordered list in
->   [HANDOFF.md](HANDOFF.md) § *DEPLOY STATE*. `20260804000300` in particular gates §3's escrow checks
->   — without it, ESC-02 cannot pass. *(This line said two functions until 2026-08-05; `paymongo-checkout`
->   carries the wallet top-up suspension guard and was named in no deploy instruction anywhere.)*
+> - [x] ✅ **The five `20260804*` migrations are applied** (2026-08-05, each *"Success. No rows
+>   returned"*), `main` is pushed, and `paymongo-webhook` + `paymongo-resettle` are redeployed.
+>   `20260804000300` gates §3's escrow checks and is in — **ESC-02 can now pass.**
+> - [ ] 🟡 **Confirm `paymongo-checkout` was also redeployed.** It carries the wallet top-up
+>   suspension guard and was named in no deploy instruction anywhere until 2026-08-05, so it may not
+>   have been in the set. Idempotent: just run `supabase functions deploy paymongo-checkout`.
 
 > 💡 **Shortcut:** every SQL check below (1a, 1b) plus the money-table RLS audit, the escrow
 > apply-status question and the `20260718*` apply-status question are bundled into one read-only
