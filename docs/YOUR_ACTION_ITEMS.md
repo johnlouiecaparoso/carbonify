@@ -56,9 +56,14 @@
 > `johnlouiecaparoso/carbonify`"*, so **your GitHub repo was renamed `carbonify13` → `carbonify`**,
 > and the Vercel Git integration did not follow it.
 >
-> `carbonify.vercel.app` does answer, but **it is not your app** — it is the `ecolink` React project,
-> now sitting on the name. Its bundle has no Supabase, no Vue, no `credit_listings`; `/sw.js` and the
-> PWA manifest both 404.
+> `carbonify.vercel.app` does answer, but **it is not your app** — a 553 KB React bundle with no
+> Supabase, no Vue and no `credit_listings`; `/sw.js` and the PWA manifest both 404. It is branded
+> "Carbonify", which is what makes it dangerous to glance at.
+>
+> ⚠️ **And it is not `ecolink` either** — I said it was, and re-measuring disproved it.
+> `ecolink.vercel.app` separately answers `200` with `<title>Vite + React + TS</title>` and a 188 KB
+> bundle. **So you have at least three Vercel projects**, and one of them is a React app wearing your
+> product's name. Expect that when you open the dashboard.
 >
 > Three questions to answer in the dashboard, in order:
 >

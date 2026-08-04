@@ -78,9 +78,10 @@
 >
 > > 🔴 **And one item replaced it, routed 👤 owner and outranking everything on this page: there is no
 > > production site.** `carbonify13.vercel.app` returns `404 DEPLOYMENT_NOT_FOUND`;
-> > `carbonify.vercel.app` answers `200` with this app's title and is the unrelated `ecolink` React
-> > project. The GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git integration
-> > did not follow. Only the Vercel dashboard can route this one —
+> > `carbonify.vercel.app` answers `200` with this app's title and is an unrelated React app — and
+> > **not** `ecolink`, which answers separately as a bare Vite starter, so at least three Vercel
+> > projects exist. The GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git
+> > integration did not follow. Only the Vercel dashboard can route this one —
 > > [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md) carries the ordered fix.
 > >
 > > **The routing lesson, and it is the sharpest one this page has recorded.** Every lane on this

@@ -371,14 +371,19 @@
 > of this codebase's markers — no `policy_acceptances`, no `credit_listings`, no
 > `process_wallet_purchase`, no Supabase client, no Vue runtime. `/sw.js` and `/manifest.webmanifest`
 > both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a PWA manifest.
-> **That is the `ecolink` React project** this repo has been warned about since 2026-08-01, now
-> answering on the name.
+> ⚠️ **Re-checked 2026-08-05 (later): it is NOT `ecolink`, and that correction matters.** The first
+> read attributed this host to the `ecolink` project, inferred from the standing note that a second
+> Vercel project serves an unrelated React app. Measuring both disproves it: `ecolink.vercel.app`
+> answers `200` with `<title>Vite + React + TS</title>` and a **188 KB** bundle, while
+> `carbonify.vercel.app` serves a **553 KB** one titled `Carbonify`. **Different deployments — so
+> there are at least three Vercel projects**, and the dashboard search should not assume `ecolink`
+> took the name.
 >
 > **What changed:** `git push` reported *"This repository moved. Please use the new location:
 > `https://github.com/johnlouiecaparoso/carbonify.git`"* — **the GitHub repo was renamed
 > `carbonify13` → `carbonify`.** Two explanations fit and the dashboard settles which:
 > the rename broke the Vercel project's Git link so nothing built, or the project itself was
-> renamed/deleted and `ecolink` took the freed name. Either way **no Vercel project is known to have
+> renamed/deleted and another project took the freed name. Either way **no Vercel project is known to have
 > built this push**, and none of the 2026-08-04 or 08-05 frontend work is reachable.
 >
 > 👤 **Owner — this is now step 0 of everything.** Open the Vercel dashboard and answer three

@@ -7,7 +7,16 @@
 > | Host | Result |
 > |---|---|
 > | `carbonify13.vercel.app` | **`404 DEPLOYMENT_NOT_FOUND`** — the documented production URL, verified live on 2026-08-01 |
-> | `carbonify.vercel.app` | `200`, `<title>Carbonify</title>` — **but it is the `ecolink` React app.** One 553 KB `/assets/index-*.js` with no `policy_acceptances`, no `credit_listings`, no Supabase client, no Vue runtime; `/sw.js` and `/manifest.webmanifest` both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a manifest |
+> | `carbonify.vercel.app` | `200`, `<title>Carbonify</title>` — **and it is not this codebase.** One 553 KB React `/assets/index-*.js` with no `policy_acceptances`, no `credit_listings`, no Supabase client, no Vue runtime; `/sw.js` and `/manifest.webmanifest` both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a manifest |
+> | `ecolink.vercel.app` | `200`, `<title>Vite + React + TS</title>` — a 188 KB bare starter template. **A different deployment from the one above** |
+>
+> ⚠️ **Corrected — there are THREE projects here, not two, and the first read of this got it wrong.**
+> `carbonify.vercel.app` was initially reported as "the `ecolink` React app", inferred from the
+> long-standing note that a second project called `ecolink` serves an unrelated React app. Measuring
+> both hosts disproves it: **different bundles (553 KB vs 188 KB), different titles.**
+> `carbonify.vercel.app` is a React app *branded Carbonify*; `ecolink.vercel.app` is an untouched
+> Vite starter. **Do not go into the dashboard expecting `ecolink` to have taken the name** — expect
+> a third project you may have forgotten about.
 >
 > **The cause is row #1 of the table below, which this page wrote down three days earlier:**
 > *`<project>.vercel.app` changes only if you rename the Vercel project.* `git push` reported
@@ -15,13 +24,14 @@
 > renamed `carbonify13` → `carbonify`.** Two explanations fit; only the dashboard distinguishes them:
 >
 > - the rename broke the `carbonify13` project's Git link, so nothing has built since; or
-> - that project was renamed/deleted and `ecolink` took the freed `carbonify` name.
+> - `carbonify13` was renamed/deleted and another project already held or took the `carbonify` name.
 >
-> **Three questions to answer in the dashboard, in order:**
+> **Four questions to answer in the dashboard, in order:**
 >
-> 1. Which project is connected to `johnlouiecaparoso/carbonify`?
-> 2. Did it build commit `d88de64`?
-> 3. Which domain is aliased to it? — that is the new production URL.
+> 1. **How many projects are there, and what is each one building?** At least three exist.
+> 2. Which project is connected to `johnlouiecaparoso/carbonify`?
+> 3. Did it build the latest commit on `main`?
+> 4. Which domain is aliased to it? — that is the new production URL.
 >
 > **Then confirm the answer instead of assuming it** — the impostor above answered `200` with the
 > right page title, so eyeballing it is not enough:

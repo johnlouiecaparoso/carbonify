@@ -6,7 +6,8 @@
 > ### 🧭 State in three lines (2026-08-05)
 >
 > 🔴 **There is no reachable production site.** `carbonify13.vercel.app` returns
-> `404 DEPLOYMENT_NOT_FOUND` and `carbonify.vercel.app` serves the unrelated `ecolink` React app —
+> `404 DEPLOYMENT_NOT_FOUND` and `carbonify.vercel.app` serves an unrelated React app branded
+> "Carbonify" (and it is *not* `ecolink`, which answers separately) —
 > the GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel Git integration did not
 > follow. **This is the top item**; nothing user-facing can be tested until it is fixed.
 > See [VERCEL_DOMAIN_AND_REDEPLOY.md](VERCEL_DOMAIN_AND_REDEPLOY.md).
