@@ -48,6 +48,11 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 > control and carry **no tracked RLS policy** — their posture exists only on the live database, which
 > is exactly the class of thing a pre-flight is for.
 >
+> - [ ] 🔴 **THE SITE RESOLVES AT ALL.** Measured 2026-08-05: `carbonify13.vercel.app` returns
+>   **404 DEPLOYMENT_NOT_FOUND**, and `carbonify.vercel.app` serves an unrelated React app. The
+>   GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel link did not follow.
+>   **Nothing else in this runbook can run until a URL serves this codebase.** Fix in the Vercel
+>   dashboard, then replace `carbonify13.vercel.app` everywhere in these docs and in the UAT script.
 > - [x] ✅ **The five `20260804*` migrations are applied** (2026-08-05, each *"Success. No rows
 >   returned"*), `main` is pushed, and `paymongo-webhook` + `paymongo-resettle` are redeployed.
 >   `20260804000300` gates §3's escrow checks and is in — **ESC-02 can now pass.**

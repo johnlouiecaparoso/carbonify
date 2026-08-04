@@ -21,8 +21,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Done 2026-08-05.** All five `20260804*` migrations applied, edge functions redeployed, `main` pushed. The one loose end is confirming `paymongo-checkout` was in the redeploy set — see DEPLOY STATE. |
-> | Can I run the closed beta on **test keys**? | 🟡 **One thing left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is now applied. `access_posture_audit.sql` has been run and both its findings are closed. |
+> | Can I deploy the current code to production today? | 🔴 **The database half is done; the site is missing.** All five migrations applied and `main` pushed — but `carbonify13.vercel.app` now returns **404 DEPLOYMENT_NOT_FOUND**, and `carbonify.vercel.app` serves an unrelated React app. The GitHub repo was renamed `carbonify13` → `carbonify` and the Vercel link did not survive it. See DEPLOY STATE. |
+> | Can I run the closed beta on **test keys**? | 🔴 **No — there is no reachable site.** Once that is fixed, the only remaining gate is the escrow behaviour checks (`ESC-01…06`), which **could not have passed** before `20260804000300` and now can. `access_posture_audit.sql` has been run and both findings are closed. |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -355,17 +355,51 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### ✅ DEPLOY STATE — the database half is DONE (2026-08-05); `main` is pushed
+> ### 🔴 DEPLOY STATE — database DONE, `main` pushed, and **THE SITE IS GONE**
 >
-> **All five `20260804*` migrations are applied** (each returned "Success. No rows returned") and the
-> money edge functions were redeployed by the owner. `main` was pushed the same day, so the frontend
-> price fix and the whole 2026-08-04 defect hunt are live on `carbonify13.vercel.app`.
+> **All five `20260804*` migrations are applied** (each returned "Success. No rows returned"), the
+> money edge functions were redeployed, and `main` is pushed — `origin/main` and `main` are level at
+> `91ec42d`. **The frontend is a different story, and it is the most urgent thing on this page.**
 >
-> ✅ **`VITE_GA_TRACKING_ID` is now safe to set**, and was not before. On the previously-live build
-> that single Vercel field turned the `window.fetch` wrapper described below into a live stream of
-> user identifiers and signed storage tokens to Google Analytics. The wrapper is deleted in the code
-> that is now deployed. *Confirm the deploy actually built before setting it* — the rule on this page
-> is that pushing is not the same as shipped.
+> 🔴 **`carbonify13.vercel.app` returns `404 DEPLOYMENT_NOT_FOUND`.** Measured 2026-08-05 immediately
+> after the push, not inferred. The documented production URL — the one verified by fetching it on
+> 2026-08-01, the one in the runbooks, the UAT script and the pilot invitations — **has no deployment
+> behind it at all.**
+>
+> 🟠 **And `carbonify.vercel.app` answers `200` with somebody else's app.** Its title says
+> "Carbonify"; its bundle is **React**, 553 KB in a single `/assets/index-*.js`, and contains **none**
+> of this codebase's markers — no `policy_acceptances`, no `credit_listings`, no
+> `process_wallet_purchase`, no Supabase client, no Vue runtime. `/sw.js` and `/manifest.webmanifest`
+> both 404, where this app ships a service worker at `CACHE_VERSION = 'v5'` and a PWA manifest.
+> **That is the `ecolink` React project** this repo has been warned about since 2026-08-01, now
+> answering on the name.
+>
+> **What changed:** `git push` reported *"This repository moved. Please use the new location:
+> `https://github.com/johnlouiecaparoso/carbonify.git`"* — **the GitHub repo was renamed
+> `carbonify13` → `carbonify`.** Two explanations fit and the dashboard settles which:
+> the rename broke the Vercel project's Git link so nothing built, or the project itself was
+> renamed/deleted and `ecolink` took the freed name. Either way **no Vercel project is known to have
+> built this push**, and none of the 2026-08-04 or 08-05 frontend work is reachable.
+>
+> 👤 **Owner — this is now step 0 of everything.** Open the Vercel dashboard and answer three
+> questions: which project is connected to `johnlouiecaparoso/carbonify`, did it build commit
+> `91ec42d`, and which domain is aliased to it. Then fix the alias or reconnect the Git integration.
+> **A pilot cannot start against a 404**, and every UAT/runbook URL needs updating to whatever the
+> answer is.
+>
+> ⚠️ **`VITE_GA_TRACKING_ID` — keep it unset until a deploy of THIS code is confirmed reachable.**
+> The reasoning is unchanged and the uncertainty makes it stronger: on any build predating
+> 2026-08-04, that one field turns the `window.fetch` wrapper into a live stream of user identifiers
+> and signed storage tokens to Google Analytics. The wrapper is deleted in the code that is now
+> pushed — but "pushed" is exactly the word this box has just been caught over-reading. **Confirm the
+> deployment serves the new bundle first.**
+>
+> > **This is the seventh instance, and the first where the gap was the deployment target itself.**
+> > The previous six were built-not-deployed or written-not-saved. This one is *deployed-to-nowhere*:
+> > the push succeeded, the CI is irrelevant, git is clean and level — and there is no site. Every
+> > signal a developer normally trusts was green. **The only check that caught it was fetching the
+> > URL**, which is the same check that proved the 08-01 deploy real. Do it every time; it costs one
+> > command.
 >
 > ⚠️ **One thing to confirm rather than assume: `paymongo-checkout`.** The redeploy list said *two*
 > functions until 2026-08-05 and the real answer is *three*. If only `paymongo-webhook` and

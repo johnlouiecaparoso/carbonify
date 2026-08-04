@@ -47,11 +47,40 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
-> ### ✅ CLOSED 2026-08-05 — all five applied, functions redeployed, `main` pushed
+> ### 🔴 2026-08-05 — the database is done, and **the website is gone**
 >
-> **Nothing on the database side is waiting on you.** You ran `access_posture_audit.sql` (5 rows,
-> both findings now closed), applied `20260804000100`–`000500` — each returned *"Success. No rows
-> returned"* — redeployed the edge functions, and `main` is pushed.
+> **Do this before anything else: open the Vercel dashboard.**
+>
+> `carbonify13.vercel.app` returns **404 DEPLOYMENT_NOT_FOUND**. I fetched it straight after pushing.
+> The push itself worked — but it also printed *"This repository moved… new location
+> `johnlouiecaparoso/carbonify`"*, so **your GitHub repo was renamed `carbonify13` → `carbonify`**,
+> and the Vercel Git integration did not follow it.
+>
+> `carbonify.vercel.app` does answer, but **it is not your app** — it is the `ecolink` React project,
+> now sitting on the name. Its bundle has no Supabase, no Vue, no `credit_listings`; `/sw.js` and the
+> PWA manifest both 404.
+>
+> Three questions to answer in the dashboard, in order:
+>
+> 1. **Which Vercel project is connected to `johnlouiecaparoso/carbonify`?**
+> 2. **Did it build commit `91ec42d`?** (that is the top of `main` now)
+> 3. **Which domain is aliased to it?** — that is your new production URL, and every runbook, the UAT
+>    script and any pilot invite needs to say it instead of `carbonify13.vercel.app`.
+>
+> Then either re-point the Git integration at the renamed repo or re-alias the domain. **A pilot
+> cannot start against a 404.**
+>
+> ⚠️ **Keep `VITE_GA_TRACKING_ID` unset until a deploy of the current code is confirmed reachable.**
+> On any build from before 2026-08-04 that one field starts streaming user identifiers and signed
+> storage tokens to Google Analytics. The fix is in the pushed code; "pushed" is not "served".
+>
+> ---
+>
+> ### ✅ The database half IS done — nothing there is waiting on you
+>
+> You ran `access_posture_audit.sql` (5 rows, both findings now closed) and applied
+> `20260804000100`–`000500` — each returned *"Success. No rows returned"* — and redeployed the edge
+> functions.
 >
 > **Two things carry forward:**
 >
