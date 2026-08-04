@@ -22,6 +22,49 @@ function pushBounded(buffer, entry) {
   if (buffer.length > MAX_BUFFERED) buffer.splice(0, buffer.length - MAX_BUFFERED)
 }
 
+/**
+ * The default when the user has never opened the preferences page. It matches
+ * `preferencesStore`'s own default so this file cannot silently disagree with
+ * the switch the user is shown.
+ *
+ * ⚠️ Whether analytics consent should default to ON at all is an opt-in/opt-out
+ * question under the Philippine DPA, not an implementation choice — recorded in
+ * DEFERRED_BACKLOG rather than decided here. This change only makes the
+ * existing switch *work*; it does not change what it starts as.
+ */
+const DEFAULT_ANALYTICS_CONSENT = true
+
+/**
+ * Has the user allowed analytics?
+ *
+ * `preferencesStore.privacy.allowAnalytics` is rendered as a switch on the
+ * preferences page and persisted into the `preferences` blob — and, until
+ * 2026-08-04, **was read by absolutely nothing.** Every one of the six privacy
+ * controls appeared in exactly two places: the store's defaults, and the form
+ * that wrote them. Turning analytics off did nothing whatsoever.
+ *
+ * That is the same placebo-control class this file's own history is full of
+ * (the theme toggle that styled nothing, the six languages with no i18n, the
+ * accessibility switches that were saved and never applied) — but a consent
+ * control is the worst member of it, because the user's belief that they opted
+ * out is itself the harm.
+ *
+ * Read straight from localStorage rather than through the pinia store: this
+ * module is instantiated at import time, long before any store is active, and
+ * a consent check that throws is a consent check that gets removed.
+ */
+export function analyticsConsentGiven() {
+  try {
+    if (typeof localStorage === 'undefined') return DEFAULT_ANALYTICS_CONSENT
+    const raw = localStorage.getItem('preferences')
+    if (!raw) return DEFAULT_ANALYTICS_CONSENT
+    const value = JSON.parse(raw)?.privacy?.allowAnalytics
+    return typeof value === 'boolean' ? value : DEFAULT_ANALYTICS_CONSENT
+  } catch {
+    return DEFAULT_ANALYTICS_CONSENT
+  }
+}
+
 class AnalyticsTracker {
   constructor() {
     this.isEnabled = import.meta.env.PROD
@@ -31,6 +74,20 @@ class AnalyticsTracker {
     this.pageViews = []
     this.userActions = []
     this.performanceMetrics = []
+  }
+
+  /**
+   * The single gate on anything leaving the browser.
+   *
+   * Six call sites each wrote `this.isEnabled && window.gtag` independently.
+   * Adding consent as a seventh copy of the same condition is exactly how this
+   * repo produces its signature defect — a guard applied to one branch and not
+   * its neighbour — so the condition lives in one place and the call sites ask
+   * it. Re-evaluated per call, not cached, so revoking consent takes effect
+   * immediately rather than at the next page load.
+   */
+  canSend() {
+    return Boolean(this.isEnabled && analyticsConsentGiven() && globalThis.window?.gtag)
   }
 
   /**
@@ -50,7 +107,13 @@ class AnalyticsTracker {
     }
 
     if (this.isEnabled) {
-      this.setupGoogleAnalytics()
+      // Consent is checked BEFORE the script is injected, not only at the send
+      // sites. `setupGoogleAnalytics()` ends in `gtag('config', …)`, which
+      // sends a page_view by itself — so loading GA at all is already the
+      // tracking, and gating only the later calls would leak the first one.
+      // It cannot use `canSend()`: that requires `window.gtag`, which this is
+      // what creates.
+      if (analyticsConsentGiven()) this.setupGoogleAnalytics()
       this.setupPerformanceTracking()
       this.setupErrorTracking()
       this.startFlushInterval()
@@ -104,7 +167,7 @@ class AnalyticsTracker {
 
     pushBounded(this.pageViews, pageData)
 
-    if (this.isEnabled && window.gtag) {
+    if (this.canSend()) {
       gtag('config', this.config.trackingId, {
         page_title: pageData.page_title,
         page_location: pageData.page_url,
@@ -131,7 +194,7 @@ class AnalyticsTracker {
 
     pushBounded(this.events, eventData)
 
-    if (this.isEnabled && window.gtag) {
+    if (this.canSend()) {
       gtag('event', eventName, parameters)
     }
 
@@ -179,7 +242,7 @@ class AnalyticsTracker {
 
     pushBounded(this.performanceMetrics, metricData)
 
-    if (this.isEnabled && window.gtag) {
+    if (this.canSend()) {
       gtag('event', 'performance_metric', {
         metric_name: metricName,
         metric_value: value,
@@ -204,7 +267,7 @@ class AnalyticsTracker {
 
     this.trackEvent('purchase', purchaseData)
 
-    if (this.isEnabled && window.gtag) {
+    if (this.canSend()) {
       gtag('event', 'purchase', {
         transaction_id: transactionId,
         value: value,
@@ -249,7 +312,7 @@ class AnalyticsTracker {
   setUserId(userId) {
     this.userId = userId
 
-    if (this.isEnabled && window.gtag) {
+    if (this.canSend()) {
       gtag('config', this.config.trackingId, {
         user_id: userId,
       })
@@ -260,7 +323,7 @@ class AnalyticsTracker {
    * Set user properties
    */
   setUserProperties(properties) {
-    if (this.isEnabled && window.gtag) {
+    if (this.canSend()) {
       gtag('config', this.config.trackingId, {
         custom_map: properties,
       })
@@ -399,7 +462,11 @@ class AnalyticsTracker {
    * Skips when endpoint is relative (e.g. /api/analytics) and no backend exists (e.g. Vercel static deploy)
    */
   async sendToCustomEndpoint(type, data) {
-    if (!this.config.apiEndpoint) return
+    // `this.config` is only assigned in initialize(). main.js calls that at
+    // startup so it is always set in the app — but any track* call made before
+    // it (an import-time call, or a test) threw a TypeError here rather than
+    // no-opping. Defensive, not a live bug.
+    if (!this.config?.apiEndpoint) return
     if (this.config.apiEndpoint.startsWith('/') && typeof window !== 'undefined') return
 
     try {
