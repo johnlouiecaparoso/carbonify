@@ -48,7 +48,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1226 unit tests green across 107 files**
+> **Current build state:** build green, lint 0, **1240 unit tests green across 108 files**
 > (re-verified 2026-08-04, after the pre-pilot defect hunt).
 >
 > *1173 includes the 121-case `modulesEvaluate` sweep — one assertion per module — added 2026-08-02,
@@ -59,7 +59,7 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1226 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1240 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
@@ -68,7 +68,7 @@
 >
 > ### 🆕 2026-08-04 (latest) — pre-pilot defect hunt, and analytics was rewriting `window.fetch`
 >
-> Suite **1185 → 1226** (101 → 107 files). Build green, lint 0. **No migrations.** Nothing here was
+> Suite **1185 → 1240** (101 → 108 files). Build green, lint 0. **No migrations.** Nothing here was
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
@@ -230,6 +230,31 @@
 > mail those toggles would suppress is mostly still `console.log` stubs. It is red because a pilot
 > user who opts out has been told something untrue, and because this is the first surface an NPC
 > review or a pentest brief looks at.
+>
+> 🔴 **The webhook signature check had no replay protection — in the copy #21 proposes adopting.**
+> Signature verification exists twice: the edge function that guards live money rejects anything
+> whose `t` is more than **300 seconds** from now, and `PayMongoProvider` **did not look at `t` at
+> all.** A genuine signature stays genuine forever if nothing checks its age, so a webhook captured
+> once would verify indefinitely.
+>
+> **The suite demonstrated the bug while claiming to cover it.** All five signature tests signed with
+> `t = '1700000000'` — **14 November 2023** — and passed. They were not simulating a replay; they
+> were performing one.
+>
+> > **This is why it was fixed rather than left as dead code.** #21 asks whether to route the money
+> > path *through* this layer or delete it. Option (a) was never neutral: adopting the provider as it
+> > stood would have silently removed replay protection from the money path, and all ~40 provider
+> > tests would have stayed green. *A decision cannot be made honestly against a copy that is quietly
+> > weaker than the thing it would replace.* Mirror image of the fulfillment saga, where the **live**
+> > copy was the weaker one — **two copies, drifted twice, in opposite directions.** "Keep the two in
+> > sync" is a hope, not a mechanism.
+>
+> Provider now enforces the same window with an injectable clock. Signature tests **5 → 11** (both
+> directions, the exact edges, a non-finite `t`, `li`-over-`te` precedence, and proof the injectable
+> clock is not itself a bypass), plus
+> [`webhookSignatureParity.test.js`](../src/test/services/webhookSignatureParity.test.js) — 8 tests
+> asserting the **live** copy still carries every guard and that both tolerance constants are the
+> same number. Mutation-checked four ways, including reintroducing the original defect.
 >
 > 🐛 **A guard that was written and never read.** `TopUp.vue` has always stored
 > `wallet_topup_user_id`; the only other mention of that key in the entire repo was

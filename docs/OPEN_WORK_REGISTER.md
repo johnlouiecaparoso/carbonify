@@ -72,7 +72,7 @@
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
-> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1226** (107 files), build green,
+> **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1240** (108 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed.
 >
@@ -80,7 +80,7 @@
 > > instruction, so the work sits in **Lane 2 (owner)** as a deploy, not in Lane 1 as code. Nothing
 > > here needs a migration — pushing `main` is the whole of it. Tracked as YOUR_ACTION_ITEMS item 0.
 >
-> **Seven further defects, none of which any entry on this page predicted:**
+> **Eight further defects, none of which any entry on this page predicted:**
 >
 > - the production bundle **replaced `window.fetch`** and named each metric after the full request
 >   URL — query strings included — forwarding them to GA the moment a measurement ID is set;
@@ -105,6 +105,10 @@
 >   in `localStorage` and four on `profiles.notification_preferences` — neither of which is read by
 >   anything that sends. The database-backed one is the more dangerous, because a populated column
 >   on `profiles` reads to an auditor as a feature that works.
+> - **the webhook signature check had no replay protection** — in `PayMongoProvider`, the copy #21
+>   proposes adopting. The live edge function enforces a 300s window; this one never looked at `t`.
+>   Its five tests passed by signing with a **November 2023** timestamp, performing the replay rather
+>   than simulating it. Fixed and pinned on both sides; see #21, which this materially changes.
 >
 > > The routing lesson, again and more sharply than on 08-02: the analytics defect was reachable in
 > > **no** development environment. `isEnabled` is `import.meta.env.PROD`, so it was absent from
@@ -203,6 +207,17 @@
 > provider layer is imported **only by tests**. `paymongoWebhookSignature.test.js` tests signature
 > verification against `PayMongoProvider`, while the code that actually guards live money is inside
 > `supabase/functions/paymongo-webhook`. A green suite is not evidence here.
+>
+> > 🔴 **2026-08-04 — and that overstatement had already poisoned the decision.** The provider's
+> > signature check had **no replay protection at all**, where the live function rejects anything
+> > outside a 300s window. All five of its tests signed with a **November 2023** timestamp and
+> > passed — performing the replay rather than simulating it. So "route the money path through this
+> > layer" was not a neutral option: it would have silently dropped replay protection, with every
+> > test staying green. Provider fixed to match, signature tests **5 → 11**, plus an 8-test
+> > `webhookSignatureParity.test.js` pinning the live copy's guards and asserting both tolerance
+> > constants are the same number. Mutation-checked in four directions. **Two copies have now
+> > drifted twice, in opposite directions** — the strongest argument yet for resolving #21 either
+> > way rather than maintaining two implementations by hand.
 
 ### 1d. Per-role feature gaps
 

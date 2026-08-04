@@ -44,7 +44,7 @@
 > become readable, no privilege is gained — but it belongs on the pentest brief, and it is worth
 > closing while signups are open to anyone.
 >
-> **The in-repo lane is clear of everything that gates the pilot.** Suite **1226 green** across 107
+> **The in-repo lane is clear of everything that gates the pilot.** Suite **1240 green** across 108
 > files (1185 on 2026-08-03, 1131 on 08-02, 920 on 08-01, 908 on 07-31, 801 the morning before), plus
 > a 37-test responsive spec and a 22-test authenticated one. Lint 0, build green. **No migration is
 > waiting on you** — every one is applied and probe-verified except `20260802000200`, whose
@@ -744,7 +744,7 @@ None of these block the beta. Each one unblocks work that is otherwise held.
 | 🆕 **Which notification-preference surface survives?** | There are **two live ones and they disagree** (#37): twelve toggles in `localStorage` from the preferences page, four on `profiles.notification_preferences` from the profile page. **Neither is read by anything that sends** — that column has zero hits across all of `supabase/`. Pick one before anyone builds enforcement, or shipping it makes the disagreement visible instead of merely latent. |
 | 🆕 **May analytics consent default to ON?** | A **DPA question, not an implementation choice** (#37) — opt-out vs opt-in. It is `true` today only because that is what the switch already showed users. Ask the DPO / NPC track in 6c. Nobody on the build side should guess it. |
 | ~~**Merge PR #14?**~~ | ✅ **Merged 2026-08-01** — 153 commits. `main` is current and production runs it. |
-| **Provider layer: route through it, or delete it?** | ~40 tests currently overstate money-path coverage (#21). |
+| **Provider layer: route through it, or delete it?** | ~40 tests overstate money-path coverage (#21). 🔴 **Sharper as of 2026-08-04:** the provider's webhook signature check had **no replay protection** where the live one enforces a 300s window — and its five tests passed by signing with a **November 2023** timestamp. Routing through it as it stood would have silently weakened the money path with every test green. Now fixed and pinned both sides, so the decision is safe to make either way — but **two copies have drifted twice, in opposite directions**, which argues for picking one rather than keeping both. |
 | **Organization accounts: go/no-go?** | Phase 1 is safe to build now. Phase 2 must wait until after the beta — it rewrites the same RPC as escrow. |
 | **Public API: expose it, and to whom?** | Key-gating and rate limits — the edge function has neither. |
 | **Fee amounts** | Config and disclosure are built; collection needs prod keys and a number. |

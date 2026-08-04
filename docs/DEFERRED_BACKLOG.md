@@ -888,6 +888,42 @@ signature verification against `PayMongoProvider`, while the verification that a
 money is the one inside `supabase/functions/paymongo-webhook`. A green suite therefore overstates how
 much of the real payment path is covered.
 
+> ## 🔴 2026-08-04 — the overstatement was not merely theoretical, and it POISONED this decision
+>
+> The two signature implementations had **drifted, in the opposite direction to the fulfillment
+> saga.** The live edge function rejects a signature whose `t` is more than **300 seconds** from now.
+> `PayMongoProvider.verifyWebhookSignature` **checked the timestamp not at all** — it read `t`, used
+> it to rebuild the signed message, and never compared it to the clock. A genuine signature stays
+> genuine forever if nothing looks at its age, so a webhook captured once (a proxy log, a leaked
+> request dump) would verify **indefinitely**.
+>
+> **The suite proved it while claiming the opposite.** All five signature tests signed with
+> `t = '1700000000'` — **14 November 2023** — and passed. They were not simulating a replay; they
+> were performing one, and the implementation accepted it.
+>
+> **Why this changes the decision rather than just adding a bug.** The choice below is *route the
+> money path through this layer, or delete it*. Option (a) was not neutral: adopting this provider as
+> it stood would have **silently removed replay protection from the money path**, and all ~40 tests —
+> including the five for exactly this function — would have stayed green throughout. *A decision
+> cannot be made honestly against a copy that is quietly weaker than the thing it would replace.*
+>
+> **Fixed rather than left to rot**, precisely because the decision is still open: the provider now
+> enforces the same 300s window, with an injectable clock so the boundary is testable. Signature
+> tests **5 → 11** (both directions of the window, its exact edges, a non-finite `t`, `li`-over-`te`
+> precedence, and a case proving the injectable clock is not itself a bypass).
+>
+> Pinned by [`webhookSignatureParity.test.js`](../src/test/services/webhookSignatureParity.test.js)
+> (8 tests), which asserts the **live** copy still carries every guard and that the two tolerance
+> constants are the same number. Mutation-checked in four directions: removing the provider's replay
+> check turns 4 red, widening its tolerance turns 1 red, disabling the live window turns 2 red, and
+> defaulting `ALLOW_UNSIGNED_WEBHOOKS` to `true` turns 1 red.
+>
+> ⚠️ **It still cannot prove the two behave identically** — only a Deno test against the real
+> function could. It pins the invariants that have *already* drifted. **Two copies have now drifted
+> twice, in opposite directions**, which is the strongest argument yet for resolving this entry in
+> either direction rather than leaving two implementations to be "kept in sync by hand". That is a
+> hope, not a mechanism.
+
 **Why it is on this list rather than deleted.** It is plausibly deliberate Phase 1 scaffolding —
 `PayMongoProvider` is written as a thin adapter over `paymongoService`/`paymentGatewayService` so a
 provider swap is possible, and its own header says as much. That is an architectural intent to
