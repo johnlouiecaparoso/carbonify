@@ -1949,8 +1949,50 @@ which is exactly what `kycService`, `amlService` and `projectApprovalService` ne
 function. A policy shaped `using (id = auth.uid() or is_admin())` produces precisely the numbers seen
 above while leaving those consoles working.
 
-**Run [`staff_profile_reads.sql`](../supabase/diagnostics/staff_profile_reads.sql)** — added
-2026-08-05, read-only, finds an admin and a verifier itself, nothing to edit.
+### 🔬 MEASURED 2026-08-05 (staff) — the admin was fine, the VERIFIER was not
+
+[`staff_profile_reads.sql`](../supabase/diagnostics/staff_profile_reads.sql), run by the owner:
+
+| role | verdict | detail |
+|---|---|---|
+| **admin** | `FULL` | 6 of 6 other profile rows readable — the review queues work |
+| **verifier** | `*** NONE ***` | **0 of 6** — the review queues cannot name their subjects |
+
+Own-row control passed for both, so the impersonation was real and the result is not an artefact.
+This is the answer the entry had been missing, and it splits: **`kycService`, `amlService` and
+`projectApprovalService` are admin surfaces and were never affected.** The verifier console was.
+
+✅ **The live consequence is FIXED — `20260805000200`.** `listProjectComments` embeds
+`profiles:author_id (full_name)` and falls back to the literal string `'User'`;
+`ProjectCommentThread` renders it, and that thread is mounted inside `ProjectApprovalPanel`, which is
+what `/verifier` shows. So **on the screen where a verifier asks a developer for evidence before
+approving credits into existence, every message from the other party was attributed to "User"** —
+and symmetrically, since a general user also reads 0 of 6, so the developer saw the verifier's
+replies the same way. Each side saw its own name and an anonymous counterparty.
+
+Silent for the fifth recorded time: RLS **filters** the embed rather than erroring, so `error` is
+null, the service's deliberate `throw` never fires, and `'User'` is indistinguishable from a chosen
+default. Now resolved through a name-only RPC scoped to the thread, authorisation mirroring
+`project_comments_select` exactly (`is_verifier_or_admin() or owns_project(...)`), using **tracked**
+helpers so it does not add to #40. The embed is kept as a fallback and the **precedence is pinned by
+test** — getting it backwards would restore the bug wherever the embed happens to resolve.
+
+> 🔎 **One claim in the first reading of this result was wrong and is corrected here.**
+> `projectApprovalService.getPendingProjects` — which falls back to `'Unknown User'` and
+> `'unknown@example.com'` — was named as a live verifier defect. It is **dead code**: nothing calls
+> it, the panel uses `getAllProjects`, which reads no profiles at all. Worth keeping visible because
+> that fabricated email is the 2026-08-02 analytics-placeholder finding in another costume — a
+> plausible-looking invented value rendered as fact — and it should not be revived if anyone ever
+> wires that function up.
+
+**Still open on the staff side:** nothing measured needs action. `FULL` for admin is the working
+state; `NONE` for verifier is now routed around where it mattered rather than papered over by
+widening the table.
+
+---
+
+**How to re-measure:** [`staff_profile_reads.sql`](../supabase/diagnostics/staff_profile_reads.sql) —
+read-only, finds an admin and a verifier itself, nothing to edit.
 
 > It exists because pinning the negative suite's actor was tried three times and never happened. The
 > pin is a `v_actor_raw` declaration **inside** a `DO` block, so running that line alone returns

@@ -33,10 +33,55 @@ export async function listProjectComments(projectId) {
     console.warn('Failed to load project comments:', error.message)
     throw new Error(error.message || 'Failed to load project comments')
   }
-  return (data || []).map((c) => ({
+  const comments = data || []
+
+  // The embed above resolves structurally and then returns NOTHING for anyone
+  // whose profile row RLS hides — which `staff_profile_reads.sql` measured on
+  // 2026-08-05 as "everyone but yourself" for a VERIFIER (0 of 6) and for a
+  // general user alike. So on the screen where a verifier asks a developer for
+  // evidence before approving credits, every message from the other party was
+  // attributed to the literal string 'User', symmetrically, and silently —
+  // RLS filters rather than erroring, so the throw above never fired.
+  //
+  // DEFERRED_BACKLOG #39, migration 20260805000200. The embed is deliberately
+  // LEFT IN PLACE as the fallback: where it works it costs nothing, and if the
+  // migration has not been applied the thread reads exactly as it does today
+  // instead of losing names it could otherwise have resolved.
+  const names = await getCommentAuthorNames(supabase, projectId)
+
+  return comments.map((c) => ({
     ...c,
-    author_name: c.profiles?.full_name || 'User',
+    author_name: names[c.author_id] || c.profiles?.full_name || 'User',
   }))
+}
+
+/**
+ * author_id → display name for the people on this project's thread.
+ *
+ * Degrades to {} — a thread that refused to render because it could not name a
+ * speaker would be worse than one showing 'User', which is what the caller
+ * falls back to. An error here IS distinguishable from an empty result (RLS
+ * filtering returns no error at all) and so it is the case worth logging.
+ */
+async function getCommentAuthorNames(supabase, projectId) {
+  try {
+    const { data, error } = await supabase.rpc('get_project_comment_author_names', {
+      p_project_id: projectId,
+    })
+    if (error) {
+      console.warn(
+        '[comments] author names unavailable; the thread will show "User". ' +
+          'Has migration 20260805000200 been applied?',
+        error.message,
+      )
+      return {}
+    }
+    // Zero rows is an authorisation answer, not a failure.
+    return Object.fromEntries((data || []).map((r) => [r.author_id, r.display_name]))
+  } catch (err) {
+    console.warn('[comments] author name lookup threw:', err?.message)
+    return {}
+  }
 }
 
 /**

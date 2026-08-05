@@ -384,12 +384,15 @@
 >
 > ### ✅ DEPLOY STATE — everything is applied, pushed, **and live**
 >
-> > 🆕 **One migration is waiting again as of 2026-08-05: `20260805000100_seller_buyer_names.sql`**
-> > (#39 — the asset ledger's buyer names). Additive, idempotent, changes no table and no policy, and
-> > has no ordering constraint. Until it is applied the ledger keeps rendering "Unknown buyer" exactly
-> > as it does today, but the service now logs a PostgREST error naming the migration instead of
-> > failing silently. **Nothing else is pending, and the frontend needs a redeploy for the same pass**
-> > (WCAG fixes across the authenticated shell).
+> > 🆕 **2026-08-05 — `20260805000100` is APPLIED and live.** The asset ledger names its buyers, and
+> > both halves are chunk-verified on production.
+> >
+> > 🔴 **One migration is now waiting: `20260805000200_project_comment_author_names.sql`** (#39 — the
+> > verifier review thread). Additive, idempotent, no table or policy changed, no ordering
+> > constraint. Until applied, the thread shows the other party as **"User"** exactly as it does
+> > today, but the service logs a PostgREST error naming the migration instead of failing silently.
+> > **The frontend needs a redeploy for the client half**, as always — the migration alone delivers
+> > nothing, which is the trap this box exists for.
 >
 
 > **Production is `https://carbonify-gilt.vercel.app`.** Not `carbonify13.vercel.app`, which now
