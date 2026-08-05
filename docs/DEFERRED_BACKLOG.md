@@ -2108,3 +2108,100 @@ Fix is small — capture both helpers in a migration, or rewrite the two call si
 helpers — but it should be done by **dumping the live definitions**, not by guessing at them, since
 the live ones are what the applied policies are already bound to. `20260804000500` deliberately uses
 `is_verifier_or_admin()` so it does not add to this.
+
+---
+
+## From the 2026-08-05 Supabase advisor sweep
+
+Nine ERRORs and a long WARN tail, each one probed against live with the anon key before anything was
+written. Seven migrations (`20260805000400`–`20260805001000`) close what was real. **All applied and
+verified against live on 2026-08-05:** `node scripts/analysis/verify-anon-exposure.mjs` returns 22/22
+PASS, including the two `STILL-WORKS` checks that prove signed-out marketplace browsing survived. **The headline is
+that the worst finding was a WARN, not an ERROR:** `public.projects` carried a `USING (true) WITH
+CHECK (true)` policy for `ALL`, so a signed-out stranger could rewrite or delete every project in the
+registry, while four of the nine ERRORs turned out to be empty superseded tables. Advisor severity
+describes the shape of a finding, not its consequence — probe before you prioritise.
+
+**A second round was needed, and it is the more interesting one.** With the ERRORs closed, the
+remaining WARN tail contained one real hole: `log_user_action`, `log_system_event` and
+`log_email_sent` are untracked `SECURITY DEFINER` functions, callable by `anon`, that INSERT into
+`audit_logs` **as their owner** — so they walked straight around the policy `20260805000600` had just
+added. Proven by accident: a probe meant to fail on a cast instead ran the function and wrote two
+rows (since deleted). The lesson is that **restricting a table's RLS is not sufficient while a
+`SECURITY DEFINER` function will do the write for you** — the two must be audited together.
+
+The same round found `retire_credits_atomic(uuid, uuid, numeric, text)` anon-callable: `20260703000400`
+revoked the **three**-argument signature, `20260718000000` added a four-argument overload and never
+revoked it, and `20260802000100`'s audit matched on the *name* and marked it done. Not exploitable —
+the body takes identity from `auth.uid()` and returns null when absent — but **a grant audit must be
+done per signature, never per name.** Both closed by `20260805001000`.
+
+Two things the advisor flagged that are **deliberately not being fixed**, both re-confirmed by probe:
+the anon-callable policy helpers (`is_admin()`, `is_lgu()`, `is_mrv_staff()`, `current_user_role()`)
+must keep `anon` EXECUTE or anonymous reads break, and the ~15 trigger functions in the same warning
+are unreachable (`PGRST202` — PostgREST will not expose a `trigger` return type). Same conclusion
+`20260802000100` reached; it holds up under test. `pg_net` in `public` is also left alone — probed and
+**not** reachable by anon, and moving an extension between schemas breaks every `net.http_*` caller.
+
+Re-run the evidence at any time with `node scripts/analysis/verify-anon-exposure.mjs` (exit 1 on any
+failure). It probes signed out, and its write probes cannot create a row.
+
+### 41. Draft projects are readable by anyone, signed out 🟡
+
+`20260805000400` deliberately keeps `projects` SELECT public so it changes writes only. That leaves
+today's behaviour intact — anon reads all 7 rows, drafts included — which contradicts
+`projectWorkflowService.js`'s own comment that "a draft is the developer's private workspace".
+
+Not folded into that migration because narrowing a read can empty a screen, and the marketplace,
+registry and project-detail pages all read this table while signed out. Needs a pass over those read
+paths first, then a policy of roughly `status <> 'draft' OR user_id = auth.uid() OR staff`.
+
+### 42. Client-side audit logging is self-asserted 🟡
+
+`20260805000600` closes anonymous and cross-user forgery of `audit_logs` (INSERT now requires
+`user_id = auth.uid()`). It does **not** make the audit trail trustworthy: a signed-in caller can
+still write truthful-looking rows about themselves, and `auditService.js:70-73` already documents
+that pre-auth events — failed sign-ins, blocked registrations, the exact things an auditor asks for —
+cannot be captured from the browser at all.
+
+The real fix is server-side capture (an edge function, or GoTrue's own auth logs). Until then the
+table is a convenience log, not evidence, and should not be described as an audit trail to a pilot
+partner.
+
+Related: `logSystemEvent` (which inserts `user_id: null`) has **no production callers** — the only
+references are `vi.fn()` mocks in two tests. Either wire it up server-side or delete it.
+
+### 43. Four superseded tables are locked but still present 🟢
+
+`listings`, `orders`, `wallets` and `verifications` are the pre-rename originals of `credit_listings`,
+`supplier_orders`, `wallet_accounts` and `verification_assessments`. All four are empty and appear
+nowhere in this repo. `20260805000700` enables RLS on them (deny-all) rather than dropping them,
+because a drop is irreversible and these objects were never tracked, so the repo cannot prove nothing
+external reads them.
+
+Dropping them is the honest end state and removes a whole class of future confusion — two tables
+called `listings` and `credit_listings` is a bug waiting for a tired evening. Do it once someone has
+confirmed against live that all four are still empty and unreferenced.
+
+### 45. Anon can ask the database for any user's role 🟡
+
+`get_user_role(uuid)`, `is_admin(uuid)` and `is_verifier(uuid)` are callable signed out. Probed
+2026-08-05: `get_user_role('32bb632d-…')` returned `"general_user"` to an anonymous caller. Combined
+with a user id — which the avatars bucket was handing out until `20260805000900`, and which any
+public row can carry — that is account enumeration with role labels attached.
+
+Deliberately not fixed in the 2026-08-05 sweep. The no-argument forms of these helpers appear inside
+RLS policy expressions, which evaluate as the **querying** role, so a revoke that catches the wrong
+overload makes anonymous reads fail with `permission denied for function` — and the symptom is an
+empty marketplace for signed-out visitors, which is the failure mode this project has hit before.
+
+Do it from a **policy dump**, not a guess: list every policy whose `qual`/`with_check` mentions these
+names (`select * from pg_policies where qual like '%get_user_role%'` and friends), confirm none of
+them applies to `anon` or `public`, then revoke per **signature**. Query C in
+[definer_grant_surface.sql](../supabase/diagnostics/definer_grant_surface.sql) exists for exactly this.
+
+### 44. `get_email_stats` is not admin-gated 🟢
+
+`20260805000800` takes `anon` off it; `authenticated` keeps EXECUTE because the function body is not
+in this repo and may already gate on `is_admin()`. Nobody has read it. Dump the definition and either
+confirm the gate or add one — email delivery statistics are an operator concern, not a user one.
