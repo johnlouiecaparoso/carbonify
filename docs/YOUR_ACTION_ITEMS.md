@@ -146,7 +146,8 @@
 >
 > 🔴 **`ESC-01…06` — the escrow behaviour checks.** Against **https://carbonify-gilt.vercel.app**.
 >
-> 🆕 **Bringing helpers? Use [ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md).** This is the one
+> 🆕 **Bringing helpers? Use [OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md) for yourself, and send them
+> [TESTER_GUIDE.md](TESTER_GUIDE.md) plus [TESTER_FEEDBACK.md](TESTER_FEEDBACK.md).** This is the one
 > test that cannot be done alone — a buyer buys, only the seller can see the money held, only you can
 > age a hold, only an admin can refund. The run sheet has your set-up checklist (do it *before* they
 > arrive), a 16-step sequence with explicit handoffs, a one-pager to send each person, and a feedback

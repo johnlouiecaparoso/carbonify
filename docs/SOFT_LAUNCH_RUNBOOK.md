@@ -163,7 +163,8 @@ the money steps** (3f, 3g).
 > will learn it faster than eight people filing eight reports about it.
 >
 > 🆕 **Escrow comes BEFORE any of this, and it is a team exercise:**
-> [ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md). `ESC-01…06` is the last functional gate, and it
+> [OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md), with [TESTER_GUIDE.md](TESTER_GUIDE.md) for the
+> helpers. `ESC-01…06` is the last functional gate, and it
 > cannot be run alone — a buyer buys, only the seller sees the money held, only the owner can age a
 > hold, only an admin can refund. Do it before inviting a pilot **seller**: a seller whose proceeds
 > are stuck permanently is the worst outcome this pilot could produce.
