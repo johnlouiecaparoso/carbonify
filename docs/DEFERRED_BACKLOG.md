@@ -449,6 +449,33 @@ If path 1 always succeeds, paths 2 and 3 are dead code and this is a deletion, n
 > `public_price_history` and `project_price_history` — are **deliberately left with anon** and recorded
 > in an allowlist with the reason: `ProjectDetailView` renders them on `/projects/:id`, which carries
 > `meta: { public: true }`. Revoking those would be a regression wearing the costume of a security fix.
+>
+> ✅ **APPLIED AND VERIFIED ON LIVE 2026-08-05**, by anon-probe in both directions — because a revoke
+> pass has exactly two ways to be wrong, and checking only the first is how a security fix becomes an
+> outage:
+>
+> ```
+> BLOCKED (intended)                        STILL OPEN (regression check)
+>   get_transaction_counterparty_name  401    public_price_history     200
+>   get_my_buyer_names                 401    project_price_history    200
+>   get_project_comment_author_names   401    search_public_registry   200
+>   assign_user_role                   401    public_registry_stats    200
+>   list_verifiers                     401    public_market_stats      200
+>   process_data_subject_request       401
+>   update_my_listing                  401
+> ```
+>
+> All seven `42501`. The five public reads a signed-out visitor needs are untouched, so `/registry`,
+> `/verify` and the public project page still work.
+>
+> > 🔎 **And the probe fell into its own documented trap, twice, which is worth recording precisely
+> > because the rule was already written down.** The first control used a guessed argument list for
+> > `review_kyc_application` and returned `PGRST202`; the regression check then guessed
+> > `search_public_registry(p_query, p_limit)` — the real signature is
+> > `(p_search, p_category, p_limit, p_offset)` — and returned `PGRST202` again, which reads exactly
+> > like "this function is gone", i.e. *like the outage you are checking for*. **Copy the signature
+> > out of the migration. Every time.** A guessed one cannot distinguish a missing function from a
+> > mistyped call, and here it would have manufactured a false alarm about the public registry.
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
 exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
 RPCs and one regression away from being a hole. One migration.

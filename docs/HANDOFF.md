@@ -389,12 +389,15 @@
 > >
 > > ✅ **`20260805000200` is APPLIED** (#39 — the verifier review thread).
 > >
-> > 🔴 **One migration is waiting: `20260805000300_revoke_anon_from_name_rpcs.sql`** — grant hygiene,
-> > #12 reopened. **Seven SECURITY DEFINER functions are callable by `anon` right now**, including all
-> > three name RPCs, because `revoke … from public` does not remove Supabase's explicit `anon` grant.
-> > Anon-probed against live, with a `401 42501` control proving the method. **No data is exposed** —
-> > every one returns early on a null `auth.uid()` — so this is a missing outer gate, not a breach.
-> > Pure `revoke`/`grant`, idempotent, no ordering constraint.
+> > ✅ **`20260805000300` is APPLIED and VERIFIED** — grant hygiene, #12 reopened and re-closed. Seven
+> > SECURITY DEFINER functions had been callable by `anon` because `revoke … from public` does not
+> > remove Supabase's explicit `anon` grant. All seven now return `401 42501`, and the five public
+> > reads a signed-out visitor needs still return `200` — checked in **both** directions, since a
+> > revoke pass has two ways to be wrong.
+> >
+> > **🎉 Nothing is waiting on the owner in the database or the deploy.** Every migration is applied,
+> > `main` is level with origin, and production is serving it. The only open item is behavioural:
+> > `ESC-01…06`.
 >
 
 > **Production is `https://carbonify-gilt.vercel.app`.** Not `carbonify13.vercel.app`, which now
