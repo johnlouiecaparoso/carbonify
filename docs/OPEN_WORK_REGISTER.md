@@ -116,6 +116,32 @@
 > ~~One branch is open and unmerged: **`fix-mobile-cart-and-earnings`**~~ — ✅ **merged 2026-08-03**
 > (`43ea63a`). Every branch in this repo is now merged into `main`, and `main` is level with `origin`.
 >
+> **Worked 2026-08-05 — the measurement pass.** Suite **1278 → 1296** (111 → 114 files), lint 0,
+> build green, all pushed and live. Three migrations applied and **verified by probe**
+> (`20260805000100/000200/000300`). What is worth carrying is not the list but where the findings
+> came from: **every one came from re-measuring a row that already said DONE.**
+>
+> - the accessibility row said *"0 violations, WCAG 2.1 AA"* — it meant the **seven public routes**.
+>   The authenticated shell had never been scanned. Sweeping it found the **account menu was a
+>   `<div>`, so a keyboard-only user could not sign out**, on every page for every role — which axe
+>   cannot detect and never will;
+> - `access_posture_audit.sql` was recorded as answering the `profiles` read posture. Its check is a
+>   **string match against `true`**, which any equally permissive policy passes silently. The
+>   behavioural probe that answers it did not exist. Built; it **falsified #39's premise** — there is
+>   no user directory — and then a per-role version found the **verifier console naming nobody**;
+> - a routine *"is it live?"* anon probe after a migration found **seven SECURITY DEFINER functions
+>   callable by `anon`**, because `revoke … from public` does not remove Supabase's explicit `anon`
+>   grant. The ratchet that should have caught it asked whether *a* revoke existed — its own failure
+>   message had said `from public, anon` since the day it was written. **The intent was right and the
+>   assertion was weaker than the intent**;
+> - and re-running one old migration **silently reverted the money path**. Caught only because it was
+>   mentioned out loud.
+>
+> > The routing lesson, and it is a different one from 08-02's. That pass concluded *a register
+> > cannot route work nobody has written down*. This one is sharper: **the register's own ✅ rows are
+> > unmeasured claims.** Four independent findings today, all inside rows marked closed. Lane 1 was
+> > not short of unblocked work; it was short of re-measured ones.
+>
 > **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1256** (110 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed.

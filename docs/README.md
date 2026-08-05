@@ -11,9 +11,10 @@
 > repo was renamed and Vercel had created the project as `carbonify-gilt` because `carbonify` was
 > taken by an unrelated app. The pipeline never broke; only the docs naming the URL did.
 >
-> ✅ **Everything is applied, pushed and live.** Five `20260804*` migrations, three money edge
-> functions, and the frontend price fix — all confirmed present in the deployed bundle. Suite
-> **1278 green** across 111 files, lint 0, build green.
+> ✅ **Everything is applied, pushed and live.** The five `20260804*` migrations, three money edge
+> functions, and the three `20260805*` migrations — the last of which closed a grant-hygiene hole
+> that left seven functions callable anonymously — all confirmed by probe or in the deployed bundle.
+> Suite **1296 green** across 114 files, Playwright **130**, lint 0, build green.
 >
 > **The one thing gating a pilot seller invite is `ESC-01…06`** — the escrow behaviour checks.
 > Escrow is applied and holding balances; nobody has watched it behave on a real purchase. Run
