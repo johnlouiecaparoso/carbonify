@@ -405,7 +405,50 @@ one fails it until the entry is deleted from the list. The count can only go dow
 **Evidence to gather before deciding:** whether the fallbacks have ever actually fired in production.
 If path 1 always succeeds, paths 2 and 3 are dead code and this is a deletion, not a refactor.
 
-### 12. Grant hygiene on ~~~10~~ **39** SECURITY DEFINER RPCs ✅ CLOSED — applied 2026-08-02
+### 12. Grant hygiene on ~~~10~~ **39** SECURITY DEFINER RPCs ✅ CLOSED — applied 2026-08-02 · 🔴 **REOPENED AND RE-CLOSED 2026-08-05**
+
+> 🔴 **`revoke … from public` does not remove `anon` on this database, and seven functions were
+> anon-callable while their own headers said otherwise.** Found 2026-08-05 by anon-probing after
+> applying `20260805000200` — a routine "is it live?" check, not an audit.
+>
+> ```
+> get_transaction_counterparty_name  200        anon CAN execute   (#3,  20260801000100)
+> get_my_buyer_names                 200        anon CAN execute   (#39, 20260805000100)
+> get_project_comment_author_names   200        anon CAN execute   (#39, 20260805000200)
+> review_kyc_application             401 42501  BLOCKED            (control)
+> ```
+>
+> **The control is what makes this readable**: `review_kyc_application` was revoked by
+> `20260802000100` and correctly refuses anon, so the probe reached the right database and the method
+> works. The three genuinely differ.
+>
+> **Why.** Supabase's default privileges `GRANT EXECUTE` to `anon` **explicitly** on functions created
+> in `public`. `revoke all … from public` removes the *implicit* PUBLIC grant and leaves the explicit
+> per-role one untouched. `20260802000100` gets this right and does both — `from public` **and**
+> `from anon`. `20260801000100` (#3) established the pattern with only the first half, and the two
+> 2026-08-05 migrations copied it.
+>
+> > This repo's signature defect is a correct pattern applied to one branch and not its sibling. **This
+> > is the same defect inverted: an INCORRECT pattern propagated to its siblings** — copied from a file
+> > whose header explains at length why the revoke matters. Reusing a nearby example is exactly how
+> > you are supposed to work here, which is what makes it worth recording.
+>
+> **Nothing was exposed.** All three return early when `auth.uid()` is null, which is why the probes
+> returned `200 []` and not rows. What was missing is the outer gate — the risk `20260801000100`'s own
+> comment names: *"while the auth.uid() check makes that harmless today, it is one refactor away from
+> not being."*
+>
+> **The ratchet could not catch it, and that is the more useful finding.**
+> `securityDefinerGrants.test.js` asked whether *a* revoke existed. One did. The comment beside its own
+> failure message had said `from public, anon` since the day it was written — **the intent was right
+> and the assertion was weaker than the intent**, so three migrations passed a green ratchet while the
+> hole was open on production. Now asserted properly, and **strengthening it immediately found four
+> more**: `assign_user_role`, `list_verifiers`, `process_data_subject_request`, `update_my_listing`.
+>
+> ✅ All seven revoked by **`20260805000300`**, mutation-checked. Two further flagged functions —
+> `public_price_history` and `project_price_history` — are **deliberately left with anon** and recorded
+> in an allowlist with the reason: `ProjectDetailView` renders them on `/projects/:id`, which carries
+> `meta: { public: true }`. Revoking those would be a regression wearing the costume of a security fix.
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
 exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
 RPCs and one regression away from being a hole. One migration.

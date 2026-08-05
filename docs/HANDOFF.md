@@ -387,12 +387,14 @@
 > > 🆕 **2026-08-05 — `20260805000100` is APPLIED and live.** The asset ledger names its buyers, and
 > > both halves are chunk-verified on production.
 > >
-> > 🔴 **One migration is now waiting: `20260805000200_project_comment_author_names.sql`** (#39 — the
-> > verifier review thread). Additive, idempotent, no table or policy changed, no ordering
-> > constraint. Until applied, the thread shows the other party as **"User"** exactly as it does
-> > today, but the service logs a PostgREST error naming the migration instead of failing silently.
-> > **The frontend needs a redeploy for the client half**, as always — the migration alone delivers
-> > nothing, which is the trap this box exists for.
+> > ✅ **`20260805000200` is APPLIED** (#39 — the verifier review thread).
+> >
+> > 🔴 **One migration is waiting: `20260805000300_revoke_anon_from_name_rpcs.sql`** — grant hygiene,
+> > #12 reopened. **Seven SECURITY DEFINER functions are callable by `anon` right now**, including all
+> > three name RPCs, because `revoke … from public` does not remove Supabase's explicit `anon` grant.
+> > Anon-probed against live, with a `401 42501` control proving the method. **No data is exposed** —
+> > every one returns early on a null `auth.uid()` — so this is a missing outer gate, not a breach.
+> > Pure `revoke`/`grant`, idempotent, no ordering constraint.
 >
 
 > **Production is `https://carbonify-gilt.vercel.app`.** Not `carbonify13.vercel.app`, which now

@@ -26,6 +26,23 @@ import { join } from 'node:path'
 const DIR = 'supabase/migrations'
 const HYGIENE = '20260802000100_grant_hygiene_security_definer.sql'
 
+/**
+ * Functions that MUST stay callable by `anon`, with the reason.
+ *
+ * An allowlist rather than a silent exemption: revoking one of these would be a
+ * regression wearing the costume of a security fix, which is the failure the
+ * `/registry` and `/verify` assertion further down already guards against.
+ *
+ * Both price-history RPCs are rendered by `ProjectDetailView` on
+ * `/projects/:id`, and that route carries `meta: { public: true }` — a
+ * signed-out visitor comparing a price is the intended audience. The data is
+ * volume-weighted daily buckets aggregated over settled trades, with no
+ * counterparty in it.
+ *
+ * Adding a name here should require the same argument.
+ */
+const ANON_BY_DESIGN = new Set(['public_price_history', 'project_price_history'])
+
 function migrationFiles() {
   return readdirSync(DIR)
     .filter((f) => f.endsWith('.sql'))
@@ -71,6 +88,50 @@ function explicitlyRevoked() {
   return found
 }
 
+/**
+ * Names revoked specifically FROM ANON, which is the only revoke that bites.
+ *
+ * Measured on live 2026-08-05: `revoke all on function … from public` left
+ * `anon` able to execute three functions whose headers said it could not.
+ * Supabase's default privileges GRANT EXECUTE to `anon` explicitly on functions
+ * created in `public`, and revoking the implicit PUBLIC grant does nothing to an
+ * explicit per-role one. Anon-probing returned `200` for all three against a
+ * `401 42501` control.
+ *
+ * The check above could not see it: it asked whether SOME revoke existed, and
+ * one did. The comment beside its own failure message has said
+ * `from public, anon` since it was written — the intent was right and the
+ * assertion was weaker than the intent, which is how three migrations passed a
+ * green ratchet while the hole was open on production.
+ *
+ * Matches `from public, anon`, `from anon`, and a separate anon-only revoke
+ * statement in any migration.
+ */
+function revokedFromAnon() {
+  const found = new Set()
+  for (const f of migrationFiles()) {
+    const re =
+      /revoke\s+[\s\S]*?on\s+function\s+(?:public\.)?([a-z0-9_]+)\s*\([^)]*\)\s*from\s+([a-z_,\s]+);/gi
+    let m
+    while ((m = re.exec(sqlOf(f)))) {
+      if (/\banon\b/i.test(m[2])) found.add(m[1].toLowerCase())
+    }
+  }
+  return found
+}
+
+/**
+ * Functions the hygiene migration revokes from anon in bulk.
+ *
+ * It builds `revoke … from anon` with `execute format(...)` over an array, so
+ * the per-function names are in the array rather than in a literal revoke
+ * statement and the regex above cannot see them.
+ */
+function bulkRevokedFromAnon() {
+  const sql = sqlOf(HYGIENE)
+  return /from\s+anon/i.test(sql) ? coveredByHygieneMigration() : new Set()
+}
+
 /** Names listed in the grant-hygiene migration's target array. */
 function coveredByHygieneMigration() {
   const sql = sqlOf(HYGIENE)
@@ -102,6 +163,28 @@ describe('#12 — no SECURITY DEFINER function may keep the implicit PUBLIC gran
     // `revoke all on function public.x(args) from public, anon;` beside the
     // grant, or add the name to the grant-hygiene migration's array.
     expect(uncovered).toEqual([])
+  })
+
+  it('every client-callable SECURITY DEFINER function is revoked FROM ANON, not just from PUBLIC', () => {
+    // The check above is not sufficient and production proved it. Supabase's
+    // default privileges grant EXECUTE to `anon` EXPLICITLY on functions created
+    // in `public`; `revoke … from public` removes only the implicit PUBLIC
+    // grant and leaves that one standing. Three functions were live and
+    // anon-callable on 2026-08-05 while this file was green, because it asked
+    // whether a revoke existed rather than whether it named anon.
+    //
+    // Anon-probed to confirm before this assertion was written:
+    //   get_my_buyer_names -> 200 (executable), review_kyc_application -> 401
+    //   42501 (blocked). Same database, same method, different result.
+    const { callable } = securityDefinerFunctions()
+    const covered = new Set([...revokedFromAnon(), ...bulkRevokedFromAnon(), ...ANON_BY_DESIGN])
+    const publicOnly = [...callable].filter((n) => !covered.has(n)).sort()
+
+    expect(
+      publicOnly,
+      'these are revoked from PUBLIC but not from anon, so anon can still ' +
+        'execute them — add `from public, anon` to the revoke',
+    ).toEqual([])
   })
 
   it('the hygiene migration keeps anon on the public-by-design reads', () => {
