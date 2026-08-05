@@ -90,10 +90,20 @@
 >
 > **One thing carries forward, and it is the last functional gate:**
 >
-> 🔴 **`ESC-01…06` — the escrow behaviour checks.** `20260804000300` is applied, which is what makes
-> `ESC-02` able to pass at all. **Run it with GCash specifically** — wallet balance alone does not
-> exercise the branch that was broken. Run them against
-> **https://carbonify-gilt.vercel.app**.
+> 🔴 **`ESC-01…06` — the escrow behaviour checks.** Against **https://carbonify-gilt.vercel.app**.
+>
+> 🆕 **Bringing helpers? Use [ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md).** This is the one
+> test that cannot be done alone — a buyer buys, only the seller can see the money held, only you can
+> age a hold, only an admin can refund. The run sheet has your set-up checklist (do it *before* they
+> arrive), a 16-step sequence with explicit handoffs, a one-pager to send each person, and a feedback
+> sheet built around the question that has found the most bugs on this project: *"did any screen tell
+> you that you have nothing, when you knew you had something?"*
+>
+> ⚠️ **Two traps, both in the run sheet:** run `ESC-02` with **GCash**, not wallet balance — wallet
+> does not touch the branch that was broken. And **`ESC-03` was wrong until 2026-08-05**: lowering
+> `escrow_hold_days_card` cannot release an existing hold (`hold_until` is stamped at purchase), and a
+> new purchase at `0` days creates no hold to release. **Age the hold by id instead** — the SQL is in
+> §7. The old step also told you to put the setting back afterwards; there is now nothing to put back.
 >
 > > 🔎 **What the audit found, because it is worth knowing which way it went.** Finding **C** was
 > > `plan` and `plan_expires_at` — **not** `kyb_verified` or `is_active`. That means `20260703000300`

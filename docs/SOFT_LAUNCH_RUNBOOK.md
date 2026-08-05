@@ -162,6 +162,12 @@ the money steps** (3f, 3g).
 > [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) to send back. Run §3 first: if the spine is broken, you
 > will learn it faster than eight people filing eight reports about it.
 >
+> 🆕 **Escrow comes BEFORE any of this, and it is a team exercise:**
+> [ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md). `ESC-01…06` is the last functional gate, and it
+> cannot be run alone — a buyer buys, only the seller sees the money held, only the owner can age a
+> hold, only an admin can refund. Do it before inviting a pilot **seller**: a seller whose proceeds
+> are stuck permanently is the worst outcome this pilot could produce.
+>
 > **§3 does not cover** escrow (`ESC-01…06`), the two-sided farmer payment record (`FARM-04…07`), the
 > admin feedstock console (`FEED`), privacy/data rights (`PRIV`), keyboard access (`KEY`) or the
 > public no-login pages (`PUB`). Those live only in the test script. **Escrow is the gap that matters

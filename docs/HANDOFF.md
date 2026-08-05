@@ -8,6 +8,11 @@
 >
 > **The next step is the closed beta on PayMongo test keys** — see [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) (execution), [TESTING_PLAN.md](TESTING_PLAN.md) (what to test), [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (per-role scripts to hand to pilot users), and [TEST_REPORT_FORM.md](TEST_REPORT_FORM.md) (what they fill in and send back).
 >
+> 🆕 **Before the beta there is exactly one gate left, and it is a team exercise:
+> [ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md)** — who does what, in what order, with a
+> one-pager per helper and a feedback sheet. `ESC-01…06` cannot be done alone: each claim is visible
+> only on the buyer's, the seller's or the owner's screen.
+>
 > **The two test docs were rewritten 2026-07-30.** The script previously had no coverage at all for the escrow hold window, the two-sided farmer payment record built 2026-07-29, the admin feedstock console, privacy/data rights, keyboard access, or the public no-login pages — six surfaces that are live and were going to be handed to pilot users untested. The escrow block (`ESC-01…06`) is the one to run first: escrow is switched on and the Terms already promise sellers a hold window, but nothing has yet checked what it does to a real purchase.
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
@@ -104,8 +109,14 @@
 > bundle verified chunk-by-chunk at `carbonify-gilt.vercel.app`). `VITE_GA_TRACKING_ID` is now safe
 > to set. **What remains:**
 >
-> ① 🔴 the **escrow checks** (`ESC-01…06`) — the last thing gating a seller invite. `20260804000300`
-> is applied, which is what makes `ESC-02` able to pass; run it **on GCash specifically**;
+> ① 🔴 the **escrow checks** (`ESC-01…06`) — the last thing gating a seller invite, and now the only
+> open item on the whole board. 🆕 **[ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md)** is the
+> team version: it needs a buyer, a seller and an admin acting in sequence, because each claim is
+> visible on a screen only one of them can see. Owner set-up, a 16-step sheet with handoff points,
+> a one-pager per helper, and a feedback form. ⚠️ It also **corrects `ESC-03`, which could not have
+> passed as written** — `hold_until` is stamped at purchase time, so changing
+> `escrow_hold_days_card` moves nothing, and a new purchase at `0` days creates no hold to release.
+> Age the hold instead. Run `ESC-02` **on GCash specifically**;
 > ② **purge the test data**; ③ **buy + verify the email domain**; ④ the one-line `convalidated` query;
 > ⑤ run the closed beta; ⑥ the open decisions (#21, #37 ×2, #18, #27, #31, fee amounts, DR policy).
 >

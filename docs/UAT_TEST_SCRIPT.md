@@ -106,10 +106,54 @@ a credit listed.
 |---|---|---|---|
 | ☐ ESC-01 | Card money is **held** | Buyer buys a credit with the **test card** → Seller opens Seller Earnings | The amount shows under **"Held in escrow"**, **not** "Available to withdraw" |
 | ☐ ESC-02 | GCash money is **immediate** | Buyer buys with **GCash** (not wallet balance — see the prerequisite above) → Seller opens Seller Earnings | The amount shows as **"Available to withdraw"** straight away, with **no** hold. Also check `credit_transactions.payment_method` reads `gcash`, not `paymongo` |
-| ☐ ESC-03 | A held amount is **released** on time | *Owner:* lower `escrow_hold_days_card` in `app_settings` to `0` → wait for the 15-minute cron → Seller reloads Earnings | The amount moves **Held → Available**. ⚠️ **Owner: set the value back to `7` immediately after.** A test value left in production is exactly how this project's worst bugs happened |
+| ☐ ESC-03 | A held amount is **released** on time | *Owner:* **age the hold**, do not change the setting — see the corrected procedure below → wait for the 15-minute cron → Seller reloads Earnings | The amount moves **Held → Available** |
 | ☐ ESC-04 | A refund **while held** reverses cleanly | Admin refunds the ESC-01 purchase while it is still held → Seller opens Earnings | The held amount **disappears**, and no *already-available* money is taken away |
 | ☐ ESC-05 | The books survived all of it | *Owner:* run [`escrow_verification.sql`](../supabase/diagnostics/escrow_verification.sql) after **each** of ESC-01…04 | Rows 4, 5 and 6 turn from `INFO` to `PASS`; **row 7 (Books) stays PASS**; row 3 stops saying `UNPROVEN` |
 | ☐ ESC-06 | A withdrawal actually completes | Seller submits KYB → Admin approves → Seller requests a payout → wait for the cron | Payout reads **settled**. ⚠️ **No real money moved** — the payout provider is still a mock. Do not read "settled" as "paid" |
+
+> ## 🔴 ESC-03 was WRONG until 2026-08-05. Read this before running it.
+>
+> It said: *lower `escrow_hold_days_card` to `0`, wait for the cron, watch the ESC-01 amount move.*
+> **That cannot work, for two independent reasons**, and it was found by reading
+> `20260725000200` rather than by running it — so it would have cost a tester an afternoon and
+> produced a confident *"escrow does not release"* bug report against working code.
+>
+> 1. **`hold_until` is stamped at PURCHASE time** — `now() + make_interval(days => v_hold_days)`.
+>    `release_matured_escrow()` releases on `hold_until <= now()`. Changing the setting afterwards
+>    does not move an existing row's `hold_until`, so the ESC-01 hold stays 7 days out.
+> 2. **A new purchase at `0` days creates no hold at all.** The settlement RPC branches
+>    `if v_hold_days > 0 then insert escrow_holds … else` credit `seller_payable` directly. So the
+>    "make another purchase instead" workaround produces nothing to release either.
+>
+> **The correct procedure — age the hold, don't change the window.** As the Owner, in the SQL editor:
+>
+> ```sql
+> -- 1. Find the ESC-01 hold. Confirm it is 'held' before touching anything.
+> select id, transaction_id, amount, status, hold_until
+> from public.escrow_holds
+> where status = 'held'
+> order by created_at desc
+> limit 5;
+>
+> -- 2. Age exactly ONE hold by id — never a bare update.
+> update public.escrow_holds
+>    set hold_until = now() - interval '1 minute'
+>  where id = '<the id from step 1>'
+>    and status = 'held';
+>
+> -- 3. Wait up to 15 minutes for the pg_cron worker, then re-run step 1:
+> --    that row should now read status = 'released'.
+> ```
+>
+> This exercises the real path — `release_matured_escrow()` finds a matured, dispute-free hold and
+> calls `release_escrow()` — which is exactly what a genuine 7-day expiry would do.
+>
+> ⚠️ **`escrow_hold_days_card` must stay `7`. There is no longer any reason to touch it**, which also
+> removes the "put the test value back" trap the old step carried.
+>
+> ⚠️ **Do not age the hold you intend to refund in ESC-04.** Released is not held, and ESC-04 tests
+> *refund while held*. Make **two** card purchases in ESC-01 — age one, refund the other. The run
+> sheet does this by default.
 
 ---
 
