@@ -217,8 +217,43 @@ The invited pilot — its own section below (§2). The two artefacts it runs on:
 - ✅ **Dialog keyboard access** — closed 2026-07-28; `v-modal-a11y` on all 15 hand-rolled dialogs,
   guarded by `src/test/directives/modalA11y.test.js`. Wallet top-up and withdraw were reachable but
   **not dismissable** by keyboard before this.
+- ✅ **Automated WCAG 2.1 A+AA, public routes** — closed 2026-08-04;
+  [`accessibility.spec.js`](../src/test/e2e/accessibility.spec.js), 18 tests, axe-core 4.10.3.
+- ✅ **Automated WCAG 2.1 A+AA, AUTHENTICATED routes** — 🆕 **closed 2026-08-05**;
+  [`accessibility-authenticated.spec.js`](../src/test/e2e/accessibility-authenticated.spec.js),
+  6 tests covering ~40 page-audits (four roles × the ten routes each role's own nav offers, discovered
+  rather than hard-coded). **The green above was a statement about the marketing pages**: the
+  dashboard, cart, wallet, seller earnings and admin consoles had never been scanned.
+  **What it found on its first honest run, all now fixed:**
+  - the **notification bell had no accessible name** on every authenticated page, for every role —
+    it announced as "button", or with unread items as "button, 3";
+  - the **account menu was a `<div>` with a click handler**, so the only route to account settings and
+    sign-out was not focusable and could not be opened by keyboard at all. **axe cannot detect this**
+    and structurally never will — a div with a listener is indistinguishable from decoration to a
+    static rule. It was caught by a hand-written assertion that the control *opens*, which is
+    `routerGuardBypass.test.js`'s lesson reached from the a11y side;
+  - **four contrast failures that each spanned many pages at once**, every one of them a *translucent*
+    value over the brand green: `rgba(255,255,255,.16)` on `PageHeader`'s slotted action buttons
+    (a `:deep()` rule, so it outranked each view's own and applied the failure everywhere),
+    `opacity:.95` on `.page-description` in four views, and a stray unscoped `.user-avatar` rule
+    leaking `#4caf50` over the header avatar at **2.77:1**;
+  - the **welcome tour dropped focus on close** — a keyboard user dismissing it landed in the footer,
+    past the skip link, the header and the whole sidebar;
+  - four `<select>` filters with no accessible name, and the Leaflet attribution links distinguished
+    by colour alone.
+
+  > **Two of its own findings were about the test, not the app, and both are worth carrying.**
+  > The first version reported phantom contrast failures — six different greens that turned out to be
+  > **CSS transition frames**, sampled mid-animation and converging on the settled token. The second
+  > reported "something is intercepting in-app navigation" for whole roles: the first-run tour opens
+  > **asynchronously**, so dismissing it before it appeared missed it and the `aria-modal` overlay then
+  > ate every click. *A sweep blocked that way still audits the landing page* — so it clears a
+  > `measured > 0` guard while covering one route in ten, which is why the guard is now
+  > `> 1` when the nav offered routes.
+
 - ⬜ Finish the `for`/`id` pass on MRV/assessment/LGU forms; focus states outside dialogs; a screen
-  reader pass over the money path.
+  reader pass over the money path. **Automated rules cover roughly a third of WCAG**, and the DEV mock
+  session means every table renders empty — so data-dense layouts are still unaudited.
 
 ### 1.9 Backend-configuration tests 🆕 🔴
 A layer this plan did not previously have. Every other test asks *does the code behave?*; this one asks

@@ -325,7 +325,13 @@ onMounted(() => {
         placeholder="Search by name, email, or company"
         @keyup.enter="handleSearch"
       />
-      <select id="statusFilter" class="filter-select" :value="statusFilter" @change="handleStatusChange">
+      <select
+        id="statusFilter"
+        class="filter-select"
+        aria-label="Filter by application status"
+        :value="statusFilter"
+        @change="handleStatusChange"
+      >
         <option v-for="option in statusOptions" :key="option.value" :value="option.value">
           {{ option.label }}
         </option>

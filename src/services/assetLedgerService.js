@@ -279,30 +279,60 @@ export async function getMyAssetLedger() {
     safeSelect(supabase, 'credit_retirements', 'project_id, quantity', projectIds),
   ])
 
-  // 3) Resolve buyer identities for the buyer-history column. `profiles` may be
-  //    RLS-restricted; if the read fails the ledger still renders and buyers show
-  //    as "Unknown buyer" rather than the whole page erroring.
+  // 3) Resolve buyer identities for the buyer-history column, through a
+  //    SECURITY DEFINER RPC rather than a direct `profiles` read — the direct
+  //    read returns nothing under RLS and did so silently. See getBuyerProfiles.
   const buyerIds = [...new Set(salesRows.map((s) => s.buyer_id).filter(Boolean))]
   const buyerProfiles = await getBuyerProfiles(supabase, buyerIds)
 
   return aggregateAssetLedger({ projects, pools, sales: salesRows, vers, retirements, buyerProfiles })
 }
 
-/** buyer_id → profile map, degrading to {} when profile reads are not permitted. */
-async function getBuyerProfiles(supabase, buyerIds) {
+/**
+ * buyer_id → { display name } for buyers this seller has completed sales to.
+ *
+ * DEFERRED_BACKLOG #39, migration `20260805000100`. This used to read `profiles`
+ * directly, and on 2026-08-05 the negative RLS suite measured what that returns
+ * for a signed-in non-admin: **nothing**. Every buyer on the ledger rendered as
+ * "Unknown buyer".
+ *
+ * The direct read had an error branch, and it could never fire. RLS FILTERS rows
+ * rather than erroring, so `error` was null and `data` was `[]` — the handler
+ * covered the failure that does not happen while the one that does was silent.
+ * That is the same shape as the receipt counterparty (#3), whose fix this
+ * mirrors.
+ *
+ * DEGRADES TO {} deliberately. If the RPC is missing (migration not yet applied)
+ * the call returns a genuine PostgREST error, which IS distinguishable from an
+ * empty result and IS logged — the distinction the paragraph above is about. A
+ * ledger that refuses to render because it cannot name a buyer would be worse
+ * than one naming them "Unknown buyer", which is what `aggregateAssetLedger`
+ * already falls back to.
+ *
+ * Emails are no longer available here and the display fallback no longer uses
+ * one: the RPC returns organization or full name only.
+ */
+export async function getBuyerProfiles(supabase, buyerIds) {
   if (!buyerIds.length) return {}
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, organization_name, email')
-      .in('id', buyerIds)
+    const { data, error } = await supabase.rpc('get_my_buyer_names', {
+      p_buyer_ids: buyerIds,
+    })
     if (error) {
-      console.warn('[assetLedger] buyer profiles unavailable:', error.message)
+      console.warn(
+        '[assetLedger] buyer names unavailable; the ledger will show "Unknown buyer". ' +
+          'Has migration 20260805000100 been applied?',
+        error.message,
+      )
       return {}
     }
-    return Object.fromEntries((data || []).map((p) => [p.id, p]))
+    // Zero rows is an authorisation answer, not a failure: these are the ids the
+    // caller has no completed sale to. Same reading as the counterparty RPC.
+    return Object.fromEntries(
+      (data || []).map((row) => [row.buyer_id, { full_name: row.display_name }]),
+    )
   } catch (err) {
-    console.warn('[assetLedger] buyer profile query threw:', err?.message)
+    console.warn('[assetLedger] buyer name lookup threw:', err?.message)
     return {}
   }
 }

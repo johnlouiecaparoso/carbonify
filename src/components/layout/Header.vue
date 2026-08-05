@@ -77,7 +77,18 @@
           </router-link>
 
           <div v-if="userStore.isAuthenticated" class="notifications-menu">
-            <button class="notifications-button" @click="toggleNotificationMenu" type="button">
+            <!-- The icon is aria-hidden and the badge is a bare number, so
+                 without an explicit label this button announced as "button" —
+                 or, with unread items, as "button, 3". It is on every
+                 authenticated page, for every role. -->
+            <button
+              class="notifications-button"
+              @click="toggleNotificationMenu"
+              type="button"
+              :aria-label="notificationsButtonLabel"
+              aria-haspopup="menu"
+              :aria-expanded="showNotificationMenu ? 'true' : 'false'"
+            >
               <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
               <span v-if="unreadNotificationCount > 0" class="notifications-badge">
                 {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
@@ -118,9 +129,25 @@
           </div>
 
           <div v-if="userStore.isAuthenticated" class="user-menu">
-            <div
+            <!--
+              A <button>, not a <div>. This is the only route to account
+              settings and sign-out, and as a div with a click handler it was
+              not focusable, not operable by Enter or Space, and announced as
+              nothing at all — a keyboard-only user could not sign out.
+
+              axe does not flag this and structurally cannot: a div with a click
+              listener is indistinguishable from decoration to a static rule.
+              It was found by asserting that the control OPENS, which is the
+              same lesson routerGuardBypass.test.js records — checking that a
+              thing is configured is not checking that it works.
+            -->
+            <button
+              type="button"
               class="user-avatar user-avatar-thumb"
               :class="{ 'has-image': showAvatarImage, 'is-stale': userStore.profileFetchFailed }"
+              :aria-label="accountMenuLabel"
+              aria-haspopup="menu"
+              :aria-expanded="showUserMenu ? 'true' : 'false'"
               @click="showUserMenu = !showUserMenu"
             >
               <img
@@ -141,7 +168,7 @@
                 aria-label="Couldn't load your profile — retrying"
                 title="Couldn't load your profile — retrying"
               ></span>
-            </div>
+            </button>
             <!-- User Dropdown Menu -->
             <div v-if="showUserMenu" class="user-dropdown">
               <!-- Identity header -->
@@ -463,6 +490,22 @@ function onAvatarError() {
 
 const unreadNotificationCount = computed(
   () => notificationItems.value.filter((notification) => !notification.is_read).length,
+)
+
+// Names the person, so a screen-reader user knows WHOSE account menu this is —
+// which matters on a shared device, the exact situation #35 was about.
+const accountMenuLabel = computed(() => {
+  const name = userStore.profile?.full_name
+  return name ? `Account menu for ${name}` : 'Account menu'
+})
+
+// The count is the whole point of the control, so it belongs in the accessible
+// name rather than being left to a badge a screen reader reads as a loose
+// number next to an unnamed button.
+const notificationsButtonLabel = computed(() =>
+  unreadNotificationCount.value > 0
+    ? `Notifications, ${unreadNotificationCount.value} unread`
+    : 'Notifications',
 )
 
 async function loadNotifications() {
@@ -1179,6 +1222,26 @@ watch(
   position: relative;
   color: var(--text-light);
   font-weight: 600;
+  /* Stated here rather than inherited. `.user-avatar` above sets --bg-muted
+     (#e8f5e8), which is unreadable under white initials; the only reason this
+     ever looked right was the stray mobile rule below leaking a green over it.
+     With that rule scoped, this needs its own accessible background. */
+  background: var(--primary-color);
+  /* This is a <button> now (it has to be — it opens a menu), so the UA border,
+     padding and font must be reset or it renders as a chrome-styled control
+     instead of an avatar. */
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  appearance: none;
+}
+
+/* A keyboard user has no pointer to show them where they are, and this is the
+   control that reaches sign-out. `:focus-visible` keeps the ring off mouse
+   clicks. */
+.user-avatar-thumb:focus-visible {
+  outline: 2px solid var(--text-light);
+  outline-offset: 2px;
 }
 
 .user-avatar-thumb.has-image {
@@ -1698,10 +1761,16 @@ watch(
   margin-bottom: 1rem;
 }
 
-.user-avatar {
+/* Scoped to the mobile user block it was written for. As a bare `.user-avatar`
+   it also matched the HEADER avatar further up this file and, being later in
+   source order, overrode it — so the header thumb rendered at 40px on a
+   hardcoded #4caf50, which is 2.77:1 against its white initials. The token is
+   #058526 at 4.78:1 (see tokens.css), and nothing but this stray rule was
+   putting the lighter green on screen. */
+.user-info-header .user-avatar {
   width: 40px;
   height: 40px;
-  background: #4caf50;
+  background: var(--primary-color);
   border-radius: 50%;
   display: flex;
   align-items: center;

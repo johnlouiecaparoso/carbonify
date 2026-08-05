@@ -683,7 +683,7 @@ onMounted(() => {
 
 .page-description {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.92);
+  color: #fff;
   margin: 0;
 }
 
@@ -1202,7 +1202,8 @@ onMounted(() => {
 .loading-message {
   background: #f0f9ff;
   border: 1px solid #bae6fd;
-  color: #0284c7;
+  /* #0284c7 on #f0f9ff is 3.84:1, under the AA floor; #0369a1 is 5.35:1. */
+  color: #0369a1;
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1.5rem;

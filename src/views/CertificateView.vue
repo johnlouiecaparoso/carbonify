@@ -929,7 +929,7 @@ onUnmounted(() => {
 }
 
 .page-description {
-  color: rgba(255, 255, 255, 0.92);
+  color: #fff;
   font-size: 0.95rem;
   margin: 0;
 }

@@ -173,8 +173,9 @@ function escapeHtml(str) {
 }
 
 .page-description {
+  /* No opacity. White at 95% over --primary-color composites to #f3f9f4 and
+     measures 4.48:1, just under the 4.5:1 AA floor. */
   color: #fff;
-  opacity: 0.95;
   margin: 0;
 }
 

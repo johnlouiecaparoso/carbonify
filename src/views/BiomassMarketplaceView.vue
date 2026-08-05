@@ -203,7 +203,10 @@ onMounted(load)
 }
 .hero-inner { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
 .hero-inner h1 { margin: 0; font-size: 1.5rem; }
-.hero-inner p { margin: 8px 0 16px; max-width: 640px; opacity: 0.95; }
+/* No `opacity: 0.95`. White at 95% over the hero's --primary-color composites
+   to #f3f9f4 and measures 4.48:1 — it misses the 4.5:1 AA floor by two
+   hundredths, which is the kind of margin only a measurement finds. */
+.hero-inner p { margin: 8px 0 16px; max-width: 640px; }
 .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .body { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -235,8 +238,13 @@ onMounted(load)
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 7px 12px; font-size: 0.85rem; }
+/* No translucent fill. Over the hero's --primary-color, rgba(255,255,255,0.15)
+   composites to #2b9747, and the inherited white label measures 3.73:1 against
+   it — the fill lightened the very background its text had to contrast with.
+   Transparent puts the label back on full-strength green at 4.78:1; the border
+   still carries the outline look. */
 .btn-ghost {
-  background: rgba(255, 255, 255, 0.15); color: inherit; border: 1px solid currentColor;
+  background: transparent; color: inherit; border: 1px solid currentColor;
   border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; text-decoration: none;
 }
 .body .btn-ghost { color: #374151; }

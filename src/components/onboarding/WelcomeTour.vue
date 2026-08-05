@@ -53,7 +53,7 @@
  * Deliberately self-contained and not element-anchored, so it never breaks when
  * a page's markup changes.
  */
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useUserStore } from '@/store/userStore'
 import { tourStepsForRole } from '@/constants/onboarding'
 import { hasSeenTour, markTourSeen } from '@/services/onboardingService'
@@ -96,6 +96,29 @@ function prev() {
 function dismiss() {
   open.value = false
   markSeen()
+  restoreFocus()
+}
+
+/**
+ * Send focus to the main landmark when the tour closes.
+ *
+ * This is `role="dialog" aria-modal="true"`, and closing it removed the focused
+ * element from the DOM without putting focus anywhere — so the browser's
+ * sequential-focus starting point stayed at the overlay's old position, which
+ * is late in the document. The next Tab therefore landed in the FOOTER: a
+ * keyboard user dismissed the welcome tour and found themselves at "Terms &
+ * Conditions", past the skip link, the header and the whole sidebar.
+ *
+ * `#main-content` carries `tabindex="-1"` for exactly this (App.vue), so it can
+ * receive focus programmatically without becoming a tab stop of its own. The
+ * tour is not element-anchored and can be opened from the sidebar or on first
+ * sign-in, so there is no single opener to return to — the content landmark is
+ * the honest destination.
+ */
+function restoreFocus() {
+  nextTick(() => {
+    document.getElementById('main-content')?.focus?.()
+  })
 }
 
 function onKeydown(e) {

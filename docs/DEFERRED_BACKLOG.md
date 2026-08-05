@@ -1859,7 +1859,7 @@ legacy-verified.
 **Blocks:** calling these certificates tamper-evident in the Terms or to a pilot user. Does not block
 the beta on test keys, provided the wording is honest until it is done.
 
-### 39. `profiles` has no tracked SELECT policy, and the app reads other people's rows 🟠
+### 39. `profiles` has no tracked SELECT policy, and the app reads other people's rows 🟡 (was 🟠 — measured 2026-08-05, see the box at the end)
 
 **Where:** every migration touching `public.profiles`; noted in passing by `20260722000200`
 ("this repo has no tracked SELECT policy on public.profiles (the table predates the migrations)").
@@ -1885,6 +1885,81 @@ tightening the table.
 Note `supabase/diagnostics/money_table_rls_audit.sql` **cannot** catch this class: its finding (A)
 only inspects `INSERT/UPDATE/DELETE/ALL` policies, so an over-permissive **SELECT** policy passes it
 silently. Whatever posture is chosen, the audit needs a read-side check to hold it.
+
+> 🆕 **2026-08-05 — the measurement now exists, and `access_posture_audit.sql` was never going to
+> provide it.** That audit was written as the read-side answer, and its finding **(B)** returned no
+> rows on 2026-08-05, which reads like "profiles is scoped". It is not that. **(B) matches the policy
+> qual as a STRING against `true`/`(true)`** — a policy written `using (auth.role() =
+> 'authenticated')` grants exactly the same universal read and passes it silently. A clean (B) is a
+> statement about how the policy is *written*, and this entry's question is what it *does*.
+>
+> The behavioural check is **probes 9 and 10 of
+> [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql)** — added 2026-08-05.
+> That suite already impersonated a real authenticated user for wallets, holdings and trades;
+> `profiles`, the table carrying name, email, role, `kyc_level` and `kyb_verified`, **was not among
+> its eight probes.** Probe 9 asks whether one other user's row is readable; probe 10 asks whether
+> *every* row is, because one row is a leak and all of them are a user directory.
+>
+> ⚠️ **A FAIL there is this entry's answer, not an instruction.** Unlike every other probe in that
+> file, do **not** tighten the policy in response — the seven services above read cross-user rows and
+> a narrower policy breaks whichever it did not anticipate, silently, on receipts and the compliance
+> queues. The sequence stays: measure, write the posture down, convert each cross-user read to a
+> narrow `SECURITY DEFINER` RPC, *then* tighten.
+>
+> The same limitation is now recorded inside `access_posture_audit.sql` itself, next to finding (B)
+> and in its "what to do with the result" footer — because the misreading it enables is "0 rows, so
+> reads are fine", and that conclusion was one step away from being drawn here.
+
+### 🔬 MEASURED 2026-08-05 — and this entry's premise was wrong
+
+The owner ran the suite. **Probes 9 and 10 both PASS: `0 of 6` foreign profile rows visible.**
+
+This entry framed the risk as a disjunction — *either* the live policy is permissive to
+`authenticated`, "**in which case every signed-in user can enumerate every user's name, email, role,
+`kyc_level` and `kyb_verified`**", *or* the cross-user reads do not work. **It is the second.** For a
+general user, `profiles` is scoped to their own row. The privacy exposure this entry warned about
+**does not exist on the live database**, and the 🟠 severity was carrying that assumption.
+
+What follows from the branch that *is* true:
+
+- **`receiptService` already knew.** Its docblock says the `buyer:`/`seller:` embeds "resolve
+  structurally but return NOTHING under `profiles` RLS", which is why #3 built
+  `get_transaction_counterparty_name` — a `SECURITY DEFINER` RPC returning a name only, to a party of
+  that transaction. That RPC is applied and wired. Nothing to do.
+- ✅ **`assetLedgerService.getBuyerProfiles` — FIXED 2026-08-05**, migration `20260805000100`. This
+  was the live consequence: a project developer's asset ledger — the document its own comment calls
+  the one "an ERPA hangs on" — rendered every buyer as **"Unknown buyer"**, silently. It degraded to
+  `{}` and logged, but RLS *filters* rather than erroring, so the logged branch **never fired**: the
+  handler covered the failure that does not happen while the one that does was invisible. Now goes
+  through `get_my_buyer_names(uuid[])`, a `SECURITY DEFINER` function returning organization-or-full
+  name for buyers the caller has a **completed sale to** — the same shape as #3's counterparty RPC,
+  with `profiles` RLS untouched. Ids with no such sale are omitted rather than reported, so it is
+  neither a directory nor an existence oracle. **The email fallback was dropped, not reproduced.**
+  Pinned by `assetLedgerBuyerNames.test.js` (8 tests, mutation-checked in two directions — renaming
+  the RPC parameter and disabling the error branch each turn it red), including an assertion that
+  the service no longer contains `from('profiles')`, because the regression to guard against is
+  someone "simplifying" the RPC back into a direct read that measurably returns nothing.
+- **`certificateService`** reads the buyer's own row, so it works for the buyer and degrades for
+  anyone else. Fine as is.
+
+**⚠️ What is still unmeasured, and it is the half that matters for the staff surfaces.** The suite
+deliberately impersonates the oldest **non-admin, non-verifier** profile, so this result says nothing
+about whether an **admin or verifier** can read other users' rows — which is exactly what
+`kycService`, `amlService` and `projectApprovalService` need in order to function. A policy shaped
+`using (id = auth.uid() or is_admin())` would produce precisely the numbers seen above while leaving
+those consoles working. **Re-run probes 9 and 10 with `<ACTOR_USER_ID>` pinned to an admin** to settle
+it; that is one line of setup and it is the remaining measurement on this entry.
+
+**So what is left of #39 is smaller and different from what it says above:** not a privacy hole, but
+(a) the posture is still reproduced by **no tracked migration**, so a fresh environment does not get
+it — the original complaint, untouched; and (b) the staff-role read path, which is unmeasured until
+someone pins the actor to an admin. The user-facing consequence, the asset ledger, is closed.
+Neither remaining half blocks the beta.
+
+> ⚠️ **`20260805000100` must be applied or the ledger keeps showing "Unknown buyer".** Until then the
+> RPC does not exist, the call returns a real PostgREST error, and the service logs it naming the
+> migration — deliberately, because that is the distinguishable failure. Nothing breaks; the names
+> are simply still absent.
 
 ### 40. Two RLS helper functions exist only on live 🟡
 

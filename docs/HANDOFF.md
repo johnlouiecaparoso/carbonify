@@ -34,7 +34,7 @@
 > | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
-> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. `certificates` RLS applied 2026-08-05 (`20260804000500`). ⚠️ **`profiles` still has no tracked SELECT policy** — its read posture exists only on live (#39) |
+> | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. `certificates` RLS applied 2026-08-05 (`20260804000500`). ⚠️ **`profiles` still has no tracked SELECT policy** — its read posture exists only on live (#39). 🆕 **But it has now been MEASURED, and #39's premise was wrong**: probes 9-10 of the negative RLS suite return `0 of 6` foreign profile rows for a signed-in user, so nobody can enumerate the user table. What remains is that no migration reproduces that posture, plus a few cross-user reads that render as absent data. The **admin** read path is still unmeasured |
 > | KYC / suspension gate on **both** purchase paths | ✅ **Applied 2026-08-05** (`20260804000100`). The wallet path now enforces the same KYC threshold and suspension check as the card path |
 > | Profiles column privileges | ✅ **Deny-list applied 2026-08-05** (`20260804000200`), closing both audit findings — self-granting a paid plan, and profile saves failing `42501` for every user |
 > | Webhook security | ✅ Signed, replay-protected (300s), atomic idempotency claims, retry cap — and the replay window, the `ALLOW_UNSIGNED_WEBHOOKS` default and the two copies' tolerance agreeing are now **ratcheted by tests**, not re-checked by a person |
@@ -43,10 +43,10 @@
 > | Auth, consent gate, policy versioning | ✅ Signups on, consent recorded per version |
 > | DPA export + deletion | ✅ Shipping and live (the secret was misnamed until 07-30) |
 > | Feedstock / farmer payment record (two-sided) | ✅ Incl. dispute → admin console |
-> | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe, 0 violations on the public routes** — manual/AT pass still outstanding |
+> | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe on the public routes, plus 6/6 on the AUTHENTICATED ones (new 2026-08-05, ~40 page-audits across four roles)** — 0 violations. The authenticated half found the notification bell unnamed on every page, the account menu unopenable by keyboard, and four translucent-over-green contrast defects. Manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
-> | Test suite | ✅ **1278 unit across 111 files** · Playwright **46 public + 22 authenticated + 37 responsive + 18 accessibility + 9 runtime smoke** · lint 0 · build green |
+> | Test suite | ✅ **1278 unit across 111 files** · Playwright **130 green** (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility 🆕 + 9 runtime smoke) · lint 0 · build green — all four re-measured 2026-08-05, not carried forward |
 >
 > ### What is NOT implemented
 >
@@ -62,7 +62,7 @@
 > | **i18n (~375 strings)** | Blocked on translation **content**, not code (#27) | 👤 decision |
 > | **Organization accounts** | Phase 2 rewrites the same RPC as escrow — must follow the beta (#18) | 👤 decision |
 > | **Load / performance testing** | Before scaling, not before soft launch | 🤖 later |
-> | **Manual / assistive-technology a11y testing** | Automated WCAG A+AA is **green on the public routes** (18/18 axe). Automated rules cover ~⅓ of WCAG; the rest needs a real screen reader and a real person. Authenticated routes not yet covered | 🤖 + 👤 |
+> | **Manual / assistive-technology a11y testing** | Automated WCAG A+AA is now green on the public routes **and the authenticated ones** (18/18 + 6/6 axe, ~40 page-audits). Automated rules cover ~⅓ of WCAG; the rest needs a real screen reader and a real person. **Data-dense layouts are still unaudited** — the DEV mock session renders every table empty | 🤖 + 👤 |
 > | **Provider layer** (#21) | Route through it or delete it — **now safe to decide either way** | 👤 decision |
 >
 > ### The three lanes — who does what next
@@ -84,6 +84,19 @@
 >
 > *So "what should I build next" is currently the wrong question.* The next useful thing on this
 > project is a **deploy** and the **escrow behaviour checks**, and both are owner actions.
+>
+> > 🔎 **2026-08-05 — and "Lane 1 is empty" was wrong a third time, in the way the paragraph above
+> > predicted.** Two items were found by re-reading the two rows this table calls closed rather than
+> > by looking for new work. The accessibility row said *"green on the public routes"* and the
+> > authenticated routes had **never been scanned** — the sweep that closed that gap found the
+> > account menu unopenable by keyboard, so a keyboard-only user could not sign out, on every page,
+> > for every role. And `access_posture_audit.sql` had been recorded as answering the `profiles`
+> > read posture when its check is a **string match against `true`**, which a policy written any
+> > other way passes silently; the behavioural probe that actually answers it did not exist.
+> >
+> > **Both were rows that said "done".** The list was not short of unblocked work; it was short of
+> > *re-measured* claims. That is the same finding as the money-path pass and the deploy-URL pass,
+> > arriving from the test-coverage side: **a register entry describing a check is not the check.**
 >
 > **👤 Owner — ⓪ and ① are DONE as of 2026-08-05.** ~~⓪ run `access_posture_audit.sql`~~ (run; 5
 > rows, both findings closed); ~~① apply the five `20260804*` migrations, redeploy the edge functions,
@@ -369,6 +382,14 @@
 >
 > ### ✅ DEPLOY STATE — everything is applied, pushed, **and live**
 >
+> > 🆕 **One migration is waiting again as of 2026-08-05: `20260805000100_seller_buyer_names.sql`**
+> > (#39 — the asset ledger's buyer names). Additive, idempotent, changes no table and no policy, and
+> > has no ordering constraint. Until it is applied the ledger keeps rendering "Unknown buyer" exactly
+> > as it does today, but the service now logs a PostgREST error naming the migration instead of
+> > failing silently. **Nothing else is pending, and the frontend needs a redeploy for the same pass**
+> > (WCAG fixes across the authenticated shell).
+>
+
 > **Production is `https://carbonify-gilt.vercel.app`.** Not `carbonify13.vercel.app`, which now
 > returns `404 DEPLOYMENT_NOT_FOUND`. Verified 2026-08-05 by walking the deployed bundle, not by
 > loading the page:

@@ -74,12 +74,48 @@ begin
     return;
   end if;
 
-  select p.id into v_victim from public.profiles p
-  where p.id <> v_actor order by p.created_at nulls last limit 1;
+  -- ── Pick the victim by HOW MUCH THERE IS TO STEAL, not by age ─────────────
+  -- This used to take the oldest profile after the actor, and that choice made
+  -- probes 6-8 report UNPROVEN on 2026-07-30 and again on 2026-08-05: the
+  -- oldest account is typically an empty early test user, so there was no
+  -- wallet, no holding and no third-party trade to hide. Two full runs, four
+  -- months apart, proved nothing about read isolation.
+  --
+  -- This file's own header says every probe is "red-capable by construction".
+  -- Victim selection is what makes that true or false for the three cross-tenant
+  -- reads, and it was quietly making it false. Ordering by the data that exists
+  -- to be leaked is the fix; ties fall back to age so the choice stays stable
+  -- between runs.
+  select p.id into v_victim
+  from public.profiles p
+  left join lateral (
+    select
+      (select count(*) from public.wallet_accounts w where w.user_id = p.id)      as wallets,
+      (select count(*) from public.credit_ownership o where o.user_id = p.id)     as holdings,
+      (select count(*) from public.credit_transactions t
+        where t.buyer_id = p.id and t.seller_id is distinct from v_actor)         as trades
+  ) d on true
+  where p.id <> v_actor
+  order by (d.wallets + d.holdings + d.trades) desc, p.created_at nulls last
+  limit 1;
 
   insert into _rls_probe values (0, 'setup', 'acting as', 'INFO',
     'actor=' || v_actor::text ||
     coalesce(', victim=' || v_victim::text, ', victim=<none: only one profile>'));
+
+  -- Say how much the RICHEST available victim actually holds. Without this, an
+  -- UNPROVEN on probes 6-8 is ambiguous between "the victim was chosen badly"
+  -- and "no account on this database has a wallet, a holding or a third-party
+  -- trade" — and only the second is a fact about the database. Since the victim
+  -- is now chosen BY this number, a zero here means the whole environment has
+  -- nothing to leak, and the pilot is what changes that.
+  insert into _rls_probe values (0, 'setup', 'victim data', 'INFO',
+    coalesce((
+      select 'wallets=' || (select count(*) from public.wallet_accounts w where w.user_id = v_victim)::text
+          || ', holdings=' || (select count(*) from public.credit_ownership o where o.user_id = v_victim)::text
+          || ', third-party trades=' || (select count(*) from public.credit_transactions t
+               where t.buyer_id = v_victim and t.seller_id is distinct from v_actor)::text
+    ), 'no victim'));
 
   -- ── Vacuity pre-counts, taken BEFORE impersonating (so they are true counts,
   --    not RLS-filtered ones). A probe with nothing to attack cannot PASS. ────
@@ -96,6 +132,12 @@ begin
   select count(*) into v_avail from public.credit_transactions
     where buyer_id = v_victim and seller_id is distinct from v_actor;
   insert into _rls_probe values (-1, 'precount', 'tx_victim', 'INFO', v_avail::text);
+
+  -- Profiles: how many rows exist that are NOT the acting user's own. This is
+  -- the denominator for probes 9 and 10 — "0 of 6 visible" and "6 of 6 visible"
+  -- are the two answers that matter, and neither means anything without it.
+  select count(*) into v_avail from public.profiles where id is distinct from v_actor;
+  insert into _rls_probe values (-1, 'precount', 'profiles_foreign', 'INFO', v_avail::text);
 
   -- ── Become that user. auth.uid() reads request.jwt.claims->>'sub', so the
   --    policies evaluate exactly as for a PostgREST request from this user. ───
@@ -230,6 +272,56 @@ begin
     case when v_avail = 0 then 'UNPROVEN' when v_n = 0 then 'PASS' else '*** FAIL ***' end,
     case when v_avail = 0 then 'the victim has no trades with third parties — nothing to hide'
          else v_n::text || ' of ' || v_avail::text || ' foreign transaction row(s) visible' end);
+
+  -- ══ 9-10. PROFILES — THE READ POSTURE THAT EXISTS ONLY ON LIVE ════════════
+  -- DEFERRED_BACKLOG #39: `public.profiles` predates version control and has no
+  -- tracked SELECT policy, so the repo cannot state what it is. That would be a
+  -- documentation problem if the app only read your own row — but receiptService,
+  -- assetLedgerService, emailService, kycService, amlService,
+  -- projectApprovalService and certificateService all read OTHER users' rows
+  -- directly, and those queries only work if the live policy is permissive to
+  -- `authenticated`.
+  --
+  -- Nothing in this repo asked the question until now. The three cross-tenant
+  -- reads above cover wallets, holdings and trades; profiles — which carries
+  -- name, email, role, kyc_level and kyb_verified — was not among them.
+  --
+  -- And access_posture_audit.sql CANNOT settle it: its finding (B) matches a
+  -- SELECT policy only when the qual is literally `true`, so a policy such as
+  -- `using (auth.role() = 'authenticated')` is exactly as permissive and passes
+  -- it silently. That is a check on how a policy is WRITTEN. This is a check on
+  -- what it DOES.
+  --
+  -- ⚠️ READ THIS BEFORE ACTING ON A FAIL HERE. Unlike probes 1-8, where a FAIL
+  -- is a hole to close today, a FAIL on 9 or 10 is the ANSWER #39 is waiting
+  -- for — not an instruction. Do NOT tighten the policy in response to it: the
+  -- seven services listed above read cross-user profile rows, and a narrower
+  -- policy would break whichever of them it did not anticipate, silently, on
+  -- receipts and the compliance queues. The sequence #39 sets out is: measure
+  -- the posture (this), write it down, convert each cross-user read to a narrow
+  -- SECURITY DEFINER RPC (the pattern `list_verifiers()` and 20260801000100
+  -- already establish), and only then tighten the table.
+  v_seq := v_seq + 1;
+  select detail::bigint into v_avail from _rls_probe where target = 'profiles_foreign' and seq = -1;
+  select count(*) into v_n from public.profiles where id = v_victim;
+  insert into _rls_probe values (v_seq, 'SELECT another user''s profile', 'profiles',
+    case when v_avail = 0 then 'UNPROVEN' when v_n = 0 then 'PASS' else '*** FAIL ***' end,
+    case when v_avail = 0 then 'no profile rows besides the actor''s — nothing to hide'
+         when v_n = 0 then 'the victim''s profile row is not readable'
+         else 'the victim''s profile row IS readable by any signed-in user' end);
+
+  -- Enumeration is the sharper form of the same question: one row is a leak,
+  -- every row is a user directory. Reported separately because a policy can
+  -- legitimately expose a counterparty's row (see 20260801000100) while still
+  -- not permitting a full scan.
+  v_seq := v_seq + 1;
+  select count(*) into v_n from public.profiles where id is distinct from v_actor;
+  insert into _rls_probe values (v_seq, 'ENUMERATE every other profile', 'profiles',
+    case when v_avail = 0 then 'UNPROVEN' when v_n = 0 then 'PASS' else '*** FAIL ***' end,
+    case when v_avail = 0 then 'no profile rows besides the actor''s — nothing to enumerate'
+         else v_n::text || ' of ' || v_avail::text || ' foreign profile row(s) visible'
+              || case when v_n > 0 then ' (name, email, role, kyc_level, kyb_verified)' else '' end
+    end);
 
   reset role;
 exception

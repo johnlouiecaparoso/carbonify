@@ -18,7 +18,10 @@
             placeholder="Search logs..."
             class="search-input"
           />
-          <select v-model="actionFilter" class="filter-select">
+          <!-- The first option doubles as the visible label ("All Actions"), so
+               sighted users get one for free. A screen reader announces only
+               the selected value, which leaves the control itself unnamed. -->
+          <select v-model="actionFilter" class="filter-select" aria-label="Filter by action">
             <option value="">All Actions</option>
             <option value="login">Login</option>
             <option value="logout">Logout</option>
@@ -28,7 +31,7 @@
             <option value="approve">Approve</option>
             <option value="reject">Reject</option>
           </select>
-          <select v-model="userFilter" class="filter-select">
+          <select v-model="userFilter" class="filter-select" aria-label="Filter by user">
             <option value="">All Users</option>
             <option v-for="user in uniqueUsers" :key="user.id" :value="user.id">
               {{ user.name }}

@@ -88,6 +88,20 @@ finding_a as (
 -- (B) An unrestricted SELECT policy. `using (true)` on a sensitive table means
 -- RLS is enabled but reads are not scoped — the posture looks locked and is not.
 -- RLS policies are OR'd, so ONE of these defeats every narrower policy beside it.
+--
+-- ⚠️ WHAT THIS CHECK CANNOT SEE, because 0 rows here has been read as proof it
+-- is not there. It matches the qual STRING against `true`/`(true)`. A policy
+-- written `using (auth.role() = 'authenticated')` grants exactly the same
+-- universal read and passes this silently, as does any other expression that
+-- happens not to constrain rows to the caller. Enumerating every permissive
+-- form is not possible, so this check is deliberately narrow and NOT the
+-- authority on read isolation.
+--
+-- The authority is behavioural: probes 9 and 10 of rls_negative_suite.sql
+-- impersonate a real authenticated user and try to read someone else's profile
+-- row. Run that before concluding anything about `profiles` (DEFERRED_BACKLOG
+-- #39) — a clean result here is a statement about how the policies are
+-- written, not about what a signed-in user can read.
 finding_b as (
   select
     'B: unrestricted SELECT policy' as check_name,
@@ -176,6 +190,12 @@ order by check_name, tablename, detail;
 -- including kyb_verified. (C) is the more urgent of the two.
 --
 -- Re-run this after applying anything. 0 rows is the goal and is achievable.
+--
+-- ⚠️ AND 0 ROWS IS NOT A CLEAN BILL ON READS. Finding (B) is a string match
+-- against `true` (see its note above), so an equally permissive policy written
+-- any other way leaves this query empty. `profiles` read isolation is settled
+-- by rls_negative_suite.sql probes 9 and 10, which try the read as a real
+-- signed-in user. Run those before recording that reads are scoped.
 -- ============================================================================
 
 

@@ -18,7 +18,7 @@
             placeholder="Search users by name or email..."
             class="search-input"
           />
-          <select v-model="roleFilter" class="filter-select">
+          <select v-model="roleFilter" class="filter-select" aria-label="Filter by role">
             <option value="">All Roles</option>
             <option value="admin">Admin</option>
             <option value="verifier">Verifier</option>

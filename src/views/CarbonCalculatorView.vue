@@ -57,7 +57,7 @@
                   class="form-input"
                   placeholder="0"
                 />
-                <select v-model="inputs.fuelType" class="form-select">
+                <select v-model="inputs.fuelType" class="form-select" aria-label="Fuel type">
                   <option v-for="f in fuelOptions" :key="f.id" :value="f.id">{{ f.label }}</option>
                 </select>
               </div>
@@ -310,8 +310,8 @@ function reset() {
 }
 
 .page-description {
+  /* No opacity — 95% white on --primary-color is 4.48:1, under the AA floor. */
   margin: 0;
-  opacity: 0.95;
   font-size: 0.95rem;
 }
 
@@ -425,7 +425,10 @@ function reset() {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.7rem;
-  color: #9ca3af;
+  /* #9ca3af measured 2.53:1 on white — barely over half the AA floor, and this
+     is the text explaining how each emission figure is derived. #6b7280 (the
+     hint colour used just above) is 4.83:1. */
+  color: #6b7280;
   font-style: italic;
 }
 

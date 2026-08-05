@@ -240,7 +240,11 @@ async function loadStats() {
 
 .page-description {
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.9);
+  /* Full white, not 0.9 alpha. Over --primary-color the translucent version
+     composites to #e6f3e9 and measures 4.18:1 — under the 4.5:1 AA floor —
+     while solid white on the same green is 4.78:1. The 10% was decoration and
+     it cost the page its conformance. */
+  color: var(--text-light);
 }
 
 .admin-dashboard .admin-stats,
@@ -386,7 +390,10 @@ async function loadStats() {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  color: var(--primary-color, #058526);
+  /* --primary-dark, not --primary-color. The token pair is tuned against
+     white; on this pill's --bg-green-light background --primary-color drops to
+     4.25:1, under the AA floor. --primary-dark measures 7.31:1 there. */
+  color: var(--primary-dark, #045c1a);
   font-weight: 600;
   font-size: 0.85rem;
   padding: 0.5rem 0.9rem;

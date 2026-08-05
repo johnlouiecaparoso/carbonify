@@ -469,9 +469,9 @@ loadReminders()
 }
 
 .page-description {
+  /* No opacity — 95% white on --primary-color is 4.48:1, under the AA floor. */
   color: #fff;
   margin: 0;
-  opacity: 0.95;
 }
 
 .mrv-content {

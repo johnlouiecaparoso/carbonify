@@ -77,7 +77,12 @@ defineProps({
 
 .page-description {
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.92);
+  /* Solid white, not rgba(255,255,255,0.92). Over the header's --primary-color
+     the translucent value composites to #ebf5ee and measures 4.28:1, under the
+     4.5:1 AA floor; solid white on the same green is 4.78:1. This component is
+     the shared page header, so the 8% of decoration cost most authenticated
+     routes their conformance at once. */
+  color: #fff;
   margin: 0;
   max-width: 80ch;
   line-height: 1.5;
@@ -94,9 +99,15 @@ defineProps({
    sensible default that reads on the green without each caller restyling. */
 .page-header__actions :deep(button),
 .page-header__actions :deep(.btn-ghost) {
-  background: rgba(255, 255, 255, 0.16);
+  /* Transparent, not rgba(255,255,255,0.16). The fill composited to #2d9949 and
+     dropped the white label to 3.64:1 — and because this is a `:deep()` rule in
+     the SHARED page header, it outranked each view's own .btn-ghost and applied
+     that failure to every dashboard action button at once. The border alone
+     carries the affordance; the label now sits on full-strength green at
+     4.78:1. */
+  background: transparent;
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 8px;
   padding: 0.5rem 1rem;
   font-weight: 600;

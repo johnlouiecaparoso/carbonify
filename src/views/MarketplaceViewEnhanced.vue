@@ -1609,8 +1609,10 @@ onUnmounted(() => {
 
 .submit-project-button {
   height: 42px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  /* Transparent, not rgba(255,255,255,0.15): over the green header that fill
+     composites to #2d9949 and drops the white label to 3.64:1. */
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   color: white;
   padding: 0 1.5rem;
   border-radius: 8px;

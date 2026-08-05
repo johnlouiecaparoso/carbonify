@@ -104,6 +104,52 @@ export async function loginAsTestAccount(page, { email, password }) {
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 })
 }
 
+/**
+ * Close the first-run tour if it opened, and report whether it had.
+ *
+ * `WelcomeTour` auto-opens once per account, and under a DEV mock session the
+ * "have you seen it?" read never resolves against Supabase, so it opens on
+ * EVERY signed-in test run. It is `role="dialog" aria-modal="true"` covering the
+ * viewport, which means it intercepts every click aimed at the navigation
+ * underneath it.
+ *
+ * That is not a cosmetic problem for a test sweep — it is silent under-coverage.
+ * An in-app navigation helper that swallows the resulting click timeout reports
+ * "route not reachable" and moves on, so a spec that discovers ten routes
+ * measures exactly one (the landing page) and still passes. The
+ * `measured.length > 0` guard does not catch it: one page is greater than zero.
+ *
+ * Returns true if a tour was actually dismissed, so a caller can assert on it
+ * rather than assume it.
+ */
+export async function dismissOnboarding(page, { waitMs = 5000 } = {}) {
+  const overlay = page.locator('.tour-overlay').first()
+
+  if (waitMs > 0) {
+    // The tour opens ASYNCHRONOUSLY — `maybeAutoOpen` awaits `hasSeenTour()`
+    // before calling `start()`, and that resolves after the sign-in redirect
+    // this helper's callers wait on. Checking for the overlay without waiting
+    // therefore finds nothing, returns "no tour", and the dialog then appears a
+    // moment into the sweep and blocks every click after it.
+    //
+    // That produced the most misleading failure in this file's history: a role
+    // whose ten navigations ALL timed out, reported as "something is
+    // intercepting in-app navigation" — which was true, and gave no hint that
+    // the interceptor was a race in the test's own setup rather than the app.
+    try {
+      await overlay.waitFor({ state: 'visible', timeout: waitMs })
+    } catch {
+      return false // Genuinely absent: already seen, or not shown for this role.
+    }
+  } else if (!(await overlay.count())) {
+    return false
+  }
+
+  await page.locator('.tour-skip').first().click({ timeout: 5000 })
+  await overlay.waitFor({ state: 'detached', timeout: 5000 })
+  return true
+}
+
 export const TEST_ACCOUNTS = {
   admin: { email: 'admin@carbonify.test', password: 'admin123' },
   verifier: { email: 'verifier@carbonify.test', password: 'verifier123' },

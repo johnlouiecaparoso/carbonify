@@ -332,4 +332,14 @@ watch(
   color: #047857;
   background: #ecfdf5;
 }
+
+/* Leaflet renders its attribution as a sentence with the "Leaflet" and
+   OpenStreetMap links distinguished by colour alone — WCAG 1.4.1, because a
+   colour-blind or greyscale reader cannot tell they are links. The control is
+   injected by the library into this component's DOM, so it needs `:deep()`;
+   underlining is the fix rather than removing the attribution, which OSM's
+   licence requires us to keep. */
+.boundary-picker :deep(.leaflet-control-attribution a) {
+  text-decoration: underline;
+}
 </style>
