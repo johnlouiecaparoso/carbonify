@@ -183,7 +183,13 @@
 > > the exact file that reverted the escrow fix this morning — and the database refused it:
 > > *"REFUSING TO RUN … a NEWER definition is already live and this file would silently revert it"*,
 > > naming `20260804000300` as the recovery file. **The same paste that broke the money path this
-> > morning is now blocked.** Nothing was changed by the attempt.
+> > morning is now blocked.**
+> >
+> > And the guard's own promise — *"Nothing has been changed"* — was checked rather than believed:
+> > the settlement-function verdict query was re-run straight afterwards and returned **`OK`**. Two
+> > independent readings agree, from opposite ends: the error's `CONTEXT` line showed the raise came
+> > from the guard block, before any statement below it, and the function itself is still the
+> > 2026-08-04 version.
 > >
 > > That test mattered more than it looked. A guard nobody has watched refuse is just a promise, and
 > > this project has been caught by exactly that before — a test suite that reported 22 of 22 passing
