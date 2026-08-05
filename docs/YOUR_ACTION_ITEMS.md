@@ -179,11 +179,15 @@
 > If you genuinely mean to replay one, run `set carbonify.allow_superseded_replay = 'yes';` first in
 > the same editor tab, then re-apply the file the error names afterwards.
 >
-> > **Please test it once, now, before the escrow session** — a guard nobody has watched refuse is
-> > just a claim. Paste `20260725000200_restore_escrow_hold_window.sql` into the SQL editor and run
-> > it. It must fail with the message above. **That is the pass.** If it says *"Success"*, tell me,
-> > because it means the guard is not doing its job and today's repair could silently come undone in
-> > the middle of your test session.
+> > ✅ **You tested it, and it works.** You pasted `20260725000200_restore_escrow_hold_window.sql` —
+> > the exact file that reverted the escrow fix this morning — and the database refused it:
+> > *"REFUSING TO RUN … a NEWER definition is already live and this file would silently revert it"*,
+> > naming `20260804000300` as the recovery file. **The same paste that broke the money path this
+> > morning is now blocked.** Nothing was changed by the attempt.
+> >
+> > That test mattered more than it looked. A guard nobody has watched refuse is just a promise, and
+> > this project has been caught by exactly that before — a test suite that reported 22 of 22 passing
+> > while measuring nothing at all.
 >
 > ---
 >

@@ -201,11 +201,23 @@
 > embedded in the guard block rather than in the function body. **The same class as
 > `securityDefinerGrants`, whose assertion was weaker than its own failure message.**
 >
-> > ⚠️ **Still unproven at the time of writing: nobody has watched a guard refuse on live.** The
-> > owner has been asked to paste `20260725000200` into the SQL editor once and confirm it errors.
-> > Until that happens this is a guard that has never been red, which this project has already
-> > learned is worth very little — see `responsive-authenticated.spec.js`, which reported 22/22
-> > passing having measured nothing.
+> > ✅ **PROVEN ON LIVE, same day.** The owner pasted `20260725000200` — the file that caused this
+> > morning's escrow revert — into the Supabase SQL editor. It refused:
+> >
+> > ```
+> > ERROR:  P0001: REFUSING TO RUN 20260725000200_restore_escrow_hold_window.sql — a NEWER
+> >         definition is already live and this file would silently revert it
+> > DETAIL: process_marketplace_purchase — recover by re-applying 20260804000300_…sql
+> > HINT:   Nothing has been changed. To replay anyway: set carbonify.allow_superseded_replay = 'yes';
+> > CONTEXT: PL/pgSQL function inline_code_block line 18 at RAISE
+> > ```
+> >
+> > **This is the measurement the whole change rests on, and it was worth insisting on**: a guard
+> > nobody has watched refuse is a claim, and this project has shipped a green that had never been
+> > red before (`responsive-authenticated.spec.js` reported 22/22 having measured nothing). The
+> > `CONTEXT` line is the part that matters — the raise came from the inline block, i.e. **before a
+> > single `create or replace` below it was reached**. The identical paste reverted the money path
+> > this morning; today it is refused, in the same editor, by the same person.
 >
 > ---
 >
