@@ -48,6 +48,19 @@ const IDENTITY = ['credit_listings', 'policy_acceptances', 'process_wallet_purch
 const ADDED_2026_08_04 = [
   { needle: 'carbonify_onboarding_dismissed_', what: 'per-account onboarding key' },
   { needle: 'ecolink_cart_pending_session', what: 'cart checkout session binding' },
+  // 2026-08-05. Two independent halves of that pass, chosen because each is
+  // invisible from the other side:
+  //
+  //   - the RPC name proves the CLIENT half of #39 shipped. The migration can be
+  //     applied while this is still absent — which was exactly the state for a
+  //     few minutes on 08-05, server half live and client half unmerged — and
+  //     the ledger keeps saying "Unknown buyer" the whole time. Nothing on the
+  //     database can tell you about this half.
+  //   - the account menu's aria-label proves the WCAG fixes shipped. It is a
+  //     string that exists only because the control became a real <button>; if
+  //     someone reverts it to a <div>, this needle goes with it.
+  { needle: 'get_my_buyer_names', what: "the asset ledger's buyer-name RPC (#39 client half)" },
+  { needle: 'Account menu', what: 'the keyboard-operable account menu (WCAG pass)' },
 ]
 
 /**
