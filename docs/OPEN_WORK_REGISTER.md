@@ -179,6 +179,35 @@
 > the eighth routed to **2b** as a decision. *An unrun check does not become true by being copied
 > forward six times.*
 >
+> **And then the day's second silent revert, which is the one that changes how this page should be
+> read.** `20260606000500` was replayed against live and reverted `reconcile_financials()` to a
+> definition missing check #6. Repaired and confirmed by measurement — `widened_check_present =
+> true`, **0 rows against 14 completed transactions**.
+>
+> > **Why it is worse than the morning's escrow revert, and it is not about severity.** The escrow
+> > revert would have produced a *visible* wrong result — `ESC-02` failing, a tester filing a
+> > confident false bug. This one produces **the correct-looking answer**: a reverted
+> > `reconcile_financials()` returns *"no rows — healthy"*, byte-identical to a healthy database. The
+> > daily money check this register routes the whole pilot through would have gone on reassuring
+> > everybody while the part that speaks had been removed. *A monitor that fails silent reports
+> > success.*
+>
+> **The fix is the first control on this project that is not advisory.** All 27 superseded
+> migrations already carried a ⚠️ banner, and `migrationSupersession.test.js` enforced it — both
+> working exactly as designed, and neither could ever have helped: **the banner is inside the text
+> you select-all and copy.** It travels with the paste rather than standing in the way of it. The 16
+> money-path migrations now open with an **executable** guard that queries `pg_proc` for a marker
+> unique to the current definition and raises before any statement below it runs, naming the
+> recovery file. Applying in order from empty is unaffected. ✅ **Proven on live the same day** — the
+> owner pasted the exact file that caused the morning's revert and the database refused it, with the
+> raise coming from the guard block, before the first `create or replace` was reached.
+>
+> > The routing lesson, and it is one this page has never recorded. Every previous entry here fixed
+> > a **defect in the product**. This one fixed a defect in **how the product gets changed** — the
+> > apply procedure itself, which appears in no lane, has no owner, and produced two production
+> > incidents in a single day. *The riskiest surface on this project today is not code that runs; it
+> > is a person pasting a file into an editor.*
+>
 > **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1256** (110 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed.
@@ -324,6 +353,7 @@
 | **Consent lifecycle, not just its parts** | ✅ **new layer 2026-08-01** — `policyShownOnce.test.js`, 8 tests. `policyConsent.test.js` covered the read and the write in isolation; nothing asserted the **sequence** (no row → box → accept → reload → no box). Runs it against an in-memory table enforcing the same `UNIQUE (user_id, policy_version)` index. **Mutation-checked**: removing `.eq('user_id', …)` turns two tests red. Owner-side half is [`policy_consent_verification.sql`](../supabase/diagnostics/policy_consent_verification.sql) | [TESTING_PLAN](TESTING_PLAN.md) |
 | **Responsive layout, MEASURED** | ✅ **new layer 2026-07-31** — `responsive.spec.js`, 37 tests at 320/390/768/1024/1440. Found the `/home` overflow that reading the CSS had not. `html { overflow-x: clip }` hides overflow rather than scrolling it, so `scrollWidth` would have passed while content was unreachable — it measures element geometry instead. ✅ **Authenticated half added 2026-08-01** — [`responsive-authenticated.spec.js`](../src/test/e2e/responsive-authenticated.spec.js), 22 tests, which found **three real layout bugs at 320px** on its first honest run. Its first version reported 22/22 passing having measured NOTHING (`page.goto` reloads, and the DEV mock session lives only in the store) — caught by a `measured.length > 0` assertion added because a green that has never been red proves nothing | [TESTING_PLAN](TESTING_PLAN.md) |
 | ~~**`localStorage` in unit tests is a no-op**~~ | ✅ **fixed 2026-08-02, by DELETING the mock.** happy-dom already provides a real `Storage`; the stub was pure loss. **It was worse than "stores nothing":** `Object.keys()` on it returned `['getItem','setItem','removeItem','clear']` — and that is exactly what `userStore.clearLocalStorage()` iterates, so the sign-out/expiry clear matched nothing, removed nothing and could not fail a test. `sessionStorage` was never stubbed, so the two halves of one loop behaved differently for months. Two new files pin what was previously untestable: [`authStorageClearing.test.js`](../src/test/store/authStorageClearing.test.js) (7) and [`cartPersistence.test.js`](../src/test/store/cartPersistence.test.js) (10, the cart had **no** tests at all). Both mutation-checked in both directions | [TESTING_PLAN](TESTING_PLAN.md) |
+| **The apply procedure itself** | ✅ **new layer 2026-08-05 (evening)** — [`migrationReplayGuard.test.js`](../src/test/services/migrationReplayGuard.test.js), 7 tests, mutation-checked in two directions. Every other row in this table tests the **product**; this one tests **how the product gets changed**, which produced two production incidents in one day and appears in no lane on this page. The 16 money-path migrations now refuse to execute when a newer definition is live. The assertion that carries the weight is *"the marker can actually fire"* — present in the newest definition, **absent from every earlier one** — because a guard whose marker also appears in the old file passes review and never once aborts. **It found a real defect on its first run: in itself.** ✅ Proven on live | [HANDOFF](HANDOFF.md) |
 | **Load / performance** | ❌ not done | before scaling, not before soft launch |
 | **Accessibility** | 🟢 **automated pass CLOSED 2026-08-04** — [`accessibility.spec.js`](../src/test/e2e/accessibility.spec.js), 18 tests, axe-core 4.10.3 against **WCAG 2.1 A + AA** in real Chromium (contrast needs layout, so happy-dom cannot check it). **0 violations on the 7 public routes.** Found and fixed: no `main` landmark ANYWHERE in the app, every route sharing one `<title>`, an ARIA-invalid combobox, three unnamed carousel buttons, and four contrast failures. ⚠️ **Automated checks catch roughly a third of WCAG** — green here means no *machine-detectable* violation, not that a screen-reader user can complete a purchase. **Manual/AT testing remains open** | [TESTING_PLAN](TESTING_PLAN.md) |
 | **Accessibility — the authenticated half** | 🟢 **CLOSED 2026-08-05** — [`accessibility-authenticated.spec.js`](../src/test/e2e/accessibility-authenticated.spec.js). The row above said "authenticated routes are not yet covered", and that was the whole finding: **the 08-04 green described the marketing pages.** Four roles × the ten routes each role's nav actually offers ≈ 40 page-audits. **0 violations now; on the first run every authenticated page failed.** The bell had no accessible name; the account menu was a `<div>`, so **a keyboard-only user could not sign out** — which **axe cannot detect and never will**, and was caught only by asserting the control *opens*. Four contrast defects each spanned many pages at once, all of them a *translucent* value over the brand green — including a `:deep()` rule in the shared `PageHeader` that outranked every view's own button style | [TESTING_PLAN §1.8](TESTING_PLAN.md) |

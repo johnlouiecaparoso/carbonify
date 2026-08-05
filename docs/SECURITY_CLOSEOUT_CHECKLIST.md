@@ -1,5 +1,63 @@
 # Security Close-out & Hardening — Status + Test Runbook
 
+> ## ✅ 2026-08-05 (evening) — the Supabase advisor sweep. **All seven applied and re-probed.**
+>
+> This page's §4 gate has read all-ticked-but-the-pentest since 2026-07-04, and §1 lists what was
+> "done AND verified". A third-party linter reading the **live database** — not this page, not the
+> code — produced the most severe finding of the week in one pass.
+>
+> | # | Finding, as measured signed out with the publishable key | Fix | State |
+> |---|---|---|---|
+> | A | `public.projects` carried `USING (true) WITH CHECK (true)` for **ALL** commands and every role, so an **anonymous stranger could rewrite or delete every project in the registry**. RLS policies are PERMISSIVE and OR together, so this had made the careful owner/staff set from `20260624000000` dead on live since the day it was applied | `20260805000400` | ✅ applied |
+> | B | Two `SECURITY DEFINER` views returned **2 wallet balances and 16 credit holdings** to a signed-out caller. A view runs as its **owner** unless `security_invoker = on`, so RLS on the base tables was working perfectly and being read around. Personal financial data under the DPA | `20260805000500` | ✅ applied |
+> | C | `audit_logs` / `email_logs` / `receipts` accepted inserts from **anyone**. "System can insert" was the intent; `WITH CHECK (true)` was the effect — and `service_role` bypasses RLS anyway, so the policy was never needed for the thing it was named after | `20260805000600` | ✅ applied |
+> | D | Five pre-version-control tables had RLS **off**; PostgREST exposes everything in `public` | `20260805000700` | ✅ applied |
+> | E | 25 legacy functions had a role-mutable `search_path`, including the four that **issue and transfer credits** | `20260805000800` | ✅ applied |
+> | F | The `avatars` bucket was **anon-listable**, and filenames are `${userId}_${timestamp}` — so one request returned a roster of every user id that had uploaded a photo. The images were meant to be public; the membership list was not | `20260805000900` | ✅ applied |
+> | G | Three anon-callable `SECURITY DEFINER` functions wrote to `audit_logs` **as owner**, walking around the policy F's sibling had just added. Proven by accident: a probe meant to fail on a cast ran the function and wrote two rows | `20260805001000` | ✅ applied |
+>
+> **Two lessons this checklist should carry, because both contradict how a close-out is usually read:**
+>
+> 1. **Severity describes the shape of a finding, not its consequence.** The advisor rated the
+>    deletable project registry a **WARN**, while four of its nine **ERRORs** were empty superseded
+>    tables. Every finding here was probed against live before it was ranked. *Probe before you
+>    prioritise.*
+> 2. **A grant audit must be done per SIGNATURE, never per name.** `20260703000400` revoked
+>    `retire_credits_atomic(uuid, uuid, numeric)`; `20260718000000` added a four-argument overload and
+>    never revoked it; `20260802000100`'s audit matched on the **name** and marked it done. The hole
+>    sat open for three weeks behind a ✅.
+>
+> **Re-runnable evidence, exit 1 on any failure:** `node scripts/analysis/verify-anon-exposure.mjs`
+> → **23/23 PASS**, including two `STILL-WORKS` checks so a "fix" that protects data by emptying the
+> marketplace cannot pass. Per-signature grant surface:
+> [`definer_grant_surface.sql`](../supabase/diagnostics/definer_grant_surface.sql).
+>
+> ⚠️ **Left open deliberately, and belongs on the pentest brief:** signed out, the database still
+> answers *"what role does this user id have?"* (`get_user_role(uuid)` → `"general_user"`) — account
+> enumeration with role labels. Not fixed because the no-argument forms of those helpers appear
+> inside RLS policy expressions, which evaluate as the **querying** role, so a revoke catching the
+> wrong overload empties the marketplace for signed-out visitors. Do it from a policy dump, per
+> signature. Tracked as [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#45**; `audit_logs` being
+> self-asserted rather than an audit trail is **#42**.
+>
+> ### 🔐 A control this checklist never had: an applied fix could be un-applied by accident
+>
+> Twice on 2026-08-05, pasting a superseded migration into the SQL editor **silently reverted a
+> security or money fix** — `create or replace` overwrites rather than merges, and the editor reports
+> *"Success. No rows returned."* Every ✅ on this page describes a migration that was applied, and
+> until today **nothing stopped one being undone by a routine copy-paste.** A close-out checklist
+> that only records what was applied is measuring the wrong moment.
+>
+> The 16 money-path migrations now carry an **executable guard** that aborts when a newer definition
+> is already live, naming the file to re-apply. Ratcheted by
+> [`migrationReplayGuard.test.js`](../src/test/services/migrationReplayGuard.test.js) and **proven on
+> live** — the file that caused the morning's revert was pasted again and refused. Deliberate replay
+> stays possible via `set carbonify.allow_superseded_replay = 'yes'`.
+>
+> **For the pentest brief:** the reverted `reconcile_financials()` is the instructive one. It did not
+> fail — it returned *"no rows, healthy"*, which is what a healthy database returns. **A monitor that
+> fails silent reports success**, and this project's daily money-integrity check was that monitor.
+
 > ## ✅ 2026-08-04 — money-path defect pass. **All five applied 2026-08-05.**
 >
 > This page's §4 gate has read all-ticked-but-the-pentest since 2026-07-04. A read of the money

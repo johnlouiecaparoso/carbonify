@@ -18,6 +18,13 @@
 > anonymous-exposure evidence with `node scripts/analysis/verify-anon-exposure.mjs` (**23/23 PASS**).
 > Suite **1303 green** across 115 files, Playwright **130**, lint 0, build green.
 >
+> ✅ **Replaying a migration can no longer silently revert a fix.** It happened **twice on
+> 2026-08-05** — to the escrow method-gate, then to `reconcile_financials()`, whose reverted copy
+> reports *"healthy"* because the check that would speak is the part removed. The ⚠️ banner could
+> never have stopped it: **it is inside the text you select-all and copy.** The 16 money-path
+> migrations now **refuse to run** when a newer definition is live, naming the file to re-apply —
+> and that refusal has been **watched happening on live**, not just asserted.
+>
 > ⚠️ **Two things the sweep left open, neither gating the pilot:** signed out, the database will still
 > answer *"what role does this user id have?"* (**#45** — the revoke needs a policy dump, because the
 > same helpers run inside RLS expressions and a wrong one blanks the marketplace for logged-out
@@ -76,7 +83,7 @@ Read them in this order — the first two answer "where are we" and "what do I d
 | [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md) | Why a farmer's tCO₂e is calculated the way it is |
 | [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) | Security close-out status + step-by-step test runbook |
 | [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md) | The original live click-through; breadth is now covered by the soft-launch runbook |
-| [RELEASE_NOTES.md](RELEASE_NOTES.md) | User-facing release summaries, newest first — from the 2026-07-03 money cutover through the 2026-07-26 UI consistency pass |
+| [RELEASE_NOTES.md](RELEASE_NOTES.md) | User-facing release summaries, newest first — from the 2026-07-03 money cutover through the **2026-08-05** pass. The August entry is the one to read before a pilot briefing: it is mostly one fault repeated — a screen failing to load your data and then telling you that you have none |
 
 ## 💼 Commercial
 

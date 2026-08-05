@@ -1,6 +1,67 @@
 # Carbonify — Release Notes
 
-## 2026-07-28 (latest) — A wrong number on ESG reports, fixed; and dialogs you can close with a key
+## 2026-08-05 (latest) — Screens that said you had nothing when you had something
+
+**Headline:** a run of fixes to the same underlying fault — a page failing to load your data and
+then telling you, confidently, that you have none. If a screen ever showed you an empty portfolio,
+an empty wallet or "no credits available" during late July, it may not have been telling the truth.
+
+- **⚠️ "You have retired nothing", "no transactions", "no credits available" — several screens could
+  say this when the real answer was that the data had failed to load.** The retirement screen, the
+  wallet, the marketplace, your portfolio, your orders, your certificates, the compliance queues and
+  the admin settings page were all affected at different times. Each now shows an error when
+  something goes wrong, instead of an empty state that looks like a fact about you. **If you made a
+  decision based on an empty screen in late July, it is worth looking again.**
+
+- **Your analytics page no longer invents a portfolio.** The category breakdown was seeded with five
+  placeholder categories, which rendered as a finished chart before anything loaded — and stayed
+  there if the load failed or you had never bought anything. On the paid plan, that meant a
+  confident breakdown of a portfolio you did not own. It now starts empty.
+
+- **Exports and downloads work reliably.** Every download in the app could silently never happen —
+  no error, no message, just nothing. Intermittent, which is why it survived in eight places at
+  once.
+
+- **You can now sign out using only a keyboard**, and the notification bell, buttons and text
+  throughout the signed-in app now meet WCAG 2.1 AA contrast. The account menu had never been a real
+  button, so keyboard and screen-reader users could not open it — on every page, in every role.
+
+- **Sharing a device no longer shares your basket, your searches or your welcome guide.** Your cart,
+  your recent searches and the homepage quick-start guide were stored per *device* rather than per
+  account, so the next person to sign in inherited them. A basket you build before signing in is now
+  carried forward to your account rather than left behind.
+
+- **Payments and checkout:** an abandoned cart could delete an unpaid item on your next successful
+  payment and tell you it had been purchased; the confirmation screen could fail to render if the
+  payment provider left out an amount; and one payment could activate two subscription periods.
+  All fixed.
+
+- **The register page now links to the Terms, the Privacy Policy and the Carbon Credits Policy** —
+  the documents you agree to by creating an account. It previously gave you no way to open them.
+
+- **On phones:** the home page no longer overflows sideways, an installed app no longer draws its
+  header under the status bar, and icons no longer appear as words like `check_circle` when you are
+  offline.
+
+- **The "allow analytics" privacy switch now does something.** It previously did nothing at all.
+  The remaining privacy and notification toggles are still being built out and are documented as
+  not yet enforced.
+
+- **For admins and verifiers:** ID documents in the KYC queue open and can be zoomed and rotated
+  (they previously opened a blank tab); the review card is laid out as an ordered workflow rather
+  than three columns; verifiers have a decision history with a CSV export; and the review thread
+  between a verifier and a developer now shows both parties' names instead of labelling everyone
+  "User".
+
+- **Accessibility settings are real.** High contrast, larger text, reduced motion, focus outlines and
+  colour-blind cues previously added styling classes that no stylesheet answered. Four settings that
+  could never work — including a currency selector offering USD, EUR, GBP and JPY while nothing
+  converted — were removed rather than left as decoration.
+
+**Unchanged and still disclosed:** credits are not yet registry-backed, and payments run on test
+keys. Withdrawals are recorded but no real money moves yet.
+
+## 2026-07-28 — A wrong number on ESG reports, fixed; and dialogs you can close with a key
 
 **Headline:** if you exported an ESG or offset report, it may have understated how many credits you
 retired. That is fixed. Separately, every pop-up dialog can now be closed with the Escape key.

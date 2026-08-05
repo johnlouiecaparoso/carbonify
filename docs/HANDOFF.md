@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · **advisor sweep 2026-08-05 (evening) — seven more migrations, applied and now tracked; one behavioural gate left (`ESC-01…06`)**
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · **advisor sweep + migration replay guards 2026-08-05 (evening) — seven more migrations applied and now tracked, and the apply procedure itself is no longer advisory; one behavioural gate left (`ESC-01…06`)**
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
