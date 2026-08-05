@@ -88,9 +88,18 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
   **Expected:** events settle to a processed state; the `error` column is empty on recent rows. A
   populated `error` is a handler that threw — read it before launch.
 
-- [ ] **1c. All 8 edge functions are deployed** (Supabase Dashboard → Edge Functions):
+- [ ] **1c. The 7 required edge functions are deployed** (Supabase Dashboard → Edge Functions):
   `paymongo-checkout` · `paymongo-webhook` · `process-payouts` · `paymongo-reconcile` ·
-  `paymongo-resettle` · `send-approval-email` · `account-deletion` · `public-registry`.
+  `paymongo-resettle` · `send-approval-email` · `account-deletion`.
+
+  ⚠️ **This said 8 until 2026-08-05, and the eighth is `public-registry`, which is NOT deployed** —
+  measured, with a control: a made-up function name returns the identical `404 NOT_FOUND`, while
+  `process-payouts` returns `405`. **Do not deploy it to make this box tick.** Nothing in `src/`
+  calls it; it is a white-label scaffold, and its own
+  [README](../supabase/functions/public-registry/README.md) says API-key gating, rate limiting and
+  response versioning are owner decisions *before* production. Deploying it now would put an
+  ungated public API on the internet days before a pilot, to satisfy a checklist. Public-API
+  exposure is a Lane 2b decision — leave it undeployed until it is made.
 
 - [ ] **1d. PayMongo is in TEST mode.** Confirm the deployed `paymongo-checkout` / `paymongo-webhook`
   secrets hold **test** keys (`sk_test_…`), and the PayMongo webhook points at the live Supabase

@@ -12,9 +12,17 @@
 > taken by an unrelated app. The pipeline never broke; only the docs naming the URL did.
 >
 > ✅ **Everything is applied, pushed and live.** The five `20260804*` migrations, three money edge
-> functions, and the three `20260805*` migrations — the last of which closed a grant-hygiene hole
-> that left seven functions callable anonymously — all confirmed by probe or in the deployed bundle.
+> functions, and **ten** `20260805*` migrations — `000100`–`000300` (the last of which closed a
+> grant-hygiene hole that left seven functions callable anonymously), plus `000400`–`001000` from the
+> evening's **Supabase advisor sweep** — all confirmed by probe or in the deployed bundle. Re-run the
+> anonymous-exposure evidence with `node scripts/analysis/verify-anon-exposure.mjs` (**22/22 PASS**).
 > Suite **1296 green** across 114 files, Playwright **130**, lint 0, build green.
+>
+> ⚠️ **Two things the sweep left open, neither gating the pilot:** signed out, the database will still
+> answer *"what role does this user id have?"* (**#45** — the revoke needs a policy dump, because the
+> same helpers run inside RLS expressions and a wrong one blanks the marketplace for logged-out
+> visitors), and `audit_logs` records what the browser asserts, so it is a convenience log rather than
+> an audit trail (**#42**).
 >
 > **The one thing gating a pilot seller invite is `ESC-01…06`** — the escrow behaviour checks.
 > Escrow is applied and holding balances; nobody has watched it behave on a real purchase. Run
@@ -99,6 +107,8 @@ editor shows only the last statement's result when a whole file is pasted.
 | [`daily_beta_health.sql`](../supabase/diagnostics/daily_beta_health.sql) | Run every morning during the pilot |
 | [`find-dead-exports.mjs`](../scripts/analysis/find-dead-exports.mjs) | 🆕 `node scripts/analysis/find-dead-exports.mjs` — which exports nothing references. **Candidates, not a verdict**: deliberately conservative, and deleting one took down a live surface on 2026-08-02 |
 | [`verify-deploy.mjs`](../scripts/analysis/verify-deploy.mjs) | 🆕 `node scripts/analysis/verify-deploy.mjs <url>` — **is that URL serving THIS app, and is it current?** Written 2026-08-05 after a 200 with the right `<title>` turned out to be an unrelated React project. Exit 0/1, so it can gate a pre-flight |
+| [`verify-anon-exposure.mjs`](../scripts/analysis/verify-anon-exposure.mjs) | 🆕 `node scripts/analysis/verify-anon-exposure.mjs` — **what can a signed-out stranger see and write?** Probes with the publishable key, because that is the attacker's actual position. Its write probes send an empty body to a NOT NULL column so they cannot create a row; the trick is reading *which layer refuses* — `42501` means RLS said no, `23502` means **RLS had already said yes**. Includes controls (if the money tables ever stop returning `42501`, the method itself has broken) and two `STILL-WORKS` checks so a fix that protects the data by emptying the marketplace cannot pass. Exit 0/1 |
+| [`definer_grant_surface.sql`](../supabase/diagnostics/definer_grant_surface.sql) | 🆕 Which `SECURITY DEFINER` functions are grantable to `anon`, **per signature** — written after a grant audit that matched on the function *name* marked a four-argument overload as revoked when only the three-argument one was. Query C lists every policy whose expression mentions the role helpers, which is the prerequisite for closing #45 without blanking the marketplace |
 
 ## 🛠 Build / operate it
 

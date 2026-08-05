@@ -298,7 +298,8 @@ run at least a few times with different people.
 - Bugs, confusions, and drop-off points — captured in a simple shared sheet or issue tracker.
 
 **Entry criteria (all true before inviting anyone):** runbook §1 pre-flight all green — reconcile 0,
-security verified (done), webhook healthy, **8** edge functions deployed, PayMongo in test mode.
+security verified (done), webhook healthy, the **7 required** edge functions deployed (`public-registry`
+is deliberately excluded — [SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §1c), PayMongo in test mode.
 Tick-box equivalent: `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1.
 
 **Exit criteria (ready to move toward real money):**

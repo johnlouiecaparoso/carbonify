@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · **measurement pass 2026-08-05 — everything applied, pushed and live; one behavioural gate left (`ESC-01…06`)**
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · **advisor sweep 2026-08-05 (evening) — seven more migrations, applied and now tracked; one behavioural gate left (`ESC-01…06`)**
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -27,8 +27,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. |
-> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. |
+> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. 🆕 **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`, unit **1296/1296 across 114 files**, lint **0**. |
+> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. 🆕 **The advisor sweep below is applied and re-probed — 22/22 PASS signed out.** |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -40,6 +40,7 @@
 > | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
+> | Anonymous exposure surface | ✅ **Swept and re-probed 2026-08-05 (evening) — 22/22 PASS signed out**, with two `STILL-WORKS` checks proving public browsing survived. Seven migrations (`20260805000400`–`001000`). What they closed was **live at the time**, not theoretical: `public.projects` carried `USING(true) WITH CHECK(true)` for `ALL` roles, two `SECURITY DEFINER` views returned wallet balances and credit holdings to a signed-out caller, three tables accepted inserts from anyone, and the `avatars` bucket was listable — filenames are `${userId}_${timestamp}`, so the listing was a roster of user ids. Re-runnable: `node scripts/analysis/verify-anon-exposure.mjs` |
 > | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. `certificates` RLS applied 2026-08-05 (`20260804000500`). ⚠️ **`profiles` still has no tracked SELECT policy** — its read posture exists only on live (#39). 🆕 **But it has now been MEASURED, and #39's premise was wrong**: probes 9-10 of the negative RLS suite return `0 of 6` foreign profile rows for a signed-in user, so nobody can enumerate the user table. What remains is that no migration reproduces that posture, plus a few cross-user reads that render as absent data. The **admin** read path is still unmeasured |
 > | KYC / suspension gate on **both** purchase paths | ✅ **Applied 2026-08-05** (`20260804000100`). The wallet path now enforces the same KYC threshold and suspension check as the card path |
 > | Profiles column privileges | ✅ **Deny-list applied 2026-08-05** (`20260804000200`), closing both audit findings — self-granting a paid plan, and profile saves failing `42501` for every user |
@@ -103,6 +104,15 @@
 > > **Both were rows that said "done".** The list was not short of unblocked work; it was short of
 > > *re-measured* claims. That is the same finding as the money-path pass and the deploy-URL pass,
 > > arriving from the test-coverage side: **a register entry describing a check is not the check.**
+> >
+> > 🔎 **A fourth time, the same evening, and this one came from a checklist rather than a register.**
+> > Six documents carried the pre-flight line *"8 edge functions deployed"*. Probing the gateway
+> > returned **seven** — `public-registry` has never been deployed, confirmed with a control so the
+> > 404 could not be read as a bad guess. Nobody had run that check; it had been copied forward six
+> > times instead. Had it been run for the first time by an owner during pre-flight, the obvious
+> > repair — deploy the missing one — would have put an **ungated public API** on the internet to
+> > satisfy a tick-box. **An unrun check does not accumulate confidence by being restated**, and the
+> > repair a checklist implies is not always the correct one.
 >
 > **👤 Owner — ⓪ and ① are DONE as of 2026-08-05.** ~~⓪ run `access_posture_audit.sql`~~ (run; 5
 > rows, both findings closed); ~~① apply the five `20260804*` migrations, redeploy the edge functions,
@@ -110,8 +120,10 @@
 > bundle verified chunk-by-chunk at `carbonify-gilt.vercel.app`). `VITE_GA_TRACKING_ID` is now safe
 > to set. **What remains:**
 >
-> ① 🔴 the **escrow checks** (`ESC-01…06`) — the last thing gating a seller invite, and now the only
-> open item on the whole board. 🆕 **[OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md)** is your
+> ① 🔴 the **escrow checks** (`ESC-01…06`) — the last thing **gating a seller invite**. *(This read
+> "the only open item on the whole board" until the evening of 2026-08-05; the advisor sweep added
+> five backlog items the same day, none of which gate the pilot. It is the only remaining
+> **functional gate**, which is a narrower and truer claim.)* 🆕 **[OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md)** is your
 > copy and **[TESTER_GUIDE.md](TESTER_GUIDE.md)** is what you hand each helper: it needs a buyer, a
 > seller and an admin acting in sequence, because each claim is visible on a screen only one of them
 > can see. Set-up, a 16-step running order with handoff points, and
@@ -142,6 +154,85 @@
 > > negative result from an enumeration is a statement about the enumeration**, and the owner
 > > answered it in one message. *The deploy target is not discoverable from this repo: when it is
 > > unknown, ask rather than sweep.*
+> >
+> > 🆕 **A third variant, found the same evening: LIVE BUT NOT RECORDED.** The seven advisor-sweep
+> > migrations had been applied to the database and left **uncommitted** — so the policies protecting
+> > production existed on live and nowhere else, and the three status docs that route this project
+> > did not mention the sweep at all. This is worse than "built but not live", because a lost working
+> > tree takes the only copy of the fix with it, and the next person to read `supabase/migrations/`
+> > sees a schema that does not match the database. Committed `29c9fd2`.
+> >
+> > *The rule that covers all three: **the repo, the database and the deploy are three separate
+> > states, and agreement between any two of them is not evidence about the third.***
+>
+> ---
+>
+> ### 🆕 2026-08-05 (evening) — the Supabase advisor sweep, and one live-but-unrecorded pass
+>
+> **Nine ERRORs and a long WARN tail, each probed against live with the anon key before anything was
+> written.** Seven migrations (`20260805000400`–`001000`) close what was real, all applied and
+> re-verified: `node scripts/analysis/verify-anon-exposure.mjs` → **22/22 PASS**, including two
+> `STILL-WORKS` checks proving signed-out marketplace browsing survived.
+>
+> **The headline is that the worst finding was a WARN.** `public.projects` carried a policy with
+> `USING (true) WITH CHECK (true)` for `ALL` commands and every role — so a signed-out stranger could
+> rewrite or delete every project in the registry — while four of the nine ERRORs turned out to be
+> empty superseded tables. RLS policies are PERMISSIVE and OR together, which means that one policy
+> had made the careful owner/staff set from `20260624000000` **dead on live since the day it was
+> applied**. *Advisor severity describes the shape of a finding, not its consequence — probe before
+> you prioritise.*
+>
+> What else was live at the time, all measured signed out:
+>
+> - **`wallet_summary` returned 2 rows and `user_credit_portfolio` returned 16** to an anonymous
+>   caller — balances, top-ups, withdrawals, holdings and purchase prices. A Postgres view runs as
+>   its **owner** unless `security_invoker = on`, so RLS on the base tables was working perfectly and
+>   being read around. Personal financial data under the DPA, readable by anyone who opens the site
+>   and reads the publishable key out of the network tab;
+> - **`audit_logs` / `email_logs` / `receipts` accepted inserts from anyone.** "System can insert" was
+>   the intent; `WITH CHECK (true)` was the effect, and `service_role` bypasses RLS anyway so the
+>   policy was never needed for the thing it was named after;
+> - **the `avatars` bucket was anon-listable.** A public bucket does not need a SELECT policy to serve
+>   images; what the policy actually granted was the LIST endpoint. Filenames are
+>   `${userId}_${timestamp}`, so one request returned a complete roster of every user id that had
+>   uploaded a photo. *The images were meant to be public. The membership list was not.*
+>
+> **The second round is the more interesting one.** With the ERRORs closed, the WARN tail still held a
+> real hole: `log_user_action`, `log_system_event` and `log_email_sent` are untracked
+> `SECURITY DEFINER` functions, anon-callable, that INSERT into `audit_logs` **as their owner** —
+> walking straight around the policy `20260805000600` had just added. Proven by accident: a probe
+> meant to fail on a cast instead ran the function and wrote two rows (since deleted). **Restricting a
+> table's RLS is not sufficient while a `SECURITY DEFINER` function will do the write for you — the
+> two must be audited together.**
+>
+> The same round found `retire_credits_atomic(uuid, uuid, numeric, text)` anon-callable:
+> `20260703000400` revoked the **three**-argument signature, `20260718000000` added a four-argument
+> overload and never revoked it, and `20260802000100`'s audit matched on the **name** and marked it
+> done. Not exploitable — the body takes identity from `auth.uid()` — but **a grant audit must be done
+> per signature, never per name.**
+>
+> **Deliberately not fixed, and re-confirmed by probe:** the anon-callable policy helpers (`is_admin()`,
+> `is_lgu()`, `is_mrv_staff()`, `current_user_role()`) must keep `anon` EXECUTE or anonymous reads
+> break; the ~15 trigger functions in the same warning are unreachable (`PGRST202` — PostgREST will
+> not expose a `trigger` return type); and `pg_net` in `public` is probed **not** reachable by anon,
+> while moving an extension between schemas breaks every `net.http_*` caller.
+>
+> **What the sweep opened rather than closed — [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #41–45.** None
+> gates the pilot; **#45 is the one to know about while invited users are on the system**: `anon` can
+> still ask the database for any user's role (`get_user_role(uuid)` answered `"general_user"` to a
+> signed-out caller). It is deferred rather than forgotten because the no-argument forms of those
+> helpers appear inside RLS policy expressions, which evaluate as the **querying** role — so a revoke
+> that catches the wrong overload empties the marketplace for signed-out visitors. Do it from a
+> **policy dump**, not a guess; Query C in
+> [`definer_grant_surface.sql`](../supabase/diagnostics/definer_grant_surface.sql) exists for that.
+>
+> **Also corrected the same evening: `public-registry` is not deployed, and six documents told you to
+> tick a box saying it was.** Measured with a control — a made-up function name returns the identical
+> `404 NOT_FOUND`, `process-payouts` returns `405`. Nothing in `src/` calls it; it is a white-label
+> scaffold whose own README defers API keys, rate limiting and versioning to the owner. **The
+> checklist was wrong, not the deployment** — ticking that box would have published an ungated public
+> API days before a pilot. The pre-flight now reads **7 required**, with the eighth named as a
+> decision.
 >
 > ---
 >
@@ -2990,7 +3081,7 @@ frontend deploy). While writing it: the runbook's §1b snippet queried
 > hold or transfer their money; that part of the decision has not changed.
 
 0. ~~Apply the escrow + feedstock + receipt-FK migrations~~ — ✅ **all three applied 2026-07-29**, `reconcile_financials()` = 0 after each. **What replaced this as step 0: schedule `process-payouts` on a ~15-minute cron.** Escrow is live, so card sellers are being held right now and `release_matured_escrow()` is the only thing that frees them.
-1. **Run the pilot pre-flight** — and read the new **§7 SUMMARY** at the end of the file, not the project list — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · **8** edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). This is also `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1, if you prefer a tick-box form of it. **Plus, in this same window:**
+1. **Run the pilot pre-flight** — and read the new **§7 SUMMARY** at the end of the file, not the project list — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · the **7 required** edge functions deployed — ✅ measured 2026-08-05; `public-registry` is deliberately **not** among them · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). This is also `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1, if you prefer a tick-box form of it. **Plus, in this same window:**
    - **Redeploy + schedule** `process-payouts` (cron ~15 min, so `release_matured_escrow()` fires), then run the escrow checks — now **`ESC-01…06`** in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 2, which supersede the 4 informal ones in [ESCROW_DECISION.md](ESCROW_DECISION.md) §6 (card→held, push→immediate, matured release, refund-while-held, each `reconcile_financials()` = 0, plus a withdrawal). **Run these BEFORE inviting pilot users**, so the beta exercises escrow on test money. *(The escrow migration itself is no longer pending — see step 0.)*
    - **Run** [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) → expect **0 rows** (confirms #13c holds).
 2. **Decide the beta database** — [TESTING_PLAN.md](TESTING_PLAN.md) §3. Recommendation: reuse the current live project now that reconcile is clean, but purge or clearly label leftover test projects/listings first.

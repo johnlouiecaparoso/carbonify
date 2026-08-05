@@ -187,7 +187,8 @@ production is the same class of defect as everything else this project has been 
 - [x] Frontend deployed — ✅ **2026-08-01**, PR #14 merged to `main`, production verified by fetch
       *(carries the router access-control fix, the consent gate, the onboarding guides, the KYC
       document viewer and the PWA fixes — until it ships, none of those are live)*
-- [ ] All 8 edge functions confirmed deployed
+- [ ] The **7 required** edge functions confirmed deployed (`public-registry` is deliberately not
+      one of them — see [SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §1c)
 - [x] ✅ Signups enabled (`disable_signup` = `false`) — **2026-07-31**
 - [x] ✅ Email confirmation OFF (`mailer_autoconfirm` = `true`) — **2026-07-31**, taken instead of
       buying the domain first

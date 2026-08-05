@@ -142,6 +142,43 @@
 > > unmeasured claims.** Four independent findings today, all inside rows marked closed. Lane 1 was
 > > not short of unblocked work; it was short of re-measured ones.
 >
+> **Worked 2026-08-05 (evening) — the Supabase advisor sweep, and a routing failure this page has now
+> made twice.** Seven migrations (`20260805000400`–`001000`), applied to live and **re-probed**:
+> `node scripts/analysis/verify-anon-exposure.mjs` → 22/22 PASS signed out. Detail in
+> [HANDOFF.md](HANDOFF.md) § *2026-08-05 (evening)*; what the sweep deliberately left is
+> [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#41–45**.
+>
+> **The routing failure first, because it is this page's own subject.** All seven were applied to the
+> database and left **uncommitted** — so for several hours production was protected by policies that
+> existed on live and in no repository, while this register, HANDOFF and YOUR_ACTION_ITEMS all still
+> said escrow was the only open item. On 2026-08-05 (morning) this page recorded the identical
+> lesson — *"work that is not committed is not in Lane 2; it is still in Lane 1, and this register
+> cannot see it"* — and the same day it happened again, in the harder direction: **applied to live,
+> absent from git.** Committed `29c9fd2`.
+>
+> > **A register cannot route what it cannot see, and it cannot see the database.** Every lane here
+> > describes work on the codebase. Twice now the real state has been somewhere else — in a Vercel
+> > dashboard on 08-05 (morning), in `pg_policies` on 08-05 (evening). *The repo, the database and
+> > the deploy are three separate states; agreement between any two says nothing about the third.*
+>
+> **The findings themselves, in one line each.** `public.projects` carried `USING(true) WITH
+> CHECK(true)` for ALL roles, so a signed-out stranger could delete every project in the registry —
+> and the advisor rated that **WARN** while four of its nine **ERRORs** were empty superseded tables.
+> Two `SECURITY DEFINER` views handed an anonymous caller 2 wallet balances and 16 credit holdings.
+> Three tables took inserts from anyone. The `avatars` bucket was listable, and filenames are
+> `${userId}_${timestamp}`, so the listing was a roster of user ids. Then a second round found the
+> hole in the first: three anon-callable `SECURITY DEFINER` functions wrote to `audit_logs` **as
+> owner**, walking around the policy just added — **a table's RLS is not sufficient while a DEFINER
+> function will do the write for you.**
+>
+> 🆕 **And one checklist item was wrong in six documents: `public-registry` is not deployed.** The
+> pre-flight said *"8 edge functions deployed"*; the gateway says seven, control-tested. It is an
+> ungated white-label scaffold nothing in `src/` calls, so **the checklist was wrong, not the
+> deployment** — and running that check for the first time during pre-flight would have invited the
+> owner to publish an unauthenticated public API to make a box tick. Now reads **7 required**, with
+> the eighth routed to **2b** as a decision. *An unrun check does not become true by being copied
+> forward six times.*
+>
 > **Worked 2026-08-04 — the pre-pilot defect hunt.** Suite **1185 → 1256** (110 files), build green,
 > lint 0, no migrations. **#35 is CLOSED**, and the decision it was parked on turned out not to be
 > needed.
@@ -256,6 +293,11 @@
 
 | # | Item | Note |
 |---|---|---|
+| 41 | 🆕 **Draft projects are readable signed out** | `20260805000400` deliberately changed **writes only**, so anon still reads all 7 project rows, drafts included — which contradicts `projectWorkflowService.js`'s own comment that a draft is the developer's private workspace. Not folded in because **narrowing a read can empty a screen**, and the marketplace, registry and project-detail pages all read this table while signed out. Needs a pass over those read paths first, then roughly `status <> 'draft' OR user_id = auth.uid() OR staff` |
+| 42 | 🆕 **Client-side audit logging is self-asserted** | `20260805000600` stopped anonymous and cross-user forgery of `audit_logs`; it did **not** make the trail trustworthy. A signed-in caller can still write truthful-looking rows about themselves, and pre-auth events — failed sign-ins, blocked registrations, the exact things an auditor asks for — cannot be captured from a browser at all. **Do not describe this table as an audit trail to a pilot partner** until capture is server-side |
+| 43 | 🆕 **Four superseded tables are locked but still present** | `listings` / `orders` / `wallets` / `verifications` are the pre-rename originals. `20260805000700` enables deny-all RLS rather than dropping them, because a drop is irreversible and these objects were never tracked, so the repo cannot prove nothing external reads them. Dropping is the honest end state — two tables called `listings` and `credit_listings` is a bug waiting for a tired evening |
+| 45 | 🆕 **Anon can ask the database for any user's role** 🟡 | `get_user_role('32bb632d-…')` returned `"general_user"` to a **signed-out** caller. With a user id — which the avatars bucket was handing out until `20260805000900` — that is account enumeration with role labels. ⚠️ **The one open exposure while invited users are on the system.** Deferred, not forgotten: the no-arg forms appear inside RLS policy expressions, which evaluate as the *querying* role, so a revoke catching the wrong overload empties the marketplace for signed-out visitors. Do it from a **policy dump**, per signature — Query C in [`definer_grant_surface.sql`](../supabase/diagnostics/definer_grant_surface.sql) |
+| 44 | 🆕 **`get_email_stats` is not admin-gated** 🟢 | `20260805000800` takes `anon` off it; `authenticated` keeps EXECUTE because **the function body is not in this repo** and may already gate on `is_admin()`. Nobody has read it. Dump the definition and either confirm the gate or add one |
 | ~~33~~ | ~~Three services own project writes~~ — ✅ **CLOSED 2026-08-02, and it was never an architecture problem.** `projectWorkflowService` had 9 methods and **1 reachable**; deleting the dead block closed 6 of the 9 collisions and ~420 lines. The other three had one live copy and one dead twin each. **Ratchet baseline is now empty.** ⚠️ The deletion broke the verifier's sign-in via a stale `.bind()` re-export — `undefined.bind` throws at module load, so the whole chunk dies. Build, lint and 957 unit tests all passed while it was broken; only a real-login Playwright test caught it. Guarded by `boundExportsResolve.test.js` | [#33](DEFERRED_BACKLOG.md) |
 | 30 | **62 → 55 candidates**, re-derived by `node scripts/analysis/find-dead-exports.mjs`. **Worked 2026-08-02:** the seven `notify*` twins in `notificationService` are deleted — they duplicated five live database triggers, and `20260626000200`'s header records that the client-side version *was rejected by RLS and the bell never rang*, so calling one gave you either nothing or a double notification | **Exact-string edits only** — line arithmetic corrupted two files last pass; this pass used start/end string markers. The rest is deliberately left: the detector counts a symbol used only *inside* its own module as a candidate, so most of the remaining 55 want the `export` keyword removed rather than the function deleted, which is churn with a real regression budget (see the 08-02 `.bind()` outage) and no user-visible gain |
 | ~~9~~ | ~~Consolidate duplicated formatters~~ | ✅ **Done 2026-07-28** — `src/utils/format.js`; three real divergences fixed, incl. money rendering at one decimal place |
@@ -357,7 +399,7 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 1. Run [`pilot_preflight.sql`](../supabase/diagnostics/pilot_preflight.sql) → read the `verdict` column
    · then [`rls_negative_suite.sql`](../supabase/diagnostics/rls_negative_suite.sql) → every row must
    read PASS (**`UNPROVEN` is not a pass** — it means nothing existed to attack)
-2. Dashboard checks **1c–1g by hand**: **8** edge functions deployed · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed — all of it is `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1 if you want it as tick-boxes
+2. Dashboard checks **1c–1g by hand**: the **7 required** edge functions deployed (✅ measured 2026-08-05; the eighth, `public-registry`, is **deliberately not deployed** — do not deploy it to tick the box) · PayMongo in **test** mode, webhook **enabled** · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed — all of it is `OWN-01…10` in [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) Part 1 if you want it as tick-boxes
 3. ~~Apply escrow `20260725000200`~~ · ~~feedstock `20260729000100`~~ · ~~`20260718001100`~~ — ✅ **all applied 2026-07-29**, reconcile = 0 after each
 4. ~~Deploy + set `PAYOUT_WORKER_SECRET` + schedule `process-payouts`~~ — ✅ **done 2026-07-30.**
    On `pg_cron` (`carbonify-process-payouts`, jobid 1, `*/15`, active) and **proven succeeding**, not
@@ -385,7 +427,7 @@ Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
    Verified by walking all **106** deployed chunks — `node scripts/analysis/verify-deploy.mjs <url>`.
    ⚠️ `carbonify.vercel.app` is a **different application that is also titled "Carbonify"**; do not
    send a tester there.
-5. 🔴 **Run the escrow behaviour checks** — **still unrun, and now the only open item on this entire register.** 🆕 Use **[OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md)** (yours) with **[TESTER_GUIDE.md](TESTER_GUIDE.md)** and **[TESTER_FEEDBACK.md](TESTER_FEEDBACK.md)** for the helpers: `ESC-01…06` needs a buyer, a seller and an admin acting in sequence, because each claim is visible on a screen only one of them can see. They carry owner set-up, a 16-step running order with handoff points, plain-language instructions per role, and a fill-in feedback form. ⚠️ **It corrects `ESC-03`, which could not have passed as written** — `hold_until` is stamped at purchase time, so lowering `escrow_hold_days_card` moves nothing, and a fresh purchase at `0` days creates no hold at all; the fix is to age the hold by id. Found by reading `20260725000200`, not by running it, so it would have cost a tester an afternoon and produced a confident false bug report. Background: [ESCROW_DECISION.md §6](ESCROW_DECISION.md)
+5. 🔴 **Run the escrow behaviour checks** — **still unrun, and the only remaining *functional gate*.** *(This said "the only open item on this entire register" until the evening of 2026-08-05, when the advisor sweep added #41–45. None of those gate the pilot, so the gate is unchanged — but "the only open item" was a claim about the board, and the board had moved.)* 🆕 Use **[OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md)** (yours) with **[TESTER_GUIDE.md](TESTER_GUIDE.md)** and **[TESTER_FEEDBACK.md](TESTER_FEEDBACK.md)** for the helpers: `ESC-01…06` needs a buyer, a seller and an admin acting in sequence, because each claim is visible on a screen only one of them can see. They carry owner set-up, a 16-step running order with handoff points, plain-language instructions per role, and a fill-in feedback form. ⚠️ **It corrects `ESC-03`, which could not have passed as written** — `hold_until` is stamped at purchase time, so lowering `escrow_hold_days_card` moves nothing, and a fresh purchase at `0` days creates no hold at all; the fix is to age the hold by id. Found by reading `20260725000200`, not by running it, so it would have cost a tester an afternoon and produced a confident false bug report. Background: [ESCROW_DECISION.md §6](ESCROW_DECISION.md)
 6. ~~Confirm the 11 role-audit migrations (§0.4)~~ — ✅ **all eleven verified `true` 2026-07-29**
 7. ~~Confirm the **`20260718000000`–`000700`** batch~~ — ✅ 4-arg `retire_credits_atomic` confirmed; the `available_credits` half is covered by the pre-flight §7 summary
 8b. ~~**Accept the consent box once on a REAL account, and confirm the row landed**~~ — ✅ **DONE and
@@ -492,6 +534,15 @@ decided + staged), and Lane 1 is quality and product work — none of it gates g
 > So the honest reading of this lane is no longer "more to build". **The next useful action on the
 > project is a deploy and the escrow behaviour checks — both Lane 2.** A register that keeps
 > offering engineering work when the bottleneck has moved is its own kind of stale.
+>
+> > 🔎 **Updated 2026-08-05 (evening) — and "Lane 1 is empty" was wrong a fourth time, from a source
+> > no lane covers.** The Supabase **advisor** is a third-party linter reading the live database. It
+> > produced, in one sweep, the most severe finding of the week: an anonymous stranger able to delete
+> > every project in the registry. Nothing in this repo could have surfaced it, and no re-measurement
+> > of any row here would have either — the defect was in an untracked policy that predates version
+> > control. **Lane 1 is a list of work; the codebase, the database and the deployment are the
+> > actual system, and only two of the three are in git.** Run the advisor periodically, and probe
+> > every finding before ranking it: its worst ERRORs were empty tables and its WARN was the hole.
 
 What gates go-live is Lanes 2 and 3. **The single longest pole is the penetration test**: it is
 external, it costs money, and it is the one P0 that no amount of code closes.

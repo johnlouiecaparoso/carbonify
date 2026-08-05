@@ -144,6 +144,38 @@
 >
 > ---
 >
+> ### ✅ 2026-08-05 (evening) — a security sweep landed, and **nothing here needs you**
+>
+> You ran the Supabase advisor and it reported nine ERRORs and a long tail of warnings. Every one was
+> probed against your live database before anything was written, and seven migrations
+> (`20260805000400`–`001000`) close what was real. **They are applied and re-checked: 22 of 22 pass,
+> and signed-out browsing still works.** You can re-run that evidence yourself at any time:
+>
+> ```bash
+> node scripts/analysis/verify-anon-exposure.mjs
+> ```
+>
+> **The thing worth knowing is that the worst problem was rated as a warning, not an error.** A leftover
+> rule on your `projects` table let *anyone at all, without logging in*, edit or delete every project
+> in the registry. Meanwhile four of the nine "errors" were empty leftover tables that mattered to
+> nobody. Three other real ones: two database views were handing an anonymous visitor **wallet balances
+> and credit holdings**, three tables accepted new rows from anyone, and your **avatars folder could be
+> listed** — and because photo filenames start with the user's id, that listing was a roster of
+> everyone who had ever uploaded one. All closed.
+>
+> ⚠️ **One is deliberately left open, and you should know about it while testers are on the system.**
+> Signed out, the database will still answer *"what role does this user id have?"*. It is not fixable
+> in five minutes: the same helper functions are used inside the security rules themselves, and
+> removing the wrong one makes the marketplace go **blank for logged-out visitors** — a failure this
+> project has already had once. It needs a careful pass, and it does not block your test. Tracked as
+> **#45**.
+>
+> ⚠️ **And do not describe the audit log to a pilot partner as an audit trail.** It records what the
+> browser says happened, and the events an auditor actually asks for — failed sign-ins, blocked
+> registrations — cannot be captured from a browser at all. Tracked as **#42**.
+>
+> ---
+>
 > 🔴 **`ESC-01…06` — the escrow behaviour checks.** Against **https://carbonify-gilt.vercel.app**.
 >
 > 🆕 **Bringing helpers? Use [OWNER_TEST_GUIDE.md](OWNER_TEST_GUIDE.md) for yourself, and send them
@@ -723,9 +755,15 @@ Two accounts, about five minutes:
       gets "Authentication required" on the callback page instead of a silent verify. Their payment
       is unaffected — the webhook settles it server-side regardless — so they see the credits after
       signing back in. Worth a line in the pilot brief.
-- [ ] **8 edge functions deployed**: `account-deletion` · `paymongo-checkout` · `paymongo-reconcile` ·
-      `paymongo-resettle` · `paymongo-webhook` · `process-payouts` · `public-registry` ·
-      `send-approval-email`
+- [x] ✅ **The 7 required edge functions are deployed** — measured 2026-08-05, not read off a
+      dashboard: `account-deletion` · `paymongo-checkout` · `paymongo-reconcile` ·
+      `paymongo-resettle` · `paymongo-webhook` · `process-payouts` · `send-approval-email` all
+      answer (401/400/405); a made-up function name returns `404 NOT_FOUND`.
+      ⚠️ **This line said 8, and the eighth — `public-registry` — is NOT deployed.** Leave it that
+      way. It is an ungated white-label scaffold that nothing in the app calls, and deploying it to
+      tick a box would publish an unauthenticated public API days before the pilot. Turning it on
+      is a **decision** (API keys, rate limits, versioning, redistribution terms), not a checklist
+      item — see its [README](../supabase/functions/public-registry/README.md).
 - [x] ✅ **Signups enabled** (`disable_signup` = `false`) — measured 2026-07-31
 - [x] ✅ **Email confirmation turned OFF** (`mailer_autoconfirm` = `true`) — the route taken instead of
       buying the domain first. New users are signed in immediately with no email involved, which
