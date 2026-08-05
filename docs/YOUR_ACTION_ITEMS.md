@@ -90,18 +90,29 @@
 >
 > **One thing carries forward, and it is the last functional gate:**
 >
-> ## 🔴 2026-08-05 — CHECK THIS BEFORE THE ESCROW TEST
+> ## ✅ 2026-08-05 — a silent revert HAPPENED and was caught and undone the same hour
 >
-> **`20260725000200` was re-run against live.** That file defines
-> `process_marketplace_purchase`, and so does **`20260804000300`** — the migration that fixed the
-> escrow method-gate. `create or replace` overwrites rather than merges, so replaying the older file
-> reverts the newer one **silently**: no error, nothing on screen, the database just goes backwards.
+> Recorded because it is the clearest example this project has of the thing it keeps finding, and
+> because it was **one query away from being invisible**.
 >
-> If it reverted, the gate is reading `payment_intents.provider` again — always the literal
-> `'paymongo'` — so **every sale takes the 7-day card hold and `ESC-02` fails**, looking exactly like
-> an escrow bug rather than a reverted migration.
+> `20260725000200` was re-run against live. It defines `process_marketplace_purchase` — and so does
+> `20260804000300`, the migration that fixed the escrow method-gate. **`create or replace` overwrites
+> rather than merges**, so replaying the older file reverted the newer one with no error and nothing
+> on screen.
 >
-> **One query settles it:**
+> The check came back **`*** REVERTED ***`**. Re-applying `20260804000300` restored it.
+>
+> **What it would have cost if nobody had asked.** The gate was reading `payment_intents.provider`
+> again — always the literal `'paymongo'` — so every sale takes the 7-day card hold and
+> `credit_transactions.payment_method` records `'paymongo'` for everything. **`ESC-02` would have
+> failed during the team test session, and it would have looked like an escrow defect** rather than a
+> reverted migration. Several people would have spent an afternoon debugging working code.
+>
+> **Blast radius: exactly one function.** `20260725000200` also defines `release_matured_escrow`, but
+> that is defined *nowhere else*, so re-running rewrote it to the same definition. Nothing else in
+> that file touches data. Verified rather than assumed.
+>
+> **Re-run this any time you have applied migrations out of order:**
 >
 > ```sql
 > select case
@@ -112,15 +123,14 @@
 >        end as verdict;
 > ```
 >
-> **If it says REVERTED:** re-apply
-> `supabase/migrations/20260804000300_settlement_records_real_payment_method.sql` in full. It is
-> idempotent and additive, and it restores the correct gate. Nothing else needs redoing — the
-> `payment_intents.payment_method` column survives (`add column if not exists`), and no data was
-> touched.
+> **And it can no longer happen quietly.** All 27 superseded migrations now carry a header naming the
+> file that supersedes them, and `migrationSupersession.test.js` fails the suite if a new one lands
+> without it. `process_marketplace_purchase` alone is defined in **seven** migrations; 19 functions
+> are defined in more than one.
 >
-> **This can no longer happen quietly.** All 27 superseded migrations now carry a header naming the
-> file that supersedes them, and `migrationSupersession.test.js` fails the suite if one is added
-> without it. `process_marketplace_purchase` alone is defined in **seven** migrations.
+> > The lesson worth keeping: **the only reason this was caught is that the re-run was mentioned out
+> > loud.** Nothing errored, nothing logged, no check would have fired, and the next signal would
+> > have been a confident false bug report from a tester. When you replay a migration, say which one.
 >
 > ---
 >

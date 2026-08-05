@@ -409,12 +409,13 @@
 > > **Nothing is waiting on the owner in the database or the deploy.** Every migration is applied,
 > > `main` is level with origin, and production is serving it.
 > >
-> > 🔴 **One thing to CHECK first, though — `20260725000200` was re-run against live on 2026-08-05.**
-> > It defines `process_marketplace_purchase`, and so does `20260804000300` (the escrow method-gate
-> > fix). `create or replace` overwrites rather than merges, so replaying the older file reverts the
-> > newer one **silently** — and if it did, `ESC-02` now fails while looking like an escrow bug. The
-> > one-query check and the recovery are at the top of
-> > [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md).
+> > ✅ **A silent revert happened on 2026-08-05 and was caught and undone the same hour.**
+> > `20260725000200` was re-run against live; it defines `process_marketplace_purchase`, and so does
+> > `20260804000300`. `create or replace` overwrites rather than merges, so the older file reverted
+> > the escrow method-gate fix with no error and nothing on screen. The check returned
+> > `*** REVERTED ***`; re-applying `20260804000300` restored it. Blast radius verified as exactly
+> > one function. **`ESC-02` would have failed during the team test session and looked like an escrow
+> > defect.** Detail and the re-check query: [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md).
 > >
 > > **The general hazard is now ratcheted.** `process_marketplace_purchase` is defined in **seven**
 > > migrations; 19 functions are defined in more than one, across 27 files. All 27 carry a header
