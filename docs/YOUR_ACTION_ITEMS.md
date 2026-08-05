@@ -108,9 +108,19 @@
 > failed during the team test session, and it would have looked like an escrow defect** rather than a
 > reverted migration. Several people would have spent an afternoon debugging working code.
 >
-> **Blast radius: exactly one function.** `20260725000200` also defines `release_matured_escrow`, but
-> that is defined *nowhere else*, so re-running rewrote it to the same definition. Nothing else in
-> that file touches data. Verified rather than assumed.
+> **Blast radius: exactly one function, and no data.** `20260725000200` also defines
+> `release_matured_escrow`, but that is defined *nowhere else*, so re-running rewrote it to the same
+> definition. Verified rather than assumed — and then confirmed against the data: the repair query
+> returned **`OK — 20260804000300 is live`**, and the most recent settlement on the database is
+> **2026-07-11**, nearly a month before the revert. **Nothing settled inside the window**, so no row
+> carries a wrong `payment_method` because of it.
+>
+> > 🔎 **The same query showed the original bug in the wild.** Two settlements from 2026-07-03 read
+> > `payment_method = 'paymongo'` — the gateway, not the method — which is precisely what
+> > `20260804000300`'s header describes and what it was written to stop. They are ₱1.00 test
+> > purchases and are **deliberately not backfilled**: they are the only surviving evidence of the
+> > pre-fix behaviour, and rewriting history to look correct is the opposite of what a ledger is for.
+> > Anything from the pilot onwards will record the real method.
 >
 > **Re-run this any time you have applied migrations out of order:**
 >
