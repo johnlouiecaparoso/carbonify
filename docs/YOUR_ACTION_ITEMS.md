@@ -133,7 +133,7 @@
 >        end as verdict;
 > ```
 >
-> **And it can no longer happen quietly.** All 27 superseded migrations now carry a header naming the
+> ~~**And it can no longer happen quietly.**~~ All 27 superseded migrations carry a header naming the
 > file that supersedes them, and `migrationSupersession.test.js` fails the suite if a new one lands
 > without it. `process_marketplace_purchase` alone is defined in **seven** migrations; 19 functions
 > are defined in more than one.
@@ -141,6 +141,49 @@
 > > The lesson worth keeping: **the only reason this was caught is that the re-run was mentioned out
 > > loud.** Nothing errored, nothing logged, no check would have fired, and the next signal would
 > > have been a confident false bug report from a tester. When you replay a migration, say which one.
+>
+> ## 🔴 …and it happened AGAIN the same day, which is why the header was not enough
+>
+> Later on 2026-08-05 you re-ran **`20260606000500_financial_reconciliation.sql`**, which reverted
+> **`reconcile_financials()`** to a version missing check #6. Caught, repaired, and confirmed:
+> `widened_check_present = true`, and the report returns **0 rows against 14 completed
+> transactions** — clean, and not vacuously so.
+>
+> **This one was more dangerous than the escrow revert**, because a reverted `reconcile_financials()`
+> does not fail. It returns *"no rows — healthy"*, which is the same answer a healthy database gives.
+> The check you were told to run **every day of the pilot** would have gone on reassuring you while
+> the thing it exists to detect had been switched off. Note also what the SQL editor said both times:
+> **"Success. No rows returned."**
+>
+> ### What is different now: the warning is no longer a comment
+>
+> The header could not work, and it is worth being precise about why: **it is inside the text you
+> select-all and copy.** It travels with the paste instead of standing in the way of it. Two files,
+> same day, both carrying the banner.
+>
+> **The 16 money-path migrations now refuse to run.** Each one opens with a block that checks whether
+> the newer definition is already live and aborts before a single statement below it executes:
+>
+> ```
+> ERROR: REFUSING TO RUN 20260725000200_restore_escrow_hold_window.sql — a NEWER definition
+>        is already live and this file would silently revert it
+> DETAIL: process_marketplace_purchase — recover by re-applying 20260804000300_…sql
+> HINT:   Nothing has been changed. To replay anyway: set carbonify.allow_superseded_replay = 'yes';
+> ```
+>
+> **You do not have to remember anything.** Paste the wrong file and it stops, tells you which
+> function it protected, and names the file to re-apply if you ever do need to go back. Applying
+> migrations in order to a fresh database is unaffected — at that point the newer definition does not
+> exist yet, so the guard passes in silence.
+>
+> If you genuinely mean to replay one, run `set carbonify.allow_superseded_replay = 'yes';` first in
+> the same editor tab, then re-apply the file the error names afterwards.
+>
+> > **Please test it once, now, before the escrow session** — a guard nobody has watched refuse is
+> > just a claim. Paste `20260725000200_restore_escrow_hold_window.sql` into the SQL editor and run
+> > it. It must fail with the message above. **That is the pass.** If it says *"Success"*, tell me,
+> > because it means the guard is not doing its job and today's repair could silently come undone in
+> > the middle of your test session.
 >
 > ---
 >

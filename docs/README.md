@@ -15,8 +15,8 @@
 > functions, and **ten** `20260805*` migrations — `000100`–`000300` (the last of which closed a
 > grant-hygiene hole that left seven functions callable anonymously), plus `000400`–`001000` from the
 > evening's **Supabase advisor sweep** — all confirmed by probe or in the deployed bundle. Re-run the
-> anonymous-exposure evidence with `node scripts/analysis/verify-anon-exposure.mjs` (**22/22 PASS**).
-> Suite **1296 green** across 114 files, Playwright **130**, lint 0, build green.
+> anonymous-exposure evidence with `node scripts/analysis/verify-anon-exposure.mjs` (**23/23 PASS**).
+> Suite **1303 green** across 115 files, Playwright **130**, lint 0, build green.
 >
 > ⚠️ **Two things the sweep left open, neither gating the pilot:** signed out, the database will still
 > answer *"what role does this user id have?"* (**#45** — the revoke needs a policy dump, because the

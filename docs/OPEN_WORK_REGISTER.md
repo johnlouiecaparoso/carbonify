@@ -144,7 +144,7 @@
 >
 > **Worked 2026-08-05 (evening) — the Supabase advisor sweep, and a routing failure this page has now
 > made twice.** Seven migrations (`20260805000400`–`001000`), applied to live and **re-probed**:
-> `node scripts/analysis/verify-anon-exposure.mjs` → 22/22 PASS signed out. Detail in
+> `node scripts/analysis/verify-anon-exposure.mjs` → 23/23 PASS signed out. Detail in
 > [HANDOFF.md](HANDOFF.md) § *2026-08-05 (evening)*; what the sweep deliberately left is
 > [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#41–45**.
 >

@@ -84,6 +84,15 @@ If it says reverted, apply
 supabase/migrations/20260804000300_settlement_records_real_payment_method.sql in full, then run the
 check again.
 
+This is less likely to bite you now. The sixteen money-path migrations refuse to run if a newer
+version of what they define is already live. Paste the wrong file and you get an error naming the
+function it protected and the file to re-apply, and nothing is changed. It happened twice on
+2026-08-05, which is why the guard exists — the warning used to be a comment, and a comment is
+inside the text you copy rather than in your way.
+
+Run this check anyway. A guard is one more thing that can be wrong, and this check reads the
+function itself.
+
 ### 5. Create the accounts and list something
 
 Create a buyer account and a seller account. The seller must be a project developer with at least

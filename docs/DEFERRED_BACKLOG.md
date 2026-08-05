@@ -2115,7 +2115,7 @@ the live ones are what the applied policies are already bound to. `2026080400050
 
 Nine ERRORs and a long WARN tail, each one probed against live with the anon key before anything was
 written. Seven migrations (`20260805000400`–`20260805001000`) close what was real. **All applied and
-verified against live on 2026-08-05:** `node scripts/analysis/verify-anon-exposure.mjs` returns 22/22
+verified against live on 2026-08-05:** `node scripts/analysis/verify-anon-exposure.mjs` returns 23/23
 PASS, including the two `STILL-WORKS` checks that prove signed-out marketplace browsing survived. **The headline is
 that the worst finding was a WARN, not an ERROR:** `public.projects` carried a `USING (true) WITH
 CHECK (true)` policy for `ALL`, so a signed-out stranger could rewrite or delete every project in the

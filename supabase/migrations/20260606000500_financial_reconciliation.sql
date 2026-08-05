@@ -11,6 +11,43 @@
 -- src/test/services/migrationSupersession.test.js — do not delete it by hand.
 -- ============================================================================
 
+-- ── REPLAY GUARD (executable) ───────────────────────────────────────────
+-- The banner above is a comment. It travels INSIDE the text you copy, so it
+-- cannot stop a paste-and-run — which is exactly how a newer definition was
+-- silently reverted twice on 2026-08-05, by two different files.
+--
+-- This block can stop it, and it aborts BEFORE any statement below has run.
+-- It fires only when the NEWER definition is already live, so applying
+-- migrations in order from an empty database is unaffected: at that point the
+-- marker does not exist yet and this passes in silence.
+--
+-- Deliberate replay:  set carbonify.allow_superseded_replay = 'yes';
+do $carbonify_replay_guard$
+declare
+  v_blocked text;
+begin
+  select string_agg(msg, chr(10)) into v_blocked from (
+      select 'reconcile_financials — recover by re-applying 20260703000600_reconcile_widen_unaccounted.sql' as msg
+       where exists (
+         select 1 from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.proname = 'reconcile_financials'
+            and pg_get_functiondef(p.oid) like '%transaction_unaccounted%')
+  ) t;
+
+  if v_blocked is not null
+     and coalesce(current_setting('carbonify.allow_superseded_replay', true), '') <> 'yes'
+  then
+    raise exception using
+      errcode = 'raise_exception',
+      message = 'REFUSING TO RUN 20260606000500_financial_reconciliation.sql — a NEWER definition is already live and this file would silently revert it',
+      detail  = v_blocked,
+      hint    = 'Nothing has been changed. To replay anyway: set carbonify.allow_superseded_replay = ''yes''; then re-run this file AND re-apply every file named above.';
+  end if;
+end
+$carbonify_replay_guard$;
+
 -- Phase 1.6 — Internal financial reconciliation (drift detection) + derived balances.
 --
 -- This reconciles the system against ITSELF (intents vs transactions vs ledger vs

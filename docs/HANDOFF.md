@@ -27,8 +27,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. 🆕 **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`, unit **1296/1296 across 114 files**, lint **0**. |
-> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. 🆕 **The advisor sweep below is applied and re-probed — 22/22 PASS signed out.** |
+> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. 🆕 **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`, unit **1303/1303 across 115 files**, lint **0**. |
+> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. 🆕 **The advisor sweep below is applied and re-probed — 23/23 PASS signed out.** |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -40,7 +40,7 @@
 > | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
-> | Anonymous exposure surface | ✅ **Swept and re-probed 2026-08-05 (evening) — 22/22 PASS signed out**, with two `STILL-WORKS` checks proving public browsing survived. Seven migrations (`20260805000400`–`001000`). What they closed was **live at the time**, not theoretical: `public.projects` carried `USING(true) WITH CHECK(true)` for `ALL` roles, two `SECURITY DEFINER` views returned wallet balances and credit holdings to a signed-out caller, three tables accepted inserts from anyone, and the `avatars` bucket was listable — filenames are `${userId}_${timestamp}`, so the listing was a roster of user ids. Re-runnable: `node scripts/analysis/verify-anon-exposure.mjs` |
+> | Anonymous exposure surface | ✅ **Swept and re-probed 2026-08-05 (evening) — 23/23 PASS signed out**, with two `STILL-WORKS` checks proving public browsing survived. Seven migrations (`20260805000400`–`001000`). What they closed was **live at the time**, not theoretical: `public.projects` carried `USING(true) WITH CHECK(true)` for `ALL` roles, two `SECURITY DEFINER` views returned wallet balances and credit holdings to a signed-out caller, three tables accepted inserts from anyone, and the `avatars` bucket was listable — filenames are `${userId}_${timestamp}`, so the listing was a roster of user ids. Re-runnable: `node scripts/analysis/verify-anon-exposure.mjs` |
 > | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. `certificates` RLS applied 2026-08-05 (`20260804000500`). ⚠️ **`profiles` still has no tracked SELECT policy** — its read posture exists only on live (#39). 🆕 **But it has now been MEASURED, and #39's premise was wrong**: probes 9-10 of the negative RLS suite return `0 of 6` foreign profile rows for a signed-in user, so nobody can enumerate the user table. What remains is that no migration reproduces that posture, plus a few cross-user reads that render as absent data. The **admin** read path is still unmeasured |
 > | KYC / suspension gate on **both** purchase paths | ✅ **Applied 2026-08-05** (`20260804000100`). The wallet path now enforces the same KYC threshold and suspension check as the card path |
 > | Profiles column privileges | ✅ **Deny-list applied 2026-08-05** (`20260804000200`), closing both audit findings — self-granting a paid plan, and profile saves failing `42501` for every user |
@@ -53,7 +53,7 @@
 > | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe on the public routes, plus 6/6 on the AUTHENTICATED ones (new 2026-08-05, ~40 page-audits across four roles)** — 0 violations. The authenticated half found the notification bell unnamed on every page, the account menu unopenable by keyboard, and four translucent-over-green contrast defects. Manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
-> | Test suite | ✅ **1296 unit across 114 files** · Playwright **130 green** (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility 🆕 + 9 runtime smoke) · lint 0 · build green — all four re-measured 2026-08-05, not carried forward |
+> | Test suite | ✅ **1303 unit across 115 files** · Playwright **130 green** (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility 🆕 + 9 runtime smoke) · lint 0 · build green — all four re-measured 2026-08-05, not carried forward |
 >
 > ### What is NOT implemented
 >
@@ -165,13 +165,55 @@
 > > *The rule that covers all three: **the repo, the database and the deploy are three separate
 > > states, and agreement between any two of them is not evidence about the third.***
 >
+> ### 🔴 2026-08-05 — the SECOND silent revert of the day, and the fix that a comment could not be
+>
+> `20260606000500_financial_reconciliation.sql` was replayed against live, reverting
+> `reconcile_financials()` to a definition without check #6 (`transaction_unaccounted`). Repaired by
+> re-applying `20260703000600` and **confirmed by measurement, not by the editor's success message**:
+> `widened_check_present = true`, report **0 rows against 14 completed transactions**.
+>
+> **This was the more dangerous of the two, and for a reason worth generalising.** The escrow revert
+> would have produced a *visible* wrong result — `ESC-02` failing, a tester filing a false bug. This
+> one produces **the correct-looking answer**: a reverted `reconcile_financials()` returns *"no rows —
+> healthy"*, which is byte-identical to what a healthy database returns. The daily money check that
+> the entire pilot rests on would have kept reassuring the owner while the check that speaks had been
+> removed. *A monitor that fails silent reports success.*
+>
+> **Why the supersession banner did not stop either one.** It is a comment at the top of the file,
+> which means **it is inside the text you select-all and copy**. It travels with the paste rather
+> than standing in the way of it. Both files carried it. `migrationSupersession.test.js` was doing
+> its job perfectly and could never have helped: it asserts the warning is *written*, and the failure
+> mode is that a written warning is not *read*. **An advisory control cannot close a paste-and-run.**
+>
+> **What replaced it: 16 money-path migrations now refuse to execute.** Each opens with a
+> `do $carbonify_replay_guard$` block that queries `pg_proc` for a marker unique to the *current*
+> definition and raises before any statement below it runs — naming the function it protected and the
+> file to re-apply. Applying in order from empty is unaffected, because at that point the marker does
+> not exist yet. A deliberate replay is still possible via
+> `set carbonify.allow_superseded_replay = 'yes'`, which is a thing you cannot do by accident.
+>
+> Ratcheted by [`migrationReplayGuard.test.js`](../src/test/services/migrationReplayGuard.test.js),
+> 7 tests, **mutation-checked in two directions** (guard deleted → red; marker weakened to something
+> always-true → red). Its sharpest assertion is *"the marker can actually fire"*: it verifies the
+> marker is present in the newest definition and **absent from every earlier one**, because a guard
+> whose marker also appears in the old file passes review and never once aborts. That check found a
+> real defect on its first run — in the test itself, which had been matching the marker literal
+> embedded in the guard block rather than in the function body. **The same class as
+> `securityDefinerGrants`, whose assertion was weaker than its own failure message.**
+>
+> > ⚠️ **Still unproven at the time of writing: nobody has watched a guard refuse on live.** The
+> > owner has been asked to paste `20260725000200` into the SQL editor once and confirm it errors.
+> > Until that happens this is a guard that has never been red, which this project has already
+> > learned is worth very little — see `responsive-authenticated.spec.js`, which reported 22/22
+> > passing having measured nothing.
+>
 > ---
 >
 > ### 🆕 2026-08-05 (evening) — the Supabase advisor sweep, and one live-but-unrecorded pass
 >
 > **Nine ERRORs and a long WARN tail, each probed against live with the anon key before anything was
 > written.** Seven migrations (`20260805000400`–`001000`) close what was real, all applied and
-> re-verified: `node scripts/analysis/verify-anon-exposure.mjs` → **22/22 PASS**, including two
+> re-verified: `node scripts/analysis/verify-anon-exposure.mjs` → **23/23 PASS**, including two
 > `STILL-WORKS` checks proving signed-out marketplace browsing survived.
 >
 > **The headline is that the worst finding was a WARN.** `public.projects` carried a policy with
@@ -274,7 +316,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1296 unit tests green across 114 files**
+> **Current build state:** build green, lint 0, **1303 unit tests green across 115 files**
 > (re-measured 2026-08-05 — suite, lint and build all run, not carried forward from the previous
 > entry).
 >
@@ -291,7 +333,7 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1296 · 1292 · 1291 · 1286 · 1278 · 1275 · 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1303 · 1296 · 1292 · 1291 · 1286 · 1278 · 1275 · 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >

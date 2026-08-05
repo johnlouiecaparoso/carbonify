@@ -11,6 +11,43 @@
 -- src/test/services/migrationSupersession.test.js — do not delete it by hand.
 -- ============================================================================
 
+-- ── REPLAY GUARD (executable) ───────────────────────────────────────────
+-- The banner above is a comment. It travels INSIDE the text you copy, so it
+-- cannot stop a paste-and-run — which is exactly how a newer definition was
+-- silently reverted twice on 2026-08-05, by two different files.
+--
+-- This block can stop it, and it aborts BEFORE any statement below has run.
+-- It fires only when the NEWER definition is already live, so applying
+-- migrations in order from an empty database is unaffected: at that point the
+-- marker does not exist yet and this passes in silence.
+--
+-- Deliberate replay:  set carbonify.allow_superseded_replay = 'yes';
+do $carbonify_replay_guard$
+declare
+  v_blocked text;
+begin
+  select string_agg(msg, chr(10)) into v_blocked from (
+      select 'retire_credits_atomic — recover by re-applying 20260718000000_retire_credits_atomic_with_record.sql' as msg
+       where exists (
+         select 1 from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.proname = 'retire_credits_atomic'
+            and pg_get_functiondef(p.oid) like '%credit_retirements%')
+  ) t;
+
+  if v_blocked is not null
+     and coalesce(current_setting('carbonify.allow_superseded_replay', true), '') <> 'yes'
+  then
+    raise exception using
+      errcode = 'raise_exception',
+      message = 'REFUSING TO RUN 20260604020100_retirement_integrity.sql — a NEWER definition is already live and this file would silently revert it',
+      detail  = v_blocked,
+      hint    = 'Nothing has been changed. To replay anyway: set carbonify.allow_superseded_replay = ''yes''; then re-run this file AND re-apply every file named above.';
+  end if;
+end
+$carbonify_replay_guard$;
+
 -- Anti-double-counting for retirement.
 --
 -- Retiring credits must atomically reduce the owner's balance and can never
