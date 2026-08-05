@@ -239,7 +239,7 @@
 > | 4 | ~~Apply `20260801000100`~~ ✅ **done 2026-08-02** — verified by probe (`200 []` vs a `404` control) | — |
 > | 5 | ~~Redeploy `paymongo-webhook`~~ ✅ **done 2026-08-02.** The saga's retry cap and its second-supplier-order fix are live | — |
 > | 6 | ~~Apply `20260802000100` (grant hygiene, #12)~~ ✅ **done 2026-08-02** — verified by probe | — |
-> | 7 | 🟡 **Confirm `20260802000200` took** — backlog #4. You reported running it; it is the one item never independently verified, because constraint validity is not readable through the anon API. One query settles it: `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';` | Nothing. But it answers a question nobody has asked |
+> | 7 | ✅ **DONE 2026-08-05 — `convalidated` is `true`.** Backlog #4 is closed on a measurement rather than on your recollection, and it was the last item on the board in that category. The constraint is the backstop against selling or retiring the same carbon unit twice, and it has now been checked against every row that predated it | — |
 > | 8 | ~~Apply `20260802000300` → deploy → `20260802000400`~~ ✅ **done 2026-08-02, in the right order.** `notify_counterparty` answers `401 42501` to `anon`, which is the grant-hygiene block doing its job | — |
 
 > ### ✅ #0 — deployed 2026-08-05. Kept because of what it says about *before* you deploy.

@@ -1942,13 +1942,17 @@ What follows from the branch that *is* true:
 - **`certificateService`** reads the buyer's own row, so it works for the buyer and degrades for
   anyone else. Fine as is.
 
-**⚠️ What is still unmeasured, and it is the half that matters for the staff surfaces.** The suite
-deliberately impersonates the oldest **non-admin, non-verifier** profile, so this result says nothing
-about whether an **admin or verifier** can read other users' rows — which is exactly what
-`kycService`, `amlService` and `projectApprovalService` need in order to function. A policy shaped
-`using (id = auth.uid() or is_admin())` would produce precisely the numbers seen above while leaving
-those consoles working. **Re-run probes 9 and 10 with `<ACTOR_USER_ID>` pinned to an admin** to settle
-it; that is one line of setup and it is the remaining measurement on this entry.
+**⚠️ STILL UNMEASURED after the 2026-08-05 re-run, and it is the half that matters for the staff
+surfaces.** The suite auto-picks a **non-admin, non-verifier** actor, and both runs used the same one
+(`32bb632d…`) — so nothing yet says whether an **admin or verifier** can read other users' rows,
+which is exactly what `kycService`, `amlService` and `projectApprovalService` need in order to
+function. A policy shaped `using (id = auth.uid() or is_admin())` produces precisely the numbers seen
+above while leaving those consoles working.
+
+**Re-run with `<ACTOR_USER_ID>` pinned to an admin uuid** to settle it. Note the reading INVERTS for
+that run: probes 9 and 10 returning **rows** for an admin is the *correct* result. Both PASS would
+mean an admin cannot read other profiles, and the KYC and AML review queues are rendering blanks —
+the same silent-empty failure as the asset ledger, on the screens where identity decisions are made.
 
 **So what is left of #39 is smaller and different from what it says above:** not a privacy hole, but
 (a) the posture is still reproduced by **no tracked migration**, so a fresh environment does not get

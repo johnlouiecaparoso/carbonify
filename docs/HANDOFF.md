@@ -141,10 +141,12 @@
 >    in the catalog with `EXECUTE` revoked from `public, anon`, which is exactly what the migration's
 >    grant-hygiene block does. The notification bell can no longer be written by a client naming its
 >    own recipient.
-> 3. ~~Apply `20260802000200_validate_not_valid_constraints.sql`~~ (#4) — reported run by the owner
->    2026-08-02. **Not independently verified:** constraint validity is not readable through the anon
->    API, so this one rests on the owner's word rather than a probe. If it matters later, the check is
->    `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg';`
+> 3. ~~Apply `20260802000200_validate_not_valid_constraints.sql`~~ (#4) — ✅ **VERIFIED 2026-08-05.**
+>    `select convalidated from pg_constraint where conname = 'credit_ownership_qty_nonneg'` returns
+>    **`true`**. This was the last item on the whole board resting on recollection rather than a
+>    measurement, and it now rests on a measurement. The constraint that matters — the backstop
+>    against selling or retiring the same carbon unit twice — **has been checked against every
+>    pre-existing row**, which is what `NOT VALID` had left unanswered since the table was created.
 >
 > ⚠️ **A probe told us the opposite of the truth first, and it is worth knowing why.** The initial
 > check of #36 reported `PGRST202` and this document briefly recorded it as "confirmed still
