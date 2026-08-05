@@ -2205,3 +2205,39 @@ them applies to `anon` or `public`, then revoke per **signature**. Query C in
 `20260805000800` takes `anon` off it; `authenticated` keeps EXECUTE because the function body is not
 in this repo and may already gate on `is_admin()`. Nobody has read it. Dump the definition and either
 confirm the gate or add one — email delivery statistics are an operator concern, not a user one.
+
+### 46. `ledger_account_balances` runs as its owner — and it does not matter 🟢
+
+**Not a defect. Recorded because the next person to run the diagnostic will see the same row and has
+to be able to stop.**
+
+Query G of [definer_grant_surface.sql](../supabase/diagnostics/definer_grant_surface.sql) reported a
+**fifth** view without `security_invoker`, after `20260805000500` had flipped four. That reads as an
+unclosed hole and is not one:
+
+* `20260606000500` creates the view and, in the next two statements,
+  `revoke all … from public, anon, authenticated` and `grant select … to service_role`;
+* probed live 2026-08-05 signed out: `401 42501 permission denied for view`, where
+  `ledger_entries` itself returns `200 []`;
+* it has **no `user_id` column** — it is `sum() … group by account, currency` over the ledger, i.e.
+  system totals, not per-user data;
+* its one reader is `admin_finance_summary()`, a `SECURITY DEFINER` RPC that self-gates on
+  `is_admin()`.
+
+Bypassing RLS only matters if somebody can call the view. **A flag check is not a reachability
+check** — the same error the advisor made when it rated four empty tables ERROR and a deletable
+project registry WARN, arriving this time from our own diagnostic.
+
+**Why the flag is deliberately NOT being set anyway**, which is the part worth keeping. It looks
+free, and it is not quite: `security_invoker = on` would make the view read `ledger_entries` as the
+calling role. Its only caller is a `SECURITY DEFINER` function, so the calling role is `postgres`,
+which owns the table — fine *unless* `ledger_entries` ever gets `FORCE ROW LEVEL SECURITY`, at which
+point the read returns no rows and `admin_finance_summary()`'s
+`coalesce((select balance … ), 0)` renders **platform revenue as ₱0** on the admin finance console.
+A swallowed read presented as a real number, on a money screen, which is this project's single most
+repeated defect. Changing nothing is the lower-risk option while nothing can reach the view.
+
+Both halves are now checked instead of remembered: Query G reports **reachability** beside the flag
+and only alarms when a client role can actually SELECT, **G2** lists every client-readable view with
+its invoker flag so a future `grant` cannot quietly create the pairing this entry rules out, and
+`verify-anon-exposure.mjs` probes the view directly (**23 checks**, was 22).

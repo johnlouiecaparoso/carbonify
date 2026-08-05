@@ -156,14 +156,61 @@ order by 1;
 -- ── G. Views that still run as their owner ─────────────────────────────────
 --
 -- A view without security_invoker reads its base tables with RLS bypassed.
--- Expected after 20260805000500: zero rows.
+--
+-- ⚠️ READ THE `verdict` COLUMN, NOT THE ROW COUNT. The first version of this
+--    query reported only the flag, and its first real run produced a row that
+--    looked like a fifth leak and was not one: ledger_account_balances is
+--    granted to service_role ONLY (20260606000500 revokes public/anon/
+--    authenticated in the same statement it creates the view), so no client
+--    role can reach it and the missing flag has no consequence. Probed live
+--    2026-08-05: anon gets `42501 permission denied for view`.
+--
+--    Bypassing RLS only matters if somebody can call the view. A flag check is
+--    not a reachability check — the same mistake the advisor made when it rated
+--    an empty table ERROR and a deletable registry WARN.
+--
+-- Expected after 20260805000500: every row reads OK — unreachable.
 select c.relname as view_name,
        pg_get_userbyid(c.relowner) as owner,
-       c.reloptions
+       c.reloptions,
+       has_table_privilege('anon',          c.oid, 'SELECT') as anon_can_select,
+       has_table_privilege('authenticated', c.oid, 'SELECT') as auth_can_select,
+       case
+         when has_table_privilege('anon', c.oid, 'SELECT')
+           then '*** LEAK — anonymous callers read this with RLS bypassed ***'
+         when has_table_privilege('authenticated', c.oid, 'SELECT')
+           then '*** LEAK — any signed-in user reads every row, RLS bypassed ***'
+         else 'OK — unreachable: service_role only, and it bypasses RLS anyway'
+       end as verdict
 from pg_class c
 where c.relnamespace = 'public'::regnamespace
   and c.relkind = 'v'
   and (c.reloptions is null
        or not exists (select 1 from unnest(c.reloptions) o
                        where o = 'security_invoker=on' or o = 'security_invoker=true'))
-order by 1;
+order by
+  case when has_table_privilege('anon', c.oid, 'SELECT') then 1
+       when has_table_privilege('authenticated', c.oid, 'SELECT') then 2
+       else 3 end,
+  c.relname;
+
+
+-- ── G2. …and the reverse check, because a grant can be added later ─────────
+--
+-- G says "no client role can read it TODAY". Nothing stops a future migration
+-- or a hand-run `grant select … to authenticated` from making that false, and
+-- the view would then bypass RLS silently. This lists every view a client role
+-- CAN read, invoker flag included, so the pairing is visible in one place.
+--
+-- Rule: a view readable by a client role must have security_invoker on.
+select c.relname as view_name,
+       has_table_privilege('anon',          c.oid, 'SELECT') as anon_can_select,
+       has_table_privilege('authenticated', c.oid, 'SELECT') as auth_can_select,
+       exists (select 1 from unnest(coalesce(c.reloptions, '{}')) o
+                where o in ('security_invoker=on', 'security_invoker=true')) as invoker_on
+from pg_class c
+where c.relnamespace = 'public'::regnamespace
+  and c.relkind = 'v'
+  and (has_table_privilege('anon', c.oid, 'SELECT')
+       or has_table_privilege('authenticated', c.oid, 'SELECT'))
+order by invoker_on, c.relname;

@@ -118,7 +118,17 @@ async function main() {
   }
 
   // ── The SECURITY DEFINER views (advisor: ERROR) ───────────────────────────
-  for (const v of ['wallet_summary', 'user_credit_portfolio']) {
+  //
+  // ledger_account_balances was added to this list on 2026-08-05 (evening),
+  // after Query G of definer_grant_surface.sql reported it as a FIFTH view still
+  // running as its owner. It is not a leak — 20260606000500 revokes it from
+  // public/anon/authenticated and grants service_role only, so anon gets
+  // `42501 permission denied for view` — but "20260805000500 fixed four views"
+  // is a claim about four views, and the only reason this one is safe is a grant
+  // written in a different migration three months earlier. It is probed here so
+  // that if anybody ever grants it to a client role, this script says so on the
+  // same run rather than at the next advisor sweep.
+  for (const v of ['wallet_summary', 'user_credit_portfolio', 'ledger_account_balances']) {
     const n = await anonCount(v)
     record('views', `${v} hides rows from anon`, n <= 0, `${n} row(s) visible`)
   }
