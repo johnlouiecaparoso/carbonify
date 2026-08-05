@@ -1949,10 +1949,23 @@ which is exactly what `kycService`, `amlService` and `projectApprovalService` ne
 function. A policy shaped `using (id = auth.uid() or is_admin())` produces precisely the numbers seen
 above while leaving those consoles working.
 
-**Re-run with `<ACTOR_USER_ID>` pinned to an admin uuid** to settle it. Note the reading INVERTS for
-that run: probes 9 and 10 returning **rows** for an admin is the *correct* result. Both PASS would
-mean an admin cannot read other profiles, and the KYC and AML review queues are rendering blanks —
-the same silent-empty failure as the asset ledger, on the screens where identity decisions are made.
+**Run [`staff_profile_reads.sql`](../supabase/diagnostics/staff_profile_reads.sql)** — added
+2026-08-05, read-only, finds an admin and a verifier itself, nothing to edit.
+
+> It exists because pinning the negative suite's actor was tried three times and never happened. The
+> pin is a `v_actor_raw` declaration **inside** a `DO` block, so running that line alone returns
+> `42601: syntax error`, and running the file unedited silently re-tests the same non-admin — which
+> looks like a fresh result. **A check one hand-edit away from being run is a check that does not get
+> run**, and this is the doc-side version of the defect class the rest of this file records.
+>
+> The reading also **inverts**, which is the second reason it is a separate script: in the negative
+> suite rows visible = FAIL; for staff, rows visible = the review queues work. Pinning an admin into
+> the attacker-framed file would have reported a healthy console as a breach.
+
+`*** NONE ***` there would mean the KYC and AML queues are rendering blank identities on the screens
+where identity decisions are made — the same silent-empty failure as the asset ledger, with worse
+consequences. It would **not** mean "widen the `profiles` policy": the fix would be the same narrow
+`SECURITY DEFINER` treatment as `20260801000100` and `20260805000100`.
 
 **So what is left of #39 is smaller and different from what it says above:** not a privacy hole, but
 (a) the posture is still reproduced by **no tracked migration**, so a fresh environment does not get

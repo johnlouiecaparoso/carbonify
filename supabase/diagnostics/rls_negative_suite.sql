@@ -25,8 +25,21 @@
 --
 -- HOW TO RUN
 --   Supabase SQL Editor → paste the whole file → Run → read the LAST table.
---   Optionally pin the acting user by replacing <ACTOR_USER_ID>; left as-is the
---   script picks the oldest non-admin, non-verifier profile itself.
+--   Left alone it picks the oldest non-admin, non-verifier profile itself, which
+--   is the right actor for this file: an attacker is not staff.
+--
+--   TO PIN A DIFFERENT ACTOR, edit the `v_actor_raw` line ~30 lines below —
+--   replace the text BETWEEN THE QUOTES, then run the WHOLE FILE again.
+--   ⚠️ That line is a PL/pgSQL declaration inside the DO block, NOT a statement.
+--   Running it on its own gives `42601: syntax error at or near "v_actor_raw"`,
+--   which is what happened on 2026-08-05.
+--
+--   ⚠️ AND FOR THE STAFF QUESTION, DO NOT PIN THIS FILE AT ALL. "Can an admin
+--   read other profiles?" has its own script — `staff_profile_reads.sql` — which
+--   needs no editing and, crucially, reads the OPPOSITE WAY: there, rows visible
+--   means the KYC/AML queues work. Pinning an admin here would report a working
+--   console as a FAIL, because every verdict in this file is written from the
+--   attacker's side.
 --
 -- READING THE RESULT
 --   PASS         the attack was blocked. What you want.
