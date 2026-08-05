@@ -1,3 +1,16 @@
+-- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.reconcile_financials()  ->  20260703000600_reconcile_widen_unaccounted.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
 -- Phase 1.6 — Internal financial reconciliation (drift detection) + derived balances.
 --
 -- This reconciles the system against ITSELF (intents vs transactions vs ledger vs

@@ -1,4 +1,17 @@
 -- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.activate_validated_project_trigger()  ->  20260718000900_issuance_triggers_use_credits_available.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
+-- ============================================================================
 -- Make validated projects appear in the marketplace (and backfill existing ones).
 --
 -- The marketplace shows a project only when it has an ACTIVE credit_listing ->

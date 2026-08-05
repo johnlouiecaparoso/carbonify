@@ -90,6 +90,40 @@
 >
 > **One thing carries forward, and it is the last functional gate:**
 >
+> ## 🔴 2026-08-05 — CHECK THIS BEFORE THE ESCROW TEST
+>
+> **`20260725000200` was re-run against live.** That file defines
+> `process_marketplace_purchase`, and so does **`20260804000300`** — the migration that fixed the
+> escrow method-gate. `create or replace` overwrites rather than merges, so replaying the older file
+> reverts the newer one **silently**: no error, nothing on screen, the database just goes backwards.
+>
+> If it reverted, the gate is reading `payment_intents.provider` again — always the literal
+> `'paymongo'` — so **every sale takes the 7-day card hold and `ESC-02` fails**, looking exactly like
+> an escrow bug rather than a reverted migration.
+>
+> **One query settles it:**
+>
+> ```sql
+> select case
+>          when pg_get_functiondef('public.process_marketplace_purchase(uuid, text)'::regprocedure)
+>               like '%v_intent.payment_method%'
+>          then 'OK — 20260804000300 is live'
+>          else '*** REVERTED *** — re-apply 20260804000300'
+>        end as verdict;
+> ```
+>
+> **If it says REVERTED:** re-apply
+> `supabase/migrations/20260804000300_settlement_records_real_payment_method.sql` in full. It is
+> idempotent and additive, and it restores the correct gate. Nothing else needs redoing — the
+> `payment_intents.payment_method` column survives (`add column if not exists`), and no data was
+> touched.
+>
+> **This can no longer happen quietly.** All 27 superseded migrations now carry a header naming the
+> file that supersedes them, and `migrationSupersession.test.js` fails the suite if one is added
+> without it. `process_marketplace_purchase` alone is defined in **seven** migrations.
+>
+> ---
+>
 > 🔴 **`ESC-01…06` — the escrow behaviour checks.** Against **https://carbonify-gilt.vercel.app**.
 >
 > 🆕 **Bringing helpers? Use [ESCROW_TEST_RUNSHEET.md](ESCROW_TEST_RUNSHEET.md).** This is the one

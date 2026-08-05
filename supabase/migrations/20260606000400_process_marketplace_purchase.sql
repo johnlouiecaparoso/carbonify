@@ -1,3 +1,16 @@
+-- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.process_marketplace_purchase()  ->  20260804000300_settlement_records_real_payment_method.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
 -- Phase 1.5 — Atomic marketplace purchase.
 --
 -- One transaction that, given a paid payment_intent:

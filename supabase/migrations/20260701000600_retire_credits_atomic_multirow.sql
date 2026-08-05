@@ -1,3 +1,16 @@
+-- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.retire_credits_atomic()  ->  20260718000000_retire_credits_atomic_with_record.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
 -- Retirement: retire across MULTIPLE ownership rows (bug fix).
 --
 -- The previous retire_credits_atomic decremented a single credit_ownership row

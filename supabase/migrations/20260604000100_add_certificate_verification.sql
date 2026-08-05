@@ -1,3 +1,16 @@
+-- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.verify_certificate_public()  ->  20260607000300_certificate_registry_fields.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
 -- Public certificate verification: QR codes + tamper-evident signature.
 --
 -- Each issued certificate carries a QR code that points to /verify/<number>.

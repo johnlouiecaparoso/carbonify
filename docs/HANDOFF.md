@@ -406,9 +406,21 @@
 > > reads a signed-out visitor needs still return `200` — checked in **both** directions, since a
 > > revoke pass has two ways to be wrong.
 > >
-> > **🎉 Nothing is waiting on the owner in the database or the deploy.** Every migration is applied,
-> > `main` is level with origin, and production is serving it. The only open item is behavioural:
-> > `ESC-01…06`.
+> > **Nothing is waiting on the owner in the database or the deploy.** Every migration is applied,
+> > `main` is level with origin, and production is serving it.
+> >
+> > 🔴 **One thing to CHECK first, though — `20260725000200` was re-run against live on 2026-08-05.**
+> > It defines `process_marketplace_purchase`, and so does `20260804000300` (the escrow method-gate
+> > fix). `create or replace` overwrites rather than merges, so replaying the older file reverts the
+> > newer one **silently** — and if it did, `ESC-02` now fails while looking like an escrow bug. The
+> > one-query check and the recovery are at the top of
+> > [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md).
+> >
+> > **The general hazard is now ratcheted.** `process_marketplace_purchase` is defined in **seven**
+> > migrations; 19 functions are defined in more than one, across 27 files. All 27 carry a header
+> > naming the migration that supersedes them, and `migrationSupersession.test.js` fails the suite if
+> > a new one lands without it. Previously this was one hand-written warning on `20260703000300`,
+> > added after that file burned someone — which only ever covers the case you already hit.
 >
 
 > **Production is `https://carbonify-gilt.vercel.app`.** Not `carbonify13.vercel.app`, which now

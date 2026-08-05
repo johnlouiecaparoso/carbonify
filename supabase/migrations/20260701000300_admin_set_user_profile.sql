@@ -1,4 +1,17 @@
 -- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.admin_set_user_profile()  ->  20260722000900_admin_segregation_of_duties.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
+-- ============================================================================
 -- Admin: set a user's KYC level / role / name from the User Management console.
 --
 -- The console previously did a raw PostgREST UPDATE on public.profiles that

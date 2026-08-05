@@ -1,4 +1,18 @@
 -- ============================================================================
+-- ⚠️  SUPERSEDED — DO NOT RE-RUN THIS FILE AGAINST A LIVE DATABASE.
+--
+-- The function(s) below are redefined by a LATER migration. `create or replace`
+-- does not merge — it overwrites — so replaying this file silently reverts the
+-- newer definition and every fix inside it, with no error and nothing to see.
+--   public.confirm_farmer_delivery()  ->  20260717000000_farmer_carbon_participation.sql
+--   public.mark_farmer_delivery_paid()  ->  20260729000100_feedstock_payment_record.sql
+--
+-- Applying migrations in order from empty is fine: the later file lands last.
+-- Running this one ON ITS OWN is what reverts. This marker is maintained by
+-- src/test/services/migrationSupersession.test.js — do not delete it by hand.
+-- ============================================================================
+
+-- ============================================================================
 -- Farmer Portal — expansion feature #6.
 --
 -- Introduces the `farmer` role and the smallholder supply side of the biomass
