@@ -219,63 +219,31 @@ export async function sendEmailVerification(userEmail, userName) {
  * Notify when a project is submitted for review
  */
 export async function notifyProjectSubmitted(projectId, userId) {
-  const supabase = getSupabase()
-  if (!supabase) {
+  if (!projectId) {
     return {
       success: false,
       projectId,
       userId,
       type: 'project_submitted',
-      reason: 'Supabase not initialized',
+      reason: 'Missing project id',
     }
   }
 
-  const [{ data: project }, { data: submitter }, { data: recipients }] = await Promise.all([
-    supabase.from('projects').select('title, category, location').eq('id', projectId).single(),
-    supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-    supabase
-      .from('profiles')
-      .select('email, role')
-      .in('role', ['verifier'])
-      .not('email', 'is', null),
-  ])
-
-  if (!recipients?.length) {
-    return {
-      success: false,
-      projectId,
-      userId,
-      type: 'project_submitted',
-      reason: 'No recipients found',
-    }
-  }
-
-  const subject = `New Project Submission: ${project?.title || projectId}`
-  const html = `
-    <p>A new project has been submitted and needs verifier review.</p>
-    <p><strong>Project:</strong> ${project?.title || 'N/A'}</p>
-    <p><strong>Category:</strong> ${project?.category || 'N/A'}</p>
-    <p><strong>Location:</strong> ${project?.location || 'N/A'}</p>
-    <p><strong>Submitted by:</strong> ${submitter?.full_name || submitter?.email || userId}</p>
-    <p>Please review this project in the verifier panel.</p>
-  `
-
-  await Promise.allSettled(
-    recipients.map((recipient) =>
-      sendEmailViaFunction({
-        to: recipient.email,
-        subject,
-        html,
-      }),
-    ),
-  )
+  // Third casualty of the H4 contract change, and the quietest: this posted
+  // `{to, subject, html}` per recipient and every one of them 400'd, so no
+  // verifier has been emailed about a new project since 2026-07-11. The project
+  // details and the reviewer list are now read inside the function — this used
+  // to fan out one relay-shaped request per verifier from the browser.
+  await sendEmailViaFunction({
+    type: 'project_submitted',
+    project_id: projectId,
+  })
 
   return {
     success: true,
     messageId: `project_submitted_${Date.now()}`,
     projectId,
     userId,
-    recipients: recipients.length,
     type: 'project_submitted',
   }
 }
@@ -360,9 +328,21 @@ async function sendEmailViaFunction(payload) {
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 12000)
-  const requestBody = {
-    from: 'Carbonify <notifications@resend.dev>',
-    ...payload,
+  // No `from`, no `to`, no `html`. The function derives all three; sending them
+  // is what made it a relay (A2/H4). The payload is a message type plus a row id.
+  const requestBody = { ...payload }
+
+  // The user's own access token, not the anon key. config.toml's A2 note assumed
+  // "the app invokes it via supabase.functions.invoke, which forwards the user's
+  // token" — but this direct-fetch branch is the one that actually runs, and it
+  // was sending the anon key. The function could therefore never tell a verifier
+  // from an anonymous visitor, which the decision message now has to know.
+  let accessToken = ''
+  try {
+    const { data: sessionData } = (await supabase?.auth?.getSession?.()) || {}
+    accessToken = sessionData?.session?.access_token || ''
+  } catch {
+    accessToken = ''
   }
 
   try {
@@ -386,11 +366,9 @@ async function sendEmailViaFunction(payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(anonKey
-          ? {
-              apikey: anonKey,
-              Authorization: `Bearer ${anonKey}`,
-            }
+        ...(anonKey ? { apikey: anonKey } : {}),
+        ...(accessToken || anonKey
+          ? { Authorization: `Bearer ${accessToken || anonKey}` }
           : {}),
       },
       body: JSON.stringify(requestBody),
@@ -408,107 +386,54 @@ async function sendEmailViaFunction(payload) {
   }
 }
 
+// The decision emails send an application id and nothing else.
+//
+// Until 2026-08-06 they posted `{to, subject, html}` — the shape the function
+// stopped accepting when H4 closed the relay on 2026-07-11 — and had been
+// answering 400 "role_requested must be project_developer or verifier" for every
+// approval and every rejection since. Both call sites catch and console.error,
+// so the verifier saw "Application approved." and the applicant heard nothing.
+//
+// The recipient address, the applicant's name, the outcome and the reviewer's
+// notes now all come off the stored row inside the function. Passing them from
+// here would be re-opening the hole with extra steps.
 export async function sendRoleApplicationApprovalEmail(details) {
-  const { email, applicantName, role, hasAccount = false, approvedAt = new Date() } = details || {}
+  const { applicationId, role } = details || {}
 
-  if (!email) {
-    throw new Error('Approval email requires a recipient email.')
+  if (!applicationId) {
+    throw new Error('Approval email requires an application id.')
   }
 
-  const roleLabel =
-    role === 'verifier'
-      ? 'Verifier'
-      : role === 'project_developer'
-        ? 'Project Developer'
-        : 'Specialist'
-
-  const origin =
-    (typeof window !== 'undefined' && window.location?.origin) || 'https://app.carbonify.dev'
-
-  const loginLink = `${origin}/login`
-  const signUpLink = `${origin}/register?role=${encodeURIComponent(role || '')}&email=${encodeURIComponent(email)}`
-
-  const html = `
-    <p>Hi ${applicantName || 'Carbonify Specialist'},</p>
-    <p>Your Carbonify account for the <strong>${roleLabel}</strong> role has been verified and approved.</p>
-    ${
-      hasAccount
-        ? `<p>You can now sign in and access your dashboard here:<br/><a href="${loginLink}">${loginLink}</a></p>`
-        : `<p>To get started, create your Carbonify account using this link:<br/><a href="${signUpLink}">${signUpLink}</a></p>`
-    }
-    <p>Verification date: ${approvedAt instanceof Date ? approvedAt.toLocaleString() : approvedAt}</p>
-    <p>If you believe this was sent in error, please contact the Carbonify support team.</p>
-    <p>— The Carbonify Team</p>
-  `
-
   const result = await sendEmailViaFunction({
-    to: email,
-    subject: `Your ${roleLabel} account has been verified`,
-    html,
-    from: 'Carbonify <notifications@resend.dev>',
+    type: 'role_application_decision',
+    application_id: applicationId,
   })
 
   return {
     ...result,
     success: true,
-    email,
+    applicationId,
     role,
-    hasAccount,
     type: 'role_application_approved',
   }
 }
 
 export async function sendRoleApplicationRejectionEmail(details) {
-  const {
-    email,
-    applicantName,
-    role,
-    notes = '',
-    rejectedAt = new Date(),
-  } = details || {}
+  const { applicationId, role } = details || {}
 
-  if (!email) {
-    throw new Error('Rejection email requires a recipient email.')
+  if (!applicationId) {
+    throw new Error('Rejection email requires an application id.')
   }
 
-  const roleLabel =
-    role === 'verifier'
-      ? 'Verifier'
-      : role === 'project_developer'
-        ? 'Project Developer'
-        : 'Specialist'
-
-  const origin =
-    (typeof window !== 'undefined' && window.location?.origin) || 'https://app.carbonify.dev'
-
-  const applyAgainLink = `${origin}/apply?role=${encodeURIComponent(role || '')}`
-  const noteSection = String(notes || '').trim()
-    ? `<p><strong>Reviewer notes:</strong><br/>${String(notes).trim()}</p>`
-    : ''
-
-  const html = `
-    <p>Hi ${applicantName || 'Carbonify Applicant'},</p>
-    <p>Thank you for applying for the <strong>${roleLabel}</strong> role on Carbonify.</p>
-    <p>After review, your application was <strong>not approved</strong> at this time.</p>
-    ${noteSection}
-    <p>You may submit a stronger application after updating your details and supporting information:</p>
-    <p><a href="${applyAgainLink}">${applyAgainLink}</a></p>
-    <p>Decision date: ${rejectedAt instanceof Date ? rejectedAt.toLocaleString() : rejectedAt}</p>
-    <p>If you need clarification, please contact the Carbonify support team.</p>
-    <p>— The Carbonify Team</p>
-  `
-
   const result = await sendEmailViaFunction({
-    to: email,
-    subject: `Update on your ${roleLabel} application`,
-    html,
-    from: 'Carbonify <notifications@resend.dev>',
+    type: 'role_application_decision',
+    application_id: applicationId,
   })
 
   return {
     ...result,
     success: true,
-    email,
+    applicationId,
     role,
     type: 'role_application_rejected',
   }

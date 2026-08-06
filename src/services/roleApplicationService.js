@@ -3,7 +3,7 @@ import { updateUserRole } from '@/services/roleService'
 import { sendRoleApplicationApprovalEmail } from '@/services/emailService'
 import { sendRoleApplicationRejectionEmail } from '@/services/emailService'
 import { notifyVerifiersOfRoleApplication } from '@/services/emailService'
-import { notifyRoleApplicationDecision } from '@/services/notificationService'
+import { logUserAction } from '@/services/auditService'
 import { ROLES } from '@/constants/roles'
 
 export const ROLE_APPLICATION_TABLE = 'role_applications'
@@ -126,26 +126,11 @@ async function getCurrentReviewerContext(supabase) {
   }
 }
 
-async function resolveApplicationEmail(supabase, application) {
-  const directEmail = sanitizeString(application?.email)?.toLowerCase()
-  if (directEmail) return directEmail
-
-  const linkedUserId = sanitizeString(application?.user_id)
-  if (!linkedUserId) return null
-
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('email')
-    .eq('id', linkedUserId)
-    .single()
-
-  if (error) {
-    console.warn('Unable to load fallback applicant email from profile:', error)
-    return null
-  }
-
-  return sanitizeString(profile?.email)?.toLowerCase() || null
-}
+// resolveApplicationEmail lived here until 2026-08-06. Its only caller passed the
+// address it returned to the decision email, and the decision email no longer
+// takes an address — send-approval-email resolves the recipient from the stored
+// application row, applying this exact `email` → linked profile fallback, because
+// a recipient the browser can choose is the relay hole H4 closed.
 
 /**
  * Submit a role application request.
@@ -542,16 +527,15 @@ export async function updateRoleApplicationStatus(id, status, options = {}) {
     throw new Error(error.message || 'Failed to update application status.')
   }
 
+  // The decision email is sent AFTER the row is updated, on purpose: the edge
+  // function reads the outcome and the reviewer's notes off the stored row
+  // rather than being told them, so the row has to be authoritative first.
   let notificationInfo = null
-  const decisionEmail = await resolveApplicationEmail(supabase, existing)
   if (status === ROLE_APPLICATION_STATUS.APPROVED) {
     try {
       const emailResult = await sendRoleApplicationApprovalEmail({
-        email: decisionEmail,
-        applicantName: existing.applicant_full_name,
+        applicationId: id,
         role: existing.role_requested,
-        hasAccount: !!existing.user_id,
-        approvedAt: updatePayload.reviewed_at,
       })
       notificationInfo = { sent: true, hasAccount: !!existing.user_id, response: emailResult }
     } catch (notificationError) {
@@ -560,13 +544,9 @@ export async function updateRoleApplicationStatus(id, status, options = {}) {
     }
   } else if (status === ROLE_APPLICATION_STATUS.REJECTED) {
     try {
-      const rejectionNotes = sanitizeString(options.notes) || sanitizeString(options.decisionReason) || ''
       const emailResult = await sendRoleApplicationRejectionEmail({
-        email: decisionEmail,
-        applicantName: existing.applicant_full_name,
+        applicationId: id,
         role: existing.role_requested,
-        notes: rejectionNotes,
-        rejectedAt: updatePayload.reviewed_at,
       })
       notificationInfo = { sent: true, response: emailResult }
     } catch (notificationError) {
@@ -575,11 +555,34 @@ export async function updateRoleApplicationStatus(id, status, options = {}) {
     }
   }
 
+  // The applicant's in-app notification is raised by
+  // trg_notify_role_application_decision (20260806000100) off the UPDATE above.
+  // It used to be a client insert here, which RLS has rejected with 403 since
+  // 20260802000400 — a reviewer cannot address a notification to an applicant.
+
+  // Audit the decision. This lives in the service rather than in the panel
+  // because there are two panels: the admin one (RoleApplications.vue) logged
+  // it, and the verifier one (DeveloperApplicationsDashboard.vue) never did — so
+  // approving a project developer, which only a verifier does, left no record of
+  // the decision at all. Non-fatal: a missing audit row must not undo a decision
+  // that has already committed.
   if ([ROLE_APPLICATION_STATUS.APPROVED, ROLE_APPLICATION_STATUS.REJECTED].includes(status)) {
+    const auditAction =
+      status === ROLE_APPLICATION_STATUS.APPROVED
+        ? 'role_application_approved'
+        : 'role_application_rejected'
     try {
-      await notifyRoleApplicationDecision(data, status)
-    } catch (notificationError) {
-      console.error('Failed to create in-app role application notification:', notificationError)
+      await logUserAction(auditAction, 'role_application', reviewerId, id, {
+        applicant_user_id: existing.user_id || null,
+        applicant_name: existing.applicant_full_name || null,
+        requested_role: existing.role_requested,
+        previous_status: existing.status,
+        new_status: status,
+        notes: sanitizeString(options.notes) || null,
+        decision_reason: sanitizeString(options.decisionReason) || null,
+      })
+    } catch (auditError) {
+      console.warn('Role application decision audit log failed (non-fatal):', auditError)
     }
   }
 

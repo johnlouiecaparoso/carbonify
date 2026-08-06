@@ -9,7 +9,6 @@ import {
   updateRoleApplicationStatus,
 } from '@/services/roleApplicationService'
 import { useUserStore } from '@/store/userStore'
-import { logUserAction } from '@/services/auditService'
 import PageHeader from '@/components/layout/PageHeader.vue'
 
 const props = defineProps({
@@ -151,10 +150,6 @@ async function updateStatus(newStatus, options = {}) {
   feedbackMessage.value = ''
   roleAssignmentWarning.value = ''
 
-  const previousStatus = selectedApplication.value.status
-  const applicationId = selectedApplication.value.id
-  const applicantName = selectedApplication.value.applicant_full_name
-
   if (newStatus === ROLE_APPLICATION_STATUS.REJECTED) {
     if (!decisionReason.value || decisionReason.value.trim().length < 5) {
       feedbackMessage.value = 'Please provide a short explanation for rejecting this application.'
@@ -201,32 +196,10 @@ async function updateStatus(newStatus, options = {}) {
 
     await loadApplications()
 
-    const actionMap = {
-      [ROLE_APPLICATION_STATUS.APPROVED]: 'role_application_approved',
-      [ROLE_APPLICATION_STATUS.REJECTED]: 'role_application_rejected',
-      [ROLE_APPLICATION_STATUS.UNDER_REVIEW]: 'role_application_under_review',
-      [ROLE_APPLICATION_STATUS.PENDING]: 'role_application_pending',
-    }
-
-    const auditAction = actionMap[newStatus] || 'role_application_updated'
-
-    try {
-      await logUserAction(
-        auditAction,
-        'role_application',
-        userStore.session?.user?.id,
-        applicationId,
-        {
-          applicant_name: applicantName,
-          previous_status: previousStatus,
-          new_status: newStatus,
-          notes: decisionNotes.value || null,
-          decision_reason: decisionReason.value || null,
-        },
-      )
-    } catch (auditError) {
-      console.warn('Audit log failed for role application update:', auditError)
-    }
+    // The approve/reject audit row is written by updateRoleApplicationStatus
+    // itself as of 2026-08-06. It was logged here and nowhere else, so the
+    // verifier's panel — the only place a project_developer is ever approved —
+    // recorded nothing. Moving it into the service covers both panels once.
   } catch (error) {
     console.error('Failed to update application status:', error)
     feedbackMessage.value = error.message || 'Unable to update status. Please try again.'

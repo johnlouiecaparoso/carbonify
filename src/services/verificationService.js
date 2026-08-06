@@ -216,7 +216,7 @@ export async function getProjectAuditTrail(projectId) {
   if (!supabase || !projectId) return []
   const { data, error } = await supabase
     .from('audit_logs')
-    .select('id, action, created_at, metadata, user_id, profiles!audit_logs_user_id_fkey(full_name)')
+    .select('id, action, created_at, metadata, user_id')
     .eq('resource_type', 'projects')
     .eq('resource_id', projectId)
     .order('created_at', { ascending: false })
@@ -226,7 +226,46 @@ export async function getProjectAuditTrail(projectId) {
     console.warn('[verification] audit trail unavailable:', error.message)
     return []
   }
-  return data || []
+
+  // Two queries, not a PostgREST embed.
+  //
+  // This used to select `profiles!audit_logs_user_id_fkey(full_name)` and had
+  // never once succeeded in production: 400 PGRST200, "Could not find a
+  // relationship between 'audit_logs' and 'profiles' in the schema cache".
+  // Probed live 2026-08-06 — audit_logs has NO foreign key to profiles at all,
+  // named or unnamed. 20260326030100 declares one inline, but the file is a
+  // `create table if not exists` and the table already existed, so the
+  // constraint never landed. The embed therefore failed on every request, the
+  // handler above swallowed it, and the verifier's timeline has been silently
+  // rendering empty rather than showing a missing name.
+  //
+  // auditService.attachAuditLogUsers has been doing the join this way the whole
+  // time, one file over. Nothing needs the constraint to exist.
+  return attachProfileNames(supabase, data || [])
+}
+
+/** Resolve `user_id` -> `profiles.full_name` for a set of audit rows. */
+async function attachProfileNames(supabase, rows) {
+  const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))]
+  if (!userIds.length) return rows.map((row) => ({ ...row, profiles: null }))
+
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', userIds)
+
+  if (error) {
+    // A name we cannot resolve must not cost us the timeline itself.
+    console.warn('[verification] audit actor names unavailable:', error.message)
+    return rows.map((row) => ({ ...row, profiles: null }))
+  }
+
+  const nameById = new Map((profiles || []).map((profile) => [profile.id, profile.full_name]))
+  return rows.map((row) => ({
+    ...row,
+    // Same shape the embed produced, so every consumer keeps working.
+    profiles: row.user_id ? { full_name: nameById.get(row.user_id) || null } : null,
+  }))
 }
 
 /** The audit actions that represent a verifier DECIDING something. */

@@ -474,73 +474,6 @@ export async function createNotificationsForUsers(userIds = [], payload = {}) {
   return data || []
 }
 
-export async function createNotificationsForRoles(roles = [], payload = {}, options = {}) {
-  const recipients = await resolveNotificationRecipients({ roles, excludeUserIds: options.excludeUserIds || [] })
-
-  if (!recipients.length) return []
-
-  return createNotificationsForUsers(recipients, payload)
-}
-
-/**
- * Notify the other party when a comment is posted on a project's review thread.
- * - A verifier/admin comment notifies the project owner.
- * - A developer (owner) comment notifies verifiers/admins.
- * - An internal note notifies only verifiers/admins (never the owner).
- * The author is always excluded. Best-effort: callers should not fail the
- * comment if this throws.
- */
-export async function notifyProjectComment({ project, authorId, authorRole, body, isInternal } = {}) {
-  if (!project?.id) return
-
-  const role = String(authorRole || '').toLowerCase()
-  const isReviewer = role === 'verifier' || role === 'admin'
-  const snippet = String(body || '').replace(/\s+/g, ' ').trim().slice(0, 140)
-  const projectTitle = project.title || 'a project'
-
-  // Internal notes are reviewer-only — notify verifiers/admins, never the owner.
-  if (isInternal) {
-    await createNotificationsForRoles(
-      ['verifier', 'admin'],
-      {
-        type: 'project_comment',
-        title: `Internal note on "${projectTitle}"`,
-        message: snippet,
-        link: '/verifier',
-        metadata: { project_id: project.id, internal: true },
-      },
-      { excludeUserIds: authorId ? [authorId] : [] },
-    )
-    return
-  }
-
-  // A reviewer commented → notify the project owner.
-  if (isReviewer) {
-    if (!project.user_id) return
-    await createNotificationsForUsers([project.user_id], {
-      type: 'project_comment',
-      title: `New comment on "${projectTitle}"`,
-      message: snippet,
-      link: '/developer/projects',
-      metadata: { project_id: project.id },
-    })
-    return
-  }
-
-  // The developer/owner commented → notify the reviewers.
-  await createNotificationsForRoles(
-    ['verifier', 'admin'],
-    {
-      type: 'project_comment',
-      title: `New developer reply on "${projectTitle}"`,
-      message: snippet,
-      link: '/verifier',
-      metadata: { project_id: project.id },
-    },
-    { excludeUserIds: authorId ? [authorId] : [] },
-  )
-}
-
 // ── Removed 2026-08-02: seven notify* twins of live DATABASE TRIGGERS ────────
 //
 // notifyProjectSubmittedForReview, notifyProjectDecision,
@@ -559,35 +492,37 @@ export async function notifyProjectComment({ project, authorId, authorRole, body
 // never rang. So the trap was two-sided — call one of these and you either got
 // nothing, or a second notification on top of the trigger's.
 //
-// The live cross-user helpers (createNotificationsForUsers /
-// createNotificationsForRoles) and the three live notify* functions
-// (notifyProjectComment, notifyRoleApplicationDecision, notifyWelcomeUser)
-// stay. See DEFERRED_BACKLOG #30.
+// See DEFERRED_BACKLOG #30. (This block used to end by listing what "stays" —
+// createNotificationsForRoles, notifyProjectComment, notifyRoleApplicationDecision.
+// All three are gone as of 2026-08-06; see the next block for why.)
 
-export async function notifyRoleApplicationDecision(application, status) {
-  if (!application?.user_id) return []
-
-  const normalizedStatus = normalizeRole(status)
-  if (!['approved', 'rejected'].includes(normalizedStatus)) return []
-
-  const isApproved = normalizedStatus === 'approved'
-  const roleLabel =
-    normalizeRole(application.role_requested) === 'verifier' ? 'Verifier' : 'Project Developer'
-
-  return createNotificationsForUsers([application.user_id], {
-    type: 'role_application_status',
-    title: isApproved ? 'Your specialist account was approved' : 'Your specialist account was rejected',
-    message: isApproved
-      ? `Your ${roleLabel} application has been approved. You can now use your verified account features.`
-      : `Your ${roleLabel} application was rejected. Please check your email or contact Carbonify support for next steps.`,
-    link: '/profile',
-    metadata: {
-      application_id: application.id,
-      requested_role: application.role_requested,
-      status: normalizedStatus,
-    },
-  })
-}
+// ── Removed 2026-08-06: two more twins of DATABASE TRIGGERS ─────────────────
+//
+// notifyRoleApplicationDecision and notifyProjectComment were cross-user
+// inserts, and 20260802000400 tightened the system_notifications INSERT policy
+// to `auth.uid() = user_id`. Both had been rejected with 403 ever since — the
+// reviewer is not the applicant, and a commenter is not the person being
+// notified. Both call sites swallow the error, so an approved developer was
+// simply never told and a commented-on owner was never told.
+//
+// That migration's header lists "the three remaining direct client inserts" as
+// all self-addressed. These two were not in the list and are not self-addressed.
+// The gap is now closed on the database side by 20260806000100:
+//
+//   trg_notify_role_application_decision  (role_applications, AFTER UPDATE)
+//   trg_notify_project_comment            (project_comments,  AFTER INSERT)
+//
+// Both are SECURITY DEFINER, so they bypass the policy the same way the five
+// existing notify_* triggers do, and the recipient is derived from the row
+// rather than asserted by the browser. Nothing calls these functions any more —
+// re-adding a client-side version would just reintroduce the silent 403.
+//
+// createNotificationsForRoles went with them. It notified a ROLE, so it was
+// cross-user by construction and could not satisfy `auth.uid() = user_id` under
+// any caller; with its last two callers gone it was an export that could only
+// ever fail. createNotificationsForUsers stays — MRV reminders, saved-search
+// matches and watchlist price drops all address the caller themselves, which is
+// exactly the set 20260802000400 was written around.
 
 export async function notifyWelcomeUser(userId, fullName = '') {
   if (!userId) return []

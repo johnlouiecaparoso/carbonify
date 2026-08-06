@@ -8,7 +8,6 @@
  */
 import { getSupabase } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
-import { notifyProjectComment } from '@/services/notificationService'
 
 /**
  * List comments on a project, oldest first. RLS already filters out internal
@@ -119,26 +118,10 @@ export async function addProjectComment(projectId, body, opts = {}) {
 
   if (error) throw new Error(error.message || 'Failed to post comment')
 
-  // Notify the other party so the conversation is actually seen. Best-effort:
-  // never fail a posted comment because a notification couldn't be created.
-  try {
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, user_id, title')
-      .eq('id', projectId)
-      .single()
-    if (project) {
-      await notifyProjectComment({
-        project,
-        authorId: userId,
-        authorRole: opts.authorRole,
-        body: trimmed,
-        isInternal: !!opts.isInternal,
-      })
-    }
-  } catch (notifyError) {
-    console.warn('Comment posted but notification failed:', notifyError?.message)
-  }
-
+  // The other party is notified by trg_notify_project_comment (20260806000100),
+  // which reads the row this insert just wrote. The client used to do it here,
+  // but that insert addressed somebody else and 20260802000400 restricted
+  // system_notifications inserts to rows you address to yourself — so it had been
+  // failing with 403 into the catch below, silently, for every comment posted.
   return data
 }
