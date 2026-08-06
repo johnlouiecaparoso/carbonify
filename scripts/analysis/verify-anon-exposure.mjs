@@ -199,6 +199,32 @@ async function main() {
       p_quantity: 0,
       p_reason: 'probe',
     },
+    // Added 2026-08-06 with 20260806000200. These two write DIRECTLY into
+    // system_notifications as the owner, so an anon or authenticated EXECUTE
+    // grant would reopen exactly what 20260802000400 closed — the ability to put
+    // a notification in anybody's bell. They are called only by the eight
+    // trigger functions in that migration, which run as the owner and need no
+    // grant, so the correct privilege here is none at all.
+    //
+    // Both carry a uuid argument, which is what makes the probe safe under the
+    // ordering established above: if the grant were still there the malformed
+    // uuid fails the cast (22P02) before the body can insert anything.
+    notify_one: {
+      p_user_id: 'NOT-A-UUID',
+      p_type: 'probe',
+      p_title: 'probe',
+      p_message: 'probe',
+      p_link: null,
+      p_metadata: null,
+    },
+    notify_admins: {
+      p_type: 'probe',
+      p_title: 'probe',
+      p_message: 'probe',
+      p_link: null,
+      p_metadata: null,
+      p_exclude: 'NOT-A-UUID',
+    },
   }
   for (const [fn, args] of Object.entries(definerProbes)) {
     const r = await anonRpc(fn, args)
