@@ -10,8 +10,18 @@
     </div>
 
     <form v-else class="change-form" @submit.prevent="submit">
-      <input v-model="password" type="password" class="sec-input" placeholder="New password (min 8 chars)" />
-      <input v-model="confirm" type="password" class="sec-input" placeholder="Confirm new password" />
+      <PasswordField
+        v-model="password"
+        input-class="sec-input"
+        autocomplete="new-password"
+        placeholder="New password (min 8 chars)"
+      />
+      <PasswordField
+        v-model="confirm"
+        input-class="sec-input"
+        autocomplete="new-password"
+        placeholder="Confirm new password"
+      />
       <p v-if="message" class="sec-message" :class="{ error: isError }">{{ message }}</p>
       <div class="form-actions">
         <button type="button" class="btn-ghost" @click="cancel">Cancel</button>
@@ -26,6 +36,7 @@
 <script setup>
 import { ref } from 'vue'
 import { updatePassword } from '@/services/passwordService'
+import PasswordField from '@/components/ui/PasswordField.vue'
 
 const open = ref(false)
 const password = ref('')

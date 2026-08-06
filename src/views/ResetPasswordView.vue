@@ -24,12 +24,24 @@
 
         <div class="form-field">
           <label for="password" class="form-label">New password</label>
-          <input id="password" v-model="password" type="password" class="form-input" placeholder="New password" />
+          <PasswordField
+            id="password"
+            v-model="password"
+            input-class="form-input"
+            autocomplete="new-password"
+            placeholder="New password"
+          />
         </div>
 
         <div class="form-field">
           <label for="confirm" class="form-label">Confirm password</label>
-          <input id="confirm" v-model="confirm" type="password" class="form-input" placeholder="Re-enter password" />
+          <PasswordField
+            id="confirm"
+            v-model="confirm"
+            input-class="form-input"
+            autocomplete="new-password"
+            placeholder="Re-enter password"
+          />
         </div>
 
         <p v-if="error" class="error-text">{{ error }}</p>
@@ -46,6 +58,7 @@
 import { ref, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
 import { updatePassword } from '@/services/passwordService'
+import PasswordField from '@/components/ui/PasswordField.vue'
 
 const checking = ref(true)
 const hasRecoverySession = ref(false)

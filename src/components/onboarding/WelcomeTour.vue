@@ -54,11 +54,36 @@
  * a page's markup changes.
  */
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { tourStepsForRole } from '@/constants/onboarding'
 import { hasSeenTour, markTourSeen } from '@/services/onboardingService'
 
 const userStore = useUserStore()
+const route = useRoute()
+
+/**
+ * Routes where a session can exist WITHOUT the account having arrived anywhere.
+ *
+ * `/apply` is the one that broke: submitRoleApplication signs the applicant up
+ * to create their account, writes the application, and signs them straight back
+ * out again. For those few hundred milliseconds `isAuthenticated` is true and a
+ * user id exists, so the watcher below fired and the tour opened over the form —
+ * showing the *general_user* steps to somebody who had just applied to be a
+ * Project Developer or Verifier.
+ *
+ * The visible pop was the smaller half. maybeAutoOpen() also calls markSeen() on
+ * OPEN, so that account's tour was burned during the apply flow: once the
+ * application was approved, the developer or verifier tour it should then have
+ * received would never auto-open again.
+ *
+ * `/login` and `/register` are included for the same reason — the session flips
+ * before the redirect lands, and the tour belongs on the destination, not over
+ * the form that got you there. Suppression here is not a decision, so it does
+ * NOT set autoOpenResolved: once the route changes to a real destination the
+ * watcher runs again and the tour opens normally.
+ */
+const AUTH_FLOW_ROUTES = new Set(['role-application', 'register', 'register-farmer', 'login'])
 
 const open = ref(false)
 const index = ref(0)
@@ -139,6 +164,10 @@ async function maybeAutoOpen() {
   if (autoOpenResolved.value) return
   if (!userStore.isAuthenticated || !userId.value) return
 
+  // Deliberately BEFORE autoOpenResolved is claimed: this is "not yet", not
+  // "no". See AUTH_FLOW_ROUTES.
+  if (AUTH_FLOW_ROUTES.has(route.name)) return
+
   // Claim the decision before awaiting, so mount and the watcher firing in the
   // same tick cannot both open the tour.
   autoOpenResolved.value = true
@@ -151,8 +180,10 @@ async function maybeAutoOpen() {
   markSeen()
 }
 
-// The id arrives after `isAuthenticated` flips, so watch the id.
-watch(userId, (id) => {
+// The id arrives after `isAuthenticated` flips, so watch the id. The route is
+// watched too: when the id arrives on a suppressed route the decision is
+// deferred, and the navigation away is the only thing that comes next.
+watch([userId, () => route.name], ([id]) => {
   if (id) maybeAutoOpen()
 })
 

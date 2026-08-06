@@ -9,6 +9,7 @@ import {
   submitRoleApplication,
 } from '@/services/roleApplicationService'
 import { useUserStore } from '@/store/userStore'
+import PasswordField from '@/components/ui/PasswordField.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -755,14 +756,14 @@ function goBackHome() {
 
               <div class="form__field" v-if="!userStore.isAuthenticated">
                 <label for="password" class="form__label">Account password</label>
-                <input
+                <PasswordField
                   id="password"
                   v-model="form.password"
-                  type="password"
                   name="password"
-                  class="form__input"
+                  input-class="form__input"
                   autocomplete="new-password"
                   required
+                  :aria-invalid="!!errors.password"
                   @input="errors.password = ''"
                 />
                 <p v-if="errors.password" class="form__error">{{ errors.password }}</p>
@@ -770,14 +771,14 @@ function goBackHome() {
 
               <div class="form__field" v-if="!userStore.isAuthenticated">
                 <label for="confirmPassword" class="form__label">Confirm password</label>
-                <input
+                <PasswordField
                   id="confirmPassword"
                   v-model="form.confirmPassword"
-                  type="password"
                   name="confirmPassword"
-                  class="form__input"
+                  input-class="form__input"
                   autocomplete="new-password"
                   required
+                  :aria-invalid="!!errors.confirmPassword"
                   @input="errors.confirmPassword = ''"
                 />
                 <p v-if="errors.confirmPassword" class="form__error">{{ errors.confirmPassword }}</p>
