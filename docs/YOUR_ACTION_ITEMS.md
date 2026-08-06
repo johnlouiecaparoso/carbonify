@@ -13,7 +13,35 @@
 > in one table — including the distinction this project has confused before: **ready to deploy** and
 > **ready to take real money** are different questions with different answers.
 
-> ## 🧭 2026-08-02 — where this stands, in one box
+> ## 🆕 2026-08-06 — your queue, and what the 08-02 box below became
+>
+> **Nothing is waiting on you right now.** Both of today's migrations
+> (`20260806000100_notify_role_decision_and_comment.sql`,
+> `20260806000200_notify_compliance_and_workflow.sql`) are **applied**, and `send-approval-email` is
+> **redeployed** — both confirmed by probe, not by report:
+>
+> * the edge function answers with its new error text for a typeless payload, which the old build
+>   could not produce, and refuses a decision request from an anonymous caller (`401`);
+> * `notify_admins` and `notify_one` return `42501` to the anon key — which proves in one answer that
+>   the functions exist **and** that no client role can call them.
+>
+> **One thing IS still on you:** deploy the frontend. The password toggles and the onboarding-tour fix
+> are committed and tested but not yet on `carbonify-gilt.vercel.app`.
+>
+> **And run the two `VERIFY` blocks** at the bottom of each migration file if you have not — I cannot
+> read `pg_trigger` with the anon key, so the triggers themselves are the one part of this pass I have
+> not been able to measure from here. Three PASS rows in one file, four in the other.
+>
+> > **The 08-02 box below is now fully closed, and it turned out to be larger than it looked.** Step 3
+> > tightened the policy correctly, but its header listed "the three remaining direct client inserts"
+> > as all self-addressed — and **two cross-user callers were not in that list.** They had been failing
+> > `403` into a `console.warn` ever since, which is the exact silent shape that box warned about.
+> > `20260806000100` fixes both. The audit that followed found **nine services notifying nobody at
+> > all**; `20260806000200` closes eight of them. See [HANDOFF.md](HANDOFF.md) § *2026-08-06*.
+>
+> ---
+
+> ## 2026-08-02 — where this stands, in one box
 >
 > ### 🔒 CONFIRMED 2026-08-02 — and the fix is staged in three steps
 >

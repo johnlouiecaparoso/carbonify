@@ -2241,3 +2241,122 @@ Both halves are now checked instead of remembered: Query G reports **reachabilit
 and only alarms when a client role can actually SELECT, **G2** lists every client-readable view with
 its invoker flag so a future `grant` cannot quietly create the pairing this entry rules out, and
 `verify-anon-exposure.mjs` probes the view directly (**23 checks**, was 22).
+
+## From the 2026-08-06 role-approval failure
+
+One click — approving a project developer in the verifier panel — produced four console errors and
+still reported "Application approved." The role **was** assigned; everything that failed was a
+non-fatal side effect wrapped in a `catch`. So the applicant got their role and was told nothing, by
+any channel, and the decision left no record. All four are fixed (`20260806000100`, a
+`send-approval-email` redeploy, and the client changes alongside them). What is worth keeping is the
+shape they shared.
+
+**Three of the four were a correct guard applied to one branch and not its sibling** — the pattern
+this project keeps rediscovering:
+
+* H4 (2026-07-11) narrowed `send-approval-email` to a single message type and updated **one** of its
+  four callers. Approval mail, rejection mail and the verifier's new-project notice kept posting the
+  pre-H4 `{to, subject, html}` shape and had been answering `400` for **26 days**. One of the three
+  was visible only because someone happened to be approving an account with the console open.
+* `20260802000400` tightened `system_notifications` INSERT to `auth.uid() = user_id` and its header
+  enumerates "the three remaining direct client inserts" as all self-addressed. Two cross-user
+  callers were not in that list — `notifyRoleApplicationDecision` and `notifyProjectComment` — and
+  both had been failing `403` into a `console.warn` ever since. **The migration's own header warned
+  about exactly this failure mode** and then missed two instances of it.
+* `20260805000600` restricted `audit_logs` INSERT to `user_id = auth.uid()` and states "Callers:
+  auditService.logUserAction, which already sets user_id from the session." True of most call sites;
+  false for `roleService.updateUserRole`, which passed the **applicant's** id as the actor.
+
+**An inventory written into a migration header is a claim, not a check.** Each of the three headers
+above contains a sentence that was accurate when written and wrong by the time it mattered, and
+nothing re-read them. The fix for the third one was to make the mistake unavailable rather than to
+correct the call site: `logUserAction` now resolves the actor from the session itself and demotes its
+`userId` argument to `metadata.subject_user_id`, so no future caller can attribute a row to someone
+who did not write it.
+
+That change also revived three audit events that were never reaching the database at all —
+`AML_SCREENED`, `AML_REVIEWED`, `DSR_PROCESSED` passed `null` as the actor and were dropped by an
+early return, silently, with no request made and no error to see. **A guard that returns before it
+calls out cannot be caught by watching the network tab**, which is why these outlasted the two 403s
+sitting next to them.
+
+### 47. `audit_logs` has no foreign key to `profiles` on live 🟡
+
+`verificationService.getProjectAuditTrail` selected
+`profiles!audit_logs_user_id_fkey(full_name)` and had **never once succeeded in production**:
+
+```
+select=id,profiles!audit_logs_user_id_fkey(full_name)  -> 400 PGRST200
+select=id,profiles(full_name)                          -> 400 PGRST200
+select=id,user_id                                      -> 200 []
+```
+
+(probed live signed-out, 2026-08-06). There is no FK to `profiles` under any name.
+`20260326030100_fix_audit_logs_schema.sql` declares one inline, but the file is a `create table if
+not exists` and the table already existed on live, so **the constraint in that CREATE never ran** —
+the same fresh-environment-versus-live divergence `20260805000600`'s header records for `receipts`
+and `email_logs`, arriving here through a different door.
+
+Fixed in code by joining in two queries, which is what `auditService.attachAuditLogUsers` had been
+doing correctly one file over the whole time. **Nothing now needs the constraint to exist**, so it is
+deliberately not being added: `audit_logs.user_id` is nullable and historical rows have never been
+checked against `profiles`, so `alter table … add constraint … references` could fail on orphaned
+rows mid-deploy, and validating it is the same `NOT VALID` dance as #4. Worth doing only if a future
+screen wants a PostgREST embed here.
+
+The wider point is the reporting, not the constraint. `getProjectAuditTrail` degrades to `[]` on
+error **by design**, with a comment saying so — so a verifier's timeline rendered empty and looked
+like a project with no history rather than a broken query. That is the "reads that swallow errors and
+return `[]` read as facts about the user" defect this backlog already names, found again in a place
+where the empty state is indistinguishable from the truth.
+
+## From the 2026-08-06 notification coverage audit
+
+Every workflow table was checked against what actually notifies. The result has a
+shape worth recording: **notifications were built for the things a buyer sees, and
+skipped for the things staff act on.** Projects, role applications, marketplace
+listings and the farmer↔buyer feedstock path were covered. Nine services notified
+nobody at all — `kycService`, `kybService`, `monitoringService`,
+`endorsementService`, `supportReportService`, `dataPrivacyService`,
+`payoutService`, `disputeService`, `amlService`.
+
+That is not an even distribution of neglect. Every gap was a queue where somebody
+is waiting on a human, and the human was never told there was anything to do:
+
+* **KYB gates withdrawing.** A seller with money owed to them submits business
+  verification, and no admin is told. The seller cannot withdraw until someone
+  happens to look at the queue.
+* **MRV approval is what MINTS credits** — the single most consequential action in
+  the product. A developer submitted a monitoring report and no verifier was
+  notified; a verifier approved it and no developer was notified.
+* **A data subject request starts a legal clock** under the Data Privacy Act, and
+  it arrived silently.
+
+`20260806000200` closes eight of them with SECURITY DEFINER triggers. AML is
+deliberately left out: `amlService` screens automatically on a schedule rather
+than on a user action, so "notify on new screening" would page compliance on
+every clear result. The useful signal there is a *status* of `potential_match` or
+`confirmed_match`, which needs a review-queue design rather than a bell, and is
+better decided than guessed.
+
+**Why all eight are triggers and not client calls.** Each is cross-user by
+definition — the person who acts is never the person who needs to hear about it —
+and 20260802000400 restricts client inserts into `system_notifications` to rows
+you address to yourself. A client-side version of any of these would have failed
+403 into a `console.warn` exactly like the two `20260806000100` had to rescue. The
+rule that falls out, and the one worth keeping: **if the recipient is not the
+actor, it does not belong in the browser.**
+
+Two helper functions (`notify_admins`, `notify_one`) were added and immediately
+`revoke`d from `anon` and `authenticated`. They are called only by trigger
+functions running as the owner; granting EXECUTE would hand any signed-in user a
+way to write into anyone else's bell, which is the hole 20260802000400 closed.
+
+Both helpers are now probed by `scripts/analysis/verify-anon-exposure.mjs` rather than trusted
+(**25 checks**, was 23). Verified against live 2026-08-06 immediately after applying: both return
+`401 42501`, which is conclusive in both directions at once — the function EXISTS, so the migration
+landed, and `anon` cannot execute it. An empty argument list was tried first and returned `PGRST202`,
+which reads like a pass and is not one: PostgREST resolves an overload by the exact set of named
+arguments, so a wrong signature is indistinguishable from a missing function. The full argument list
+is required, and both probes pass a malformed uuid so that a still-granted EXECUTE fails the cast
+before the body could insert anything.

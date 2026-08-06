@@ -147,7 +147,7 @@ Current functions:
 
 - `paymongo-checkout`: creates or verifies PayMongo checkout sessions
 - `paymongo-webhook`: handles PayMongo webhook events
-- `send-approval-email`: sends approval/rejection/reviewer emails through Resend
+- `send-approval-email`: sends role-application and project-submission emails through Resend. The caller sends a message type and a row id only; recipients and content are derived server-side
 
 ## Main Business Workflows
 

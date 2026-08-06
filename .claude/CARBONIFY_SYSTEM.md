@@ -365,7 +365,7 @@ All business logic lives in `src/services/`. The app is frontend-heavy but most 
 | `paymongo-reconcile` | External PSP settlement reconciliation (system vs PayMongo) | Service role |
 | `paymongo-resettle` | Heals orphaned paid payment intents | Service role |
 | `process-payouts` | Seller payout worker (processes `payout_requests` state machine) | Worker secret |
-| `send-approval-email` | Sends approval/rejection/reviewer emails through Resend | JWT required |
+| `send-approval-email` | Role-application + project-submission emails through Resend. Typed payload (`role_application_submitted` / `role_application_decision` / `project_submitted`) + a row id; recipients derived server-side, never caller-supplied | JWT required |
 | `account-deletion` | DPA erasure worker (processes account deletion requests) | Service role |
 
 ---

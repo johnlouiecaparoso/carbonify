@@ -148,6 +148,14 @@
 > [HANDOFF.md](HANDOFF.md) § *2026-08-05 (evening)*; what the sweep deliberately left is
 > [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#41–45**.
 >
+> **Worked 2026-08-06 — the role-approval failure, and the notification audit behind it.** Two
+> migrations (`20260806000100`–`000200`) applied to live, `send-approval-email` redeployed, and the
+> exposure harness re-probed at **25/25 PASS** signed out (two checks added for the new notification
+> helpers). Four bugs fixed in the approval path, all of them silent; the audit that followed found
+> **nine services notifying nobody** and closed eight of them with triggers. Detail in
+> [HANDOFF.md](HANDOFF.md) § *2026-08-06*; what it deliberately left — AML, and the missing
+> `audit_logs` FK — is [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#47** and the section above it.
+>
 > **The routing failure first, because it is this page's own subject.** All seven were applied to the
 > database and left **uncommitted** — so for several hours production was protected by policies that
 > existed on live and in no repository, while this register, HANDOFF and YOUR_ACTION_ITEMS all still

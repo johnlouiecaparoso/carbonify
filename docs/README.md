@@ -15,8 +15,14 @@
 > functions, and **ten** `20260805*` migrations — `000100`–`000300` (the last of which closed a
 > grant-hygiene hole that left seven functions callable anonymously), plus `000400`–`001000` from the
 > evening's **Supabase advisor sweep** — all confirmed by probe or in the deployed bundle. Re-run the
-> anonymous-exposure evidence with `node scripts/analysis/verify-anon-exposure.mjs` (**23/23 PASS**).
-> Suite **1303 green** across 115 files, Playwright **130**, lint 0, build green.
+> anonymous-exposure evidence with `node scripts/analysis/verify-anon-exposure.mjs` (**25/25 PASS**).
+> Suite **1308 green** across 116 files, Playwright **130**, lint 0, build green — re-measured 2026-08-06.
+>
+> 🆕 **2026-08-06:** two more migrations applied (`20260806000100`–`000200`) and
+> `send-approval-email` redeployed, after approving a project developer produced four console errors
+> and still reported success. The notification audit behind it found **nine services that notified
+> nobody**. See [HANDOFF.md](HANDOFF.md) § *2026-08-06*. Frontend changes from that pass
+> (password toggles, tour suppression) are committed but **not yet deployed**.
 >
 > ✅ **Replaying a migration can no longer silently revert a fix.** It happened **twice on
 > 2026-08-05** — to the escrow method-gate, then to `reconcile_financials()`, whose reverted copy

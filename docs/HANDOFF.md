@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · **advisor sweep + migration replay guards 2026-08-05 (evening) — seven more migrations applied and now tracked, and the apply procedure itself is no longer advisory; one behavioural gate left (`ESC-01…06`)**
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · advisor sweep + migration replay guards 2026-08-05 (evening) · **role-approval failure + notification coverage audit 2026-08-06 — two migrations applied, `send-approval-email` redeployed, and eight role-to-role handoffs that notified nobody now do; one behavioural gate left (`ESC-01…06`)**
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -27,8 +27,8 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. 🆕 **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`, unit **1303/1303 across 115 files**, lint **0**. |
-> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. 🆕 **The advisor sweep below is applied and re-probed — 23/23 PASS signed out.** |
+> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`. 🆕 **Re-measured 2026-08-06:** unit **1308/1308 across 116 files**, Playwright **130/130**, lint **0**, build green. ⚠️ The 2026-08-06 frontend changes (password toggles, tour suppression) are **committed but not yet deployed** — the two migrations and the edge function ARE live. |
+> | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. **The advisor sweep below is applied and re-probed — now 25/25 PASS signed out** (two checks added 2026-08-06 for the new notification helpers). |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
 >
@@ -40,7 +40,7 @@
 > | Credit lifecycle — submit → validate → MRV → VER → mint → list → buy → retire → certificate | ✅ Mint-on-VER cutover done (#17) |
 > | Escrow (method-gated hold) | ✅ Applied to live 07-29 · ⚠️ **never behaviourally verified** |
 > | Payout worker (`process-payouts`) | ✅ Deployed, secret-gated, `pg_cron` every 15 min, **proven with a 200** |
-> | Anonymous exposure surface | ✅ **Swept and re-probed 2026-08-05 (evening) — 23/23 PASS signed out**, with two `STILL-WORKS` checks proving public browsing survived. Seven migrations (`20260805000400`–`001000`). What they closed was **live at the time**, not theoretical: `public.projects` carried `USING(true) WITH CHECK(true)` for `ALL` roles, two `SECURITY DEFINER` views returned wallet balances and credit holdings to a signed-out caller, three tables accepted inserts from anyone, and the `avatars` bucket was listable — filenames are `${userId}_${timestamp}`, so the listing was a roster of user ids. Re-runnable: `node scripts/analysis/verify-anon-exposure.mjs` |
+> | Anonymous exposure surface | ✅ **Swept and re-probed 2026-08-06 — 25/25 PASS signed out**, with two `STILL-WORKS` checks proving public browsing survived. Seven migrations (`20260805000400`–`001000`). What they closed was **live at the time**, not theoretical: `public.projects` carried `USING(true) WITH CHECK(true)` for `ALL` roles, two `SECURITY DEFINER` views returned wallet balances and credit holdings to a signed-out caller, three tables accepted inserts from anyone, and the `avatars` bucket was listable — filenames are `${userId}_${timestamp}`, so the listing was a roster of user ids. Re-runnable: `node scripts/analysis/verify-anon-exposure.mjs` |
 > | Money integrity | ✅ `reconcile_financials()` = **0 rows**; RLS on all money tables, captured in a migration. `certificates` RLS applied 2026-08-05 (`20260804000500`). ⚠️ **`profiles` still has no tracked SELECT policy** — its read posture exists only on live (#39). 🆕 **But it has now been MEASURED, and #39's premise was wrong**: probes 9-10 of the negative RLS suite return `0 of 6` foreign profile rows for a signed-in user, so nobody can enumerate the user table. What remains is that no migration reproduces that posture, plus a few cross-user reads that render as absent data. The **admin** read path is still unmeasured |
 > | KYC / suspension gate on **both** purchase paths | ✅ **Applied 2026-08-05** (`20260804000100`). The wallet path now enforces the same KYC threshold and suspension check as the card path |
 > | Profiles column privileges | ✅ **Deny-list applied 2026-08-05** (`20260804000200`), closing both audit findings — self-granting a paid plan, and profile saves failing `42501` for every user |
@@ -53,7 +53,7 @@
 > | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe on the public routes, plus 6/6 on the AUTHENTICATED ones (new 2026-08-05, ~40 page-audits across four roles)** — 0 violations. The authenticated half found the notification bell unnamed on every page, the account menu unopenable by keyboard, and four translucent-over-green contrast defects. Manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
-> | Test suite | ✅ **1303 unit across 115 files** · Playwright **130 green** (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility 🆕 + 9 runtime smoke) · lint 0 · build green — all four re-measured 2026-08-05, not carried forward |
+> | Test suite | ✅ **1308 unit across 116 files** · Playwright **130 green** (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility + 9 runtime smoke) · lint 0 · build green — all four re-measured **2026-08-06**, not carried forward. Playwright needed `npx playwright install chromium` on a fresh machine; without the binary all 130 "fail" in ~6ms, which reads like a broken suite and is a missing download |
 >
 > ### What is NOT implemented
 >
@@ -225,7 +225,7 @@
 >
 > **Nine ERRORs and a long WARN tail, each probed against live with the anon key before anything was
 > written.** Seven migrations (`20260805000400`–`001000`) close what was real, all applied and
-> re-verified: `node scripts/analysis/verify-anon-exposure.mjs` → **23/23 PASS**, including two
+> re-verified: `node scripts/analysis/verify-anon-exposure.mjs` → **25/25 PASS** (23 until 2026-08-06), including two
 > `STILL-WORKS` checks proving signed-out marketplace browsing survived.
 >
 > **The headline is that the worst finding was a WARN.** `public.projects` carried a policy with
@@ -328,7 +328,7 @@
 > `permission denied for function` anywhere — which is the one failure mode that mattered, since seven
 > of these helpers are called from inside RLS policies.
 >
-> **Current build state:** build green, lint 0, **1303 unit tests green across 115 files**
+> **Current build state:** build green, lint 0, **1308 unit tests green across 116 files**
 > (re-measured 2026-08-05 — suite, lint and build all run, not carried forward from the previous
 > entry).
 >
@@ -345,14 +345,92 @@
 > only thing that caught a module-load outage on 08-02 that build, lint and 957 unit tests all missed.
 > `pilot-readiness.spec.js` is green now that signups are enabled on live.
 >
-> Unit-test history: 1303 · 1296 · 1292 · 1291 · 1286 · 1278 · 1275 · 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
+> Unit-test history: 1308 · 1303 · 1296 · 1292 · 1291 · 1286 · 1278 · 1275 · 1256 · 1185 · 1176 · 1173 · 1138 · 1131 · 1121 · 1104 · 1086 (08-02, incl. the module sweep) · 959 · 957 · 952 · 951 · 935 · 920 · 916 ·
 > 908 (07-31) · 820 · 801 · 786 (before the 07-30 security pass) · 770 · 757 · 703 (before the 07-26
 > role review) · 693 · 681 · 665 · 543 (07-22) · ~313 before that.
 >
 > *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows
 > and reports "no tests"; it is an environment issue, not a real failure.*
 >
-> ### 🆕 2026-08-05 (latest) — ALL FIVE MIGRATIONS APPLIED, and the audit found one live breakage
+> ### 🆕 2026-08-06 (latest) — one click produced four errors, and the audit behind it found nine silent services
+>
+> **Approving a project developer in the verifier panel threw four console errors and still said
+> "Application approved."** The role WAS assigned. Everything that failed was a non-fatal side effect
+> wrapped in a `catch` — so the applicant got their role and was told nothing, by any channel, and the
+> decision left no record.
+>
+> | # | Symptom | Root cause | Fix |
+> |---|---|---|---|
+> | 1 | `400` on `send-approval-email` | H4 (07-11) narrowed the function to one message type and updated **one of its four callers**. Approval mail, rejection mail and the verifier's new-project notice kept posting the pre-H4 `{to,subject,html}` shape and had been failing for **26 days** | Function rewritten with three message types, all server-derived. Redeployed |
+> | 2 | `403` on `audit_logs` insert | `roleService.updateUserRole` passed the **applicant's** id as the actor; `20260805000600` restricts inserts to `user_id = auth.uid()` | `logUserAction` now resolves the actor from the session and demotes its `userId` argument to `metadata.subject_user_id` |
+> | 3 | `403` on `system_notifications` insert | `notifyRoleApplicationDecision` is cross-user; `20260802000400` restricts inserts to rows you address to yourself | `20260806000100` — trigger. Same file rescues `notifyProjectComment`, which was failing identically and unreported |
+> | 4 | `400` on the project audit trail | `audit_logs` has **no FK to `profiles` on live** — `20260326030100` declares one but is a `create table if not exists` on a pre-existing table. The embed had never once succeeded in production | Two-step join, which `auditService.attachAuditLogUsers` had been doing correctly one file over the whole time |
+>
+> **Three of the four were a correct guard applied to one branch and not its sibling** — and each of
+> the three migrations involved contains a header sentence that was accurate when written and wrong by
+> the time it mattered. `20260802000400` enumerates "the three remaining direct client inserts" as all
+> self-addressed and missed two cross-user callers. `20260805000600` states "Callers:
+> auditService.logUserAction, which already sets user_id from the session" — true of most call sites,
+> false for the one that broke. **An inventory written into a migration header is a claim, not a
+> check.**
+>
+> Fixing #2 at the source also revived three audit events that were never reaching the database at
+> all — `AML_SCREENED`, `AML_REVIEWED`, `DSR_PROCESSED` passed `null` as the actor and were dropped by
+> an early return, **with no request made and no error to see.** A guard that returns before it calls
+> out cannot be caught by watching the network tab, which is why those outlasted the two 403s next to
+> them.
+>
+> #### The notification audit this triggered
+>
+> Every workflow table was checked against what actually notifies. **Nine services notified nobody:**
+> `kycService`, `kybService`, `monitoringService`, `endorsementService`, `supportReportService`,
+> `dataPrivacyService`, `payoutService`, `disputeService`, `amlService`.
+>
+> The pattern is worth naming: **notifications were built for the things a buyer sees, and skipped for
+> the things staff act on.** Every gap was a queue where somebody waits on a human, and the human was
+> never told there was anything to do. An unreviewed KYB leaves a seller unable to withdraw. An
+> unreviewed MRV report is credits that never mint. A data subject request starts a legal clock.
+>
+> `20260806000200` closes eight, both directions each — KYC, KYB, MRV, LGU endorsement, support
+> reports, DSRs, payouts and disputes. **AML is deliberately excluded:** it screens on a schedule
+> rather than on a user action, so a bell per screening would page compliance on every clear result.
+> The useful signal there is a `potential_match` status, which wants a review-queue design and is
+> better decided than guessed.
+>
+> All eight are `SECURITY DEFINER` triggers rather than client calls, because every one is cross-user
+> and would have hit the same silent `403`. **The rule that falls out: if the recipient is not the
+> actor, it does not belong in the browser.** Two helpers (`notify_admins`, `notify_one`) were added
+> and immediately revoked from `anon` and `authenticated` — they write into any user's bell as the
+> owner, so a grant would reopen exactly what `20260802000400` closed. Both are now probed by
+> `verify-anon-exposure.mjs` (**25 checks**, was 23) rather than remembered.
+>
+> #### Also shipped (frontend — committed, NOT yet deployed)
+>
+> * **Show/hide password** on the three forms that lacked it. `UiInput` already had a toggle, so
+>   `/login` and `/register` were fine — but `/apply` is where a Project Developer, Verifier or Farmer
+>   sets their account password, and it was the one form where you could not see what you typed.
+>   New `ui/PasswordField.vue` takes the host page's own input class so nothing restyles.
+> * **The onboarding tour no longer opens during the apply flow.** `submitRoleApplication` signs the
+>   applicant up, writes the row, and signs them out; for that window the tour auto-opened over the
+>   form with the *general_user* steps. The visible pop was the smaller half — `maybeAutoOpen()` calls
+>   `markSeen()` on OPEN, so the account's tour was **burned**, and the developer or verifier tour it
+>   should have received after approval would never auto-open again. Suppression is "not yet", never
+>   "no": five tests cover it, including the flag-burning case.
+>
+> > **Accounts created before this fix have a burned flag.** Reset with
+> > `update public.profiles set onboarding_tour_version = 0 where id = '<user-id>';` and clear
+> > `carbonify_tour_seen_v2_<user-id>` from localStorage — the column is the truth, that key is a cache
+> > in front of it.
+>
+> #### Still open from this pass
+>
+> * `audit_logs` has no FK to `profiles` on live (backlog #47). Not being added — the code no longer
+>   needs it, the column is nullable, and historical rows have never been checked against `profiles`,
+>   so `add constraint` could fail on orphans mid-deploy.
+> * Client-side audit rows remain **self-asserted** and still cannot capture pre-auth events
+>   (backlog #42). `logUserAction` now attributes correctly, but it writes from the browser.
+>
+> ### 2026-08-05 — ALL FIVE MIGRATIONS APPLIED, and the audit found one live breakage
 >
 > **The owner ran `access_posture_audit.sql`, then applied `20260804000100`–`000500` and redeployed
 > the edge functions. All five returned "Success. No rows returned."** Lane 2 is empty again.

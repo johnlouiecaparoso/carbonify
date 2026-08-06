@@ -1,6 +1,44 @@
 # Carbonify — Release Notes
 
-## 2026-08-05 (latest) — Screens that said you had nothing when you had something
+## 2026-08-06 (latest) — Being told things actually happened
+
+**Headline:** the app has been doing work and not telling anyone. If you were approved for a role,
+submitted an ID check, filed a monitoring report or asked for a payout and heard nothing back, that
+was not you missing an email — nothing was ever sent.
+
+- **⚠️ Approved for a Project Developer or Verifier account and never told? That was us.** The
+  approval email had been failing for 26 days, and the in-app notification was being rejected
+  silently. Your role *was* granted the moment a reviewer approved you — the message just never left.
+  **If you applied in the last month and assumed you had been rejected, check your account.**
+  Rejection emails were failing the same way, so a decision either way may not have reached you.
+
+- **You now get told when a queue moves.** Identity verification (KYC), business verification (KYB),
+  monitoring reports, LGU endorsements, payouts, disputes, support reports and data-privacy requests
+  all notify you when they are submitted and again when they are decided. None of them did before.
+
+- **Reviewers now get told there is something to review.** A monitoring report waiting on a verifier,
+  an ID check waiting on an admin, a payout waiting to be released — all of these previously sat in a
+  queue that nobody was told about. This is the change most likely to shorten how long you wait.
+
+- **You can see your password as you type it.** On the application form for Project Developer,
+  Verifier and Farmer accounts, on the password-reset page, and when changing your password from your
+  profile. The sign-in and sign-up forms already had this; the ones where you *create* an account for
+  a specialist role did not.
+
+- **The welcome tour no longer interrupts your application.** Applying for a role briefly popped up a
+  tour written for a different kind of account. Worse, it counted that as "you have seen the tour" —
+  so once you were approved, the walkthrough for your actual role never appeared. Both fixed.
+
+- **Comments on your project reach you again.** Notifications about new comments had been failing
+  quietly since early August. Internal reviewer notes remain private and never notify a project owner.
+
+- **The project review timeline shows its history.** It had been rendering empty on the verifier's
+  screen because of a broken lookup, which looked like a project with no activity rather than a page
+  that could not load it.
+
+---
+
+## 2026-08-05 — Screens that said you had nothing when you had something
 
 **Headline:** a run of fixes to the same underlying fault — a page failing to load your data and
 then telling you, confidently, that you have none. If a screen ever showed you an empty portfolio,

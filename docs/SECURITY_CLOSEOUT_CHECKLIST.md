@@ -28,8 +28,8 @@
 >    sat open for three weeks behind a ✅.
 >
 > **Re-runnable evidence, exit 1 on any failure:** `node scripts/analysis/verify-anon-exposure.mjs`
-> → **23/23 PASS**, including two `STILL-WORKS` checks so a "fix" that protects data by emptying the
-> marketplace cannot pass. Per-signature grant surface:
+> → **25/25 PASS** (23 until 2026-08-06, when `notify_admins` and `notify_one` were added), including
+> two `STILL-WORKS` checks so a "fix" that protects data by emptying the marketplace cannot pass. Per-signature grant surface:
 > [`definer_grant_surface.sql`](../supabase/diagnostics/definer_grant_surface.sql).
 >
 > ⚠️ **Left open deliberately, and belongs on the pentest brief:** signed out, the database still

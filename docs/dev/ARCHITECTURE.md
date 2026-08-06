@@ -140,7 +140,7 @@ Supabase project. Details of every table/RPC live in [DATABASE_AND_RPCS.md](DATA
 | `paymongo-checkout` | Server-authoritative checkout. Actions: `create_marketplace_checkout`, `create_subscription_checkout`, `create_wallet_topup_checkout`, and `verify` (reads a session for the callback page). Recomputes amounts server-side, records a `payment_intents` row, creates the PayMongo session. Identity from the verified JWT. | `--no-verify-jwt` (verifies the user token itself) |
 | `paymongo-webhook` | **Source of truth for settlement.** Verifies the HMAC signature (+replay window), dedups by event, and settles via RPC by intent purpose. Runs the supplier fulfillment saga for supplier-sourced credits. | `--no-verify-jwt` (signature-verified) |
 | `process-payouts` | Worker: picks up `requested` payouts and drives them settled/failed via RPCs (mock provider for now). | `x-worker-secret` |
-| `send-approval-email` | Sends role-application notification emails to reviewers via Resend. | function default |
+| `send-approval-email` | Fixed-purpose notifier, **not** a mailer. Takes a message TYPE plus a row id and derives every recipient, subject and body server-side: `role_application_submitted` (→ reviewers), `role_application_decision` (→ applicant, reviewer-gated), `project_submitted` (→ reviewers). Never accepts caller-supplied `to`/`subject`/`html` — that was the H4 relay hole. | function default (JWT) |
 | `account-deletion` | DPA erasure worker: deletes the auth user (cascades personal data) for pending `data_subject_requests`. | `x-worker-secret` |
 
 ---

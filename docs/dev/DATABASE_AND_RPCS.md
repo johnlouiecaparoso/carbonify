@@ -113,6 +113,49 @@ Account name conventions (`account` is a typed string):
 
 ---
 
+## 3b. Notifications are database triggers, not client writes
+
+`system_notifications` accepts a client INSERT **only for a row you address to yourself**
+(`with check (auth.uid() = user_id)`, from `20260802000400`). Every cross-user notification therefore
+runs as a `SECURITY DEFINER` trigger that derives the recipient from the row being written.
+
+**The rule: if the recipient is not the actor, it does not belong in the browser.** A client-side
+version fails `403` — and because every call site wraps notification failures in a non-fatal `catch`,
+it fails *silently*. That is how `notifyRoleApplicationDecision` and `notifyProjectComment` went
+unnoticed between 2026-08-02 and 2026-08-06.
+
+| Trigger | On | Notifies |
+|---|---|---|
+| `trg_notify_project_submission` / `trg_notify_project_submitted` | `projects` | Reviewers |
+| `trg_notify_project_status` | `projects` UPDATE | Owner |
+| `trg_notify_role_application` | `role_applications` INSERT | Reviewers |
+| `trg_notify_role_application_decision` | `role_applications` UPDATE | Applicant |
+| `trg_notify_marketplace_listing` | `credit_listings` INSERT | Buyers |
+| `trg_notify_project_comment` | `project_comments` INSERT | Owner or reviewers (internal notes never reach the owner) |
+| `trg_notify_kyc` / `trg_notify_kyb` | INSERT + status UPDATE | Admins in; applicant out |
+| `trg_notify_monitoring_report` | `monitoring_reports` status UPDATE | Verifiers in; developer out |
+| `trg_notify_project_endorsement` | `project_endorsements` | Project owner |
+| `trg_notify_support_report` | INSERT + status UPDATE | Admins in; reporter out |
+| `trg_notify_data_subject_request` | INSERT + status UPDATE | Admins in; requester out |
+| `trg_notify_payout_request` | INSERT + status UPDATE | Admins in; seller out |
+| `trg_notify_dispute` | INSERT + status UPDATE | Admins in; buyer out |
+
+Two helpers, `notify_admins(...)` and `notify_one(...)`, are `SECURITY DEFINER` and **revoked from
+`anon` and `authenticated`**. They write into any user's bell as the owner, so a grant would reopen
+what `20260802000400` closed. Both are probed by `scripts/analysis/verify-anon-exposure.mjs`.
+
+Each trigger guards on `new.status is not distinct from old.status`, so re-saving a row without
+changing its status produces no second notification.
+
+The one deliberate omission is **AML**: `amlService` screens on a schedule rather than on a user
+action, so a notification per screening would page compliance on every clear result. The useful
+signal is a `potential_match` status, which needs a review-queue design.
+
+The sanctioned cross-user RPC, `notify_counterparty(...)`, still covers only `biomass_rfq` and
+`farmer_delivery` — the farmer↔buyer path, where the recipient is one of two named parties.
+
+---
+
 ## 4. Migration process (hand-applied — drift is expected)
 
 **Migrations are applied by hand in the Supabase SQL Editor. There is no CLI migration tracking** (`supabase/migrations/` is not `db push`ed and the live DB predates it). Consequences and the working discipline:
