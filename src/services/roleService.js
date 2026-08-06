@@ -221,6 +221,11 @@ export class RoleService {
       }
 
       try {
+        // `userId` is the SUBJECT here — the account being changed — not the
+        // actor. logUserAction attributes the row to the signed-in reviewer and
+        // records this id as metadata.subject_user_id. Passing it as the actor
+        // is what made every approval 403 against the `user_id = auth.uid()`
+        // policy from 20260805000600.
         await logUserAction('ROLE_CHANGE_APPLIED', 'user', userId, userId, {
           new_role: newRole,
         })

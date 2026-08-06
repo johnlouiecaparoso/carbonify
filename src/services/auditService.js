@@ -51,6 +51,15 @@ async function attachAuditLogUsers(supabase, logs = []) {
 /**
  * Log user actions for audit trail
  */
+/**
+ * @param {string} action
+ * @param {string} entityType
+ * @param {string|null} userId  The user the action is ABOUT. The row is always
+ *   attributed to whoever is signed in; when these differ, this lands in
+ *   metadata.subject_user_id. See the note below.
+ * @param {string|null} entityId
+ * @param {Object} metadata
+ */
 export async function logUserAction(action, entityType, userId, entityId, metadata = {}) {
   // Skip audit logging if database is disabled
   if (!USE_DATABASE) {
@@ -58,35 +67,70 @@ export async function logUserAction(action, entityType, userId, entityId, metada
     return null
   }
 
-  // Skip audit logging if no user ID.
+  const supabase = getSupabase()
+
+  // ACTOR vs SUBJECT — the distinction this function used to lose.
   //
-  // Not a warning: pre-auth events (LOGIN_FAILED, REGISTRATION_FAILED) have no
-  // user by definition, and the `audit_logs` INSERT policy is granted `to
-  // authenticated`, so an anonymous caller could not write the row even if we
-  // tried. Logging this as a warning made a normal failed-registration flow
-  // look like a defect in the console.
+  // `user_id` is who DID the thing. 20260805000600 restricted the INSERT policy
+  // to `user_id = auth.uid()` precisely so a row cannot be attributed to someone
+  // who did not write it. But several callers passed the user the action was
+  // ABOUT in this argument, and the rows were then rejected:
   //
-  // The real gap it points at is worth naming: **client-side audit logging
-  // cannot capture pre-auth security events at all.** Failed sign-ins and
-  // blocked registrations are exactly what an auditor asks for, and they are
-  // dropped here. Capturing them needs a server-side path (an edge function or
-  // GoTrue's own auth logs), not a change on this line.
-  if (!userId) {
+  //   roleService.updateUserRole    -> the applicant, on a reviewer's approval
+  //     Observed live 2026-08-06: 403 on every project_developer approval, the
+  //     only record that a role was ever changed.
+  //   certificateService           -> transaction.buyer_id
+  //   marketplaceIntegrationService-> project.user_id
+  //
+  // and three more passed `null` and were dropped by the guard below without
+  // ever reaching the database — AML_SCREENED, AML_REVIEWED, DSR_PROCESSED,
+  // which are among the few events anyone would actually be audited on.
+  //
+  // Resolving the actor from the session here fixes all six at once and makes
+  // the mistake unavailable to future callers: a caller can no longer name the
+  // actor, only the subject.
+  let actorId = null
+  try {
+    const { data: sessionData } = (await supabase?.auth?.getSession?.()) || {}
+    actorId = sessionData?.session?.user?.id || null
+  } catch {
+    actorId = null
+  }
+
+  // Pre-auth events (LOGIN_FAILED, REGISTRATION_FAILED) have no actor by
+  // definition, and the INSERT policy is granted `to authenticated`, so an
+  // anonymous caller could not write the row even if we tried. Not a warning —
+  // logging it as one made a normal failed-registration look like a defect.
+  //
+  // The real gap is worth naming: **client-side audit logging cannot capture
+  // pre-auth security events at all.** Failed sign-ins and blocked
+  // registrations are exactly what an auditor asks for, and they are dropped
+  // here. Capturing them needs a server-side path (an edge function or GoTrue's
+  // own auth logs), not a change on this line. DEFERRED_BACKLOG #42.
+  if (!actorId) {
+    // Sign-in logs its own success before the session has always settled; fall
+    // back to the id the caller just authenticated rather than losing the event.
+    actorId = userId || null
+  }
+  if (!actorId) {
     if (import.meta.env.DEV) {
-      console.debug(`[audit] "${action}" has no user id (pre-auth event) — not recorded`)
+      console.debug(`[audit] "${action}" has no signed-in actor (pre-auth event) — not recorded`)
     }
     return null
   }
 
-  const supabase = getSupabase()
+  // Keep the subject when it is somebody other than the actor — that pairing
+  // ("who did it, to whom") is the whole point of a role-change audit row.
+  const subjectId = userId && userId !== actorId ? userId : null
+  const enrichedMetadata = subjectId ? { ...metadata, subject_user_id: subjectId } : metadata
 
   try {
     const { data, error } = await supabase.from('audit_logs').insert({
       action: action,
       resource_type: entityType,
-      user_id: userId,
+      user_id: actorId,
       resource_id: entityId,
-      metadata: metadata,
+      metadata: enrichedMetadata,
       created_at: new Date().toISOString(),
       ip_address: getClientIP(), // Would get from request in real implementation
       user_agent: getUserAgent(), // Would get from request in real implementation
