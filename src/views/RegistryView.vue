@@ -24,15 +24,48 @@
     </div>
 
     <div class="container content">
+      <!-- Two registers, not two pages. A certificate answers "was this credit
+           issued and retired?"; a project answers "under what methodology, at
+           what stage, from what feedstock?". Both are the public record, so
+           they share one URL and one search bar. -->
+      <div class="tabs" role="tablist" aria-label="Registry view">
+        <button
+          id="tab-certificates"
+          role="tab"
+          class="tab"
+          :class="{ active: tab === 'certificates' }"
+          :aria-selected="tab === 'certificates'"
+          aria-controls="panel-certificates"
+          @click="switchTab('certificates')"
+        >
+          Certificates
+        </button>
+        <button
+          id="tab-projects"
+          role="tab"
+          class="tab"
+          :class="{ active: tab === 'projects' }"
+          :aria-selected="tab === 'projects'"
+          aria-controls="panel-projects"
+          @click="switchTab('projects')"
+        >
+          Projects
+        </button>
+      </div>
+
       <!-- Same compact bar as the marketplace: recent searches and suggestions
            on focus, and the category filter inside it rather than beside it. -->
       <div class="toolbar">
         <SmartSearch
           v-model="search"
-          storage-key="registry"
-          placeholder="Search by project, certificate no., beneficiary, or location"
+          :storage-key="tab === 'projects' ? 'registry-projects' : 'registry'"
+          :placeholder="
+            tab === 'projects'
+              ? 'Search by project, location, or feedstock'
+              : 'Search by project, certificate no., beneficiary, or location'
+          "
           :suggestions="searchSuggestions"
-          :active-filter-count="category ? 1 : 0"
+          :active-filter-count="activeFilterCount"
           @search="runSearch"
           @clear-filters="resetFilters"
         >
@@ -44,6 +77,17 @@
                 <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
               </select>
             </div>
+            <div v-if="tab === 'projects'">
+              <label for="reg-methodology">Methodology</label>
+              <select id="reg-methodology" v-model="methodology" @change="runSearch">
+                <option value="">All Methodologies</option>
+                <optgroup v-for="g in methodologyOptions" :key="g.group" :label="g.group">
+                  <option v-for="m in g.items" :key="m.value" :value="m.value">
+                    {{ m.label }}
+                  </option>
+                </optgroup>
+              </select>
+            </div>
           </template>
         </SmartSearch>
         <button class="btn" :disabled="loading" @click="runSearch">
@@ -53,50 +97,92 @@
 
       <div v-if="error" class="state error">{{ error }}</div>
       <div v-else-if="loading && !rows.length" class="state">Loading registry…</div>
-      <div v-else-if="!rows.length" class="state">No certificates match your search.</div>
+      <div v-else-if="!rows.length" class="state">{{ emptyMessage }}</div>
 
       <template v-else>
         <div
-          ref="tableWrapRef"
-          class="table-wrap"
-          :class="{ collapsed: isCollapsed }"
-          :style="isCollapsed && collapsedHeight ? { maxHeight: `${collapsedHeight}px` } : null"
+          :id="tab === 'projects' ? 'panel-projects' : 'panel-certificates'"
+          role="tabpanel"
+          :aria-labelledby="tab === 'projects' ? 'tab-projects' : 'tab-certificates'"
         >
-          <table class="reg-table">
-            <thead ref="theadRef">
-              <tr>
-                <th>Certificate</th>
-                <th>Project</th>
-                <th>Category</th>
-                <th>Location</th>
-                <th class="num">Credits</th>
-                <th>Vintage</th>
-                <th>Beneficiary</th>
-                <th>Issued</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody ref="tbodyRef">
-              <tr v-for="row in rows" :key="row.certificate_number">
-                <td class="mono">{{ row.certificate_number }}</td>
-                <td>{{ row.project_title || '—' }}</td>
-                <td>{{ row.project_category || '—' }}</td>
-                <td>{{ row.project_location || '—' }}</td>
-                <td class="num">{{ Number(row.credits_quantity || 0).toLocaleString() }}</td>
-                <td>{{ row.vintage_year || '—' }}</td>
-                <td>{{ row.beneficiary_name || '—' }}</td>
-                <td>{{ formatDate(row.issued_at) }}</td>
-                <td>
-                  <router-link
-                    class="verify-link"
-                    :to="`/verify/${encodeURIComponent(row.certificate_number)}`"
-                  >
-                    Verify →
-                  </router-link>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div
+            ref="tableWrapRef"
+            class="table-wrap"
+            :class="{ collapsed: isCollapsed }"
+            :style="isCollapsed && collapsedHeight ? { maxHeight: `${collapsedHeight}px` } : null"
+          >
+            <!-- One table element for both registers so the "show more" height
+                 measurement below has a single thead/tbody to measure. -->
+            <table class="reg-table">
+              <thead ref="theadRef">
+                <tr v-if="tab === 'certificates'">
+                  <th>Certificate</th>
+                  <th>Project</th>
+                  <th>Category</th>
+                  <th>Location</th>
+                  <th class="num">Credits</th>
+                  <th>Vintage</th>
+                  <th>Beneficiary</th>
+                  <th>Issued</th>
+                  <th></th>
+                </tr>
+                <tr v-else>
+                  <th>Project</th>
+                  <th>Category</th>
+                  <th>Location</th>
+                  <th>Methodology</th>
+                  <th>Stage</th>
+                  <th>Feedstock</th>
+                  <th class="num">Capacity</th>
+                  <th class="num">Issued</th>
+                  <th class="num">Available</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody ref="tbodyRef">
+                <template v-if="tab === 'certificates'">
+                  <tr v-for="row in rows" :key="row.certificate_number">
+                    <td class="mono">{{ row.certificate_number }}</td>
+                    <td>{{ row.project_title || '—' }}</td>
+                    <td>{{ row.project_category || '—' }}</td>
+                    <td>{{ row.project_location || '—' }}</td>
+                    <td class="num">{{ Number(row.credits_quantity || 0).toLocaleString() }}</td>
+                    <td>{{ row.vintage_year || '—' }}</td>
+                    <td>{{ row.beneficiary_name || '—' }}</td>
+                    <td>{{ formatDate(row.issued_at) }}</td>
+                    <td>
+                      <router-link
+                        class="verify-link"
+                        :to="`/verify/${encodeURIComponent(row.certificate_number)}`"
+                      >
+                        Verify →
+                      </router-link>
+                    </td>
+                  </tr>
+                </template>
+                <template v-else>
+                  <tr v-for="row in rows" :key="row.project_id">
+                    <td>{{ row.title || '—' }}</td>
+                    <td>{{ row.category || '—' }}</td>
+                    <td>{{ row.location || row.municipality || '—' }}</td>
+                    <!-- A project with no methodology recorded reads as
+                         "Not stated", never as a standard it does not hold. -->
+                    <td>{{ methodologyLabel(row.methodology) || 'Not stated' }}</td>
+                    <td>{{ developmentStatusLabel(row.development_status) || 'Not stated' }}</td>
+                    <td>{{ row.feedstock || '—' }}</td>
+                    <td class="num">{{ formatCapacity(row) }}</td>
+                    <td class="num">{{ Number(row.credits_issued || 0).toLocaleString() }}</td>
+                    <td class="num">{{ Number(row.credits_available || 0).toLocaleString() }}</td>
+                    <td>
+                      <router-link class="verify-link" :to="`/projects/${row.project_id}`">
+                        View →
+                      </router-link>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div v-if="rows.length > VISIBLE_ROWS" class="show-more">
@@ -123,17 +209,28 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
-import { searchRegistry, getRegistryStats } from '@/services/registryService'
+import { searchRegistry, searchProjectRegistry, getRegistryStats } from '@/services/registryService'
 import { PROJECT_TYPES } from '@/constants/projectTypes'
+import {
+  methodologyGroups,
+  methodologyLabel,
+  developmentStatusLabel,
+} from '@/constants/projectRegistry'
 import SmartSearch from '@/components/ui/SmartSearch.vue'
 
 const categories = PROJECT_TYPES.map((t) => t.value)
+const methodologyOptions = methodologyGroups()
 
-// Certificates shown before the list is collapsed behind "Show more".
+// Rows shown before the list is collapsed behind "Show more".
 const VISIBLE_ROWS = 4
+
+// Which register is on screen: 'certificates' (was this credit issued and
+// retired?) or 'projects' (under what methodology, at what stage?).
+const tab = ref('certificates')
 
 const search = ref('')
 const category = ref('')
+const methodology = ref('')
 const page = ref(0)
 const pageSize = ref(25)
 const rows = ref([])
@@ -149,10 +246,23 @@ const tbodyRef = ref(null)
 
 const isCollapsed = computed(() => !expanded.value && rows.value.length > VISIBLE_ROWS)
 
+const emptyMessage = computed(() =>
+  tab.value === 'projects'
+    ? 'No validated projects match your search.'
+    : 'No certificates match your search.',
+)
+
+// The methodology filter only exists on the Projects tab, so it must not be
+// counted on the other one — a filter badge for a control the user cannot see
+// is a count they have no way to clear.
+const activeFilterCount = computed(
+  () => (category.value ? 1 : 0) + (tab.value === 'projects' && methodology.value ? 1 : 0),
+)
+
 /**
- * Suggestions for the search panel, drawn from the rows currently loaded —
- * project titles first, then beneficiaries and locations. Every one of them is
- * therefore known to match something.
+ * Suggestions for the search panel, drawn from the rows currently loaded, so
+ * every one of them is known to match something. The two registers carry
+ * different columns, hence the two field lists.
  */
 const searchSuggestions = computed(() => {
   const out = []
@@ -163,15 +273,43 @@ const searchSuggestions = computed(() => {
     seen.add(v.toLowerCase())
     out.push(v)
   }
-  for (const r of rows.value) add(r.project_title)
-  for (const r of rows.value) add(r.beneficiary_name)
-  for (const r of rows.value) add(r.project_location)
+  if (tab.value === 'projects') {
+    for (const r of rows.value) add(r.title)
+    for (const r of rows.value) add(r.feedstock)
+    for (const r of rows.value) add(r.location || r.municipality)
+  } else {
+    for (const r of rows.value) add(r.project_title)
+    for (const r of rows.value) add(r.beneficiary_name)
+    for (const r of rows.value) add(r.project_location)
+  }
   return out
 })
 
 function resetFilters() {
   category.value = ''
+  methodology.value = ''
   runSearch()
+}
+
+/**
+ * Switch register. The rows are cleared rather than left on screen, because the
+ * two shapes share no columns — leaving them would render a certificate row
+ * against project headers for as long as the fetch takes.
+ */
+function switchTab(next) {
+  if (tab.value === next) return
+  tab.value = next
+  rows.value = []
+  error.value = ''
+  page.value = 0
+  load()
+}
+
+/** Capacity with its unit, or an em dash. The unit is meaningless alone. */
+function formatCapacity(row) {
+  const value = Number(row?.capacity)
+  if (!Number.isFinite(value) || row?.capacity == null || row?.capacity === '') return '—'
+  return `${value.toLocaleString()}${row.capacity_unit ? ` ${row.capacity_unit}` : ''}`
 }
 
 // Height of the header + the first VISIBLE_ROWS rows, so exactly four
@@ -211,11 +349,15 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const { rows: r, pageSize: ps } = await searchRegistry({
+    const query = {
       search: search.value.trim(),
       category: category.value,
       page: page.value,
-    })
+    }
+    const { rows: r, pageSize: ps } =
+      tab.value === 'projects'
+        ? await searchProjectRegistry({ ...query, methodology: methodology.value })
+        : await searchRegistry(query)
     rows.value = r
     pageSize.value = ps
     expanded.value = false
@@ -295,6 +437,35 @@ onMounted(async () => {
 }
 .content {
   padding: 1.5rem;
+}
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.tab {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  /* #6b7280 on #f8fafc is 4.83:1 — above the 4.5:1 AA floor for the inactive
+     label, which still has to be readable to be worth clicking. */
+  color: #6b7280;
+  cursor: pointer;
+}
+.tab:hover {
+  color: #047857;
+}
+.tab.active {
+  color: #058526;
+  border-bottom-color: #058526;
+}
+.tab:focus-visible {
+  outline: 2px solid #058526;
+  outline-offset: -2px;
 }
 .toolbar {
   display: flex;

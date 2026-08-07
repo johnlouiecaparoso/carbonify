@@ -25,6 +25,40 @@ export async function searchRegistry({ search = '', category = '', page = 0 } = 
   return { rows: data || [], pageSize: PAGE_SIZE }
 }
 
+/**
+ * Search the public PROJECT registry — the companion to `searchRegistry`, which
+ * lists certificates. Backed by `search_public_project_registry` (migration
+ * 20260807000100), which returns validated projects only and no developer PII.
+ *
+ * Throws on failure rather than returning `[]`. An empty array here reads as
+ * "the registry is empty", which is a claim about the platform, not about the
+ * request that failed.
+ *
+ * @returns {Promise<{rows: Array<object>, pageSize: number}>}
+ */
+export async function searchProjectRegistry({
+  search = '',
+  category = '',
+  methodology = '',
+  page = 0,
+} = {}) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+
+  const { data, error } = await supabase.rpc('search_public_project_registry', {
+    p_search: search || null,
+    p_category: category || null,
+    p_methodology: methodology || null,
+    p_limit: PAGE_SIZE,
+    p_offset: Math.max(0, page) * PAGE_SIZE,
+  })
+  if (error) {
+    console.warn('[registry] project search failed:', error.message)
+    throw new Error(error.message || 'Failed to search the project registry.')
+  }
+  return { rows: data || [], pageSize: PAGE_SIZE }
+}
+
 /** Headline totals for the registry header. */
 export async function getRegistryStats() {
   const supabase = getSupabase()
