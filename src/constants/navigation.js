@@ -77,6 +77,7 @@ const D = {
   devLedger: { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
   devOfftakes: { path: '/developer/offtakes', label: 'Offtake agreements', icon: 'handshake' },
   devDataRoom: { path: '/developer/data-room', label: 'Data room activity', icon: 'visibility' },
+  devFees: { path: '/developer/fees', label: 'Project fees', icon: 'receipt_long' },
   // Two distinct pages, deliberately named as a pair: the dashboard is where
   // you see what is due, the reports page is where you file it. /monitoring had
   // no sidebar entry at all and was reachable only by clicking through from a
@@ -108,6 +109,7 @@ const D = {
   adminRefunds: { path: '/admin/refunds', label: 'Refunds & disputes', icon: 'currency_exchange' },
   adminFeedstock: { path: '/admin/feedstock', label: 'Feedstock oversight', icon: 'agriculture' },
   adminRoles: { path: '/admin/role-applications', label: 'Role applications', icon: 'how_to_reg' },
+  adminApiKeys: { path: '/admin/api-keys', label: 'White-label API', icon: 'key' },
 }
 
 /** Short blurbs, used only by the card layout of the workspace directory. */
@@ -134,6 +136,7 @@ const HINTS = {
   '/developer/ledger': 'Credits issued and inventory',
   '/developer/offtakes': 'Forward sale agreements',
   '/developer/data-room': 'Who viewed your documents',
+  '/developer/fees': 'Onboarding and verification charges',
   '/developer/mrv-dashboard': 'What is due, and what you have filed',
   '/monitoring': 'File and revise monitoring reports',
   '/sales': 'Earnings, escrow and withdrawals',
@@ -141,6 +144,7 @@ const HINTS = {
   '/admin/finance': 'Sales, fees, payouts, reconciliation',
   '/admin/audit-logs': 'System activity and user actions',
   '/admin/config': 'Fees, KYC tiers, emission factors',
+  '/admin/api-keys': 'Partner tenants, keys and rate limits',
   '/admin/kyc': 'Approve identity verification',
   '/admin/kyb': 'Approve business verification',
   '/admin/aml': 'Sanctions and watchlist screening',
@@ -274,6 +278,7 @@ export function buildWorkspace(user, { cartCount = 0 } = {}) {
         D.adminFeedstock,
         D.adminAudit,
         D.adminConfig,
+        D.adminApiKeys,
       ]),
       group('Compliance', [
         D.adminKyc,
@@ -297,7 +302,7 @@ export function buildWorkspace(user, { cartCount = 0 } = {}) {
     return [
       group('Projects', [D.submitProject, D.devLedger]),
       group('Monitoring', [D.devMrv, D.devMonitoring]),
-      group('Commercial', [D.devOfftakes, D.devDataRoom, D.sellerEarnings]),
+      group('Commercial', [D.devOfftakes, D.devDataRoom, D.sellerEarnings, D.devFees]),
       group('Biomass', [D.sellFeedstock, D.feedstockRfqs]),
       insights,
     ]

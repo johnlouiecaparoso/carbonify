@@ -285,6 +285,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/developer/fees',
+      name: 'project-fees',
+      component: () => import('@/views/ProjectFeesView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
       path: '/assistant',
       name: 'ai-assistant',
       component: () => import('@/views/AiAssistantView.vue'),
@@ -391,6 +400,15 @@ const router = createRouter({
       path: '/admin/config',
       name: 'admin-config',
       component: () => import('@/views/SystemConfigView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      path: '/admin/api-keys',
+      name: 'admin-api-keys',
+      component: () => import('@/views/AdminApiKeysView.vue'),
       meta: {
         requiresAuth: true,
         requiresAdmin: true,

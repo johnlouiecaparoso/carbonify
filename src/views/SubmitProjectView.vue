@@ -108,8 +108,11 @@
                 </li>
               </ul>
               <p class="help-text">
-                Fees that apply to this project. You won't be charged during submission — an
-                administrator confirms any fee before it applies.
+                Fees that apply to this project. Nothing is charged at submission: the onboarding
+                fee is invoiced only if your project is validated, and the verification fee only
+                when a monitoring report is approved. Invoices appear under
+                <RouterLink to="/developer/fees">Project fees</RouterLink>, and a fee that is due
+                never suspends your project.
               </p>
             </div>
 

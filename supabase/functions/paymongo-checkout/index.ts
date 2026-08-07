@@ -429,6 +429,128 @@ async function createSubscriptionCheckout(body: any, verifiedUserId: string | nu
 }
 
 /**
+ * Server-authoritative project-fee checkout (onboarding / verification fees).
+ *
+ * The client sends ONLY { invoice_id, origin }. Everything that decides how much
+ * money moves — the amount, the currency, who owes it — is read from the
+ * `project_fee_invoices` row under the service role. A client-supplied amount is
+ * never accepted, for the same reason it is not accepted on a marketplace
+ * checkout: it is the one field worth lying about.
+ *
+ * Two guards that are easy to leave out and expensive to omit:
+ *   - the invoice must belong to the *verified* caller, so a guessed invoice id
+ *     cannot be used to pay (and thereby discharge) somebody else's debt;
+ *   - the invoice must still be 'due', so a second tab cannot open a second
+ *     checkout for an invoice that has already settled.
+ * The webhook is still idempotent regardless — mark_project_fee_paid refuses a
+ * non-'due' invoice — but a duplicate PayMongo session would take real money and
+ * then decline to book it, which is the worst available outcome.
+ */
+async function createProjectFeeCheckout(body: any, verifiedUserId: string | null) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  const invoiceId = String(body.invoice_id || '')
+  const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
+
+  if (!verifiedUserId) throw new Error('Authentication required to pay a fee')
+  if (!invoiceId) throw new Error('invoice_id is required')
+
+  const { data: invoice, error: invoiceErr } = await supabase
+    .from('project_fee_invoices')
+    .select('id, user_id, project_id, fee_type, amount, currency, status')
+    .eq('id', invoiceId)
+    .maybeSingle()
+
+  if (invoiceErr) throw new Error(`Failed to read invoice: ${invoiceErr.message}`)
+  // One message for "no such invoice" and "not yours", so this cannot be used to
+  // probe which invoice ids exist.
+  if (!invoice || invoice.user_id !== verifiedUserId) throw new Error('Invoice not found')
+  if (invoice.status !== 'due') throw new Error(`This invoice is already ${invoice.status}`)
+
+  const amount = Number(invoice.amount)
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invoice has no valid amount')
+  const currency = invoice.currency || 'PHP'
+  const minorAmount = Math.round(amount * 100)
+  const label = invoice.fee_type === 'onboarding' ? 'Project onboarding fee' : 'Verification fee'
+
+  const { data: intent, error: intentErr } = await supabase
+    .from('payment_intents')
+    .insert({
+      user_id: verifiedUserId,
+      purpose: 'project_fee',
+      unit_amount: amount,
+      amount,
+      currency,
+      provider: 'paymongo',
+      status: 'created',
+      metadata: {
+        invoice_id: invoice.id,
+        project_id: invoice.project_id,
+        fee_type: invoice.fee_type,
+      },
+    })
+    .select('id')
+    .single()
+
+  if (intentErr || !intent) {
+    throw new Error(`Failed to create payment intent: ${intentErr?.message ?? 'unknown'}`)
+  }
+
+  const checkoutData = {
+    data: {
+      attributes: {
+        send_email_receipt: false,
+        show_description: true,
+        show_line_items: true,
+        description: `Carbonify — ${label}`,
+        line_items: [
+          { name: label, quantity: 1, amount: minorAmount, currency },
+        ],
+        payment_method_types: ['card', 'gcash', 'paymaya'],
+        success_url: `${origin}/developer/fees?status=success`,
+        cancel_url: `${origin}/developer/fees?cancelled=true`,
+        metadata: {
+          payment_intent_id: intent.id,
+          purpose: 'project_fee',
+          invoice_id: invoice.id,
+        },
+      },
+    },
+  }
+
+  const res = await fetch(`${PAYMONGO_API_URL}/checkout_sessions`, {
+    method: 'POST',
+    headers: authHeader(),
+    body: JSON.stringify(checkoutData),
+  })
+  const result = await res.json()
+  if (!res.ok) {
+    await supabase.from('payment_intents').update({ status: 'failed' }).eq('id', intent.id)
+    throw new Error(result.errors?.[0]?.detail || 'Failed to create checkout session')
+  }
+
+  const sessionId = result.data.id
+  await supabase
+    .from('payment_intents')
+    .update({
+      provider_session_id: sessionId,
+      status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', intent.id)
+
+  return {
+    success: true,
+    sessionId,
+    checkout_url: result.data.attributes.checkout_url,
+    checkoutUrl: result.data.attributes.checkout_url,
+    amount,
+    currency,
+    paymentIntentId: intent.id,
+  }
+}
+
+/**
  * Server-recorded wallet top-up (Phase 1 P5).
  *
  * Unlike a marketplace purchase the amount is legitimately client-chosen (the
@@ -621,6 +743,23 @@ serve(async (req) => {
         )
       }
       const result = await createSubscriptionCheckout(body, verifiedUserId)
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Project onboarding / verification fee. Amount from the invoice row, never
+    // the client. Identity from JWT, and the invoice must be addressed to it.
+    if (body.action === 'create_project_fee_checkout') {
+      const verifiedUserId = await getVerifiedUserId(req)
+      if (verifiedUserId && !(await underRateLimit(`checkout:${verifiedUserId}`, CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_SECONDS))) {
+        return new Response(
+          JSON.stringify({ error: 'Too many checkout attempts. Please wait a minute and try again.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+      const result = await createProjectFeeCheckout(body, verifiedUserId)
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

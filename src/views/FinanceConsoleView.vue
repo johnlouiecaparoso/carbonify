@@ -111,12 +111,63 @@
           </table>
         </CollapsibleList>
       </section>
+
+      <!-- Project fees — the onboarding / verification revenue stream. -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Project Fees</h2>
+          <span class="panel-note">
+            Outstanding {{ peso(feesOutstanding) }} across {{ feeDueCount }} invoice(s)
+          </span>
+        </div>
+        <div v-if="feeError" class="state">{{ feeError }}</div>
+        <div v-else-if="loading && !feeInvoices.length" class="state">Loading…</div>
+        <div v-else-if="!feeInvoices.length" class="state">
+          No fee invoices yet. Fees are raised at validation and report approval, and only when a
+          non-zero amount is configured in System Configuration.
+        </div>
+        <CollapsibleList v-else :count="feeInvoices.length">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Raised</th>
+                <th>Fee</th>
+                <th>Status</th>
+                <th class="num">Amount</th>
+                <th class="num">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="inv in feeInvoices" :key="inv.id">
+                <td>{{ formatDate(inv.created_at) }}</td>
+                <td>{{ FEE_TYPE_LABELS[inv.fee_type] || inv.fee_type }}</td>
+                <td>
+                  <span class="status" :class="inv.status">{{ inv.status }}</span>
+                </td>
+                <td class="num">{{ peso(inv.amount) }}</td>
+                <td class="num">
+                  <button
+                    v-if="inv.status === 'due'"
+                    class="btn-link"
+                    type="button"
+                    :disabled="waivingId === inv.id"
+                    @click="onWaive(inv)"
+                  >
+                    Waive
+                  </button>
+                  <span v-else>—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </CollapsibleList>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import {
   getFinanceSummary,
@@ -124,6 +175,12 @@ import {
   getReconciliation,
 } from '@/services/adminFinanceService'
 import { exportTransactionsCsv } from '@/services/adminExportService'
+import {
+  listAllFeeInvoices,
+  waiveFee,
+  totalOutstanding,
+  FEE_TYPE_LABELS,
+} from '@/services/projectFeeService'
 import { peso } from '@/utils/format'
 
 const loading = ref(false)
@@ -139,6 +196,30 @@ const summary = ref({
 })
 const transactions = ref([])
 const drift = ref([])
+
+const feeInvoices = ref([])
+const feeError = ref('')
+const waivingId = ref(null)
+const feesOutstanding = computed(() => totalOutstanding(feeInvoices.value))
+const feeDueCount = computed(() => feeInvoices.value.filter((i) => i.status === 'due').length)
+
+async function onWaive(invoice) {
+  const reason = window.prompt(
+    `Waive the ${invoice.fee_type} fee of ${peso(invoice.amount)}?\nReason (recorded against the invoice):`,
+  )
+  if (reason === null) return // cancelled — an empty string is a valid "no reason given"
+
+  waivingId.value = invoice.id
+  feeError.value = ''
+  try {
+    await waiveFee(invoice.id, reason)
+    feeInvoices.value = await listAllFeeInvoices()
+  } catch (e) {
+    feeError.value = e?.message || 'Failed to waive the fee.'
+  } finally {
+    waivingId.value = null
+  }
+}
 
 function formatDate(value) {
   if (!value) return '—'
@@ -163,20 +244,30 @@ async function refresh() {
     // flakiest of the three. Failing it used to blank the whole console --
     // summary, transactions and all -- leaving the platform owner with no money
     // visibility at all rather than one empty panel.
-    const [sRes, txRes, dRes] = await Promise.allSettled([
+    const [sRes, txRes, dRes, feeRes] = await Promise.allSettled([
       getFinanceSummary(),
       getRecentTransactions(50),
       getReconciliation(),
+      listAllFeeInvoices(),
     ])
 
     if (sRes.status === 'fulfilled') summary.value = sRes.value
     if (txRes.status === 'fulfilled') transactions.value = txRes.value
     if (dRes.status === 'fulfilled') drift.value = dRes.value
+    if (feeRes.status === 'fulfilled') {
+      feeInvoices.value = feeRes.value
+      feeError.value = ''
+    } else {
+      // Named rather than shown as an empty panel: "no fee invoices" and "the
+      // fee read failed" are different facts about the platform's revenue.
+      feeError.value = feeRes.reason?.message || 'Fee invoices could not be loaded.'
+    }
 
     const failed = [
       sRes.status === 'rejected' && 'summary',
       txRes.status === 'rejected' && 'transactions',
       dRes.status === 'rejected' && 'reconciliation',
+      feeRes.status === 'rejected' && 'project fees',
     ].filter(Boolean)
 
     // Name what is missing, so a partially-loaded console is never mistaken for
@@ -332,9 +423,36 @@ onMounted(refresh)
   background: #f3f4f6;
   color: #374151;
 }
-.status.completed {
+.status.completed,
+.status.paid {
   background: #dcfce7;
   color: #166534;
+}
+.status.due {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status.waived,
+.status.void {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+.panel-note {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.btn-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.btn-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .status.refunded,
 .status.failed {

@@ -592,6 +592,64 @@ serve(async (req) => {
         )
       }
 
+      if (intentRow?.purpose === 'project_fee') {
+        // Same claim pattern, one layer of belt-and-braces lighter than it looks:
+        // mark_project_fee_paid is itself idempotent (it refuses any invoice that
+        // is not 'due'), so a duplicate delivery could not double-book revenue
+        // even without this. The claim is still worth having because it keeps the
+        // INTENT's status honest — without it the loser of a race would fall
+        // through and be reported as unsettled.
+        const { data: claimed, error: claimErr } = await supabase
+          .from('payment_intents')
+          .update({
+            status: 'paid',
+            provider_payment_id: paymentId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', paymentIntentId)
+          .neq('status', 'paid')
+          .select('id')
+        if (claimErr) {
+          throw new Error(`project fee claim failed: ${claimErr.message}`)
+        }
+        if (!claimed || claimed.length === 0) {
+          await markEventProcessed(supabase, eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Fee already settled' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        const invoiceId = intentRow.metadata?.invoice_id
+        if (!invoiceId) {
+          // The intent was created without the one field that says what it pays
+          // for. Releasing the claim would only produce an identical retry, so
+          // fail loudly instead of looping: this is a bug in checkout, not a
+          // transient fault.
+          throw new Error(`project_fee intent ${paymentIntentId} has no invoice_id in metadata`)
+        }
+
+        const { error: feeErr } = await supabase.rpc('mark_project_fee_paid', {
+          p_invoice_id: invoiceId,
+          p_intent_id: paymentIntentId,
+        })
+        if (feeErr) {
+          // Booking failed after we claimed: release so PayMongo retries,
+          // otherwise a paid fee would never reach the ledger.
+          await supabase
+            .from('payment_intents')
+            .update({ status: intentRow.status, updated_at: new Date().toISOString() })
+            .eq('id', paymentIntentId)
+          throw new Error(`mark_project_fee_paid failed: ${feeErr.message}`)
+        }
+
+        await markEventProcessed(supabase, eventId)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Project fee settled', invoiceId }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
       // Record the real payment method on the intent BEFORE settling. The RPC
       // reads it for the escrow hold window and writes it to
       // credit_transactions.payment_method. Best-effort on purpose: a failure
