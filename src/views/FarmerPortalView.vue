@@ -18,6 +18,10 @@ import {
   aggregateParcelPerformance,
   acknowledgeDeliveryPayment,
 } from '@/services/farmerService'
+import {
+  exportDeliveriesCsv,
+  exportCarbonParticipationCsv,
+} from '@/services/farmerExportService'
 import { FARM_CROP_TYPES, PARCEL_STATUSES, cropTypeLabel } from '@/constants/farmer'
 import { biomassTypeLabel } from '@/constants/biomass'
 import { peso, shortDate } from '@/utils/format'
@@ -142,6 +146,29 @@ const failedSectionLabel = computed(() => {
   if (parts.length <= 1) return parts[0] || 'farm data'
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 })
+
+/**
+ * CSV exports. Both surface a failure into `actionError` rather than failing
+ * quietly: a download that never happens looks identical to a slow one, which is
+ * the complaint that produced the shared `downloadBlob` in the first place.
+ */
+function downloadDeliveries() {
+  actionError.value = ''
+  try {
+    exportDeliveriesCsv(deliveries.value)
+  } catch (e) {
+    actionError.value = e?.message || 'Could not export your deliveries.'
+  }
+}
+
+function downloadCarbon() {
+  actionError.value = ''
+  try {
+    exportCarbonParticipationCsv(carbon.value)
+  } catch (e) {
+    actionError.value = e?.message || 'Could not export your carbon contribution.'
+  }
+}
 
 /** parcelId → { performance, deliveredTrailingYear, … } for the parcel cards. */
 const performanceByParcel = computed(() => {
@@ -565,6 +592,19 @@ onMounted(load)
       <section v-else-if="tab === 'deliveries'">
         <div class="section-head">
           <h2>Deliveries</h2>
+          <!-- Every other role can export its own records; the farmer could only
+               read them on this screen. Disabled with a reason rather than
+               hidden, so "why can't I download?" has an answer on the page. -->
+          <button
+            v-if="!sectionErrors.deliveries"
+            class="btn-secondary sm"
+            :disabled="!deliveries.length"
+            :title="deliveries.length ? 'Download your delivery record as CSV' : 'No deliveries to export yet'"
+            @click="downloadDeliveries"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
         </div>
 
         <!-- Accepted quotes ready to deliver against -->
@@ -706,6 +746,15 @@ onMounted(load)
       <section v-else>
         <div class="section-head">
           <h2>Your carbon contribution</h2>
+          <button
+            class="btn-secondary sm"
+            :disabled="!carbon.length"
+            :title="carbon.length ? 'Download your carbon contribution as CSV' : 'Nothing attributed yet'"
+            @click="downloadCarbon"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
         </div>
 
         <div class="notice info">
