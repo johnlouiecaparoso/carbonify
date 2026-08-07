@@ -182,7 +182,7 @@
           <h3 class="social-title">Follow Us</h3>
           <div class="social-icons">
             <a
-              href="https://facebook.com/carbonify"
+              href="https://www.facebook.com/carbonifyasia"
               target="_blank"
               class="social-icon facebook"
               aria-label="Facebook"
@@ -206,7 +206,7 @@
               </svg>
             </a>
             <a
-              href="https://linkedin.com/company/carbonify"
+              href="https://www.linkedin.com/company/carbonify-asia-philippines/"
               target="_blank"
               class="social-icon linkedin"
               aria-label="LinkedIn"
