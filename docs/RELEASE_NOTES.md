@@ -1,6 +1,53 @@
 # Carbonify — Release Notes
 
-## 2026-08-06 (latest) — Being told things actually happened
+## 2026-08-07 (latest) — The platform can charge for what it does
+
+**Headline:** Carbonify has described five ways it makes money since the first pitch. Three of them
+worked. Two were a label on a screen. Both are now real.
+
+- **Project onboarding and verification fees are now actual charges, not a printed number.** They
+  had existed as two figures on the submit-project form that nothing ever billed. You now receive an
+  invoice you can pay from your wallet or by card, and it appears under **Project fees** in the
+  sidebar.
+
+- **You are only ever billed for a decision that has already been made.** The onboarding fee is
+  raised when your project is **validated** — not when you submit it. If your project is not
+  accepted, you are not charged, and there is nothing to refund. The verification fee works the same
+  way: it is raised when a monitoring report is **approved**.
+
+- **A fee that is due does not suspend anything.** Your project, its listings and its credits carry
+  on exactly as before while an invoice is outstanding.
+
+- **Editing a validated project does not bill you again.** The fee is charged once per project, and
+  that is enforced by the database rather than by the code remembering to check.
+
+- **If the price changes, your existing invoice does not.** The amount is fixed when the invoice is
+  raised.
+
+- **Admins can waive a fee**, with the reason recorded against the invoice, from the Finance Console.
+
+- **Carbonify now has a real partner API.** Registry data has been available as JSON for a while, but
+  with no keys, no limits and no way to tell one caller from another — it was never something that
+  could be sold. Partners can now be issued keys with their own scopes, their own rate limit, and
+  their own branding returned in every response, so a partner-facing registry can carry their name
+  rather than ours.
+
+- **The public registry stayed public.** Browsing validated projects without an account still works
+  and always will: the open registry is a transparency commitment, and putting a key in front of it
+  would have quietly withdrawn one.
+
+- **API keys are shown once and never again.** Only a fingerprint is stored, so nobody — including
+  us — can read your key back to you afterwards. A lost key is revoked and reissued, and revoking
+  one takes effect immediately.
+
+- **Our social links point at the right accounts.** The homepage Facebook and LinkedIn icons pointed
+  at handles that were never ours.
+
+> **Not yet live at the time of writing.** Both database changes and three server functions still
+> need to be deployed, and both fees ship at ₱0 until an administrator sets a price — so nothing is
+> charged to anyone the moment this lands.
+
+## 2026-08-06 — Being told things actually happened
 
 **Headline:** the app has been doing work and not telling anyone. If you were approved for a role,
 submitted an ID check, filed a monitoring report or asked for a payout and heard nothing back, that

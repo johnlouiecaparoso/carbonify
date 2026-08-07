@@ -122,6 +122,7 @@ document to a specific investor is a new feature, not a bug in this one.
 | View carbon participation | ✅ | Migration #31. A **Carbon** tab attributes verified tCO₂e pro-rata by delivered mass per project. Rule written down *before* the code: [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md). Presented as an **estimate**, never as credit ownership — the farmer cannot sell or retire it, and the UI leads with that. |
 | **Receive training** | ❌ | **Missing.** No training module, content, route, or table anywhere in `src`. This is a **content problem**, not a code one. |
 | Monitor plantation performance | ✅ | Each parcel shows **actual vs expected**, colour-coded. Actuals sum the **trailing 12 months**, because `expected_yield_tonnes` is an annual figure — a 3-year-old parcel against one year's expectation would report 300% and mean nothing. No expected yield → `performance: null`, not zero and not 100%. |
+| *(not in the original spec)* **Export your own records** | ✅ | 🆕 **2026-08-07.** Not a spec bullet, added because the audit that reads these tables found the farmer was the **only** role on the platform with no export at all — buyers, LGUs, sellers, verifiers and admins all had one. Delivery ledger + carbon contribution as CSV. The `payment` column delegates to the canonical `paymentState`, so a staff-resolved dispute and a re-dispute export as themselves rather than collapsing into "disputed". |
 
 ---
 
@@ -176,13 +177,27 @@ Nothing below is blocked on code we can write today.
 
 You asked about a broader commercial package. Based on the code and docs, the current state is:
 
+> **Updated 2026-08-06.** The two gaps in this table were built. The rest of this
+> file still reflects the 2026-07-09 audit.
+
 | Requested feature | Status | Where it shows up |
 |---|---|---|
-| Project onboarding fees | ❌ absent | No dedicated submit-project fee flow or config was found. |
-| Verification & certification support | ✅ present | Public certificate verification, QR checks, tamper-evident signatures. |
-| Marketplace transaction fees | ✅ present | Platform fee config applies to purchases and is booked to platform revenue. |
-| Premium enterprise tools and data analytics | ✅ present | Pro-gated analytics and investor portal / data-room tooling. |
-| White-label MRV/API solutions | 🟡 partial | Roadmap mentions supplier / registry API work, but not a white-label product surface. |
+| Project onboarding fees | ✅ **built 2026-08-06** | `project_fee_invoices` + triggers (`20260806000300`). Invoiced at **validation**, not submission — the platform bills only for a decision it has delivered. Payable from wallet or card; books `ref_type='project_fee'` to `platform_revenue`. Developer statement at `/developer/fees`, admin panel + waive in the Finance Console. |
+| Verification & certification support | ✅ present | Public certificate verification, QR checks, tamper-evident signatures. The **fee** is now billed by the same mechanism, raised when a monitoring report is approved (per report, not per project). |
+| Marketplace transaction fees | ✅ present | Platform fee config applies to purchases and is booked to platform revenue. Unchanged. |
+| Premium enterprise tools and data analytics | ✅ present | Pro-gated analytics and investor portal / data-room tooling. Unchanged. |
+| White-label MRV/API solutions | ✅ **built 2026-08-06** | `api_tenants` + `api_keys` (`20260806000400`). SHA-256-digested keys shown once, three read-only scopes, per-key rate limit through the shared limiter, and tenant branding in every keyed response. Admin console at `/admin/api-keys`. |
 
-For the implementation path for the missing or partial items, see [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
+**Two caveats that keep this table honest:**
+
+- Both fees default to **₱0**, and the invoice-raising function returns null on a
+  non-positive amount. Until an admin sets a price in System Configuration, the
+  onboarding stream is built but earns nothing — *built* and *earning* are
+  different claims and this row only supports the first.
+- A `due` fee **gates nothing**. It is a receivable, not an enforcement
+  mechanism; whether it should suspend anything is backlog #48.
+
+For the full build record — billing moment, what was deliberately not built, and
+what to do before any of it earns money — see
+[COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
 

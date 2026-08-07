@@ -41,6 +41,10 @@ Register  →  Validate  →  Monitor & Verify (MRV)  →  Issue  →  Trade  �
 ### Current Status
 **Feature-complete.** The money path is proven and hardened (all flows reconcile to zero, financial tables are server-write-only via RLS). What remains is mostly external/ops-legal (production PayMongo credentials, real credit registry integration, accreditation, AML, penetration test) rather than application code.
 
+**All five revenue streams exist in code as of 2026-08-07** — marketplace fees, subscriptions and certification were already live; project onboarding/verification fees (`20260806000300`) and the white-label API (`20260806000400`) were built that day. ⚠️ Neither migration is applied, and both fees default to **₱0**: *built*, *applied* and *earning* are three separate states here.
+
+**Still genuinely missing in code:** the AI Assistant backend (`/assistant` is a preview with a disabled composer — needs a Claude API key), satellite/IoT MRV feeds, and the farmer training module (a content problem, not a code one).
+
 ---
 
 ## 2. Tech Stack
@@ -96,7 +100,7 @@ carbonify/
 │   │   ├── tables/               # Reusable data tables
 │   │   └── ...                   # map, mobile, project, user, dashboard, dev, account
 │   │
-│   ├── services/                 # 65+ service files (business logic layer)
+│   ├── services/                 # 73 service files (business logic layer)
 │   │   ├── supabaseClient.js     # Supabase client singleton
 │   │   ├── authService.js        # Auth operations
 │   │   ├── projectService.js     # Project CRUD
@@ -200,7 +204,7 @@ Defined in `src/constants/roles.js`. Route protection in `src/router/index.js` +
 
 ---
 
-## 5. All Views / Pages (54 View Files)
+## 5. All Views / Pages (59 View Files)
 
 | Route | View File | Description |
 |---|---|---|
@@ -238,6 +242,7 @@ Defined in `src/constants/roles.js`. Route protection in `src/router/index.js` +
 | `/developer/ledger` | `CarbonAssetLedgerView.vue` | Carbon asset ledger (issued/sold/retired + buyer history) |
 | `/developer/offtakes` | `OfftakeAgreementsView.vue` | ERPA/offtake agreement management |
 | `/developer/data-room` | `DataRoomActivityView.vue` | Document access log (who's reading what) |
+| `/developer/fees` | `ProjectFeesView.vue` | Onboarding/verification fee invoices — pay from wallet or card |
 | `/sales` | `SellerEarningsView.vue` | Seller earnings dashboard + listing management |
 | `/investor` | `InvestorPortalView.vue` | Investor portal (pipeline, IRR/NPV, data room) — Pro-gated |
 | `/biomass` | `BiomassMarketplaceView.vue` | Public biomass marketplace |
@@ -248,7 +253,8 @@ Defined in `src/constants/roles.js`. Route protection in `src/router/index.js` +
 | `/admin` | (components/admin/AdminDashboard.vue) | Admin dashboard |
 | `/admin/kyb` | `AdminKybReviewView.vue` | Admin KYB review console |
 | `/admin/refunds` | `AdminRefundsView.vue` | Admin refunds/disputes console |
-| `/admin/config` | `SystemConfigView.vue` | System configuration |
+| `/admin/config` | `SystemConfigView.vue` | System configuration (incl. the two project fees) |
+| `/admin/api-keys` | `AdminApiKeysView.vue` | White-label API tenants, keys, scopes, rate limits |
 | `/finance` | `FinanceConsoleView.vue` | Admin finance console (sales/fees/payouts/reconciliation) |
 | `/analytics` | `AnalyticsView.vue` | Analytics (Buying free, Selling Pro-gated) |
 | `/assistant` | `AiAssistantView.vue` | AI assistant preview (interface only — no backend) |
@@ -259,7 +265,7 @@ Defined in `src/constants/roles.js`. Route protection in `src/router/index.js` +
 
 ---
 
-## 6. Service Layer Architecture (65+ Services)
+## 6. Service Layer Architecture (73 Services)
 
 All business logic lives in `src/services/`. The app is frontend-heavy but most real data operations go through Supabase via these services.
 
@@ -306,8 +312,10 @@ All business logic lives in `src/services/`. The app is frontend-heavy but most 
 | `walletService.js` | Wallet operations (balance, top-up) |
 | `disputeService.js` | Refunds and disputes |
 | `subscriptionService.js` | Pro/Business subscription management |
+| `apiKeyService.js` | White-label API tenants + keys (admin). Raw keys are returned once and never stored |
 | `adminFinanceService.js` | Admin finance console RPCs |
 | `vatInvoiceService.js` | VAT invoice generation (provisional) |
+| `projectFeeService.js` | Onboarding/verification fee invoices — read, pay from wallet, start card checkout, waive (admin) |
 
 ### Documents & Certificates
 | Service | Purpose |
@@ -356,7 +364,7 @@ All business logic lives in `src/services/`. The app is frontend-heavy but most 
 
 ---
 
-## 7. Supabase Edge Functions (7 Functions)
+## 7. Supabase Edge Functions (8 Functions — 7 deployed)
 
 | Function | Purpose | Auth |
 |---|---|---|
@@ -367,6 +375,7 @@ All business logic lives in `src/services/`. The app is frontend-heavy but most 
 | `process-payouts` | Seller payout worker (processes `payout_requests` state machine) | Worker secret |
 | `send-approval-email` | Role-application + project-submission emails through Resend. Typed payload (`role_application_submitted` / `role_application_decision` / `project_submitted`) + a row id; recipients derived server-side, never caller-supplied | JWT required |
 | `account-deletion` | DPA erasure worker (processes account deletion requests) | Service role |
+| `public-registry` | Registry API. **Anonymous tier**: validated projects + stats (public data, IP rate limited). **Keyed tier**: `Authorization: Bearer ck_live_…` adds tenant branding, per-key limits, and the scoped `?mrv=` / `?certificate=` endpoints. ⚠️ **Not deployed** — not required by the pilot, and unversioned (backlog #50) | Optional API key |
 
 ---
 
@@ -393,6 +402,8 @@ Migrations are in `supabase/migrations/` (95 files). **Applied by hand in the SQ
 - `wallet_transactions` — Wallet transaction history
 - `escrow_holds` — Escrow for marketplace trades (⚠️ currently dead for card purchases — see DEFERRED_BACKLOG #14)
 - `payout_requests` — Seller payout state machine (requested → processing → settled/failed)
+- `project_fee_invoices` — Onboarding/verification fee receivables. Raised by trigger at project **validation** and MRV report **approval**; settled via `pay_project_fee_from_wallet` (authenticated) or `mark_project_fee_paid` (webhook). Charged once per lifecycle by partial unique index
+- `api_tenants` / `api_keys` — White-label partners and their credentials. Keys stored as **SHA-256 digest only**; scopes are read-only (`registry:read`, `mrv:read`, `certificates:read`) and rate limits are per key
 
 ### Identity & Governance
 - `role_applications` — Role application requests
@@ -432,6 +443,12 @@ Migrations are in `supabase/migrations/` (95 files). **Applied by hand in the SQ
 - `log_data_room_access()` — Secure document access logging
 - `public_market_stats()` — Public market statistics (anon-granted)
 - `admin_recent_transactions()` — Admin finance console
+- `pay_project_fee_from_wallet()` — Settle a fee invoice from the caller's own wallet (authenticated)
+- `mark_project_fee_paid()` — Settle a fee from a card payment; **service_role only**, idempotent
+- `waive_project_fee()` — Admin waiver, attributed and reasoned. Posts **no** ledger entry
+- `reconcile_project_fees()` — Fee-specific reconciliation. Deliberately **separate** from `reconcile_financials()` so that function is never redefined
+- `authenticate_api_key()` / `api_project_mrv_summary()` — White-label API. **service_role only**; reachable from a browser would be free access to the metered product
+- `create_api_key()` / `revoke_api_key()` / `upsert_api_tenant()` — Admin key management
 - Various `submit_*`, `respond_*`, `confirm_*` RPCs for biomass/farmer workflows
 
 ---

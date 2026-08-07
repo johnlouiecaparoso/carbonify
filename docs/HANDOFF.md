@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · advisor sweep + migration replay guards 2026-08-05 (evening) · **role-approval failure + notification coverage audit 2026-08-06 — two migrations applied, `send-approval-email` redeployed, and eight role-to-role handoffs that notified nobody now do; one behavioural gate left (`ESC-01…06`)**
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · advisor sweep + migration replay guards 2026-08-05 (evening) · role-approval failure + notification coverage audit 2026-08-06 — two migrations applied, `send-approval-email` redeployed, and eight role-to-role handoffs that notified nobody now do · **commercial build 2026-08-07 — the last two revenue streams built: project fees are now a real receivable and the registry API is a keyed, metered, brandable product. ⚠️ Both migrations are WRITTEN, NOT APPLIED. One behavioural gate still left (`ESC-01…06`)**
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -27,7 +27,7 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`. 🆕 **Re-measured 2026-08-06:** unit **1308/1308 across 116 files**, Playwright **130/130**, lint **0**, build green. ⚠️ The 2026-08-06 frontend changes (password toggles, tour suppression) are **committed but not yet deployed** — the two migrations and the edge function ARE live. |
+> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`. **Re-measured 2026-08-06:** unit **1308/1308 across 116 files**, Playwright **130/130**, lint **0**, build green. 🆕 **Re-measured 2026-08-07:** unit **1334/1334 across 118 files**, lint **0**, build green — Playwright was **not** re-run, so 130/130 is carried forward from 08-06, not re-measured. ✅ **Re-measured 2026-08-07 (later):** the 2026-08-06 frontend **IS deployed** — `PasswordField` is on production, found by walking all 109 chunks; three docs said otherwise and none had re-checked after the push. ⚠️ The 2026-08-07 commercial build **was not committed at all** until `7748342` — not "committed but not deployed", which is what this row and two others claimed. It is committed now and still **not deployed**; the three 08-07 migrations are **not applied**, confirmed by probe with controls in both directions. |
 > | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. **The advisor sweep below is applied and re-probed — now 25/25 PASS signed out** (two checks added 2026-08-06 for the new notification helpers). |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
@@ -53,7 +53,9 @@
 > | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe on the public routes, plus 6/6 on the AUTHENTICATED ones (new 2026-08-05, ~40 page-audits across four roles)** — 0 violations. The authenticated half found the notification bell unnamed on every page, the account menu unopenable by keyboard, and four translucent-over-green contrast defects. Manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
-> | Test suite | ✅ **1308 unit across 116 files** · Playwright **130 green** (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility + 9 runtime smoke) · lint 0 · build green — all four re-measured **2026-08-06**, not carried forward. Playwright needed `npx playwright install chromium` on a fresh machine; without the binary all 130 "fail" in ~6ms, which reads like a broken suite and is a missing download |
+> | **Project onboarding + verification fees** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000300`). Was two numbers on a form that nothing charged. Now a real receivable: `project_fee_invoices`, raised by trigger at **validation** (not submission — the platform bills only for a decision it has delivered), payable from wallet or card, booked to `platform_revenue` as `ref_type='project_fee'`. Charged **once per lifecycle** by partial unique index, not by careful calling. Invisible to `reconcile_financials()` by design; own `reconcile_project_fees()`. ⚠️ **Both fees default to ₱0 and the whole migration is inert until an admin sets a price** — *built* and *earning* are different claims |
+> | **White-label MRV/API** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000400`). The old `public-registry` function carried its own warning that it had no key gating or rate limiting and must not be sold. Now: `api_tenants` + `api_keys` with **SHA-256-digested keys shown once**, three read-only scopes, per-key rate limits through the shared `check_rate_limit`, and tenant branding in every keyed response. Admin console at `/admin/api-keys`. The unauthenticated tier still works **on purpose** — the public registry is a transparency claim |
+> | Test suite | ✅ **1334 unit across 118 files** (re-measured 2026-08-07) · Playwright **130 green** (last measured 2026-08-06) (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility + 9 runtime smoke) · lint 0 · build green — all four re-measured **2026-08-06**, not carried forward. Playwright needed `npx playwright install chromium` on a fresh machine; without the binary all 130 "fail" in ~6ms, which reads like a broken suite and is a missing download |
 >
 > ### What is NOT implemented
 >
@@ -67,6 +69,11 @@
 > | **AML screening against a commercial feed** | Runs on a local watchlist today | 🏢 |
 > | **Notification + privacy preference enforcement** | 17 controls read by nothing (#37) — needs a decision first | 🤖 blocked on 👤 |
 > | **i18n (~375 strings)** | Blocked on translation **content**, not code (#27) | 👤 decision |
+> | 🆕 **AI Project Assistant** | `/assistant` is an interface preview with a **disabled composer** — 0 of its 5 spec bullets work. Needs a Claude API edge function: an external key and a per-query running cost | 👤 decision + 🏢 cost |
+> | 🆕 **Satellite / IoT monitoring** (MRV #4) | No implementation anywhere in `src`. Needs external data feeds with running costs — deferred from the start, not dropped | 🏢 + 👤 |
+> | 🆕 **Farmer training module** (Farmer #6) | The only missing sub-bullet in the Farmer Portal, and it is a **content** problem: there is no training material to render. Zero occurrences of "training" in the farmer code | 👤 content |
+> | ~~🆕 **Registry fields on the PUBLIC `/registry` page**~~ | ✅ **BUILT 2026-08-07.** A Projects tab now publishes methodology, development status, feedstock, capacity and issued/available credits for **validated** projects, through a new `search_public_project_registry` definer RPC rather than the raw table. ⚠️ **Owner must apply `20260807000100`** — the tab errors until then | ✅ done |
+> | ~~🆕 **ESG export for developers**~~ | ✅ **WORKED 2026-08-07, and the row was half wrong.** Measuring it found **verifiers already had two exports** since 08-02 (`verificationReportService` + the `MyDecisionsPanel` CSV), and developers have had `sellerExportService` since 07-26. **The farmer was the only role with nothing at all** — now has a delivery ledger and a carbon-contribution CSV. What genuinely remains is narrower than the row said: a developer **impact** disclosure, as distinct from the **financial** export they already have | 🤖 small, codeable (residual) |
 > | **Organization accounts** | Phase 2 rewrites the same RPC as escrow — must follow the beta (#18) | 👤 decision |
 > | **Load / performance testing** | Before scaling, not before soft launch | 🤖 later |
 > | **Manual / assistive-technology a11y testing** | Automated WCAG A+AA is now green on the public routes **and the authenticated ones** (18/18 + 6/6 axe, ~40 page-audits). Automated rules cover ~⅓ of WCAG; the rest needs a real screen reader and a real person. **Data-dense layouts are still unaudited** — the DEV mock session renders every table empty | 🤖 + 👤 |
@@ -618,9 +625,55 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### ✅ DEPLOY STATE — everything is applied, pushed, **and live**
+> ### 🟡 DEPLOY STATE — everything **up to 2026-08-06** is applied and live; the 08-07 build is not
 >
-> > 🆕 **2026-08-05 — `20260805000100` is APPLIED and live.** The asset ledger names its buyers, and
+> > 🔴 🆕 **2026-08-07 — THREE MIGRATIONS ARE WRITTEN AND NOT APPLIED. Two edge functions changed and
+> > are not redeployed.** This is the first time since 08-05 that the owner's queue is not empty, so
+> > do not read the older "nothing is waiting on you" line below as current.
+> >
+> > ⚠️ **CORRECTED 2026-08-07 (later): this box said the commercial build was "committed only". It
+> > was not committed at all.** All 28 files — both migrations, both services, both views, both test
+> > files and all three edge functions — were sitting in the working tree while this document,
+> > OPEN_WORK_REGISTER and YOUR_ACTION_ITEMS each described them as in git. `git status` was the only
+> > thing that said otherwise, and it was right. Committed `7748342`.
+> >
+> > **This is a step earlier than the failure the register had already named.** Its 08-07 entry
+> > records the shape as *"in git and absent from live"*, the inverse of 08-06's *"on live and absent
+> > from git"* — and the real state was neither: **absent from both.** A lost working tree would have
+> > taken the only copy. The rule the register states — *the repo, the database and the deploy are
+> > three separate states* — needs its first clause read literally: **"the repo" means what is
+> > committed, not what is on disk.**
+> >
+> > | What | State | Notes |
+> > |---|---|---|
+> > | `20260806000300_project_fee_invoices.sql` | 🔴 **not applied** | Apply **after** `20260806000200` — it calls `notify_one`. The call is guarded by `to_regprocedure`, so it applies either way; out of order just means no fee notifications |
+> > | `20260806000400_api_tenants_and_keys.sql` | 🔴 **not applied** | Independent of the above |
+> > | 🆕 `20260807000100_public_project_registry.sql` | 🔴 **not applied** | Independent of both. Adds the public project-registry read; the Projects tab on `/registry` is empty until it lands |
+> > | `paymongo-checkout` | 🔴 **not redeployed** | New `create_project_fee_checkout` action. **Confirmed still on the old build 2026-08-07** by probe: the new action answers `"Unknown or unsupported checkout action"` while `create_wallet_topup_checkout` — an action the old build has — answers `"Authentication required to top up"`. A control in the same request set, so the probe cannot be reporting a dead endpoint |
+> > | `paymongo-webhook` | 🔴 **not redeployed** | New `project_fee` settlement branch. **A fee paid by card will not settle without this**. Not independently probed — it is signature-gated — but it was changed in the same pass as checkout, which is measurably not deployed |
+> > | `public-registry` | 🔴 **not redeployed** | **Confirmed 2026-08-07:** still `404 NOT_FOUND` at the gateway, identical to a made-up function name run as a control. Now needs `SUPABASE_SERVICE_ROLE_KEY`; without it the anonymous tier still serves and keyed calls 401 |
+> > | Frontend (`/developer/fees`, `/admin/api-keys`) | 🔴 **not deployed** | ✅ **Committed 2026-08-07** (`7748342`). Confirmed absent from production by walking all 109 deployed chunks: no `/developer/fees`, no `/admin/api-keys`, no `project_fee_invoices` |
+> >
+> > ✅ **And one row here was wrong in the OTHER direction — the 2026-08-06 frontend IS deployed.**
+> > Three documents said the password toggles and the tour-suppression fix were committed but not
+> > shipped. They are live: `PasswordField-yk3azNO8.js` is on production carrying
+> > `Hide password` / `Show password`, found by walking the chunk graph. Both commits (`7d26690`,
+> > `76477c4`) were on `origin/main`, so the Vercel Git integration had built them — exactly as it is
+> > supposed to. **The "not deployed" line was copied forward from before the push and never
+> > re-measured**, which is the same failure as the *"8 edge functions deployed"* line that six
+> > documents carried, arriving from the opposite direction: that one claimed a deploy that had not
+> > happened, this one denied a deploy that had.
+> >
+> > **Then set a price.** Both fees default to ₱0 and every trigger short-circuits on a non-positive
+> > amount, so until an admin sets them in System Configuration the fee migration creates nothing,
+> > notifies nobody, and earns nothing. That is the intended default, not a bug — but it does mean
+> > "applied" and "earning" are two separate events.
+> >
+> > Each migration ends with a SQL VERIFY block **and** a behavioural checklist. The SQL proves the
+> > triggers and grants exist; only the behavioural checks prove a fee raises once, settles once, and
+> > leaves `reconcile_financials()` at 0 rows.
+> >
+> > ✅ **2026-08-05 — `20260805000100` is APPLIED and live.** The asset ledger names its buyers, and
 > > both halves are chunk-verified on production.
 > >
 > > ✅ **`20260805000200` is APPLIED** (#39 — the verifier review thread).
@@ -631,8 +684,8 @@
 > > reads a signed-out visitor needs still return `200` — checked in **both** directions, since a
 > > revoke pass has two ways to be wrong.
 > >
-> > **Nothing is waiting on the owner in the database or the deploy.** Every migration is applied,
-> > `main` is level with origin, and production is serving it.
+> > ~~**Nothing is waiting on the owner in the database or the deploy.**~~ True as of 2026-08-06 and
+> > **no longer true** — see the 2026-08-07 block at the top of this box.
 > >
 > > ✅ **A silent revert happened on 2026-08-05 and was caught and undone the same hour.**
 > > `20260725000200` was re-run against live; it defines `process_marketplace_purchase`, and so does

@@ -1,7 +1,23 @@
 # Carbonify — Documentation Index
 
-> **Updated 2026-08-05.** This folder mixes **current** docs with **historical** planning notes kept for
+> **Updated 2026-08-07.** This folder mixes **current** docs with **historical** planning notes kept for
 > traceability. Use the current set below; anything under "Historical" carries a superseded banner.
+>
+> ### 🔴 2026-08-07 — the commercial build, and the first non-empty owner queue since 08-05
+>
+> The last two of the five revenue streams were built: **project onboarding + verification fees**
+> (`20260806000300`) and the **white-label MRV/API** (`20260806000400`). Fees went from two numbers on
+> a form that nothing charged to a real receivable raised at validation and booked to
+> `platform_revenue`; the registry API went from a scaffold that warned against selling it to a keyed,
+> scoped, rate-limited, brandable product.
+>
+> ⚠️ **Neither migration is applied and three edge functions are not redeployed.** Both fees also
+> default to **₱0**, so applying them changes nothing until a price is set — *built*, *applied* and
+> *earning* are three separate states here. Owner steps: [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md).
+> Build record: [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
+>
+> Suite re-measured 2026-08-07: **1334 unit across 118 files**, lint 0, build green. Playwright was
+> not re-run.
 >
 > ### 🧭 State in three lines (2026-08-05)
 >

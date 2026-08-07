@@ -94,12 +94,24 @@ elevated rights, so the `service_role`-only grant on the reconcile function is f
 
   ⚠️ **This said 8 until 2026-08-05, and the eighth is `public-registry`, which is NOT deployed** —
   measured, with a control: a made-up function name returns the identical `404 NOT_FOUND`, while
-  `process-payouts` returns `405`. **Do not deploy it to make this box tick.** Nothing in `src/`
-  calls it; it is a white-label scaffold, and its own
-  [README](../supabase/functions/public-registry/README.md) says API-key gating, rate limiting and
-  response versioning are owner decisions *before* production. Deploying it now would put an
-  ungated public API on the internet days before a pilot, to satisfy a checklist. Public-API
-  exposure is a Lane 2b decision — leave it undeployed until it is made.
+  `process-payouts` returns `405`.
+
+  🆕 **2026-08-07 — the original reason to withhold it is gone, but the decision is still yours.**
+  The objection was that deploying it would put an **ungated** public API on the internet days
+  before a pilot. `20260806000400` closed that: keys are required for every non-public endpoint,
+  each key carries scopes and its own per-minute limit, and the anonymous tier is restricted to data
+  the public registry page already shows to anyone.
+
+  What remains is a genuine judgement call rather than a defect, and it is still Lane 2b:
+
+  - the response shape is **unversioned** — freeze it under `/v1/` before any partner integrates
+    (backlog **#50**), because after two integrations that becomes a coordinated migration;
+  - **redistribution terms** — what a white-label partner may republish is a contract clause, and it
+    should exist before the first key is issued outside the company;
+  - deploying it is not required by the pilot. Nothing in `src/` calls it.
+
+  **Still do not deploy it merely to make this box tick.** Deploy it when you have a partner, or to
+  demo the capability — not to reach 8/8.
 
 - [ ] **1d. PayMongo is in TEST mode.** Confirm the deployed `paymongo-checkout` / `paymongo-webhook`
   secrets hold **test** keys (`sk_test_…`), and the PayMongo webhook points at the live Supabase

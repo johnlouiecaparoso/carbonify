@@ -2360,3 +2360,80 @@ which reads like a pass and is not one: PostgREST resolves an overload by the ex
 arguments, so a wrong signature is indistinguishable from a missing function. The full argument list
 is required, and both probes pass a malformed uuid so that a still-granted EXECUTE fails the cast
 before the body could insert anything.
+
+---
+
+## From the 2026-08-06 commercial build (fees + white-label API)
+
+Two of the five stated revenue streams shipped today: `20260806000300`
+(onboarding/verification fee invoices) and `20260806000400` (API tenants + keys).
+Both left commercial decisions behind that are deliberately not code.
+
+### 48. Should an unpaid project fee gate anything? 🟡
+
+`20260806000300` raises a **receivable**, not a gate. A `due` invoice does not
+block validation, listing, issuance, or withdrawal — the project proceeds exactly
+as it did before the fee existed.
+
+That was the safe default, not the obvious answer. The arguments:
+
+- **For a gate.** An invoice nobody has to pay is a suggestion. If onboarding fees
+  are to carry a meaningful share of the revenue target, the platform needs a
+  reason for developers to settle them, and suspending listing rights is the only
+  lever that exists today.
+- **Against.** Every gate has a failure mode where a paying customer is locked out
+  of something they already earned, and unpicking a gate after partners have built
+  around it is far harder than adding one. Validation is also a *verifier's*
+  decision; making it conditional on a *payment* mixes an assurance judgement with
+  a billing one.
+
+The middle option, if wanted: a `project_fee_blocks_listing` app setting, off by
+default, checked only at listing creation (never at validation or issuance), with
+a grace period measured from `created_at`. That is a small change on top of what
+exists — the invoice, its status, and its age are all already there.
+
+**Owner decision.** No code should be written for this until the answer is a
+sentence, not a preference.
+
+### 49. Fee refunds have no path 🟡
+
+`refund_purchase` covers marketplace transactions. A **fee** that was charged in
+error can currently only be handled by `waive_project_fee` (which does nothing
+once the invoice is `paid`) or by a manual out-of-band transfer.
+
+This is not urgent — fees are charged after a decision has been delivered, which
+is exactly the design that makes refunds rare — but "rare" is not "never", and
+the first one will happen at the worst possible time. When it is built, it must
+post a **reversing ledger pair** (debit `platform_revenue`, credit the funding
+account) rather than deleting anything: `ledger_entries` is append-only, and
+`reconcile_project_fees` check #2 will correctly scream if an invoice is quietly
+un-paid underneath its ledger group.
+
+### 50. The white-label API is unversioned 🟡
+
+`public-registry` now has keys, scopes, per-key rate limits and tenant branding —
+it is sellable. It is also served at a bare path with no version prefix, so the
+response shape is now a contract with no way to change it.
+
+Freeze it under `/v1/` **before the first partner integrates**, not after. The
+cost today is a path rewrite; the cost after two integrations is a coordinated
+migration with people who have their own release schedules.
+
+Related and equally uncoded: **what a white-label partner may redistribute.** The
+API returns validated project data that is already public, so the risk is not
+disclosure — it is a partner republishing Carbonify's registry as their own
+system of record. That is a contract clause, not a code change, and it should
+exist before the first key is issued to somebody outside the company.
+
+### 51. No usage metering for API billing 🟢
+
+`api_keys.last_used_at` records *that* a key was used, and `rate_limit_hits`
+holds a rolling one-minute counter that is overwritten continuously. Neither is
+a billable usage record: there is no durable per-key request count, so a
+"₱X per 10,000 calls" tier cannot be invoiced from what exists.
+
+Rate limiting and metering look like the same feature and are not. The limiter
+answers "may this call proceed"; billing needs "how many calls happened last
+month", which means an append-only counter (daily rollup per key is enough) that
+nothing overwrites. Only worth building when the pricing model is decided —
+building it first would be guessing at the shape of the invoice.

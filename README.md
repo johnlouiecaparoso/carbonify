@@ -120,3 +120,7 @@ scripts/setup/  setup-supabase.js, setup-test-accounts.js
 ## Status
 
 Feature-complete. The money path is proven in the sandbox and hardened (financial tables are server-write-only via RLS; settlement via `SECURITY DEFINER` RPCs + a signed PayMongo webhook). Remaining work is largely external / ops-legal (production PayMongo credentials, KYB/payout operations, and compliance) rather than application code.
+
+**Revenue streams (2026-08-07).** All five now exist in code: marketplace transaction fees, subscriptions (Free/Pro/Business), verification & certification, project onboarding/verification fees (`20260806000300`), and the white-label registry API (`20260806000400`). ⚠️ The last two are **written but not applied**, and both fees default to **₱0** — *built*, *applied* and *earning* are three separate states. Owner steps: [docs/YOUR_ACTION_ITEMS.md](docs/YOUR_ACTION_ITEMS.md). Build record: [docs/COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](docs/COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
+
+**Not implemented in code:** the AI Project Assistant backend (`/assistant` is a preview with a disabled composer — needs a Claude API key and a per-query cost), satellite/IoT MRV feeds, and the farmer training module (content, not code).

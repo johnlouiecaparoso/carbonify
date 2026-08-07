@@ -21,6 +21,7 @@
 |---|---|---|
 | Auth (email/pw, **MFA**, reset, RBAC 7 roles) | ✅ | Exceeds SRD (SRD marked 2FA "future") |
 | Project registry (boundary, geo, docs, financials, permanence, risk) | ✅ | Exceeds SRD (financials marked "future") |
+| **Public** project registry (`/registry`) | ✅ | 🆕 **2026-08-07** — was a certificate lookup only. A Projects tab now publishes methodology, development status, feedstock, capacity and issued/available credits for **validated** projects, via `search_public_project_registry` (`20260807000100`). No developer PII, no capex/opex, no internal scores. ⚠️ Not applied |
 | Validation workflow + status labels | ✅ | draft→submitted→in_review→needs_revision→validated→rejected |
 | MRV (reports, server-side calculator, verifier review, issuance) | ✅ | 1 credit = 1 tCO₂e; auto-mint on VER |
 | Certificates (serial, **QR**, **sha256 signature**, verify page) | ✅ | |
@@ -34,9 +35,9 @@
 | Onboarding UX (guided tour) | ✅ | Role-aware WelcomeTour + LGU/coop guidance (2026-07-25) |
 | LGU tools | ✅ | MSW calc + diversion + ESG + endorsements + **land-use carbon modeling** (2026-07-25) |
 | AI Project Assistant | ❌ | UI shell only; no edge fn, no Anthropic SDK — **paused (needs key)** |
-| Monetization: onboarding fees | 🟡 | Admin config + disclosure built; **collection (PayMongo) to build** (2026-07-25) |
-| Monetization: paid verification/certification | 🟡 | Admin config + disclosure built; **collection to build** (2026-07-25) |
-| Monetization: white-label MRV / public API | 🟡 | Read-only `public-registry` edge fn scaffold; **key-gating/rate-limit to build** (2026-07-25) |
+| Monetization: onboarding fees | ✅ | **Built 2026-08-07** (`20260806000300`). Invoiced at validation, payable from wallet or card, booked to `platform_revenue`. ⚠️ Not applied; defaults to ₱0 |
+| Monetization: paid verification/certification | ✅ | **Built 2026-08-07** (`20260806000300`). Raised per **approved monitoring report** — verification is delivered per MRV cycle, not per project. ⚠️ Not applied; defaults to ₱0 |
+| Monetization: white-label MRV / public API | ✅ | **Built 2026-08-07** (`20260806000400`). Tenants, SHA-256-digested keys shown once, three read-only scopes, per-key rate limits, branding in-response. ⚠️ Not applied. Unversioned — freeze under `/v1/` before the first partner (backlog #50) |
 | Blockchain tokenization / smart contracts | ⏭️ | Deferred everywhere |
 | IoT / real-time sensor MRV | ⏭️ | Code says "intentionally out of scope" |
 | AI fraud mapping | ⏭️ | |
@@ -61,13 +62,13 @@ assistant needs an Anthropic API key.
 |---|---|---|---|---|
 | 0a | Finish transactional email wiring (route all through Resend edge fn) | Claude | Owner: provider/domain decision | ⏸️ Paused |
 | 0b | AI Assistant backend (edge fn + Claude API + wire existing UI) | Claude build / Owner key+deploy | Owner: Anthropic API key | ⏸️ Paused |
-| 1 | **Onboarding + verification/certification fees** — admin config + disclosure | Claude | — | ✅ Done (collection still to wire) |
+| 1 | **Onboarding + verification/certification fees** — admin config + disclosure | Claude | — | ✅ Done |
 | 2 | **LGU land-use carbon modeling** calculator | Claude | — | ✅ Done |
 | 3 | **Guided onboarding tour** + LGU/coop help content | Claude | — | ✅ Done |
-| 4 | **White-label / public API** — read-only `public-registry` scaffold | Claude build / Owner decides exposure | — | ✅ Scaffold done (key-gating to build) |
+| 4 | **White-label / public API** — read-only `public-registry` scaffold | Claude build / Owner decides exposure | — | ✅ Done |
 | 5 | **Dockerfile** (container-ready claim) | Claude | — | ✅ Done |
-| 6 | Fee **collection** (PayMongo) for onboarding/verification | Claude build / Owner prod keys | Owner: prod keys | ⬜ Next |
-| 7 | Public API **key-gating + rate limits** | Claude build / Owner exposure decision | Owner decision | ⬜ Next |
+| 6 | Fee **collection** (PayMongo) for onboarding/verification | Claude build / Owner prod keys | Owner: apply + deploy + **set a price** | ✅ **Built 2026-08-07** — wallet RPC, `create_project_fee_checkout`, webhook `project_fee` branch, ledger booking, `reconcile_project_fees()` |
+| 7 | Public API **key-gating + rate limits** | Claude build / Owner exposure decision | Owner: apply + deploy | ✅ **Built 2026-08-07** — `api_tenants`/`api_keys`, scopes, per-key limits, `/admin/api-keys` console |
 | 8 | **Org accounts Phase 1** — `organizations` + `organization_members` + invites | Claude | Owner: go/no-go (§6 of the scope) | 📋 Scoped |
 | 9 | **Org accounts Phases 2–3** — org-owned credits + org billing identity | Claude | **Must follow the beta** (settlement-RPC conflict with escrow) | 📋 Scoped |
 | — | Blockchain tokenization | Owner strategic | Owner decision | ⏭️ Deferred |
@@ -132,5 +133,8 @@ Existing Supabase edge functions: `account-deletion`, `paymongo-checkout`,
 
 ---
 
-_Last updated: **2026-08-01** — merge/deploy status reconciled after PR #14 landed, and the Vercel
-topology recorded. Created 2026-07-25 during the fees/LGU/tour implementation workstream._
+_Last updated: **2026-08-07** — the two remaining monetization rows built (fees `20260806000300`,
+white-label API `20260806000400`), the public project registry added (`20260807000100`), and farmer
+data export closed. Previously updated 2026-08-01, when merge/deploy status was reconciled after
+PR #14 landed and the Vercel topology was recorded. Created 2026-07-25 during the fees/LGU/tour
+implementation workstream._

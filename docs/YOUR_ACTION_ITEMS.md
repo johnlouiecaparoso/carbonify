@@ -13,9 +13,76 @@
 > in one table — including the distinction this project has confused before: **ready to deploy** and
 > **ready to take real money** are different questions with different answers.
 
-> ## 🆕 2026-08-06 — your queue, and what the 08-02 box below became
+> ## 🔴 2026-08-07 — your queue is NOT empty. The commercial build needs you.
 >
-> **Nothing is waiting on you right now.** Both of today's migrations
+> The last two revenue streams were built today. **None of it is live.** In order:
+>
+> > ⚠️ **Read this first — it changes nothing you have to do, and it is worth knowing.** Until
+> > `7748342` the entire commercial build was **uncommitted**: 28 files in the working tree, while
+> > this page, HANDOFF and OPEN_WORK_REGISTER all described it as committed. It is committed now.
+> > **Nothing below changed** — but if you had lost that folder, you would have lost the only copy.
+> > *When a status box and a `git status` disagree, the `git status` is the one that is true.* This
+> > page has recorded that rule since 08-05 and it just caught the same class of thing again.
+> >
+> > ✅ **And one item came OFF your list without you doing anything.** Step 3 below used to say the
+> > 08-06 password toggles and tour fix were not deployed. **They are live** — measured by walking
+> > all 109 chunks on production, not by reading a green check. Both commits were already on
+> > `origin/main`, so Vercel had built them. Three documents said otherwise; none had re-checked
+> > after the push.
+>
+> **1. Apply three migrations, in this order.**
+>
+> | File | Why the order matters |
+> |---|---|
+> | `supabase/migrations/20260806000300_project_fee_invoices.sql` | Calls `notify_one` from `20260806000200` (already applied). The call is guarded by `to_regprocedure`, so it applies either way — out of order just means fee notifications silently do nothing |
+> | `supabase/migrations/20260806000400_api_tenants_and_keys.sql` | Independent |
+> | 🆕 `supabase/migrations/20260807000100_public_project_registry.sql` | Independent of both. Adds the public **project** registry read. Until it is applied the new Projects tab on `/registry` shows an error — it changes no data, no policy and no existing function, so it is the safest of the three |
+>
+> **2. Redeploy three edge functions.**
+>
+> ```bash
+> supabase functions deploy paymongo-checkout      # new create_project_fee_checkout action
+> supabase functions deploy paymongo-webhook       # new project_fee settlement branch
+> supabase functions deploy public-registry --no-verify-jwt
+> ```
+>
+> ⚠️ **The webhook is not optional.** A fee paid by card creates the PayMongo session from
+> `paymongo-checkout`, but the invoice is only marked paid — and the revenue only reaches the ledger —
+> by the webhook. Deploy checkout without the webhook and you will take money and not book it.
+>
+> `public-registry` now reads `SUPABASE_SERVICE_ROLE_KEY`. Without it the anonymous tier still works
+> and every keyed call returns 401, which looks exactly like a bad key.
+>
+> **3. Deploy the frontend.** `/developer/fees` and `/admin/api-keys` are new routes, plus a
+> **Projects tab on the public `/registry`** and **CSV exports in the Farmer Portal**. Pushing `main`
+> is the whole of it — the Vercel Git integration builds it. Confirmed absent from production today
+> by walking the deployed bundle.
+>
+> ⚠️ **Order matters for the Projects tab specifically.** Deploy the frontend before applying
+> `20260807000100` and that tab shows *"Failed to search the project registry"* to anyone, signed out,
+> on your public page. It is not dangerous — the Certificates tab is untouched and the rest of the
+> site is unaffected — but a public registry showing an error is the worst screen on the platform to
+> leave broken for a window. **Apply the migration first.**
+>
+> **4. Then set a price.** Both fees ship at **₱0** and every trigger short-circuits on a non-positive
+> amount. Until you set them in System Configuration → Fees, the fee migration creates no invoices,
+> sends no notifications, and earns nothing. **"Applied" and "earning" are two separate events**, and
+> only you can cause the second one.
+>
+> **5. Run the VERIFY blocks and the behavioural checks** at the bottom of each migration. I cannot
+> read `pg_trigger` with the anon key, so — as with the 08-06 pass — the triggers are the part I
+> cannot measure from here. The behavioural checks matter more than the SQL ones: they are what prove
+> a fee raises exactly once, settles once, and leaves `reconcile_financials()` at **0 rows**.
+>
+> The safest first behavioural check is the one that changes nothing: **with both fees still at ₱0,
+> validate a project and confirm no invoice row appears.** If one does, stop — the zero-guard is the
+> whole reason this migration is safe to apply before you have decided on pricing.
+>
+> ---
+>
+> ## 2026-08-06 — what the 08-02 box below became
+>
+> **Nothing was waiting on you as of 08-06** (superseded by the 08-07 block above). Both of that day's migrations
 > (`20260806000100_notify_role_decision_and_comment.sql`,
 > `20260806000200_notify_compliance_and_workflow.sql`) are **applied**, and `send-approval-email` is
 > **redeployed** — both confirmed by probe, not by report:
@@ -25,8 +92,9 @@
 > * `notify_admins` and `notify_one` return `42501` to the anon key — which proves in one answer that
 >   the functions exist **and** that no client role can call them.
 >
-> **One thing IS still on you:** deploy the frontend. The password toggles and the onboarding-tour fix
-> are committed and tested but not yet on `carbonify-gilt.vercel.app`.
+> **One thing was still on you:** deploy the frontend. The password toggles and the onboarding-tour fix
+> are committed and tested but not yet on `carbonify-gilt.vercel.app` — now folded into step 3 above,
+> since the 08-07 build ships in the same deploy.
 >
 > **And run the two `VERIFY` blocks** at the bottom of each migration file if you have not — I cannot
 > read `pg_trigger` with the anon key, so the triggers themselves are the one part of this pass I have

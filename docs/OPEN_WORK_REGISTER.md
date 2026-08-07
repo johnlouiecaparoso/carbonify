@@ -148,6 +148,48 @@
 > [HANDOFF.md](HANDOFF.md) § *2026-08-05 (evening)*; what the sweep deliberately left is
 > [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#41–45**.
 >
+> **Worked 2026-08-07 — the commercial build: the last two revenue streams.** Suite **1308 → 1334**
+> (116 → 118 files), lint 0, build green. Two migrations written (`20260806000300` fees,
+> `20260806000400` API tenants/keys), three edge functions changed, two new views, two new services.
+> Build record: [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
+> New backlog items **#48–#51** — the commercial decisions this deliberately did **not** make.
+>
+> > **This entry sits in Lane 2 (👤 owner), not Lane 1, and that is the point.** Nothing built today
+> > is applied or deployed. The inverse of the 08-06 failure, and worth naming as its own shape:
+> > that time work was **on live and absent from git**; ~~this time it is **in git and absent from
+> > live**~~. Both read as "done" from whichever side you happen to be standing on.
+> >
+> > 🔴 **CORRECTED later the same day, and the correction is this page's own subject twice over.**
+> > It was **not in git**. All 28 files were uncommitted in the working tree while this entry, HANDOFF
+> > and YOUR_ACTION_ITEMS each routed the work to Lane 2 as an owner deploy. The real state was
+> > **absent from git AND absent from live** — a third shape neither of the two above describes, and
+> > the only one where the work can simply cease to exist.
+> >
+> > **This is the second time this page has made exactly this routing error, and the first time is
+> > written four paragraphs below.** On 2026-08-05 it recorded: *"work that is not committed is not
+> > in Lane 2; it is still in Lane 1, and this register cannot see it."* The rule was correct, it was
+> > written down, it was in this file — and the next pass routed to Lane 2 without checking the one
+> > condition the rule names. **A lesson recorded in the same document that goes on to repeat it is
+> > evidence that the control has to be executable, not written** — the same conclusion the migration
+> > replay guards reached, arriving from the docs side. Committed `7748342`.
+> >
+> > 🔎 **The check that found it costs one command.** `git status`, before writing any row that says
+> > "committed". Nothing else in this repository can distinguish "on disk" from "in git", and both
+> > look identical in an editor.
+> >
+> > There is also a **third** state here that neither of those had. Both fees default to **₱0**, and
+> > every trigger short-circuits on a non-positive amount — so even once applied, the onboarding
+> > stream earns nothing until an admin sets a price. *Built*, *applied* and *earning* are three
+> > separate facts, and a doc that collapses them into "done" will be wrong in a way nobody notices
+> > until they go looking for revenue that was never configured to exist.
+>
+> **What the audit found on the way in, and why it matters to this register.** Two of the five stated
+> revenue streams had been carried as 🟡 *"config + disclosure built, collection to build"* since
+> 2026-07-25 — an accurate row that read, at a glance, like partial progress. It was not: nothing
+> charged, nothing recorded a debt, nothing reached the ledger. **A revenue stream that renders a
+> number and bills nobody is 0% built, not 50%.** The routing lesson is the phrasing, not the lane:
+> rows describing *what exists* rather than *what works* survive re-reading for months.
+>
 > **Worked 2026-08-06 — the role-approval failure, and the notification audit behind it.** Two
 > migrations (`20260806000100`–`000200`) applied to live, `send-approval-email` redeployed, and the
 > exposure harness re-probed at **25/25 PASS** signed out (two checks added for the new notification
@@ -392,8 +434,45 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 | **Developer** | **MRV reminders are client-triggered — a developer who never signs in is never emailed** · persist + display financials & yield projection · boundary polygon + methodology selection · registry-readiness checklist / export pack · custom monitoring metrics · project templates & cloning · document re-upload & versioning |
 | **Admin** | Fraud / risk dashboard with anomaly alerts · report builder with date ranges · broadcast announcements · feature flags & maintenance mode · project moderation / takedowns · support impersonation + bulk ops |
 | **LGU** | Benchmarking against other LGUs (now feasible — `profiles.municipality` exists) · diversion → project origination |
-| **Farmer** | ~~Dispute path~~ ✅ 2026-07-29 · indicative feedstock pricing from `biomass_rfqs` · delivery-due reminders · offline field capture |
-| **Cross-cutting** | ESG reporting is **credit-owner side only** · the public `/registry` is a certificate lookup, **not a national registry** |
+| **Farmer** | ~~Dispute path~~ ✅ 2026-07-29 · ~~no data export of any kind~~ ✅ **2026-08-07** — delivery record + carbon contribution as CSV · indicative feedstock pricing from `biomass_rfqs` · delivery-due reminders · offline field capture |
+| **Cross-cutting** | ~~ESG reporting is **credit-owner side only**~~ · ~~the public `/registry` is a certificate lookup, **not a national registry**~~ — ✅ **both worked 2026-08-07, and the row was partly wrong.** See below |
+
+> 🆕 **Worked 2026-08-07 (later) — the two "small, codeable" cross-cutting items, and the row
+> describing them was half stale.**
+>
+> **The public `/registry` now has a Projects tab.** It was a certificate table: it could answer
+> *"does this certificate exist?"* and none of *"under what methodology, at what stage, from what
+> feedstock?"* — every one of those columns already on `public.projects` and already rendered on each
+> project's own page. New `search_public_project_registry` RPC (`20260807000100`), validated projects
+> only, no developer PII, no capex/opex, no internal scores. ⚠️ **Owner must apply the migration**;
+> the tab errors until then.
+>
+> > It also does real work for **#41**. That item is open because narrowing the anon read on
+> > `projects` could empty a public screen — and the registry was one of them. Reading through a
+> > definer RPC removes the registry from that list. It does **not** close #41: the marketplace and
+> > project-detail pages still read the table directly.
+>
+> **The farmer can export their own records.** Delivery ledger and carbon contribution, both CSV.
+> The `payment` column preserves the two-sided distinction #26 was built for — an unacknowledged
+> claim exports as *"Buyer says paid — not yet confirmed"*, never as *"Paid"*, pinned by a
+> mutation-checked test. The carbon file ships with its attribution basis in the file, because that
+> number gets forwarded to cooperatives and lenders who never saw the screen.
+>
+> > 🔎 **Two things the row said that measuring disproved, and one column name it would have got
+> > wrong.** *"Farmers and verifiers have no export either"* — **verifiers have had two since
+> > 2026-08-02**: `verificationReportService` (CSV + PDF, in `ProjectApprovalPanel`) and the
+> > `MyDecisionsPanel` CSV that closed #24. And *"ESG reporting is credit-owner side only"* is true
+> > of **impact** reporting but not of exports generally: developers have had `sellerExportService`
+> > since 07-26. **The farmer was the only role with nothing at all**, which is a narrower and much
+> > sharper finding than the row carried — and it is the role that hands over a physical good it
+> > cannot take back.
+> >
+> > The column names were probed against live before the export was written, and two of four guesses
+> > were wrong: `farmer_deliveries` has **no** `feedstock_type` and **no** `delivered_at` (it is
+> > `delivered_on`, and feedstock lives on the RFQ, which the read does not embed). Both would have
+> > shipped as silently blank columns in a file somebody reconciles against. *A schema read off a
+> > migration is a claim; the database is the measurement* — `20260604010100` writes
+> > `available_credits` while live carries `credits_available`, in the very same pass.
 
 ### 1e. Blocked only on an owner decision — I build the moment it's made
 
