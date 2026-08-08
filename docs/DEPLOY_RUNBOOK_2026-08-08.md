@@ -22,7 +22,7 @@
 
 ```
     STEP 1  you    apply 3 migrations          ← must be first
-    STEP 2  you    deploy 3 edge functions
+    STEP 2  you    deploy 2 edge functions     ← a 3rd is optional; see the step
     STEP 3  me     push main → Vercel builds   ← tell me when 1 is done
     STEP 4  you    set the fee prices
     STEP 5  you    run the VERIFY blocks
@@ -60,38 +60,63 @@ Do them **in this order**.
 
 ---
 
-## STEP 2 — Redeploy three edge functions
+## STEP 2 — Redeploy **two** edge functions (the third is a decision, not a step)
 
 **Dashboard:** 👉 **[Supabase → Edge Functions](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/functions)**
 
-From the project folder in a terminal:
+> ⚠️ **Corrected 2026-08-08.** This step originally listed three deploys as equally required. It is
+> **two**. `public-registry` has never been deployed, and **nothing in the app calls it** — verified
+> by grep: the only references in `src/` are its own test file. The new Projects tab on `/registry`
+> reads the `search_public_project_registry` **RPC** from migration 3, not this function.
+> `public-registry` is the partner-facing white-label API — a product you sell access to, not a
+> dependency of the site. Deploying it puts a **new public endpoint on the internet**, which is a
+> commercial decision. [SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) already had this right — its
+> pre-flight reads *"7 required, with the eighth named as a decision"* — and this page had regressed
+> it back to a checklist item. **A checklist that turns a decision into a tick-box is how the
+> ungated version of this function nearly got deployed on 2026-08-05.**
+
+### Required — the fee path is broken without both
 
 ```bash
-supabase functions deploy paymongo-checkout      # new create_project_fee_checkout action
-supabase functions deploy paymongo-webhook       # new project_fee settlement branch
-supabase functions deploy public-registry --no-verify-jwt
+npx supabase functions deploy paymongo-checkout      # new create_project_fee_checkout action
+npx supabase functions deploy paymongo-webhook       # new project_fee settlement branch
 ```
+
+⚠️ **`npx supabase`, not `supabase`** — the CLI is not on this machine's PATH; it resolves through
+`npx` (2.106.0). `supabase/.temp/linked-project.json` already points at `fmngptolarydbgrtltnd`, so
+no `--project-ref` is needed, but you will need to be logged in (`npx supabase login`).
 
 ⚠️ **The webhook is not optional.** A fee paid by card creates the PayMongo session from
 `paymongo-checkout`, but the invoice is only marked paid — and the revenue only reaches the ledger —
 by the webhook. **Deploy checkout without the webhook and you will take money and not book it.**
 
-⚠️ **`public-registry` needs a secret.** It now reads `SUPABASE_SERVICE_ROLE_KEY`. Without it the
-anonymous tier still works and *every keyed call returns 401*, which looks exactly like a bad key.
-Set it here: 👉 **[Edge Function secrets](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/settings/functions)**
+### Optional — only when you want to sell the partner API
 
-🆕 **`public-registry` is now two files** (`index.ts` + `routing.ts`). The command above is unchanged
-— `supabase functions deploy` bundles the whole folder — but it is the first edge function in this
-repo with a relative import, and **I could not verify the bundle locally** (Deno isn't installed on
-this machine; both files parse-check clean via esbuild). **After deploying, please paste me what this
-returns** — it is the one thing I can't measure for you:
-
-```
-https://fmngptolarydbgrtltnd.supabase.co/functions/v1/public-registry
+```bash
+npx supabase functions deploy public-registry --no-verify-jwt
 ```
 
-Expected: a JSON discovery document with `"currentVersion":"v1"`. A boot error means the import
-didn't resolve and I'll inline it.
+Nothing breaks if you never run this. Deploy it when you have a partner, not before — there is no
+benefit to having it live and unused, and an endpoint nobody is watching is one more thing on the
+internet with your name on it.
+
+When you do:
+
+- **Set `SUPABASE_SERVICE_ROLE_KEY` first.** Without it the anonymous tier still works and *every
+  keyed call returns 401*, which looks exactly like a bad key. 👉 **[Edge Function secrets](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/settings/functions)**
+- **It is now two files** (`index.ts` + `routing.ts`). The command is unchanged — deploy bundles the
+  whole folder — but it is the first edge function in this repo with a relative import, and **I could
+  not verify the bundle locally** (Deno isn't installed here; both files parse-check clean via
+  esbuild). Paste me what this returns and I'll confirm it booted:
+
+  ```
+  https://fmngptolarydbgrtltnd.supabase.co/functions/v1/public-registry
+  ```
+
+  Expected: a JSON discovery document with `"currentVersion":"v1"`. A boot error means the import
+  didn't resolve and I'll inline it.
+- **Settle the redistribution terms before issuing the first key** to anyone outside the company —
+  what a partner may republish is a contract clause, and backlog #50 leaves it open.
 
 ---
 
