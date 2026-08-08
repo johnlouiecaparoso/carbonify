@@ -55,10 +55,17 @@ const block = extractRoutingBlock()
 
 const routing = new Function(
   `${block}
-  return { CURRENT_API_VERSION, SUPPORTED_API_VERSIONS, parseRegistryPath, discoveryDocument }`,
+  return { CURRENT_API_VERSION, SUPPORTED_API_VERSIONS, parseRegistryPath, discoveryDocument,
+           apiKeyFromAuthHeader }`,
 )()
 
-const { CURRENT_API_VERSION, SUPPORTED_API_VERSIONS, parseRegistryPath, discoveryDocument } = routing
+const {
+  CURRENT_API_VERSION,
+  SUPPORTED_API_VERSIONS,
+  parseRegistryPath,
+  discoveryDocument,
+  apiKeyFromAuthHeader,
+} = routing
 
 describe('registry API — the function stays deployable', () => {
   it('is a single file with no relative imports', () => {
@@ -73,6 +80,50 @@ describe('registry API — the function stays deployable', () => {
     // points at this file rather than at the line someone actually wrote.
     expect(block).not.toMatch(/function\s+\w+\s*\([^)]*:\s*\w/)
     expect(block).not.toMatch(/^\s*(const|let)\s+\w+\s*:\s*\w/m)
+  })
+})
+
+describe('registry API — an anon JWT is not a bad API key', () => {
+  /**
+   * Found by probing the first successful deploy, not by reading the code.
+   *
+   * The handler took ANY Bearer token as an API key, so a caller sending the
+   * standard Supabase anon JWT — which `supabase-js` attaches automatically —
+   * got `401 Invalid or expired API key` while asking for public data it was
+   * entitled to, having never presented a key.
+   *
+   * "No key" and "bad key" are different answers: the first means serve the
+   * public tier, the second means the caller's credential is wrong.
+   */
+  const ANON_JWT =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.7Hk3sVQ4_fakeSignature'
+
+  it('ignores a Supabase anon JWT so the public tier still serves', () => {
+    expect(apiKeyFromAuthHeader(`Bearer ${ANON_JWT}`)).toBeNull()
+  })
+
+  it('accepts a Carbonify key', () => {
+    expect(apiKeyFromAuthHeader('Bearer ck_live_abc123')).toBe('ck_live_abc123')
+  })
+
+  it('leaves room for a future ck_test_ prefix', () => {
+    expect(apiKeyFromAuthHeader('Bearer ck_test_abc123')).toBe('ck_test_abc123')
+  })
+
+  it('treats a missing or non-Bearer header as anonymous', () => {
+    expect(apiKeyFromAuthHeader(null)).toBeNull()
+    expect(apiKeyFromAuthHeader('')).toBeNull()
+    expect(apiKeyFromAuthHeader('Basic ck_live_abc')).toBeNull()
+  })
+
+  it('is case-insensitive on the scheme and trims the token', () => {
+    expect(apiKeyFromAuthHeader('bearer   ck_live_abc  ')).toBe('ck_live_abc')
+  })
+
+  it('does not accept a token that merely contains the prefix', () => {
+    // `startsWith`, not `includes` — a JWT whose payload happens to encode
+    // "ck_" must not be mistaken for a credential.
+    expect(apiKeyFromAuthHeader('Bearer not_ck_live_abc')).toBeNull()
   })
 })
 

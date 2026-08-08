@@ -29,6 +29,18 @@
  * Deploy:
  *   supabase functions deploy public-registry --no-verify-jwt
  *
+ * ⚠️ `--no-verify-jwt` IS MANDATORY, not a convenience. Deployed without it, the
+ * Supabase gateway demands a valid Supabase JWT before a request ever reaches
+ * this file — measured on the first deploy:
+ *
+ *   (no header)                     → 401 UNAUTHORIZED_NO_AUTH_HEADER
+ *   Authorization: Bearer ck_live_… → 401 UNAUTHORIZED_INVALID_JWT_FORMAT
+ *
+ * The second is the fatal one: the gateway tries to parse a partner's API key as
+ * a JWT and rejects it, so a valid key can never arrive. Both the anonymous tier
+ * and the keyed tier are dead. In the dashboard this is the "Verify JWT" toggle,
+ * which must be OFF.
+ *
  * ## Versioned — routing is inlined below, see the ROUTING BLOCK
  * The unversioned root serves a discovery document and NO registry data, so a
  * partner cannot integrate against an unfrozen shape. All data lives under /v1/.
@@ -92,6 +104,41 @@ const SUPPORTED_API_VERSIONS = ['v1']
  * leave our own response shape frozen by nothing.
  */
 const FUNCTION_SEGMENT = 'public-registry'
+
+/**
+ * Carbonify API keys are minted as `ck_live_…` by `create_api_key`. Matching on
+ * `ck_` leaves room for a future `ck_test_` without reopening this.
+ */
+const API_KEY_PREFIX = 'ck_'
+
+/**
+ * Pull a CARBONIFY API key out of an Authorization header, or return null.
+ *
+ * The prefix test is not cosmetic, and it was measured on the first deploy:
+ *
+ *   Authorization: Bearer <supabase anon JWT>  →  401 Invalid or expired API key
+ *
+ * `supabase-js` attaches that header to every request automatically, and the
+ * Supabase gateway wants it too. Treating ANY Bearer token as an API key means an
+ * ordinary browser client asking for public registry data is told its key is
+ * invalid — having never presented one. The public tier is a transparency claim
+ * and cannot be conditional on the caller stripping a header they may not
+ * control.
+ *
+ * Anything that is not `ck_`-prefixed is "no key" (anonymous), never "bad key"
+ * (401). Those two answers are very different to a caller: one says "here is the
+ * public data", the other says "your credential is wrong".
+ *
+ * @param {string|null} header
+ * @returns {string|null}
+ */
+function apiKeyFromAuthHeader(header) {
+  if (!header) return null
+  const match = String(header).match(/^Bearer\s+(.+)$/i)
+  if (!match) return null
+  const token = match[1].trim()
+  return token.indexOf(API_KEY_PREFIX) === 0 ? token : null
+}
 
 /**
  * Classify a request path.
@@ -231,12 +278,11 @@ function serviceClient() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 }
 
-/** The bearer token, or null. Anything that is not a Bearer header is "no key". */
+/** The raw Authorization header, whichever casing the caller used. */
 function bearerToken(req: Request): string | null {
-  const header = req.headers.get('authorization') || req.headers.get('Authorization')
-  if (!header) return null
-  const match = header.match(/^Bearer\s+(.+)$/i)
-  return match ? match[1].trim() : null
+  return apiKeyFromAuthHeader(
+    req.headers.get('authorization') || req.headers.get('Authorization'),
+  )
 }
 
 /**
