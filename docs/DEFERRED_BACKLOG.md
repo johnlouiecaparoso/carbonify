@@ -2409,21 +2409,43 @@ account) rather than deleting anything: `ledger_entries` is append-only, and
 `reconcile_project_fees` check #2 will correctly scream if an invoice is quietly
 un-paid underneath its ledger group.
 
-### 50. The white-label API is unversioned 🟡
+### 50. The white-label API is unversioned — ✅ CLOSED 2026-08-08 (code half)
 
 `public-registry` now has keys, scopes, per-key rate limits and tenant branding —
-it is sellable. It is also served at a bare path with no version prefix, so the
-response shape is now a contract with no way to change it.
+it is sellable. It was also served at a bare path with no version prefix, so the
+response shape was a contract with no way to change it.
 
-Freeze it under `/v1/` **before the first partner integrates**, not after. The
-cost today is a path rewrite; the cost after two integrations is a coordinated
-migration with people who have their own release schedules.
+**Done 2026-08-08**, at the cheapest moment it could ever have been done: before
+the first partner *and* before the function was ever deployed, so there were
+literally zero consumers to migrate.
 
-Related and equally uncoded: **what a white-label partner may redistribute.** The
-API returns validated project data that is already public, so the risk is not
-disclosure — it is a partner republishing Carbonify's registry as their own
-system of record. That is a contract clause, not a code change, and it should
-exist before the first key is issued to somebody outside the company.
+- All data moved under **`/v1/`**. Routing lives in
+  [`routing.ts`](../supabase/functions/public-registry/routing.ts) as a pure
+  function, so it is unit-tested directly rather than grepped for as source text.
+- **The unversioned root serves a discovery document and no registry data.** This
+  is the part that does the work. A `/v1/` prefix that merely *exists*, next to a
+  root that still returns projects, freezes nothing — partners integrate against
+  the shorter URL, which is how the problem recurs. The test that protects this
+  asserts the discovery document contains no data keys.
+- A path under `/v1/` that is not the documented query-parameter form (`/v1/projects`)
+  returns **404** rather than falling through to the listing, so it cannot become
+  a second unintended contract.
+- Every `/v1/` response carries `apiVersion` in the body *and* an
+  `X-Carbonify-Api-Version` header.
+- 15 tests in [`registryApiVersioning.test.js`](../src/test/services/registryApiVersioning.test.js).
+
+⚠️ **One thing to know at deploy time:** the function is now **two files**.
+`supabase functions deploy public-registry` bundles the whole directory, so the
+command is unchanged — but it is the first relative import in any edge function
+in this repo, and **Deno is not installed on this machine**, so the bundle itself
+could not be verified locally. Both files parse-check clean via esbuild. The
+first deploy is the measurement.
+
+Still open, and **not** a code change: **what a white-label partner may
+redistribute.** The API returns validated project data that is already public, so
+the risk is not disclosure — it is a partner republishing Carbonify's registry as
+their own system of record. That is a contract clause, and it should exist before
+the first key is issued to somebody outside the company.
 
 ### 51. No usage metering for API billing 🟢
 

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { getMyAssetLedger } from '@/services/assetLedgerService'
+import { exportImpactDisclosureCsv } from '@/services/developerImpactService'
 import CollapsibleList from '@/components/ui/CollapsibleList.vue'
 import { peso, num } from '@/utils/format'
 
@@ -9,6 +10,7 @@ const loading = ref(true)
 const loadError = ref('')
 const rows = ref([])
 const totals = ref(null)
+const exportError = ref('')
 
 // Which ledger rows have been opened on a phone. Above 640px the class is inert
 // — the table is a table and every column is already on screen.
@@ -45,6 +47,24 @@ async function load() {
       err?.message || 'We could not load your carbon assets right now. Please try again.'
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * The impact disclosure — tCO2e split by who may claim it, as distinct from the
+ * financial export on the Earnings page.
+ *
+ * Wrapped rather than bound straight to `@click` like the earnings exports: a
+ * throw here would otherwise reach nothing and look exactly like the silent
+ * download failure `utils/download.js` was written to end.
+ */
+function downloadImpactDisclosure() {
+  exportError.value = ''
+  try {
+    exportImpactDisclosureCsv({ rows: rows.value, totals: totals.value })
+  } catch (err) {
+    console.error('Failed to export impact disclosure:', err)
+    exportError.value = err?.message || 'We could not build your disclosure. Please try again.'
   }
 }
 
@@ -96,6 +116,27 @@ onMounted(load)
           <div class="card-value">{{ num(totals.retired) }}</div>
           <div class="muted small">{{ num(totals.pending) }} pending issuance</div>
         </div>
+      </section>
+
+      <!-- Impact disclosure — the climate counterpart to the financial export
+           on the Earnings page. Placed under the totals because those four
+           cards are the numbers it splits by claim entitlement. -->
+      <section class="panel disclosure-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Impact disclosure</h2>
+            <p class="muted small">
+              tCO<sub>2</sub>e per project, separated into what buyers have retired, what is sold
+              but not yet retired, and what remains yours to claim. For sustainability reports and
+              investor diligence.
+            </p>
+          </div>
+          <button type="button" class="export-btn" @click="downloadImpactDisclosure">
+            <span class="material-symbols-outlined" aria-hidden="true">download</span>
+            Export CSV
+          </button>
+        </div>
+        <p v-if="exportError" class="notice error small" role="alert">{{ exportError }}</p>
       </section>
 
       <!-- Per-project asset ledger -->
@@ -324,6 +365,50 @@ onMounted(load)
 .panel h2 {
   margin: 0 0 12px;
   font-size: 1.1rem;
+}
+/* Header row for a panel whose action sits opposite its title. Wraps rather
+   than shrinking the button, so the label stays readable at 320px. */
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.panel-head h2 {
+  margin-bottom: 4px;
+}
+.panel-head p {
+  margin: 0;
+  max-width: 60ch;
+}
+.disclosure-panel .notice {
+  margin-top: 12px;
+}
+/* Matches the earnings-page export control — same affordance, same page family. */
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.export-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+.export-btn:focus-visible {
+  outline: 2px solid #058526;
+  outline-offset: 2px;
+}
+.export-btn .material-symbols-outlined {
+  font-size: 1.05rem;
 }
 .table-scroll {
   width: 100%;

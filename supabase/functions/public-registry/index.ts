@@ -29,13 +29,18 @@
  * Deploy:
  *   supabase functions deploy public-registry --no-verify-jwt
  *
+ * ## Versioned — see routing.ts
+ * The unversioned root serves a discovery document and NO registry data, so a
+ * partner cannot integrate against an unfrozen shape. All data lives under /v1/.
+ *
  * Endpoints (GET):
- *   /public-registry                      list validated projects
- *     ?search= &category= &page=          (page is 0-based)
- *   /public-registry?stats=1              headline registry stats
- *   /public-registry?project=<uuid>       one validated project
- *   /public-registry?certificate=<serial> verify a retirement certificate
- *   /public-registry?mrv=<uuid>           MRV aggregates          [scope mrv:read]
+ *   /public-registry                         discovery document (no data)
+ *   /public-registry/v1/                     list validated projects
+ *     ?search= &category= &page=             (page is 0-based)
+ *   /public-registry/v1/?stats=1             headline registry stats
+ *   /public-registry/v1/?project=<uuid>      one validated project
+ *   /public-registry/v1/?certificate=<serial> verify a retirement certificate
+ *   /public-registry/v1/?mrv=<uuid>          MRV aggregates          [scope mrv:read]
  *
  * SECURITY
  *   Anonymous reads use the ANON key, so RLS decides what is visible and only
@@ -45,6 +50,12 @@
  */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  CURRENT_API_VERSION,
+  SUPPORTED_API_VERSIONS,
+  discoveryDocument,
+  parseRegistryPath,
+} from './routing.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
@@ -81,6 +92,18 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, ...extraHeaders },
+  })
+}
+
+/**
+ * A response served under a version prefix. The version is stated in both the
+ * body and a header: a partner asserting on one should not have to parse the
+ * other, and a proxy that strips headers must not be able to make a v1 response
+ * look unversioned.
+ */
+function versioned(body: Record<string, unknown>, status = 200): Response {
+  return json({ ...body, apiVersion: CURRENT_API_VERSION }, status, {
+    'X-Carbonify-Api-Version': CURRENT_API_VERSION,
   })
 }
 
@@ -184,42 +207,76 @@ serve(async (req: Request) => {
   const url = new URL(req.url)
   const brand = tenantBlock(tenant)
 
+  // ── Route on version BEFORE serving anything (backlog #50) ───────────────
+  // The root answers with discovery and no data: an unversioned path that
+  // returns projects is the path partners integrate against, and then the
+  // prefix protects nothing.
+  const route = parseRegistryPath(url.pathname)
+
+  if (route.kind === 'discovery') {
+    return json(discoveryDocument(url.origin + url.pathname.replace(/\/+$/, '')), 200)
+  }
+
+  if (route.kind === 'unknown_version') {
+    return json(
+      {
+        error: `Unsupported API version '${route.received}'.`,
+        supportedVersions: SUPPORTED_API_VERSIONS,
+        currentVersion: CURRENT_API_VERSION,
+      },
+      404,
+    )
+  }
+
+  // A path under /v1/ that is not the documented one 404s rather than falling
+  // through to the listing — otherwise `/v1/projects` would quietly serve data
+  // and become a second, unintended contract.
+  if (route.resource !== '') {
+    return versioned(
+      {
+        error: `Unknown endpoint '/${route.version}/${route.resource}'.`,
+        hint: 'This API takes query parameters on the version root. See the discovery document.',
+      },
+      404,
+    )
+  }
+
   try {
     // ── MRV aggregates — the scoped partner product ───────────────────────
     const mrvProjectId = url.searchParams.get('mrv')
     if (mrvProjectId) {
-      if (!tenant) return json({ error: 'This endpoint requires an API key.' }, 401)
+      if (!tenant) return versioned({ error: 'This endpoint requires an API key.' }, 401)
       if (!hasScope(tenant, 'mrv:read')) {
-        return json({ error: 'This API key does not include the mrv:read scope.' }, 403)
+        return versioned({ error: 'This API key does not include the mrv:read scope.' }, 403)
       }
       if (!SUPABASE_SERVICE_ROLE_KEY) {
-        return json({ error: 'MRV endpoint is not configured.' }, 500)
+        return versioned({ error: 'MRV endpoint is not configured.' }, 500)
       }
 
       const { data, error } = await serviceClient().rpc('api_project_mrv_summary', {
         p_project_id: mrvProjectId,
       })
-      if (error) return json({ error: error.message }, 502)
+      if (error) return versioned({ error: error.message }, 502)
       // The RPC returns nothing for an unvalidated or absent project — the same
       // answer for both, so this cannot be used to discover unpublished projects.
-      if (!data || data.length === 0) return json({ error: 'Project not found' }, 404)
+      if (!data || data.length === 0) return versioned({ error: 'Project not found' }, 404)
 
-      return json({ mrv: data[0], tenant: brand })
+      return versioned({ mrv: data[0], tenant: brand })
     }
 
     // ── Certificate lookup ────────────────────────────────────────────────
     const certificate = url.searchParams.get('certificate')
     if (certificate) {
       if (tenant && !hasScope(tenant, 'certificates:read')) {
-        return json({ error: 'This API key does not include the certificates:read scope.' }, 403)
+        return versioned({ error: 'This API key does not include the certificates:read scope.' }, 403)
       }
       const { data, error } = await supabase.rpc('verify_certificate_public', {
         p_certificate_number: certificate,
       })
-      if (error) return json({ error: error.message }, 502)
+      if (error) return versioned({ error: error.message }, 502)
       const record = Array.isArray(data) ? data[0] : data
-      if (!record) return json({ error: 'Certificate not found', tenant: brand }, 404)
-      return json({ certificate: record, tenant: brand })
+      if (!record) return versioned({ error: 'Certificate not found', tenant: brand }, 404)
+      return versioned({ certificate: record, tenant: brand })
     }
 
     // ── Headline stats ────────────────────────────────────────────────────
@@ -229,7 +286,7 @@ serve(async (req: Request) => {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'validated')
 
-      return json({
+      return versioned({
         stats: {
           validatedProjects: projectCount || 0,
           generatedAt: new Date().toISOString(),
@@ -252,9 +309,9 @@ serve(async (req: Request) => {
         .eq('status', 'validated')
         .maybeSingle()
 
-      if (error) return json({ error: error.message }, 502)
-      if (!data) return json({ error: 'Project not found', tenant: brand }, 404)
-      return json({ project: data, tenant: brand })
+      if (error) return versioned({ error: error.message }, 502)
+      if (!data) return versioned({ error: 'Project not found', tenant: brand }, 404)
+      return versioned({ project: data, tenant: brand })
     }
 
     // ── Validated-project listing ─────────────────────────────────────────
@@ -277,10 +334,10 @@ serve(async (req: Request) => {
     if (category) query = query.eq('category', category)
 
     const { data, error } = await query
-    if (error) return json({ error: error.message }, 502)
+    if (error) return versioned({ error: error.message }, 502)
 
-    return json({ projects: data || [], page, pageSize: PAGE_SIZE, tenant: brand })
+    return versioned({ projects: data || [], page, pageSize: PAGE_SIZE, tenant: brand })
   } catch (err) {
-    return json({ error: (err as Error)?.message || 'Unexpected error' }, 500)
+    return versioned({ error: (err as Error)?.message || 'Unexpected error' }, 500)
   }
 })

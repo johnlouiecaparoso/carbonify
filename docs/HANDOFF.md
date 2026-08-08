@@ -54,8 +54,9 @@
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
 > | **Project onboarding + verification fees** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000300`). Was two numbers on a form that nothing charged. Now a real receivable: `project_fee_invoices`, raised by trigger at **validation** (not submission — the platform bills only for a decision it has delivered), payable from wallet or card, booked to `platform_revenue` as `ref_type='project_fee'`. Charged **once per lifecycle** by partial unique index, not by careful calling. Invisible to `reconcile_financials()` by design; own `reconcile_project_fees()`. ⚠️ **Both fees default to ₱0 and the whole migration is inert until an admin sets a price** — *built* and *earning* are different claims |
-> | **White-label MRV/API** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000400`). The old `public-registry` function carried its own warning that it had no key gating or rate limiting and must not be sold. Now: `api_tenants` + `api_keys` with **SHA-256-digested keys shown once**, three read-only scopes, per-key rate limits through the shared `check_rate_limit`, and tenant branding in every keyed response. Admin console at `/admin/api-keys`. The unauthenticated tier still works **on purpose** — the public registry is a transparency claim |
-> | Test suite | ✅ **1334 unit across 118 files** (re-measured 2026-08-07) · Playwright **130 green** (last measured 2026-08-06) (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility + 9 runtime smoke) · lint 0 · build green — all four re-measured **2026-08-06**, not carried forward. Playwright needed `npx playwright install chromium` on a fresh machine; without the binary all 130 "fail" in ~6ms, which reads like a broken suite and is a missing download |
+> | **White-label MRV/API** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000400`). The old `public-registry` function carried its own warning that it had no key gating or rate limiting and must not be sold. Now: `api_tenants` + `api_keys` with **SHA-256-digested keys shown once**, three read-only scopes, per-key rate limits through the shared `check_rate_limit`, and tenant branding in every keyed response. Admin console at `/admin/api-keys`. The unauthenticated tier still works **on purpose** — the public registry is a transparency claim. 🆕 **Versioned 2026-08-08 (backlog #50 closed):** all data moved under `/v1/`, and the unversioned root now serves a discovery document and **no data** — a prefix that merely exists beside a data-serving root freezes nothing, because partners integrate against the shorter URL. Done before the first partner *and* before the function was ever deployed, so zero consumers had to migrate |
+> | 🆕 **Developer impact disclosure** | ✅ **Built 2026-08-08.** The residual the 08-07 export pass named. `developerImpactService`, exported from the Carbon Asset Ledger: per project, tCO₂e split by **who may claim it** — retired by buyers, sold-not-yet-retired, unsold — and `claimable by developer` stated explicitly as unsold **alone**. That number appears nowhere else in the product, and it is the one that stops a developer double-counting tonnes a buyer has already retired. Volumes come from `aggregateAssetLedger`, so the export cannot drift from the screen |
+> | Test suite | ✅ **1387 unit across 122 files** (re-measured 2026-08-08; was 1334/118 on 08-07 — the 08-07 and 08-08 commits added the rest) · Playwright **130 green** (last measured 2026-08-06) (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility + 9 runtime smoke) · lint 0 · build green — all four re-measured **2026-08-06**, not carried forward. Playwright needed `npx playwright install chromium` on a fresh machine; without the binary all 130 "fail" in ~6ms, which reads like a broken suite and is a missing download |
 >
 > ### What is NOT implemented
 >
@@ -73,7 +74,7 @@
 > | 🆕 **Satellite / IoT monitoring** (MRV #4) | No implementation anywhere in `src`. Needs external data feeds with running costs — deferred from the start, not dropped | 🏢 + 👤 |
 > | 🆕 **Farmer training module** (Farmer #6) | The only missing sub-bullet in the Farmer Portal, and it is a **content** problem: there is no training material to render. Zero occurrences of "training" in the farmer code | 👤 content |
 > | ~~🆕 **Registry fields on the PUBLIC `/registry` page**~~ | ✅ **BUILT 2026-08-07.** A Projects tab now publishes methodology, development status, feedstock, capacity and issued/available credits for **validated** projects, through a new `search_public_project_registry` definer RPC rather than the raw table. ⚠️ **Owner must apply `20260807000100`** — the tab errors until then | ✅ done |
-> | ~~🆕 **ESG export for developers**~~ | ✅ **WORKED 2026-08-07, and the row was half wrong.** Measuring it found **verifiers already had two exports** since 08-02 (`verificationReportService` + the `MyDecisionsPanel` CSV), and developers have had `sellerExportService` since 07-26. **The farmer was the only role with nothing at all** — now has a delivery ledger and a carbon-contribution CSV. What genuinely remains is narrower than the row said: a developer **impact** disclosure, as distinct from the **financial** export they already have | 🤖 small, codeable (residual) |
+> | ~~🆕 **ESG export for developers**~~ | ✅ **CLOSED 2026-08-08.** The 08-07 pass found the row half wrong — verifiers had two exports since 08-02, developers had `sellerExportService` since 07-26, and the farmer was the only role with nothing. The residual it named — a developer **impact** disclosure as distinct from the **financial** export — is now built: `developerImpactService`, exported from the Carbon Asset Ledger. It splits every project's tCO₂e by **who may claim it** (retired by buyers / sold-not-yet-retired / unsold), and states `claimable by developer` = unsold **alone**. A developer reporting "we generated 10,000 tCO₂e" while buyers have retired 6,000 has double-counted, and no other screen or export in the product states that number | ✅ done |
 > | **Organization accounts** | Phase 2 rewrites the same RPC as escrow — must follow the beta (#18) | 👤 decision |
 > | **Load / performance testing** | Before scaling, not before soft launch | 🤖 later |
 > | **Manual / assistive-technology a11y testing** | Automated WCAG A+AA is now green on the public routes **and the authenticated ones** (18/18 + 6/6 axe, ~40 page-audits). Automated rules cover ~⅓ of WCAG; the rest needs a real screen reader and a real person. **Data-dense layouts are still unaudited** — the DEV mock session renders every table empty | 🤖 + 👤 |
@@ -625,11 +626,35 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### 🟡 DEPLOY STATE — everything **up to 2026-08-06** is applied and live; the 08-07 build is not
+> ### 🟡 DEPLOY STATE — everything **up to 2026-08-06** is applied and live; the 08-07/08-08 build is not
 >
-> > 🔴 🆕 **2026-08-07 — THREE MIGRATIONS ARE WRITTEN AND NOT APPLIED. Two edge functions changed and
-> > are not redeployed.** This is the first time since 08-05 that the owner's queue is not empty, so
-> > do not read the older "nothing is waiting on you" line below as current.
+> > 🔴 🆕 **2026-08-08 — A FOURTH VERSION OF THE SAME FAILURE: COMMITTED, CLEAN, AND NEVER PUSHED.**
+> > `git status` was clean and every document correctly said the commercial build was *committed* —
+> > and after `git fetch`, `origin/main` was at `76477c4` while HEAD was at `e924598`. **Five commits
+> > existed on one laptop only**, including the whole commercial build.
+> >
+> > This matters because [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) step 3 told the owner *"Deploy
+> > the frontend. Pushing `main` is the whole of it"* — **an instruction they could not execute.**
+> > Vercel's Git integration builds `origin/main`; it cannot build a commit it has never seen.
+> >
+> > **The guard this repo already had did not catch it.** The rule written on 08-05 and reaffirmed on
+> > 08-07 is *"run `git status` before trusting a deploy-state box"*, and `git status` was **clean** —
+> > it answers "is the working tree saved", not "does anyone else have this". The check that answers
+> > it is `git fetch` **then** `git log origin/main..HEAD`; without the fetch, a stale
+> > remote-tracking ref answers the question wrong in the reassuring direction.
+> >
+> > *The triad this document keeps restating — repo, database, deploy — has **four** states, not
+> > three: on disk, committed locally, on origin, and live. Every recorded failure so far has been a
+> > gap between two adjacent ones.*
+>
+> > 🔴 **2026-08-07 — THREE MIGRATIONS ARE WRITTEN AND NOT APPLIED. Three edge functions changed and
+> > are not redeployed.** Re-confirmed by probe **2026-08-08**, with controls in both directions:
+> > `project_fee_invoices` / `api_tenants` / `api_keys` all `PGRST205` while `credit_listings`
+> > returns 200; `search_public_project_registry` and `reconcile_project_fees` both `PGRST202` while
+> > `reconcile_financials` returns `401 42501`; `paymongo-checkout` still answers *"Unknown or
+> > unsupported checkout action"* to `create_project_fee_checkout` while the old build's
+> > `create_wallet_topup_checkout` answers correctly; `public-registry` still `404 NOT_FOUND`,
+> > identical to a made-up name, while `process-payouts` returns `405`.
 > >
 > > ⚠️ **CORRECTED 2026-08-07 (later): this box said the commercial build was "committed only". It
 > > was not committed at all.** All 28 files — both migrations, both services, both views, both test
@@ -651,8 +676,8 @@
 > > | 🆕 `20260807000100_public_project_registry.sql` | 🔴 **not applied** | Independent of both. Adds the public project-registry read; the Projects tab on `/registry` is empty until it lands |
 > > | `paymongo-checkout` | 🔴 **not redeployed** | New `create_project_fee_checkout` action. **Confirmed still on the old build 2026-08-07** by probe: the new action answers `"Unknown or unsupported checkout action"` while `create_wallet_topup_checkout` — an action the old build has — answers `"Authentication required to top up"`. A control in the same request set, so the probe cannot be reporting a dead endpoint |
 > > | `paymongo-webhook` | 🔴 **not redeployed** | New `project_fee` settlement branch. **A fee paid by card will not settle without this**. Not independently probed — it is signature-gated — but it was changed in the same pass as checkout, which is measurably not deployed |
-> > | `public-registry` | 🔴 **not redeployed** | **Confirmed 2026-08-07:** still `404 NOT_FOUND` at the gateway, identical to a made-up function name run as a control. Now needs `SUPABASE_SERVICE_ROLE_KEY`; without it the anonymous tier still serves and keyed calls 401 |
-> > | Frontend (`/developer/fees`, `/admin/api-keys`) | 🔴 **not deployed** | ✅ **Committed 2026-08-07** (`7748342`). Confirmed absent from production by walking all 109 deployed chunks: no `/developer/fees`, no `/admin/api-keys`, no `project_fee_invoices` |
+> > | `public-registry` | 🔴 **not redeployed** | **Re-confirmed 2026-08-08:** still `404 NOT_FOUND` at the gateway, identical to a made-up function name run as a control. Now needs `SUPABASE_SERVICE_ROLE_KEY`; without it the anonymous tier still serves and keyed calls 401. 🆕 **Now two files** (`index.ts` + `routing.ts`) — `supabase functions deploy` bundles the directory, so the command is unchanged, but this is the repo's first relative import in an edge function and **Deno is not installed here**, so the bundle is unverified until the first deploy |
+> > | Frontend (`/developer/fees`, `/admin/api-keys`) | 🔴 **not deployed — and not pushed** | ✅ Committed 2026-08-07 (`7748342`). Confirmed absent from production 2026-08-08 by walking all 107 deployed chunks: no `/developer/fees`, no `/admin/api-keys`, no `project_fee_invoices`, no `search_public_project_registry`. **The reason is upstream of Vercel: the commits are not on `origin/main`.** The same walk confirms the 08-06 work IS live (`Hide password` present), so the pipeline is working — it has nothing new to build |
 > >
 > > ✅ **And one row here was wrong in the OTHER direction — the 2026-08-06 frontend IS deployed.**
 > > Three documents said the password toggles and the tour-suppression fix were committed but not

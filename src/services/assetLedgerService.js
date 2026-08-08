@@ -143,6 +143,14 @@ export function aggregateAssetLedger({
       projectId: proj.id,
       projectTitle: proj.title || 'Untitled Project',
       status: proj.status || 'draft',
+      // Registry descriptors, carried through rather than re-queried. The ledger
+      // itself does not render these; the impact disclosure
+      // (developerImpactService) needs them alongside the volumes, and a second
+      // round trip for fields this query already touches would be waste.
+      category: proj.category || '',
+      methodology: proj.methodology || '',
+      location: proj.location || '',
+      developmentStatus: proj.development_status || '',
       estimated: Number(proj.estimated_credits) || 0,
       issued,
       pending,
@@ -234,7 +242,10 @@ export async function getMyAssetLedger() {
   // 1) The developer's own projects (authoritative ownership key: projects.user_id).
   const { data: projects, error: projErr } = await supabase
     .from('projects')
-    .select('id, title, status, estimated_credits, credit_price')
+    .select(
+      'id, title, status, estimated_credits, credit_price, ' +
+        'category, methodology, location, development_status',
+    )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 

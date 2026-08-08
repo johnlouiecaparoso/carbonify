@@ -13,6 +13,20 @@
 > in one table — including the distinction this project has confused before: **ready to deploy** and
 > **ready to take real money** are different questions with different answers.
 
+> ## 👉 2026-08-08 — **[DEPLOY_RUNBOOK_2026-08-08.md](DEPLOY_RUNBOOK_2026-08-08.md) is the current
+> version of the list below**, with a clickable link on every step. Use that page; this block is kept
+> for its reasoning.
+>
+> **One correction it makes, and it changes who does what.** Step 3 below says *"Deploy the frontend.
+> Pushing `main` is the whole of it."* **You could not have done that** — measured 2026-08-08, the
+> five commits were never pushed: `origin/main` was at `76477c4` while the local HEAD was at
+> `e924598`. Vercel's Git integration builds `origin/main`; it cannot build a commit it has never
+> seen. The push is **mine**, and it has to come **after** you apply `20260807000100`.
+>
+> *This page has said since 08-05 that a clean `git status` is what settles version-control state. It
+> does not — it answers "is the working tree saved", not "does anyone else have this". `git fetch`
+> then `git log origin/main..HEAD` is the check.*
+
 > ## 🔴 2026-08-07 — your queue is NOT empty. The commercial build needs you.
 >
 > The last two revenue streams were built today. **None of it is live.** In order:
