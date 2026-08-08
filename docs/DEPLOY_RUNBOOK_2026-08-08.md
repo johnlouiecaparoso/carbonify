@@ -104,10 +104,11 @@ When you do:
 
 - **Set `SUPABASE_SERVICE_ROLE_KEY` first.** Without it the anonymous tier still works and *every
   keyed call returns 401*, which looks exactly like a bad key. 👉 **[Edge Function secrets](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/settings/functions)**
-- **It is now two files** (`index.ts` + `routing.ts`). The command is unchanged — deploy bundles the
-  whole folder — but it is the first edge function in this repo with a relative import, and **I could
-  not verify the bundle locally** (Deno isn't installed here; both files parse-check clean via
-  esbuild). Paste me what this returns and I'll confirm it booted:
+- ~~**It is now two files**~~ — ✅ **fixed 2026-08-08 after the first deploy failed.** The version
+  routing briefly lived in a `routing.ts` beside `index.ts`, and the deploy returned
+  `Module not found ".../source/routing.ts"` — the bundler had only `index.ts`. It is **one file
+  again**, with the routing inlined, and a test now fails the suite if a relative import reappears.
+  Paste me what this returns and I'll confirm it booted:
 
   ```
   https://fmngptolarydbgrtltnd.supabase.co/functions/v1/public-registry

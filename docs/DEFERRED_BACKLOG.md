@@ -2419,9 +2419,9 @@ response shape was a contract with no way to change it.
 the first partner *and* before the function was ever deployed, so there were
 literally zero consumers to migrate.
 
-- All data moved under **`/v1/`**. Routing lives in
-  [`routing.ts`](../supabase/functions/public-registry/routing.ts) as a pure
-  function, so it is unit-tested directly rather than grepped for as source text.
+- All data moved under **`/v1/`**. The routing is a pure function, evaluated
+  directly by its test rather than grepped for as source text — see the deploy
+  note below for why it is inlined in `index.ts` rather than in its own module.
 - **The unversioned root serves a discovery document and no registry data.** This
   is the part that does the work. A `/v1/` prefix that merely *exists*, next to a
   root that still returns projects, freezes nothing — partners integrate against
@@ -2434,12 +2434,31 @@ literally zero consumers to migrate.
   `X-Carbonify-Api-Version` header.
 - 15 tests in [`registryApiVersioning.test.js`](../src/test/services/registryApiVersioning.test.js).
 
-⚠️ **One thing to know at deploy time:** the function is now **two files**.
-`supabase functions deploy public-registry` bundles the whole directory, so the
-command is unchanged — but it is the first relative import in any edge function
-in this repo, and **Deno is not installed on this machine**, so the bundle itself
-could not be verified locally. Both files parse-check clean via esbuild. The
-first deploy is the measurement.
+🔴 **The first deploy failed, and the fix is worth recording.** The routing
+started in its own `routing.ts` — the better shape, and unit-testable by direct
+import. Deploying returned:
+
+```
+Failed to bundle the function (reason: Module not found
+"file:///tmp/user_fn_.../source/routing.ts" at .../source/index.ts:58:8)
+```
+
+The bundler had only `index.ts` in its source directory. `supabase functions
+deploy` from a repo checkout uploads the whole folder and would have worked — but
+this function is deployed by hand, sometimes through a dashboard that takes a
+single file, and **a deploy path that only works when invoked the right way is one
+that will fail again**. The routing is now inlined and `index.ts` is the whole
+function.
+
+The test did not regress to source-grepping. The inlined block is plain
+JavaScript between two markers, and
+[`registryApiVersioning.test.js`](../src/test/services/registryApiVersioning.test.js)
+slices it out and **evaluates the real deployed source** — one copy, executed by
+both. It also asserts `index.ts` has no relative imports, mutation-checked by
+re-adding one. That assertion is the thing that would have caught this before the
+deploy, and it did not exist because the failure mode was not known yet. *Deno is
+not installed on this machine, so a bundle cannot be built here; the guard is the
+next best thing.*
 
 Still open, and **not** a code change: **what a white-label partner may
 redistribute.** The API returns validated project data that is already public, so

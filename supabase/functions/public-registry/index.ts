@@ -29,7 +29,7 @@
  * Deploy:
  *   supabase functions deploy public-registry --no-verify-jwt
  *
- * ## Versioned — see routing.ts
+ * ## Versioned — routing is inlined below, see the ROUTING BLOCK
  * The unversioned root serves a discovery document and NO registry data, so a
  * partner cannot integrate against an unfrozen shape. All data lives under /v1/.
  *
@@ -50,12 +50,132 @@
  */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  CURRENT_API_VERSION,
-  SUPPORTED_API_VERSIONS,
-  discoveryDocument,
-  parseRegistryPath,
-} from './routing.ts'
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ROUTING — INLINED ON PURPOSE. Do not extract this into a module.
+//
+// It lived in `./routing.ts` for one day and the first deploy failed:
+//
+//   Failed to bundle the function (reason: Module not found
+//   "file:///tmp/user_fn_.../source/routing.ts" at .../source/index.ts:58:8)
+//
+// The bundler that ran had only `index.ts` in its source directory, so the
+// relative import resolved to nothing. `supabase functions deploy` from a repo
+// checkout uploads the whole folder and would have worked — but this function is
+// deployed by hand, occasionally from a dashboard that takes a single file, and
+// a deploy path that works only when invoked the right way is a deploy path that
+// will fail again. One file has no such failure mode.
+//
+// It is written as plain JavaScript inside this .ts file so that
+// `registryApiVersioning.test.js` can slice this block out between the markers
+// and EVALUATE IT — the real deployed source, not a copy of it. Keeping a second
+// copy in a test fixture is the drift this repo already regrets once
+// (`webhookSignatureParity`). Do not add TypeScript annotations inside the
+// markers; the test evaluates the block as JavaScript.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─── ROUTING BLOCK START ───
+const CURRENT_API_VERSION = 'v1'
+
+/** Every version this deployment still answers. Add to it; never repurpose one. */
+const SUPPORTED_API_VERSIONS = ['v1']
+
+/**
+ * The Supabase gateway prefixes every request with `/functions/v1/<name>`, so a
+ * partner's URL carries two version segments:
+ *
+ *   https://<ref>.supabase.co/functions/v1/public-registry/v1/?stats=1
+ *                                      ^^                  ^^
+ *                                      Supabase's gateway  Carbonify's contract
+ *
+ * Only the second is ours. Reading the gateway's as "the API is versioned" would
+ * leave our own response shape frozen by nothing.
+ */
+const FUNCTION_SEGMENT = 'public-registry'
+
+/**
+ * Classify a request path.
+ *
+ * @param {string} pathname
+ * @returns {{kind:'discovery'}
+ *          |{kind:'versioned', version:string, resource:string}
+ *          |{kind:'unknown_version', received:string}}
+ */
+function parseRegistryPath(pathname) {
+  const segments = String(pathname || '')
+    .split('/')
+    .filter(Boolean)
+
+  // `indexOf`, not `lastIndexOf`: the first occurrence is the gateway naming the
+  // function. Anything after it belongs to us.
+  const at = segments.indexOf(FUNCTION_SEGMENT)
+  const rest = at === -1 ? segments : segments.slice(at + 1)
+
+  if (rest.length === 0) return { kind: 'discovery' }
+
+  const version = rest[0]
+  const resource = rest.slice(1)
+  if (!SUPPORTED_API_VERSIONS.includes(version)) {
+    return { kind: 'unknown_version', received: version }
+  }
+
+  return { kind: 'versioned', version: version, resource: resource.join('/') }
+}
+
+/**
+ * What the unversioned root returns. Endpoints are listed relative to the
+ * versioned base so a reader can concatenate without guessing.
+ *
+ * This document is the one endpoint with no compatibility promise — it exists to
+ * be read once by a human.
+ *
+ * @param {string} baseUrl
+ */
+function discoveryDocument(baseUrl) {
+  const base = String(baseUrl || '').replace(/\/+$/, '') + '/' + CURRENT_API_VERSION
+  return {
+    service: 'Carbonify Registry API',
+    currentVersion: CURRENT_API_VERSION,
+    supportedVersions: SUPPORTED_API_VERSIONS,
+    versionedBaseUrl: base,
+    note:
+      'This root serves no registry data. Call the versioned base so the response ' +
+      'shape you integrate against stays stable.',
+    endpoints: [
+      { method: 'GET', path: base + '/', scope: null, returns: 'validated projects, paginated' },
+      {
+        method: 'GET',
+        path: base + '/?page=1&search=biochar&category=…',
+        scope: null,
+        returns: 'filtered listing (page is 0-based, page size 20)',
+      },
+      { method: 'GET', path: base + '/?stats=1', scope: null, returns: 'headline registry stats' },
+      {
+        method: 'GET',
+        path: base + '/?project=<uuid>',
+        scope: null,
+        returns: 'one validated project',
+      },
+      {
+        method: 'GET',
+        path: base + '/?certificate=<serial>',
+        scope: 'certificates:read when keyed',
+        returns: 'certificate verification',
+      },
+      {
+        method: 'GET',
+        path: base + '/?mrv=<uuid>',
+        scope: 'mrv:read',
+        returns: 'per-project MRV aggregates',
+      },
+    ],
+    authentication:
+      'Anonymous for the public tier. White-label partners send Authorization: Bearer ck_live_…',
+    documentation:
+      'https://github.com/johnlouiecaparoso/carbonify/blob/main/supabase/functions/public-registry/README.md',
+  }
+}
+// ─── ROUTING BLOCK END ───
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''

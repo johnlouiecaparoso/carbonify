@@ -2,45 +2,90 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import {
-  CURRENT_API_VERSION,
-  SUPPORTED_API_VERSIONS,
-  discoveryDocument,
-  parseRegistryPath,
-} from '../../../supabase/functions/public-registry/routing.ts'
 
 /**
  * Backlog #50 — the white-label API's response shape is a contract, and it was
  * served at a bare path with no version prefix.
  *
- * Two things make this file worth having:
+ * ## Why this file evaluates source text instead of importing a module
  *
- * 1. The router is a **pure function in its own module**, so these are real
- *    behavioural assertions rather than the source-text grepping that
- *    `webhookSignatureParity` has to fall back on. That file says as much about
- *    itself; where a Deno function can be split so its logic is importable, it
- *    should be.
+ * The routing started life in `public-registry/routing.ts`, which this file
+ * imported directly. That is the better shape and it **did not deploy**:
  *
- * 2. The assertion that actually protects the contract is not "a /v1/ route
- *    exists" — it is that **the unversioned root serves no data**. A prefix that
- *    is merely available, next to a root that still returns projects, freezes
- *    nothing: partners integrate against the shorter URL. That is the same shape
- *    as every advisory control this repo has retired.
+ *   Failed to bundle the function (reason: Module not found
+ *   "file:///tmp/user_fn_.../source/routing.ts")
+ *
+ * The bundler had only `index.ts`. So the routing is now inlined, and rather
+ * than keep a second copy here to test against — the drift
+ * `webhookSignatureParity` documents as a compromise — this file slices the
+ * block out of `index.ts` and **executes the real deployed source**. One copy,
+ * run by both the edge function and the suite.
+ *
+ * That is also why the block must stay free of TypeScript annotations: it is
+ * evaluated as JavaScript. `rejects TypeScript annotations` below fails loudly
+ * if someone adds one, rather than letting the whole file throw at import.
+ *
+ * ## What actually protects the contract
+ *
+ * Not "a /v1/ route exists" — it is that **the unversioned root serves no
+ * data**. A prefix that is merely available, beside a root that still returns
+ * projects, freezes nothing: partners integrate against the shorter URL.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const INDEX_TS = readFileSync(
-  resolve(HERE, '../../../supabase/functions/public-registry/index.ts'),
-  'utf8',
-)
+const INDEX_PATH = resolve(HERE, '../../../supabase/functions/public-registry/index.ts')
+const INDEX_TS = readFileSync(INDEX_PATH, 'utf8')
+
+const START = '// ─── ROUTING BLOCK START ───'
+const END = '// ─── ROUTING BLOCK END ───'
+
+function extractRoutingBlock() {
+  const from = INDEX_TS.indexOf(START)
+  const to = INDEX_TS.indexOf(END)
+  if (from === -1 || to === -1 || to <= from) {
+    throw new Error(
+      'The routing block markers are missing from index.ts. If the routing moved back into ' +
+        'its own module, check that it deploys before deleting this test.',
+    )
+  }
+  return INDEX_TS.slice(from + START.length, to)
+}
+
+const block = extractRoutingBlock()
+
+const routing = new Function(
+  `${block}
+  return { CURRENT_API_VERSION, SUPPORTED_API_VERSIONS, parseRegistryPath, discoveryDocument }`,
+)()
+
+const { CURRENT_API_VERSION, SUPPORTED_API_VERSIONS, parseRegistryPath, discoveryDocument } = routing
+
+describe('registry API — the function stays deployable', () => {
+  it('is a single file with no relative imports', () => {
+    // The whole reason the routing is inlined. A relative import here bundles
+    // only when the deploy uploads the folder, and the first real deploy did not.
+    const relativeImports = INDEX_TS.match(/^\s*import[^\n]*from\s+['"]\.[^'"]*['"]/gm) || []
+    expect(relativeImports, 'index.ts must not import local files').toEqual([])
+  })
+
+  it('rejects TypeScript annotations inside the evaluated block', () => {
+    // A `: string` here would throw at module load with a syntax error that
+    // points at this file rather than at the line someone actually wrote.
+    expect(block).not.toMatch(/function\s+\w+\s*\([^)]*:\s*\w/)
+    expect(block).not.toMatch(/^\s*(const|let)\s+\w+\s*:\s*\w/m)
+  })
+})
 
 describe('registry API — version routing', () => {
-  it('treats the gateway path prefix as Supabase\'s, not ours', () => {
+  it("treats the gateway path prefix as Supabase's, not ours", () => {
     // The live pathname carries Supabase's own /functions/v1/ in front of the
     // function name. Reading that as "the API is versioned" is exactly the
     // mistake this change exists to prevent.
-    const route = parseRegistryPath('/functions/v1/public-registry/v1/')
-    expect(route).toEqual({ kind: 'versioned', version: 'v1', resource: '' })
+    expect(parseRegistryPath('/functions/v1/public-registry/v1/')).toEqual({
+      kind: 'versioned',
+      version: 'v1',
+      resource: '',
+    })
   })
 
   it('routes the local form identically to the gateway form', () => {
@@ -62,8 +107,7 @@ describe('registry API — version routing', () => {
 
   it('rejects an unversioned resource path rather than serving the listing', () => {
     // `/public-registry/projects` must not quietly become a second contract.
-    const route = parseRegistryPath('/functions/v1/public-registry/projects')
-    expect(route.kind).toBe('unknown_version')
+    expect(parseRegistryPath('/functions/v1/public-registry/projects').kind).toBe('unknown_version')
   })
 
   it('reports a resource under a known version so the handler can 404 it', () => {
@@ -80,6 +124,11 @@ describe('registry API — version routing', () => {
       version: 'v1',
       resource: '',
     })
+  })
+
+  it('does not throw on an empty or missing path', () => {
+    expect(parseRegistryPath('')).toEqual({ kind: 'discovery' })
+    expect(parseRegistryPath(undefined)).toEqual({ kind: 'discovery' })
   })
 })
 
@@ -111,7 +160,7 @@ describe('registry API — the discovery document', () => {
 
 describe('registry API — the handler spends the router', () => {
   // A router nothing calls is the `wallet_topup_user_id` shape: a guard that
-  // exists only as a declaration. These assert index.ts actually routes on it.
+  // exists only as a declaration.
   it('routes before serving anything', () => {
     expect(INDEX_TS).toMatch(/const route = parseRegistryPath\(url\.pathname\)/)
   })

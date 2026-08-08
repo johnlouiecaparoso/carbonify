@@ -18,9 +18,15 @@ Backed by migration `20260806000400_api_tenants_and_keys.sql`.
 supabase functions deploy public-registry --no-verify-jwt
 ```
 
-The function is **two files** — `index.ts` and `routing.ts`. `supabase functions
-deploy` bundles the whole directory, so this is the same one command; it is worth
-knowing only if you ever copy a single file somewhere by hand.
+**`index.ts` is the whole function — one file, no local imports.** That is
+deliberate, and it was learned the hard way: the version routing briefly lived in
+a `routing.ts` beside it, and the first deploy failed with
+`Module not found ".../source/routing.ts"` because the bundler that ran had only
+`index.ts`. Deploying from a repo checkout uploads the folder and would have
+worked, but this function is deployed by hand — sometimes from a dashboard that
+takes a single file — and a deploy path that only works when invoked the right
+way will fail again. `registryApiVersioning.test.js` fails the suite if a
+relative import reappears.
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected
 by the platform. Without the service key the function still serves the anonymous
