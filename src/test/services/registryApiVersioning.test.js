@@ -56,7 +56,7 @@ const block = extractRoutingBlock()
 const routing = new Function(
   `${block}
   return { CURRENT_API_VERSION, SUPPORTED_API_VERSIONS, parseRegistryPath, discoveryDocument,
-           apiKeyFromAuthHeader }`,
+           apiKeyFromAuthHeader, publicApiBaseUrl }`,
 )()
 
 const {
@@ -65,6 +65,7 @@ const {
   parseRegistryPath,
   discoveryDocument,
   apiKeyFromAuthHeader,
+  publicApiBaseUrl,
 } = routing
 
 describe('registry API — the function stays deployable', () => {
@@ -206,6 +207,72 @@ describe('registry API — the discovery document', () => {
     for (const endpoint of doc.endpoints) {
       expect(endpoint.path.startsWith(doc.versionedBaseUrl)).toBe(true)
     }
+  })
+})
+
+/**
+ * 2026-08-11 — every URL the deployed discovery document advertised was broken,
+ * and this file had a green test over the same code the whole time.
+ *
+ * Measured against the live function:
+ *
+ *   served:  http://<ref>.supabase.co/public-registry/v1/?stats=1  -> 404
+ *   control: https://<ref>.supabase.co/functions/v1/public-registry/v1/?stats=1 -> 200
+ *
+ * WHY THE EXISTING TESTS PASSED. They call `discoveryDocument()` with a
+ * correctly-formed base and assert the document echoes it — and it does.
+ * `discoveryDocument` was never the defect. The HANDLER built the base, from
+ * `url.origin + url.pathname`, and nothing asserted anything about the value it
+ * passed. **A test of the callee is not a test of the caller** — the same shape
+ * as `routeAccess.test.js` asserting `/admin` carries `requiresAdmin` while
+ * nothing asserted the guard reads it.
+ */
+describe('registry API — the discovery document points somewhere that resolves', () => {
+  it('puts back the gateway prefix the runtime strips', () => {
+    // `req.url`'s pathname inside the function is `/public-registry`: the
+    // gateway removes `/functions/v1` before the function ever sees it, which
+    // parseRegistryPath depends on. Rebuilding a PUBLIC url from it drops the
+    // one segment that makes the url resolvable.
+    expect(publicApiBaseUrl('https://ref.supabase.co')).toBe(
+      'https://ref.supabase.co/functions/v1/public-registry',
+    )
+  })
+
+  it('never downgrades the scheme, whatever the runtime reports', () => {
+    // TLS terminates at the gateway, so url.origin is `http:` in the edge
+    // runtime. This is the credential-bearing case: a partner copying the base
+    // out of the document sends `Authorization: Bearer ck_live_…` with it.
+    const base = publicApiBaseUrl('https://ref.supabase.co')
+    expect(base.startsWith('https://')).toBe(true)
+    expect(base).not.toMatch(/^http:/)
+  })
+
+  it('tolerates a trailing slash on the project url', () => {
+    expect(publicApiBaseUrl('https://ref.supabase.co/')).toBe(
+      publicApiBaseUrl('https://ref.supabase.co'),
+    )
+  })
+
+  it('emits no http:// url anywhere in the served document', () => {
+    const served = discoveryDocument(publicApiBaseUrl('https://ref.supabase.co'))
+    const urls = [served.versionedBaseUrl, ...served.endpoints.map((e) => e.path)]
+    for (const u of urls) {
+      expect(u, `${u} must be https and carry the gateway prefix`).toMatch(
+        /^https:\/\/[^/]+\/functions\/v1\/public-registry\/v1/,
+      )
+    }
+  })
+
+  it('builds the base from SUPABASE_URL, not from the request', () => {
+    // The assertion that would have caught this. `url.origin` is correct for
+    // routing (parseRegistryPath wants the stripped path) and wrong for anything
+    // a partner is told to call, so the rule is about WHICH source, not about
+    // the shape of the result.
+    expect(INDEX_TS).toMatch(/discoveryDocument\(publicApiBaseUrl\(SUPABASE_URL\)\)/)
+    expect(
+      INDEX_TS,
+      'the discovery base must not be reconstructed from the incoming request',
+    ).not.toMatch(/discoveryDocument\(\s*url\.origin/)
   })
 })
 

@@ -13,10 +13,10 @@
 > | `20260806000400` API tenants + keys | 🔴 not applied | ✅ **applied** — `api_tenants` and `api_keys` → 200 |
 > | `20260807000100` public project registry | 🔴 not applied | ✅ **applied** — `search_public_project_registry` returns real validated projects |
 > | `paymongo-checkout` | 🔴 not redeployed | ✅ **redeployed** — `create_project_fee_checkout` answers *"Authentication required to pay a fee"*, an error only the new build can produce; the old build's `create_wallet_topup_checkout` answers its own message as the control |
-> | `paymongo-webhook` | 🔴 not redeployed | ❓ **not measurable from here** — see the box in STEP 2 |
-> | `public-registry` | 🔴 not deployed | ⚠️ **DEPLOYED AND BROKEN** — see STEP 2b, this is the one live defect |
-> | Frontend | 🔴 not pushed | ✅ **pushed 2026-08-11** — `origin/main` `76477c4` → `9d02053` |
-> | Tests / lint / build | 1387 across 122 | ✅ **1396 unit across 122 files · lint 0 · build green**, all re-run today |
+> | `paymongo-webhook` | 🔴 not redeployed | ✅ **owner-confirmed** — ❓ not measurable from here, see STEP 2 |
+> | `public-registry` | 🔴 not deployed | ✅ **deployed, Verify JWT off, re-probed working** — 🔴 one more redeploy for the discovery-URL fix, STEP 2b |
+> | Frontend | 🔴 not pushed | ✅ **pushed 2026-08-11** — `origin/main` `76477c4` → `9d02053` → `230a8bc`, chunk-verified live |
+> | Tests / lint / build | 1387 across 122 | ✅ **1401 unit across 122 files · lint 0 · build green**, all re-run today |
 >
 > 🔎 **A probe told me the opposite of the truth first, and it is the trap this project has already
 > recorded once.** `search_public_project_registry` returned `PGRST202` on the first attempt and read
@@ -60,9 +60,9 @@
 
 ```
     STEP 1  you    apply 3 migrations          ✅ DONE  (measured 2026-08-11)
-    STEP 2  you    deploy 2 edge functions     ✅ checkout DONE · ❓ webhook unconfirmed
-    STEP 2b you    FIX public-registry         ⚠️ NEW — deployed with Verify JWT ON
-    STEP 3  me     push main → Vercel builds   ✅ DONE  2026-08-11 (9d02053)
+    STEP 2  you    deploy 2 edge functions     ✅ checkout MEASURED · ✅ webhook — your word
+    STEP 2b you    fix public-registry         ✅ DONE and verified · 🔴 one more redeploy
+    STEP 3  me     push main → Vercel builds   ✅ DONE  2026-08-11 (9d02053, 230a8bc)
     STEP 4  you    set the fee prices          🔴 still open
     STEP 5  you    run the VERIFY blocks       🔴 still open
 ```
@@ -130,15 +130,19 @@ npx supabase functions deploy paymongo-checkout      # ✅ DONE — confirmed li
 npx supabase functions deploy paymongo-webhook       # ❓ UNCONFIRMED — only you can settle this
 ```
 
-> ❓ **`paymongo-webhook` is the one thing on this page I cannot measure, and it is the one that takes
-> money.** Every path into that function is behind the HMAC signature check, and there is no
-> probe-visible marker before it — an anon caller gets the same `401 Invalid signature` from the old
-> build and the new one. `paymongo-checkout` **is** measurably redeployed, and both were changed in
-> the same pass, so the likely answer is that you deployed both. *Likely is not measured.*
+> ✅ **Owner-confirmed 2026-08-11 — and this one rests on your word, not on a measurement.** Recorded
+> that way deliberately, because this project's whole method is not blurring the two.
 >
-> **Settle it from the dashboard**, which can see what a probe cannot: 👉 **[Edge
-> Functions](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/functions)** → `paymongo-webhook`
-> → check the **last deployed** timestamp is on or after 2026-08-07. If it is older, deploy it.
+> ❓ **Why I cannot check it, now tested rather than assumed.** Every path into the webhook is behind
+> the HMAC signature check, so old and new builds both answer `401 Invalid signature`. I also
+> compared the gateway's response headers for `paymongo-webhook`, `public-registry` (deployed today)
+> and `process-payouts` (deployed 2026-07-30): **identical header sets, no version, no deploy id, no
+> timestamp.** There is nothing to read from outside.
+>
+> **The measurement that will eventually settle it is behavioural, and it is step 5c**: after the
+> first project fee is paid by card, `reconcile_project_fees()` returning **0 rows** proves the
+> webhook's `project_fee` branch ran. Until a fee is actually paid, that check passes vacuously —
+> which is the same `UNPROVEN`-vs-`PASS` distinction the RLS suite makes.
 >
 > ⚠️ **The asymmetry is what makes this urgent rather than tidy.** Checkout is live, so a project fee
 > can be **paid by card today**. The invoice is only marked paid — and the revenue only reaches
@@ -157,7 +161,65 @@ by the webhook. **Deploy checkout without the webhook and you will take money an
 
 ---
 
-## STEP 2b — ⚠️ NEW 2026-08-11: `public-registry` is deployed, and every tier of it is dead
+## STEP 2b — ✅ FIXED by the owner 2026-08-11 · 🔴 **one more redeploy needed**
+
+> ✅ **Verified — the gateway problem is gone and the current build is live.** Re-probed after the
+> owner turned Verify JWT off and redeployed. Every check passed, in both directions:
+>
+> | Check | Result |
+> |---|---|
+> | no header → root | ✅ **200 discovery document** (was `401 UNAUTHORIZED_NO_AUTH_HEADER`) |
+> | no header → `/v1/?stats=1` | ✅ **200**, `validatedProjects: 3` — the public tier is genuinely serving |
+> | no header → `/v1/` | ✅ **200**, real validated projects |
+> | `Bearer <anon JWT>` | ✅ **200 discovery** — treated as *no key*, so the `9d02053` build is live (the old one answered `401 Invalid or expired API key`) |
+> | `Bearer ck_live_<bogus>` | ✅ **401 from the FUNCTION**, not `UNAUTHORIZED_INVALID_JWT_FORMAT` from the gateway — **a real partner key can now arrive** |
+> | `/v1/projects` | ✅ 404, does not fall through to the listing |
+> | `/v2/` | ✅ 404 with `supportedVersions: ["v1"]` |
+> | `Bearer notaprefix123` | ✅ 200 — a non-`ck_` bearer is anonymous, not rejected |
+>
+> No `sb-error-code` header on any response, which is the direct evidence that the gateway is no
+> longer refusing: **Verify JWT is OFF.**
+
+> 🔴 **AND THE PROBE FOUND A THIRD DEFECT, in the same request.** Every URL in the discovery
+> document was **broken**, and the discovery document is the one endpoint whose entire job is telling
+> a partner where to point.
+>
+> ```
+> served:   http://<ref>.supabase.co/public-registry/v1/?stats=1   -> 404 requested path is invalid
+> correct:  https://<ref>.supabase.co/functions/v1/public-registry/v1/?stats=1  -> 200   (control)
+> ```
+>
+> Two independent causes, both invisible in code review and both needing a running deploy:
+>
+> - **scheme** — TLS terminates at the gateway, so `url.origin` is `http:` inside the edge runtime.
+>   A partner copying that base sends `Authorization: Bearer ck_live_…` **over cleartext** on their
+>   first call;
+> - **prefix** — the gateway strips `/functions/v1` before the function sees the request. The router
+>   depends on that and is right to; rebuilding a *public* URL from the same source drops the segment
+>   that makes it resolve at all.
+>
+> **Fixed in the repo, pushed, and pinned** — `publicApiBaseUrl` builds from `SUPABASE_URL`, with 5
+> new tests mutation-checked in three directions. 🔴 **One redeploy to pick it up:**
+>
+> ```bash
+> npx supabase functions deploy public-registry --no-verify-jwt
+> ```
+>
+> ⚠️ **Nothing is broken while you wait.** Every data endpoint works; only the *directions* in the
+> discovery document are wrong, and no partner has a key yet. **Do this before you issue the first
+> key**, not tonight.
+>
+> > 🔎 **Why the test suite was green through all of it.** `registryApiVersioning.test.js` called
+> > `discoveryDocument()` with a correctly-formed base and asserted the document echoed it — which it
+> > did. `discoveryDocument` was never the defect. **The handler built the base, and nothing asserted
+> > anything about the value it passed.** *A test of the callee is not a test of the caller* — the
+> > same shape as `routeAccess.test.js` asserting `/admin` carries `requiresAdmin` while nothing
+> > asserted the guard reads it, which is how a whole branch that checked nothing survived.
+
+<details>
+<summary>The finding as first measured, before the owner fixed it</summary>
+
+### ⚠️ 2026-08-11: `public-registry` is deployed, and every tier of it is dead
 
 **It was deployed at some point after 2026-08-08 — and without `--no-verify-jwt`.** That flag is not
 a convenience. Without it the Supabase gateway demands a valid Supabase JWT *before a request ever
@@ -232,11 +294,16 @@ When you do:
 
 </details>
 
-⚠️ **Two things above are still live guidance, not history:**
+</details>
+
+⚠️ **Two things are still live guidance, not history:**
 
 - **Set `SUPABASE_SERVICE_ROLE_KEY`** if you have not. 👉 **[Edge Function secrets](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/settings/functions)** —
   without it the keyed tier 401s, which is indistinguishable from the gateway problem above and would
-  send you chasing the wrong one.
+  send you chasing the wrong one. ⚠️ **Worth checking now**: `ck_live_<bogus>` correctly returns the
+  function's own 401, which proves the request *reaches* the function — but a missing service key
+  produces that identical answer for a **valid** key, and no probe from here can tell those apart
+  because nobody holds a real key yet.
 - **Settle the redistribution terms before issuing the first key** to anyone outside the company —
   what a partner may republish is a contract clause, and backlog #50 leaves it open.
 

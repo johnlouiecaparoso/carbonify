@@ -56,6 +56,26 @@ Only the second one is ours. The root serves no data **on purpose** — a root t
 returns projects is the URL partners integrate against, and then the prefix
 exists while protecting nothing.
 
+> ⚠️ **The discovery document's `versionedBaseUrl` is built from `SUPABASE_URL`,
+> not from the incoming request — and it has to be.** Measured 2026-08-11 on the
+> first correctly-deployed build: the document advertised
+> `http://<ref>.supabase.co/public-registry/v1`, and **every endpoint it listed
+> returned `404 requested path is invalid`.** Two independent causes, both
+> invisible until the thing was running:
+>
+> - **scheme** — TLS terminates at the gateway, so `new URL(req.url).origin`
+>   reports `http:` inside the edge runtime. A partner copying that value sends
+>   `Authorization: Bearer ck_live_…` over cleartext on their first call;
+> - **prefix** — the gateway strips `/functions/v1` before the function sees the
+>   request. `parseRegistryPath` depends on that and is right to; rebuilding a
+>   *public* URL from the same source drops the segment that makes it resolve.
+>
+> Pinned by `registryApiVersioning.test.js`, mutation-checked in three
+> directions. The assertion that matters is *"the base comes from `SUPABASE_URL`,
+> not from `url.origin`"* — the existing tests passed the whole time, because
+> they handed `discoveryDocument()` a correct base and asserted it echoed it.
+> **A test of the callee is not a test of the caller.**
+
 Every response under `/v1/` carries `apiVersion: "v1"` in the body and an
 `X-Carbonify-Api-Version: v1` header, so a client can assert on either.
 

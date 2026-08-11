@@ -41,6 +41,14 @@
  * and the keyed tier are dead. In the dashboard this is the "Verify JWT" toggle,
  * which must be OFF.
  *
+ * ⚠️ The discovery document's URLs come from SUPABASE_URL, NOT from the request.
+ * Measured 2026-08-11 on the first correctly-deployed build: every endpoint the
+ * document advertised returned `404 requested path is invalid`, because
+ * `url.origin + url.pathname` is `http://<ref>.supabase.co/public-registry` —
+ * wrong scheme (TLS ends at the gateway) and missing the `/functions/v1` prefix
+ * (the gateway strips it). See `publicApiBaseUrl`. **This is the third defect in
+ * this file that no code review found and only a running deploy could show.**
+ *
  * ## Versioned — routing is inlined below, see the ROUTING BLOCK
  * The unversioned root serves a discovery document and NO registry data, so a
  * partner cannot integrate against an unfrozen shape. All data lives under /v1/.
@@ -104,6 +112,39 @@ const SUPPORTED_API_VERSIONS = ['v1']
  * leave our own response shape frozen by nothing.
  */
 const FUNCTION_SEGMENT = 'public-registry'
+
+/**
+ * The absolute URL a partner must actually call — built from the PROJECT URL,
+ * never from the incoming request.
+ *
+ * Both halves of this were wrong on the first working deploy, and every endpoint
+ * the discovery document advertised returned
+ * `404 {"error":"requested path is invalid"}`:
+ *
+ *   served:  http://<ref>.supabase.co/public-registry/v1
+ *   correct: https://<ref>.supabase.co/functions/v1/public-registry/v1
+ *
+ *   1. SCHEME. TLS terminates at the gateway, so `new URL(req.url).origin`
+ *      reports `http:` inside the edge runtime. A partner copying that value
+ *      sends `Authorization: Bearer ck_live_…` over cleartext on their first
+ *      call. The discovery document is the one place a credential-bearing URL
+ *      must never be downgraded.
+ *   2. PREFIX. The gateway strips `/functions/v1` before the function sees the
+ *      request — which `parseRegistryPath` relies on and is right to — so
+ *      rebuilding a public URL from `req.url` drops the one segment that makes
+ *      it resolvable.
+ *
+ * `SUPABASE_URL` has neither problem: it is `https://<ref>.supabase.co`,
+ * injected by the platform, and it names the CANONICAL host rather than
+ * whichever proxy this particular request happened to arrive through.
+ *
+ * @param {string} projectUrl  the SUPABASE_URL env value
+ * @returns {string}
+ */
+function publicApiBaseUrl(projectUrl) {
+  const origin = String(projectUrl || '').replace(/\/+$/, '')
+  return origin + '/functions/v1/' + FUNCTION_SEGMENT
+}
 
 /**
  * Carbonify API keys are minted as `ck_live_…` by `create_api_key`. Matching on
@@ -380,7 +421,8 @@ serve(async (req: Request) => {
   const route = parseRegistryPath(url.pathname)
 
   if (route.kind === 'discovery') {
-    return json(discoveryDocument(url.origin + url.pathname.replace(/\/+$/, '')), 200)
+    // From SUPABASE_URL, never from `url` — see publicApiBaseUrl.
+    return json(discoveryDocument(publicApiBaseUrl(SUPABASE_URL)), 200)
   }
 
   if (route.kind === 'unknown_version') {

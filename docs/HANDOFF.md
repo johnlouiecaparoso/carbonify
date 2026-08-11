@@ -709,7 +709,44 @@
 > > > one, and the four-state triad — on disk · committed · on origin · live — has to be re-read, not
 > > > carried.**
 >
-> > ⚠️ 🆕 **2026-08-11 — `public-registry` is deployed and every tier of it is dead.** Deployed
+> > ✅ 🆕 **2026-08-11 (later) — the owner fixed it, and re-probing found a THIRD defect.**
+> >
+> > **Verify JWT is off and the `9d02053` build is live**, verified in both directions: no header →
+> > `200` discovery document; `/v1/?stats=1` → `200` with `validatedProjects: 3`; a `Bearer <anon
+> > JWT>` is treated as *no key* rather than a bad one; and `ck_live_<bogus>` is refused **by the
+> > function**, not by the gateway — so a real partner key can now arrive. No `sb-error-code` on any
+> > response, which is the direct evidence the gateway has stopped intercepting.
+> >
+> > 🔴 **But every URL in the discovery document was broken**, and that document's entire job is
+> > telling a partner where to point:
+> >
+> > ```
+> > served:  http://<ref>.supabase.co/public-registry/v1/?stats=1  -> 404 requested path is invalid
+> > control: https://<ref>.supabase.co/functions/v1/public-registry/v1/?stats=1 -> 200
+> > ```
+> >
+> > Two independent causes, neither visible in code review: **scheme** — TLS terminates at the
+> > gateway, so `url.origin` is `http:` in the edge runtime, and a partner copying that base sends
+> > `Authorization: Bearer ck_live_…` over cleartext on their first call; **prefix** — the gateway
+> > strips `/functions/v1` before the function sees the request, which the router depends on and is
+> > right to, so rebuilding a *public* URL from the same source drops the segment that makes it
+> > resolve. Fixed by `publicApiBaseUrl`, building from `SUPABASE_URL`; 5 tests, mutation-checked in
+> > three directions. **One redeploy picks it up** — nothing is broken meanwhile, since every data
+> > endpoint works and no partner holds a key.
+> >
+> > > **Why the suite was green through all of it, and it is a rule this repo already had.**
+> > > `registryApiVersioning.test.js` handed `discoveryDocument()` a correctly-formed base and
+> > > asserted the document echoed it — which it did. `discoveryDocument` was never the defect. **The
+> > > handler built the base, and nothing asserted anything about the value it passed.** *A test of
+> > > the callee is not a test of the caller* — the same shape as `routeAccess.test.js` asserting
+> > > `/admin` carries `requiresAdmin` while nothing asserted the guard **reads** it, which is how a
+> > > whole auth branch that checked nothing survived. **Three defects in this one file have now been
+> > > found by running it and none by reading it.**
+> >
+> > <details>
+> > <summary>The gateway finding as first measured, before the fix</summary>
+> >
+> > ⚠️ **`public-registry` is deployed and every tier of it is dead.** Deployed
 > > **without `--no-verify-jwt`**, so the Supabase gateway refuses callers before the function runs.
 > > Measured, and reproducing [`index.ts:32-42`](../supabase/functions/public-registry/index.ts#L32-L42)'s
 > > predictions line for line:
@@ -733,6 +770,18 @@
 > > > makes it behave as though neither were true. *A deploy is not one fact. It has settings, and
 > > > the settings are not in git — which is the same reason the profile-column grants and the auth
 > > > toggles each took a live measurement to find.*
+> >
+> > </details>
+> >
+> > ❓ **`paymongo-webhook` is owner-confirmed, and that is recorded as distinct from measured.** I
+> > cannot check it, and that is now **tested rather than assumed**: every route is behind the HMAC
+> > check, and comparing the gateway's response headers for `paymongo-webhook`, `public-registry`
+> > (deployed today) and `process-payouts` (deployed 07-30) returns **identical header sets — no
+> > version, no deploy id, no timestamp**. Nothing is readable from outside. The measurement that
+> > will settle it is behavioural and comes later: after the first project fee is paid by card,
+> > `reconcile_project_fees()` at **0 rows** proves the `project_fee` branch ran. Before any fee is
+> > paid that check passes **vacuously** — the same `UNPROVEN`-vs-`PASS` distinction the RLS suite
+> > draws.
 >
 > <details>
 > <summary>2026-08-08 — the state before the push (kept: the failure it records is the four-state rule)</summary>

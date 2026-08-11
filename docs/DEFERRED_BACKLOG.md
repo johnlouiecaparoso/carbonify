@@ -2450,6 +2450,47 @@ single file, and **a deploy path that only works when invoked the right way is o
 that will fail again**. The routing is now inlined and `index.ts` is the whole
 function.
 
+🔴 **And a THIRD deploy-only defect, 2026-08-11: every URL in the discovery
+document was broken.** Once the function was finally serving, the document whose
+entire job is telling a partner where to point advertised:
+
+```
+served:  http://<ref>.supabase.co/public-registry/v1/?stats=1  -> 404 requested path is invalid
+control: https://<ref>.supabase.co/functions/v1/public-registry/v1/?stats=1 -> 200
+```
+
+Two independent causes, from one line — `discoveryDocument(url.origin +
+url.pathname…)`:
+
+- **scheme.** TLS terminates at the gateway, so `url.origin` reports `http:`
+  inside the edge runtime. A partner copying that base sends `Authorization:
+  Bearer ck_live_…` **over cleartext** on their first call. The discovery
+  document is the one place a credential-bearing URL must never be downgraded.
+- **prefix.** The gateway strips `/functions/v1` before the function sees the
+  request. `parseRegistryPath` depends on that and is right to — but rebuilding
+  a *public* URL from the same source drops the segment that makes it resolve.
+
+Fixed by `publicApiBaseUrl(SUPABASE_URL)`: the project URL is `https://`,
+platform-injected, and names the canonical host rather than whichever proxy a
+given request arrived through. 5 tests, mutation-checked in three directions
+(call site reverted to `url.origin` → 1 red; prefix dropped → 2 red; scheme
+downgraded → 3 red).
+
+> **Why the suite was green the whole time, and it is a rule this repo had
+> already written down.** The existing tests call `discoveryDocument()` with a
+> correctly-formed base and assert the document echoes it — which it does.
+> `discoveryDocument` was never the defect. **The handler built the base, and
+> nothing asserted anything about the value it passed.** *A test of the callee is
+> not a test of the caller* — the same shape as `routeAccess.test.js` asserting
+> `/admin` carries `requiresAdmin` while nothing asserted the guard **reads** it,
+> which is how a whole auth branch that checked nothing survived to production.
+>
+> **Three defects in this one file have now been found by running it and none by
+> reading it** — the bundler's module resolution, the anon-JWT rejection, and
+> this. Each was reachable only from outside, on a real deploy, and none of the
+> three is the kind of thing a reviewer is looking for. *For a function whose
+> contract is a URL, the deploy is the first honest test.*
+
 The test did not regress to source-grepping. The inlined block is plain
 JavaScript between two markers, and
 [`registryApiVersioning.test.js`](../src/test/services/registryApiVersioning.test.js)
