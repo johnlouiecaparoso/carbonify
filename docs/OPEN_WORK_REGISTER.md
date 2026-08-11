@@ -148,12 +148,55 @@
 > [HANDOFF.md](HANDOFF.md) § *2026-08-05 (evening)*; what the sweep deliberately left is
 > [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) **#41–45**.
 >
+> **✅ Closed 2026-08-11 — Lane 2's whole 08-07/08-08 queue is empty, and most of it had been empty
+> for days.** Re-probed against live with controls: all three migrations **applied**,
+> `paymongo-checkout` **redeployed**, `main` **pushed** (`76477c4` → `9d02053`) and the frontend
+> chunk-verified across all 111 deployed files. Suite **1396 across 122 files**, lint 0, build green,
+> all re-run. What is genuinely still open is **two owner steps that are not deploys** — set the fee
+> prices, run the VERIFY blocks — plus ⚠️ `public-registry` deployed **without `--no-verify-jwt`** so
+> every tier 401s, and ❓ `paymongo-webhook`, whose deploy state **no probe from here can settle**.
+>
+> > **The routing failure, and it is the exact inverse of every one this page has recorded.** Every
+> > previous entry here describes work believed *done* that was not. This time the register — along
+> > with HANDOFF, YOUR_ACTION_ITEMS and the deploy runbook — routed to Lane 2 work the owner had
+> > **already finished**. Four documents, one wrong direction.
+> >
+> > **An incorrect 🔴 is invisible by construction.** A wrong ✅ eventually meets a symptom: something
+> > does not work, somebody reports it. A wrong 🔴 produces nothing at all — no error, no missing
+> > feature, no contradiction on any screen — so it survives every reading. It is also the more
+> > expensive direction, because a red box against a completed step **invites a redo**, and re-running
+> > a migration is what caused two silent production reverts on 2026-08-05.
+> >
+> > *This page's founding rule is that it holds routing, not status. Today is the sharpest evidence
+> > yet that it cannot: routing to a lane **is** a status claim about whose desk the work is on, and
+> > nobody had re-measured it. The rule that follows is symmetric — **a 🔴 is a claim needing
+> > re-measurement exactly as much as a ✅ is.***
+>
+> > 🔎 **And the check that would have caught it had itself gone stale, which is the same defect one
+> > level up.** `verify-deploy.mjs`'s vintage markers all dated from 2026-08-04/05, so for five days
+> > and nine commits it returned **PASS against a stale production**. It answers *"is this our app, at
+> > or after 08-04?"*; it gets run for *"is the latest work live?"*. **A check whose scope is narrower
+> > than the claim it is used to support** — the same shape as `securityDefinerGrants`' assertion
+> > being weaker than its own failure message, and as `access_posture_audit.sql` string-matching
+> > `true`. Now carries a 2026-08-11 block: four needles, one per independent half.
+>
+> > 🆕 **A finding no lane on this page can hold: `public-registry` is broken *inside* "live".** It is
+> > deployed, from correct code, and refuses every caller — because `--no-verify-jwt` was omitted at
+> > deploy time. The four states this register keeps restating (on disk · committed · on origin ·
+> > live) all read ✅. **A deploy is not one fact: it has settings, the settings are not in git, and
+> > no artifact in this repository can see them.** Same family as the `profiles` column grants, the
+> > two auth toggles and the Vercel project name — each of which needed a live measurement and could
+> > not have been derived from any file here.
+>
 > **Worked 2026-08-07 — the commercial build: the last two revenue streams.** Suite **1308 → 1334**
 > (116 → 118 files), lint 0, build green. Two migrations written (`20260806000300` fees,
 > `20260806000400` API tenants/keys), three edge functions changed, two new views, two new services.
 > Build record: [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md).
 > New backlog items **#48–#51** — the commercial decisions this deliberately did **not** make.
 >
+> > ✅ **CLOSED 2026-08-11 — everything below is applied, deployed and live.** See the box above; the
+> > reasoning is kept because it is still right about *why* these are separate states.
+> >
 > > **This entry sits in Lane 2 (👤 owner), not Lane 1, and that is the point.** Nothing built today
 > > is applied or deployed. The inverse of the 08-06 failure, and worth naming as its own shape:
 > > that time work was **on live and absent from git**; ~~this time it is **in git and absent from
@@ -444,8 +487,9 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 > *"does this certificate exist?"* and none of *"under what methodology, at what stage, from what
 > feedstock?"* — every one of those columns already on `public.projects` and already rendered on each
 > project's own page. New `search_public_project_registry` RPC (`20260807000100`), validated projects
-> only, no developer PII, no capex/opex, no internal scores. ⚠️ **Owner must apply the migration**;
-> the tab errors until then.
+> only, no developer PII, no capex/opex, no internal scores. ~~⚠️ **Owner must apply the migration**;
+> the tab errors until then.~~ ✅ **Applied and live — probed 2026-08-11**, and the frontend carrying
+> the tab shipped afterwards, so the ordering hazard never materialised.
 >
 > > It also does real work for **#41**. That item is open because narrowing the anon read on
 > > `projects` could empty a public screen — and the registry was one of them. Reading through a
@@ -500,6 +544,13 @@ Detail, priority and effort live in [role-needs/](role-needs/README.md) — this
 
 Full procedure in [SOFT_LAUNCH_RUNBOOK.md §1](SOFT_LAUNCH_RUNBOOK.md).
 
+> ✅ **Updated 2026-08-11 — the 08-07/08-08 queue is closed too.** All three migrations applied,
+> `paymongo-checkout` redeployed, `main` pushed and the frontend chunk-verified live. **Four items
+> remain in this lane and none of them is a deploy:** set the two fee prices · run the VERIFY blocks ·
+> ❓ confirm `paymongo-webhook`'s deploy state from the dashboard (no probe from here can) · ⚠️ fix or
+> retire `public-registry`, which is live and 401-ing every caller for want of `--no-verify-jwt`.
+> Then step 5 below (`ESC-01…06`) is still the only remaining **functional gate**.
+>
 > ✅ **Updated 2026-08-05 — steps 0z and the whole 08-04 queue are closed.** `access_posture_audit.sql`
 > was run (5 rows; both findings closed by `20260804000200`), all five `20260804*` migrations are
 > applied, **all three** money edge functions are redeployed, and the frontend is live and

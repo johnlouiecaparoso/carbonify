@@ -13,7 +13,59 @@
 > in one table — including the distinction this project has confused before: **ready to deploy** and
 > **ready to take real money** are different questions with different answers.
 
-> ## 👉 2026-08-08 — **[DEPLOY_RUNBOOK_2026-08-08.md](DEPLOY_RUNBOOK_2026-08-08.md) is the current
+> ## ✅ 2026-08-11 — MOST OF THE LIST BELOW IS DONE, INCLUDING PARTS YOU DID THAT NOBODY RECORDED
+>
+> **Re-measured against live today, every probe with a control.** You had already applied all three
+> migrations and redeployed `paymongo-checkout`. **Four documents — this one included — still said
+> you had not.** `main` is now pushed and the frontend is chunk-verified live.
+>
+> | Step | This page said | Measured 2026-08-11 |
+> |---|---|---|
+> | Apply 3 migrations | 🔴 waiting on you | ✅ **all three applied** |
+> | Redeploy `paymongo-checkout` | 🔴 waiting on you | ✅ **redeployed** |
+> | Redeploy `paymongo-webhook` | 🔴 waiting on you | ❓ **I cannot tell** — see below |
+> | Deploy `public-registry` | optional | ⚠️ **deployed, and broken** — see below |
+> | Push `main` / deploy frontend | 🔴 mine | ✅ **done today** — `76477c4` → `9d02053`, verified across all 111 deployed files |
+> | Set the fee prices | 🔴 waiting on you | 🔴 **still waiting on you** |
+> | Run the VERIFY blocks | 🔴 waiting on you | 🔴 **still waiting on you** |
+>
+> ### 🔴 The one thing to do first, because money can already move
+>
+> **Confirm `paymongo-webhook` was redeployed.** Open 👉 **[Edge
+> Functions](https://supabase.com/dashboard/project/fmngptolarydbgrtltnd/functions)** → `paymongo-webhook`
+> → check **last deployed** is on or after 2026-08-07. If it is older, deploy it.
+>
+> I cannot check this one from here and I want to be plain about why it matters rather than leave it
+> as a tidy-up. Every route into that function sits behind the signature check, so an outsider gets
+> the same `401` from the old build and the new one. Meanwhile **`paymongo-checkout` is measurably
+> live**, which means a project fee **can be paid by card today** — and the invoice is only marked
+> paid, and the revenue only reaches the ledger, by the webhook's new `project_fee` branch.
+> **Checkout live without the webhook is: you take the money and never book it.** Redeploying a
+> function that is already current costs nothing.
+>
+> ### ⚠️ `public-registry` is deployed and every tier of it is refusing everyone
+>
+> It went out **without `--no-verify-jwt`**, so Supabase's gateway rejects callers before your code
+> runs. Measured today:
+>
+> - a visitor with no header → `401` — **the free public tier is dead**
+> - a partner sending `ck_live_…` → `401` — **the gateway tries to read their API key as a JWT**, so a
+>   paying customer's valid key can never arrive, and the failure looks to them like a bad key
+>
+> ✅ **Your site is completely unaffected** — nothing in the app calls this endpoint. What is broken is
+> the partner API as a *product*. Two clicks and one command fix it, or leave it down until you have a
+> partner. Full detail: [DEPLOY_RUNBOOK_2026-08-08.md](DEPLOY_RUNBOOK_2026-08-08.md) § *STEP 2b*.
+>
+> > 🔎 **Worth knowing, because it changes how to read every red box on this page.** A 🔴 against work
+> > you have already finished produces no error, no symptom, and nothing on any screen contradicts it —
+> > which is exactly why it survived in four documents at once. The risk is not that you are
+> > misinformed; it is that a red box **invites you to redo the step**, and re-running a migration is
+> > what caused two silent production reverts on 2026-08-05. **Before acting on anything red here, ask
+> > me to re-measure it.**
+>
+> ---
+>
+> > ## 👉 2026-08-08 — **[DEPLOY_RUNBOOK_2026-08-08.md](DEPLOY_RUNBOOK_2026-08-08.md) is the current
 > version of the list below**, with a clickable link on every step. Use that page; this block is kept
 > for its reasoning.
 >
@@ -27,9 +79,16 @@
 > does not — it answers "is the working tree saved", not "does anyone else have this". `git fetch`
 > then `git log origin/main..HEAD` is the check.*
 
-> ## 🔴 2026-08-07 — your queue is NOT empty. The commercial build needs you.
+> ## ~~🔴 2026-08-07 — your queue is NOT empty. The commercial build needs you.~~
 >
-> The last two revenue streams were built today. **None of it is live.** In order:
+> ## ✅ SUPERSEDED 2026-08-11 — steps 1, 2 and 3 below are DONE. Read the box at the top of this page.
+>
+> **Steps 4 (set a price) and 5 (run the VERIFY blocks) are the only ones still open**, plus the two
+> new items the re-measurement found: confirm the webhook, and fix or retire `public-registry`. The
+> text below is kept because its *reasoning* about ordering and about ₱0 is still exactly right — but
+> **do not work from its 🔴 marks.**
+>
+> The last two revenue streams were built today. ~~**None of it is live.**~~ In order:
 >
 > > ⚠️ **Read this first — it changes nothing you have to do, and it is worth knowing.** Until
 > > `7748342` the entire commercial build was **uncommitted**: 28 files in the working tree, while

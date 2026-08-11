@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · advisor sweep + migration replay guards 2026-08-05 (evening) · role-approval failure + notification coverage audit 2026-08-06 — two migrations applied, `send-approval-email` redeployed, and eight role-to-role handoffs that notified nobody now do · **commercial build 2026-08-07 — the last two revenue streams built: project fees are now a real receivable and the registry API is a keyed, metered, brandable product. ⚠️ Both migrations are WRITTEN, NOT APPLIED. One behavioural gate still left (`ESC-01…06`)**
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22 · UI consistency 2026-07-26 · consent gate fixed 2026-08-01 · cross-role UX pass 2026-08-02 · mobile UX + the icon-font outage 2026-08-03 · pre-pilot defect hunt 2026-08-04 · money-path defect pass 2026-08-04 · measurement pass 2026-08-05 · advisor sweep + migration replay guards 2026-08-05 (evening) · role-approval failure + notification coverage audit 2026-08-06 — two migrations applied, `send-approval-email` redeployed, and eight role-to-role handoffs that notified nobody now do · **commercial build 2026-08-07 — the last two revenue streams built: project fees are now a real receivable and the registry API is a keyed, metered, brandable product · **2026-08-11 — ✅ ALL THREE MIGRATIONS APPLIED, `paymongo-checkout` REDEPLOYED, `main` PUSHED AND THE FRONTEND CHUNK-VERIFIED LIVE. Four documents had carried 🔴 against work already finished. Two things remain that are not deploys — set the fee prices, and run the VERIFY blocks — plus ⚠️ `public-registry` is deployed WITHOUT `--no-verify-jwt` and every tier of it 401s, and ❓ `paymongo-webhook`'s deploy state is the one thing no probe here can settle. One behavioural gate still left (`ESC-01…06`)**
 >
 > **Carbonify is a commercial Philippine carbon-credit registry and marketplace built for institutional users — project developers, corporate buyers, verifiers, and LGUs. It is feature-complete for the current product scope; the money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -27,7 +27,7 @@
 >
 > | Question | Answer |
 > |---|---|
-> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`. **Re-measured 2026-08-06:** unit **1308/1308 across 116 files**, Playwright **130/130**, lint **0**, build green. 🆕 **Re-measured 2026-08-07:** unit **1334/1334 across 118 files**, lint **0**, build green — Playwright was **not** re-run, so 130/130 is carried forward from 08-06, not re-measured. ✅ **Re-measured 2026-08-07 (later):** the 2026-08-06 frontend **IS deployed** — `PasswordField` is on production, found by walking all 109 chunks; three docs said otherwise and none had re-checked after the push. ⚠️ The 2026-08-07 commercial build **was not committed at all** until `7748342` — not "committed but not deployed", which is what this row and two others claimed. It is committed now and still **not deployed**; the three 08-07 migrations are **not applied**, confirmed by probe with controls in both directions. |
+> | Can I deploy the current code to production today? | ✅ **Already done and verified 2026-08-05.** Five migrations applied, three edge functions redeployed, `main` pushed, and **`https://carbonify-gilt.vercel.app` is serving it** — confirmed by walking all 106 chunks, not by loading the page. ⚠️ Production is **not** `carbonify13.vercel.app`; that host now 404s. **Re-measured 2026-08-05 (evening): still green** — 106 chunks, `sw.js` at `CACHE_VERSION = 'v5'`. **Re-measured 2026-08-06:** unit **1308/1308 across 116 files**, Playwright **130/130**, lint **0**, build green. 🆕 **Re-measured 2026-08-07:** unit **1334/1334 across 118 files**, lint **0**, build green — Playwright was **not** re-run, so 130/130 is carried forward from 08-06, not re-measured. ✅ **Re-measured 2026-08-07 (later):** the 2026-08-06 frontend **IS deployed** — `PasswordField` is on production, found by walking all 109 chunks; three docs said otherwise and none had re-checked after the push. ⚠️ The 2026-08-07 commercial build **was not committed at all** until `7748342` — not "committed but not deployed", which is what this row and two others claimed. ~~It is committed now and still **not deployed**; the three 08-07 migrations are **not applied**~~ 🆕 **✅ FULLY RESOLVED 2026-08-11: all three migrations are applied, `paymongo-checkout` is redeployed, `main` is pushed (`76477c4` → `9d02053`) and the frontend is chunk-verified live across all 111 files.** The owner had done the database half days earlier and four documents did not know. **Re-measured 2026-08-11: unit 1396/1396 across 122 files, lint 0, build green.** Playwright was **not** re-run, so 130/130 is carried forward from 08-06 and is not a measurement. |
 > | Can I run the closed beta on **test keys**? | 🟡 **One gate left: the escrow behaviour checks (`ESC-01…06`).** They **could not have passed** before `20260804000300`, which is applied. Run `ESC-02` **on GCash specifically**. `access_posture_audit.sql` has been run and both findings are closed. **The advisor sweep below is applied and re-probed — now 25/25 PASS signed out** (two checks added 2026-08-06 for the new notification helpers). |
 > | Can I switch to **live PayMongo keys** and take real money? | ❌ **No.** Six boxes remain on the real-money gate; the long pole is an **independent penetration test**, which is external and takes weeks. |
 > | Can I call these **registry-backed** carbon credits? | ❌ **No**, and that is institutional, not technical — accreditation, methodologies, governance. Disclosed in-app. |
@@ -53,8 +53,8 @@
 > | Accessibility: modals, contrast, landmarks, titles, WCAG 2.1 AA automated | ✅ **18/18 axe on the public routes, plus 6/6 on the AUTHENTICATED ones (new 2026-08-05, ~40 page-audits across four roles)** — 0 violations. The authenticated half found the notification bell unnamed on every page, the account menu unopenable by keyboard, and four translucent-over-green contrast defects. Manual/AT pass still outstanding |
 > | PWA, offline shell, responsive to 320px | ✅ |
 > | Wallet top-ups | ✅ On `payment_intents` end to end (P5) — webhook credits, reconcile sweeps, resettle heals, and the callback reads `purpose` from the server rather than from browser storage |
-> | **Project onboarding + verification fees** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000300`). Was two numbers on a form that nothing charged. Now a real receivable: `project_fee_invoices`, raised by trigger at **validation** (not submission — the platform bills only for a decision it has delivered), payable from wallet or card, booked to `platform_revenue` as `ref_type='project_fee'`. Charged **once per lifecycle** by partial unique index, not by careful calling. Invisible to `reconcile_financials()` by design; own `reconcile_project_fees()`. ⚠️ **Both fees default to ₱0 and the whole migration is inert until an admin sets a price** — *built* and *earning* are different claims |
-> | **White-label MRV/API** | 🆕 ✅ **Built 2026-08-07, NOT YET APPLIED** (`20260806000400`). The old `public-registry` function carried its own warning that it had no key gating or rate limiting and must not be sold. Now: `api_tenants` + `api_keys` with **SHA-256-digested keys shown once**, three read-only scopes, per-key rate limits through the shared `check_rate_limit`, and tenant branding in every keyed response. Admin console at `/admin/api-keys`. The unauthenticated tier still works **on purpose** — the public registry is a transparency claim. 🆕 **Versioned 2026-08-08 (backlog #50 closed):** all data moved under `/v1/`, and the unversioned root now serves a discovery document and **no data** — a prefix that merely exists beside a data-serving root freezes nothing, because partners integrate against the shorter URL. Done before the first partner *and* before the function was ever deployed, so zero consumers had to migrate |
+> | **Project onboarding + verification fees** | 🆕 ✅ **Built 2026-08-07 · APPLIED and LIVE — verified by probe 2026-08-11** (`20260806000300`). Was two numbers on a form that nothing charged. Now a real receivable: `project_fee_invoices`, raised by trigger at **validation** (not submission — the platform bills only for a decision it has delivered), payable from wallet or card, booked to `platform_revenue` as `ref_type='project_fee'`. Charged **once per lifecycle** by partial unique index, not by careful calling. Invisible to `reconcile_financials()` by design; own `reconcile_project_fees()`. ⚠️ **Both fees default to ₱0 and the whole migration is inert until an admin sets a price** — *built*, *applied* and *earning* are three different claims, and only the first two are measured. `project_fee_invoices` reads 0 rows, which does not distinguish "the guard works" from "nothing has been validated yet" |
+> | **White-label MRV/API** | 🆕 ✅ **Built 2026-08-07 · migration APPLIED and LIVE (`20260806000400`, probed 2026-08-11) · ⚠️ the FUNCTION is deployed and every tier of it 401s** — `public-registry` went out without `--no-verify-jwt`, so the gateway refuses a partner's API key as an unparseable JWT before the function runs. Nothing in `src/` calls it, so the product is unaffected; the API **product** is dead until Verify JWT is turned off and it is redeployed from `9d02053`. See § *DEPLOY STATE*. The old `public-registry` function carried its own warning that it had no key gating or rate limiting and must not be sold. Now: `api_tenants` + `api_keys` with **SHA-256-digested keys shown once**, three read-only scopes, per-key rate limits through the shared `check_rate_limit`, and tenant branding in every keyed response. Admin console at `/admin/api-keys`. The unauthenticated tier still works **on purpose** — the public registry is a transparency claim. 🆕 **Versioned 2026-08-08 (backlog #50 closed):** all data moved under `/v1/`, and the unversioned root now serves a discovery document and **no data** — a prefix that merely exists beside a data-serving root freezes nothing, because partners integrate against the shorter URL. Done before the first partner *and* before the function was ever deployed, so zero consumers had to migrate |
 > | 🆕 **Developer impact disclosure** | ✅ **Built 2026-08-08.** The residual the 08-07 export pass named. `developerImpactService`, exported from the Carbon Asset Ledger: per project, tCO₂e split by **who may claim it** — retired by buyers, sold-not-yet-retired, unsold — and `claimable by developer` stated explicitly as unsold **alone**. That number appears nowhere else in the product, and it is the one that stops a developer double-counting tonnes a buyer has already retired. Volumes come from `aggregateAssetLedger`, so the export cannot drift from the screen |
 > | Test suite | ✅ **1387 unit across 122 files** (re-measured 2026-08-08; was 1334/118 on 08-07 — the 08-07 and 08-08 commits added the rest) · Playwright **130 green** (last measured 2026-08-06) (46 public + 22 authenticated responsive + 37 responsive + 18 accessibility + 6 authenticated accessibility + 9 runtime smoke) · lint 0 · build green — all four re-measured **2026-08-06**, not carried forward. Playwright needed `npx playwright install chromium` on a fresh machine; without the binary all 130 "fail" in ~6ms, which reads like a broken suite and is a missing download |
 >
@@ -73,7 +73,7 @@
 > | 🆕 **AI Project Assistant** | `/assistant` is an interface preview with a **disabled composer** — 0 of its 5 spec bullets work. Needs a Claude API edge function: an external key and a per-query running cost | 👤 decision + 🏢 cost |
 > | 🆕 **Satellite / IoT monitoring** (MRV #4) | No implementation anywhere in `src`. Needs external data feeds with running costs — deferred from the start, not dropped | 🏢 + 👤 |
 > | 🆕 **Farmer training module** (Farmer #6) | The only missing sub-bullet in the Farmer Portal, and it is a **content** problem: there is no training material to render. Zero occurrences of "training" in the farmer code | 👤 content |
-> | ~~🆕 **Registry fields on the PUBLIC `/registry` page**~~ | ✅ **BUILT 2026-08-07.** A Projects tab now publishes methodology, development status, feedstock, capacity and issued/available credits for **validated** projects, through a new `search_public_project_registry` definer RPC rather than the raw table. ⚠️ **Owner must apply `20260807000100`** — the tab errors until then | ✅ done |
+> | ~~🆕 **Registry fields on the PUBLIC `/registry` page**~~ | ✅ **BUILT 2026-08-07.** A Projects tab now publishes methodology, development status, feedstock, capacity and issued/available credits for **validated** projects, through a new `search_public_project_registry` definer RPC rather than the raw table. ~~⚠️ **Owner must apply `20260807000100`**~~ ✅ **applied and live** — probed 2026-08-11, returns real validated projects, and the frontend carrying the tab is deployed. **The ordering hazard this row warned about never materialised**: the migration landed days before the push, so the tab has never been live against a missing RPC | ✅ done |
 > | ~~🆕 **ESG export for developers**~~ | ✅ **CLOSED 2026-08-08.** The 08-07 pass found the row half wrong — verifiers had two exports since 08-02, developers had `sellerExportService` since 07-26, and the farmer was the only role with nothing. The residual it named — a developer **impact** disclosure as distinct from the **financial** export — is now built: `developerImpactService`, exported from the Carbon Asset Ledger. It splits every project's tCO₂e by **who may claim it** (retired by buyers / sold-not-yet-retired / unsold), and states `claimable by developer` = unsold **alone**. A developer reporting "we generated 10,000 tCO₂e" while buyers have retired 6,000 has double-counted, and no other screen or export in the product states that number | ✅ done |
 > | **Organization accounts** | Phase 2 rewrites the same RPC as escrow — must follow the beta (#18) | 👤 decision |
 > | **Load / performance testing** | Before scaling, not before soft launch | 🤖 later |
@@ -139,8 +139,23 @@
 > passed as written** — `hold_until` is stamped at purchase time, so changing
 > `escrow_hold_days_card` moves nothing, and a new purchase at `0` days creates no hold to release.
 > Age the hold instead. Run `ESC-02` **on GCash specifically**;
-> ② **purge the test data**; ③ **buy + verify the email domain**; ④ the one-line `convalidated` query;
-> ⑤ run the closed beta; ⑥ the open decisions (#21, #37 ×2, #18, #27, #31, fee amounts, DR policy).
+> ② **purge the test data**; ③ **buy + verify the email domain**; ~~④ the one-line `convalidated`
+> query~~ ✅ done 2026-08-05; ⑤ run the closed beta; ⑥ the open decisions (#21, #37 ×2, #18, #27,
+> #31, fee amounts, DR policy).
+>
+> 🆕 **Added 2026-08-11, all from re-measuring this box's own 🔴 rows and finding them stale:**
+> ⑦ 🔴 **confirm `paymongo-webhook` is redeployed** — the one item on this whole page no probe from
+> here can settle, and the asymmetric one: `paymongo-checkout` **is** live, so a project fee can be
+> paid by card **today**, and only the webhook's `project_fee` branch marks the invoice paid and
+> books the revenue. Checkout without the webhook is *take the money and never book it*. The
+> dashboard's last-deployed timestamp answers it in five seconds, and redeploying something already
+> current costs nothing;
+> ⑧ ⚠️ **fix or retire `public-registry`** — Verify JWT OFF, then redeploy from `9d02053`; or take it
+> down until there is a partner. It is currently live and answering `401` to every caller including
+> paying ones;
+> ⑨ 🟠 **set the two fee prices**, which is the only thing standing between *applied* and *earning*;
+> ⑩ 🟠 **run the VERIFY blocks** at the bottom of the three applied migrations — `pg_trigger` is not
+> readable with the anon key, so the triggers are the part I cannot measure at all.
 >
 > **🏢 Third party:** ① the **independent penetration test** — the last P0, external, weeks of lead
 > time, and the only gate no code closes; ② SEC / BIR / NPC registration; ③ a licensed PSP/EMI for
@@ -170,8 +185,25 @@
 > > tree takes the only copy of the fix with it, and the next person to read `supabase/migrations/`
 > > sees a schema that does not match the database. Committed `29c9fd2`.
 > >
-> > *The rule that covers all three: **the repo, the database and the deploy are three separate
-> > states, and agreement between any two of them is not evidence about the third.***
+> > 🆕 **A fourth variant, 2026-08-11, and it is the exact inverse of the first: LIVE BUT BELIEVED
+> > PENDING.** Three migrations were applied and `paymongo-checkout` redeployed, while **four
+> > documents carried 🔴 against every one of them.** Nothing here was lost and nothing was at risk —
+> > which is precisely why it survived: an incorrect 🔴 produces no symptom, generates no error, and
+> > is never contradicted by anything a person sees. **It is the more expensive direction than it
+> > looks**, because a red box against a completed step does not merely misinform, it *invites a
+> > redo* — and re-running a migration is how this project produced two silent production reverts in
+> > a single day.
+> >
+> > 🆕 **And a fifth, the same day, which none of the four states describes: BROKEN INSIDE "LIVE".**
+> > `public-registry` is deployed, from correct code, and every tier of it 401s — because
+> > `--no-verify-jwt` was omitted at deploy time. *A deploy is not one fact. It has settings, the
+> > settings are not in git, and no artifact in this repository can see them* — the same reason the
+> > `profiles` column grants, the two auth toggles and the Vercel project name each needed a live
+> > measurement.
+> >
+> > *The rule that covers all five: **the repo, the database and the deploy are separate states;
+> > agreement between any two is not evidence about a third; and a 🔴 is a claim about state exactly
+> > as much as a ✅ is.***
 >
 > ### 🔴 2026-08-05 — the SECOND silent revert of the day, and the fix that a comment could not be
 >
@@ -626,7 +658,84 @@
 > on any list: the register's Lane 1 was short, and every one of these came from walking the surfaces
 > a pilot user actually touches. *Lane 1 being short is still not the same as Lane 1 being done.*
 >
-> ### 🟡 DEPLOY STATE — everything **up to 2026-08-06** is applied and live; the 08-07/08-08 build is not
+> ### ✅ DEPLOY STATE — **everything is applied, pushed and live as of 2026-08-11.** One misconfigured function remains
+>
+> > ✅ 🆕 **2026-08-11 — THE 08-07/08-08 BUILD IS FULLY DEPLOYED, AND FOUR DOCUMENTS HAD IT WRONG IN
+> > THE REASSURING-IN-REVERSE DIRECTION.**
+> >
+> > Re-probed against live, each with a control in both directions. **The owner had already applied
+> > all three migrations and redeployed `paymongo-checkout`** at some point after 2026-08-08 — while
+> > this box, [DEPLOY_RUNBOOK_2026-08-08](DEPLOY_RUNBOOK_2026-08-08.md),
+> > [YOUR_ACTION_ITEMS](YOUR_ACTION_ITEMS.md) and [OPEN_WORK_REGISTER](OPEN_WORK_REGISTER.md) all
+> > still carried 🔴 against finished work.
+> >
+> > | What | Was recorded | Measured 2026-08-11 |
+> > |---|---|---|
+> > | `20260806000300` project fees | 🔴 not applied | ✅ **applied** — `project_fee_invoices` 200; `reconcile_project_fees` `401 42501`, matching the `reconcile_financials` control, against a made-up name `404 PGRST202` |
+> > | `20260806000400` API tenants + keys | 🔴 not applied | ✅ **applied** — `api_tenants`, `api_keys` 200 |
+> > | `20260807000100` public project registry | 🔴 not applied | ✅ **applied** — returns real validated projects |
+> > | `paymongo-checkout` | 🔴 not redeployed | ✅ **redeployed** — `create_project_fee_checkout` answers *"Authentication required to pay a fee"*, which only the new build can produce; the old build's `create_wallet_topup_checkout` answers its own message as the control |
+> > | `paymongo-webhook` | 🔴 not redeployed | ❓ **not measurable from here.** Every path is behind the HMAC check and there is no probe-visible marker before it — the old and new builds return the same `401 Invalid signature`. **Owner-only, from the dashboard's last-deployed timestamp** |
+> > | `public-registry` | 🔴 not deployed | ⚠️ **DEPLOYED AND BROKEN** — see the box below |
+> > | Frontend | 🔴 not pushed | ✅ **pushed and live** — `origin/main` `76477c4` → `9d02053`, then chunk-verified across all 111 deployed files |
+> > | Suite / lint / build | 1387 across 122 | ✅ **1396 unit across 122 files · lint 0 · build green**, all re-run today |
+> >
+> > **The frontend is verified the way this project verifies things** — by walking the deployed bundle,
+> > not by reading a green check. `verify-deploy.mjs` gained a **2026-08-11 vintage block** to make
+> > that possible, and the reason it was needed is itself the finding: **every marker in that script
+> > dated from 08-04/05, so for five days and nine commits it returned PASS against a stale
+> > production and was read as "production is current".** It answered *"is this our app, at or after
+> > 08-04?"*; it was run for *"is the latest work live?"*. A check whose scope is narrower than the
+> > claim it is used to support is the same defect as `securityDefinerGrants` and
+> > `access_posture_audit.sql`, arriving from the deploy side. Four new needles, one per independent
+> > half: `search_public_project_registry`, `create_project_fee_checkout`, `/admin/api-keys`,
+> > `Claimable by developer`. All four present on production.
+> >
+> > 🔎 **A probe told me the opposite of the truth first, and it is the trap already recorded on
+> > 2026-08-02.** `search_public_project_registry` returned `PGRST202` on the first attempt and read
+> > as *"not applied"*. The arg list had been **guessed** — `p_status` where the migration says
+> > `p_category`. PostgREST resolves an RPC by name **and argument names**, so a wrong signature
+> > returns the identical code to a missing function. Copied out of the migration it returns projects.
+> > *The rule was written down after the last time and I broke it anyway; what caught it was running
+> > a control, not remembering the rule.*
+> >
+> > > **The routing lesson, and it is this document's own subject running backwards.** Every previous
+> > > entry here recorded *work believed done that was not* — built ≠ live, applied ≠ verified. This
+> > > is the inverse: **work believed pending that was finished**, carried by four documents at once.
+> > > It is the more expensive direction, because a 🔴 against a completed step does not merely
+> > > mislead — it **invites the owner to redo it**. Re-applying `20260806000300` would have been
+> > > harmless; re-running the wrong file on a different day is precisely what caused two silent
+> > > reverts on 2026-08-05. **A red box is a claim that needs re-measuring exactly as much as a green
+> > > one, and the four-state triad — on disk · committed · on origin · live — has to be re-read, not
+> > > carried.**
+>
+> > ⚠️ 🆕 **2026-08-11 — `public-registry` is deployed and every tier of it is dead.** Deployed
+> > **without `--no-verify-jwt`**, so the Supabase gateway refuses callers before the function runs.
+> > Measured, and reproducing [`index.ts:32-42`](../supabase/functions/public-registry/index.ts#L32-L42)'s
+> > predictions line for line:
+> >
+> > | Caller | Response | Who refused |
+> > |---|---|---|
+> > | no `Authorization` header — the **public tier** | `401 UNAUTHORIZED_NO_AUTH_HEADER` | the gateway |
+> > | `Bearer ck_live_…` — a **paying partner** | `401 UNAUTHORIZED_INVALID_JWT_FORMAT` | the gateway |
+> > | `Bearer <anon JWT>` — an ordinary browser | `401 {"error":"Invalid or expired API key."}` | the function, pre-`9d02053` |
+> >
+> > The second row is the fatal one: **the gateway parses a partner's API key as a JWT and rejects
+> > it, so a valid key can never arrive**, and it reads as *"bad key"* to whoever holds a good one.
+> > ✅ **The product is unaffected** — grep of `src/` returns one file, the function's own test.
+> > Fix: **Verify JWT OFF** in the dashboard, then redeploy (`9d02053` fixes the function's half).
+> > Or take it down until there is a partner. Steps in
+> > [DEPLOY_RUNBOOK_2026-08-08](DEPLOY_RUNBOOK_2026-08-08.md) § *STEP 2b*.
+> >
+> > > **A new shape, and worth naming separately from the four states.** Every failure recorded here
+> > > has been a gap between two of *on disk · committed · on origin · live*. This one is a gap
+> > > **inside "live"**: the function is deployed, the code is correct, and a **deploy-time flag**
+> > > makes it behave as though neither were true. *A deploy is not one fact. It has settings, and
+> > > the settings are not in git — which is the same reason the profile-column grants and the auth
+> > > toggles each took a live measurement to find.*
+>
+> <details>
+> <summary>2026-08-08 — the state before the push (kept: the failure it records is the four-state rule)</summary>
 >
 > > 🔴 🆕 **2026-08-08 — A FOURTH VERSION OF THE SAME FAILURE: COMMITTED, CLEAN, AND NEVER PUSHED.**
 > > `git status` was clean and every document correctly said the commercial build was *committed* —
@@ -688,15 +797,27 @@
 > > re-measured**, which is the same failure as the *"8 edge functions deployed"* line that six
 > > documents carried, arriving from the opposite direction: that one claimed a deploy that had not
 > > happened, this one denied a deploy that had.
+>
+> </details>
+>
+> > 🔴 **STILL OPEN — the two steps that are not a deploy.**
 > >
 > > **Then set a price.** Both fees default to ₱0 and every trigger short-circuits on a non-positive
 > > amount, so until an admin sets them in System Configuration the fee migration creates nothing,
 > > notifies nobody, and earns nothing. That is the intended default, not a bug — but it does mean
 > > "applied" and "earning" are two separate events.
 > >
+> > 🆕 **2026-08-11 — `project_fee_invoices` reads 0 rows on live**, and that is weaker evidence than
+> > it looks: 0 is equally consistent with *"the fees are ₱0 and the zero-guard works"* and with
+> > *"nothing has been validated since the migration landed"*. The check only carries meaning **after**
+> > a validation. And the two settings themselves are **not readable from here** — anon RLS returns
+> > four `app_settings` keys and neither fee is among them, so whether a price has been set is a fact
+> > only the owner can see. *Applied is measured; earning is not.*
+> >
 > > Each migration ends with a SQL VERIFY block **and** a behavioural checklist. The SQL proves the
 > > triggers and grants exist; only the behavioural checks prove a fee raises once, settles once, and
-> > leaves `reconcile_financials()` at 0 rows.
+> > leaves `reconcile_financials()` at 0 rows. **Neither has been run** — I cannot read `pg_trigger`
+> > with the anon key.
 > >
 > > ✅ **2026-08-05 — `20260805000100` is APPLIED and live.** The asset ledger names its buyers, and
 > > both halves are chunk-verified on production.

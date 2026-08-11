@@ -77,6 +77,34 @@ const DELETED_2026_08_04 = [
   { needle: 'api_error_', what: "the analytics wrapper's per-URL metric names" },
 ]
 
+/**
+ * Added by the 2026-08-07 commercial build and the 2026-08-08 follow-ups,
+ * pushed 2026-08-11 (`76477c4` -> `9d02053`).
+ *
+ * WHY THIS BLOCK EXISTS
+ * Every marker above dates from 2026-08-04/05, so between 08-06 and 08-11 this
+ * script reported PASS on a build that was five days and nine commits stale. It
+ * answered "is this our app, at or after 08-04?" and was read as "is production
+ * current?" — two different questions, and the second is the one it gets run for.
+ * That is the same failure the docs kept having: a check whose scope was narrower
+ * than the claim it was used to support.
+ *
+ * Each needle proves a half that is invisible from every other vantage point.
+ * The database cannot tell you about any of them: the three migrations were
+ * applied days before this frontend existed, and an applied migration with an
+ * unshipped client renders as an empty tab, not as an error.
+ */
+const ADDED_2026_08_11 = [
+  { needle: 'search_public_project_registry', what: 'the public Projects tab (registry client half)' },
+  { needle: 'create_project_fee_checkout', what: 'the project-fee payment path' },
+  { needle: '/admin/api-keys', what: 'the API tenant + key console' },
+  // Chosen over a service name because bundlers rename identifiers and do not
+  // rewrite string literals. This is a CSV column header, so it survives
+  // minification intact — and it is the one number in the product that states
+  // what a developer may claim without double-counting a buyer's retirement.
+  { needle: 'Claimable by developer', what: "the developer impact disclosure" },
+]
+
 const args = process.argv.slice(2)
 const asJson = args.includes('--json')
 const base = (args.find((a) => !a.startsWith('--')) || '').replace(/\/+$/, '')
@@ -216,6 +244,16 @@ if (index.status !== 200) {
               : `${what} is gone, as expected`,
           )
         }
+        for (const { needle, what } of ADDED_2026_08_11) {
+          const where = findIn(needle)
+          note(
+            Boolean(where),
+            'build vintage',
+            where
+              ? `${what} present (${where})`
+              : `${what} MISSING — this build predates the 2026-08-11 push`,
+          )
+        }
       }
     }
   }
@@ -232,7 +270,7 @@ if (asJson) {
   }
   console.log(
     ok
-      ? '\n  → Serving this application, at or after the 2026-08-04 pass.\n'
+      ? '\n  → Serving this application, at or after the 2026-08-11 push.\n'
       : '\n  → NOT confirmed. A 200 and a matching page title are not evidence.\n',
   )
 }
